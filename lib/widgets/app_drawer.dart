@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/providers/auth_provider.dart';
 import 'package:smart_sheet/screens/login_screen.dart';
+import 'package:smart_sheet/screens/settings_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -61,7 +62,7 @@ class AppDrawer extends StatelessWidget {
             ),
           ),
 
-          // زر تسجيل خروج أو دخول
+          // زر تسجيل دخول أو خروج
           if (!isLoggedIn)
             ListTile(
               leading: const Icon(Icons.login),
@@ -79,11 +80,9 @@ class AppDrawer extends StatelessWidget {
               leading: const Icon(Icons.logout),
               title: const Text('تسجيل الخروج'),
               onTap: () async {
-                // ✅ احفظ الـ ScaffoldMessenger قبل الـ pop
                 final messenger = ScaffoldMessenger.of(context);
                 Navigator.pop(context);
                 await authProvider.signOut();
-                // ✅ استخدم الـ messenger اللي اتحفظ
                 messenger.showSnackBar(
                   const SnackBar(content: Text('تم تسجيل الخروج')),
                 );
@@ -128,8 +127,9 @@ class AppDrawer extends StatelessWidget {
             title: const Text('الإعدادات'),
             onTap: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('فتح الإعدادات')),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
             },
           ),
