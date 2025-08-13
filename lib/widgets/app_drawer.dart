@@ -1,6 +1,7 @@
 // lib/src/widgets/drawers/app_drawer.dart
 
 import 'package:flutter/material.dart';
+import 'package:smart_sheet/screens/login_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   final VoidCallback onLoginTap;
@@ -71,9 +72,15 @@ class AppDrawer extends StatelessWidget {
 
           // القائمة
           ListTile(
-            leading: const Icon(Icons.person),
+            leading: const Icon(Icons.login),
             title: const Text('تسجيل الدخول'),
-            onTap: onLoginTap,
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.backup),
