@@ -16,6 +16,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isSigningUp = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
@@ -39,7 +41,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           Navigator.pop(context); // العودة لشاشة تسجيل الدخول
         }
       } else {
-        // في حال ما وصلكش الإيميل (مثلاً التأكيد مفعل)
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('تم إرسال رابط التأكيد إلى بريدك')),
@@ -82,7 +83,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         centerTitle: true,
         elevation: 1,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
+        // ✅ لف الـ body بـ SingleChildScrollView
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
@@ -114,6 +116,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       labelText: 'البريد الإلكتروني',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.email),
+                      isDense: true,
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
@@ -129,12 +132,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passwordController,
-                    decoration: const InputDecoration(
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
                       labelText: 'كلمة المرور',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock),
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                      isDense: true,
                     ),
-                    obscureText: true,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'أدخل كلمة المرور';
@@ -148,12 +165,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _confirmPasswordController,
-                    decoration: const InputDecoration(
+                    obscureText: _obscureConfirmPassword,
+                    decoration: InputDecoration(
                       labelText: 'تأكيد كلمة المرور',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock_outline),
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirmPassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                          });
+                        },
+                      ),
+                      isDense: true,
                     ),
-                    obscureText: true,
                     validator: (value) {
                       if (value != _passwordController.text) {
                         return 'كلمة المرور غير متطابقة';

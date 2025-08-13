@@ -1,37 +1,26 @@
 // lib/src/widgets/drawers/app_drawer.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_sheet/providers/auth_provider.dart';
 import 'package:smart_sheet/screens/login_screen.dart';
 
 class AppDrawer extends StatelessWidget {
-  final VoidCallback onLoginTap;
-  final VoidCallback onBackupTap;
-  final VoidCallback onRestoreTap;
-  final VoidCallback onSettingsTap;
-  final VoidCallback onAboutTap;
-  final VoidCallback onPrivacyTap;
-  final bool isLoggedIn;
-
-  const AppDrawer({
-    super.key,
-    required this.onLoginTap,
-    required this.onBackupTap,
-    required this.onRestoreTap,
-    required this.onSettingsTap,
-    required this.onAboutTap,
-    required this.onPrivacyTap,
-    this.isLoggedIn = false,
-  });
+  const AppDrawer({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.user;
+    final isLoggedIn = authProvider.isLoggedIn;
+
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // ✅ استبدل DrawerHeader بـ Container
+          // Header
           Container(
-            height: 200, // زيادة الارتفاع لـ 200px
+            height: 250,
             padding: const EdgeInsets.fromLTRB(16, 48, 16, 16),
             decoration: const BoxDecoration(
               color: Colors.blue,
@@ -44,7 +33,7 @@ class AppDrawer extends StatelessWidget {
                   radius: 40,
                   backgroundImage: AssetImage('assets/images/logo.png'),
                 ),
-                const SizedBox(height: 10), // مسافة بين الشعار والعنوان
+                const SizedBox(height: 12),
                 const Text(
                   'Smart Sheet',
                   style: TextStyle(
@@ -53,40 +42,67 @@ class AppDrawer extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8), // مسافة بين العنوان والوضع
-                // النص المسبب للمشكلة
+                const SizedBox(height: 8),
                 Flexible(
-                  child: Text(
-                    isLoggedIn ? 'مسجل دخول' : 'الوضع الضيف',
-                    style: const TextStyle(
-                      color: Color(0xFFBBDEFB),
-                      fontSize: 14,
+                  child: Container(
+                    margin: const EdgeInsetsDirectional.only(start: 2),
+                    child: Text(
+                      isLoggedIn ? user?.email ?? 'مستخدم' : 'الوضع الضيف',
+                      style: const TextStyle(
+                        color: Color(0xFFBBDEFB),
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
                   ),
                 ),
               ],
             ),
           ),
 
+          // زر تسجيل خروج أو دخول
+          if (!isLoggedIn)
+            ListTile(
+              leading: const Icon(Icons.login),
+              title: const Text('تسجيل الدخول'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+              },
+            )
+          else
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('تسجيل الخروج'),
+              onTap: () async {
+                // ✅ احفظ الـ ScaffoldMessenger قبل الـ pop
+                final messenger = ScaffoldMessenger.of(context);
+                Navigator.pop(context);
+                await authProvider.signOut();
+                // ✅ استخدم الـ messenger اللي اتحفظ
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('تم تسجيل الخروج')),
+                );
+              },
+            ),
+
           // القائمة
-          ListTile(
-            leading: const Icon(Icons.login),
-            title: const Text('تسجيل الدخول'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            },
-          ),
           ListTile(
             leading: const Icon(Icons.backup),
             title: const Text('رفع نسخة احتياطية'),
             enabled: isLoggedIn,
-            onTap: isLoggedIn ? onBackupTap : null,
+            onTap: isLoggedIn
+                ? () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('جاري رفع النسخة...')),
+                    );
+                  }
+                : null,
             trailing: !isLoggedIn
                 ? const Icon(Icons.lock, size: 16, color: Colors.grey)
                 : null,
@@ -95,7 +111,14 @@ class AppDrawer extends StatelessWidget {
             leading: const Icon(Icons.restore),
             title: const Text('استعادة نسخة احتياطية'),
             enabled: isLoggedIn,
-            onTap: isLoggedIn ? onRestoreTap : null,
+            onTap: isLoggedIn
+                ? () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('جاري الاستعادة...')),
+                    );
+                  }
+                : null,
             trailing: !isLoggedIn
                 ? const Icon(Icons.lock, size: 16, color: Colors.grey)
                 : null,
@@ -103,17 +126,34 @@ class AppDrawer extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.settings),
             title: const Text('الإعدادات'),
-            onTap: onSettingsTap,
+            onTap: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('فتح الإعدادات')),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.info),
             title: const Text('عن التطبيق'),
-            onTap: onAboutTap,
+            onTap: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Smart Sheet v0.1.0\nلإدارة مصانع الكرتون'),
+                ),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.policy),
             title: const Text('سياسة الخصوصية'),
-            onTap: onPrivacyTap,
+            onTap: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('عرض سياسة الخصوصية')),
+              );
+            },
           ),
         ],
       ),

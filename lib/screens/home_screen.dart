@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
-import 'package:smart_sheet/widgets/home_button.dart';
+import 'package:smart_sheet/widgets/home_button.dart'; // ✅ صحّح المسار
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -18,45 +18,8 @@ class HomeScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 1,
       ),
-      drawer: AppDrawer(
-        isLoggedIn: false,
-        onLoginTap: () {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تسجيل الدخول متاح قريبًا')),
-          );
-        },
-        onBackupTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم رفع النسخة الاحتياطية')),
-          );
-        },
-        onRestoreTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم استعادة النسخة')),
-          );
-        },
-        onSettingsTap: () {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('فتح الإعدادات')),
-          );
-        },
-        onAboutTap: () {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Smart Sheet v0.1.0\nلإدارة مصانع الكرتون'),
-            ),
-          );
-        },
-        onPrivacyTap: () {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('عرض سياسة الخصوصية')),
-          );
-        },
-      ),
+      // ✅ AppDrawer دلوقتي بدون أي parameters
+      drawer: const AppDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

@@ -9,9 +9,7 @@ class AuthProvider with ChangeNotifier {
   bool get isLoggedIn => _user != null;
 
   AuthProvider() {
-    // استمع لتغيرات حالة المستخدم من Supabase
     Supabase.instance.client.auth.onAuthStateChange.listen(_authChange);
-    // تحقق من الحالة الحالية
     _user = Supabase.instance.client.auth.currentSession?.user;
     notifyListeners();
   }
@@ -20,13 +18,11 @@ class AuthProvider with ChangeNotifier {
     final user = state.session?.user;
     if (_user?.id != user?.id) {
       _user = user;
-      notifyListeners();
+      notifyListeners(); // ← مهم جدًا
     }
   }
 
-  // دالة مساعدة: تسجيل خروج
   Future<void> signOut() async {
     await Supabase.instance.client.auth.signOut();
-    // _user هيتعدل من خلال الـ listener
   }
 }

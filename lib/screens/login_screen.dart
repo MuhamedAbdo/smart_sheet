@@ -16,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isSigningIn = false;
+  bool _obscurePassword = true; // للتحكم في إظهار كلمة المرور
 
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
@@ -104,6 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       labelText: 'البريد الإلكتروني',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.email),
+                      isDense: true, // ← مهم لمنع overflow
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
@@ -119,12 +121,26 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passwordController,
-                    decoration: const InputDecoration(
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
                       labelText: 'كلمة المرور',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock),
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                      isDense: true, // ← يقلل الارتفاع ويمنع overflow
                     ),
-                    obscureText: true,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'أدخل كلمة المرور';
@@ -162,34 +178,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 16),
 
-                  // زر إنشاء حساب
+                  // زر الانتقال لتسجيل حساب جديد
                   TextButton(
-                    onPressed: () async {
-                      try {
-                        await Supabase.instance.client.auth.signUp(
-                          email: _emailController.text.trim(),
-                          password: _passwordController.text,
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('تم إنشاء الحساب بنجاح')),
-                        );
-                      } on AuthException catch (error) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('خطأ: ${error.message}')),
-                        );
-                      }
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const RegisterScreen()),
+                      );
                     },
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const RegisterScreen()),
-                        );
-                      },
-                      child: const Text('إنشاء حساب جديد'),
-                    ),
+                    child: const Text('إنشاء حساب جديد'),
                   ),
                 ],
               ),
