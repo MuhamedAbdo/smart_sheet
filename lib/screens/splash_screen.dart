@@ -1,9 +1,37 @@
 // lib/src/screens/splash/splash_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:smart_sheet/screens/home_screen.dart';
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _navigateToHome();
+  }
+
+  // دالة الانتقال للـ Home بعد تأخير
+  void _navigateToHome() async {
+    // تأخير 1.5 ثانية (تجربة مستخدم أفضل)
+    await Future.delayed(const Duration(seconds: 1, milliseconds: 500));
+
+    // تأكد أن الشاشة لسه موجودة قبل الانتقال
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const HomeScreen(),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +46,6 @@ class SplashScreen extends StatelessWidget {
               image: AssetImage('assets/images/logo.png'),
               width: 120,
               height: 120,
-              // لو عاوز تضيف fit أو errorWidget
             ),
             SizedBox(height: 24),
             // اسم التطبيق
