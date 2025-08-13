@@ -1,0 +1,82 @@
+name: smart_sheet
+description: تطبيق لإدارة خطوط إنتاج مصانع الكرتون - Smart Sheet
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.7.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Supabase للـ Auth، Database، وStorage
+  supabase_flutter: ^2.8.0
+
+  # تخزين محلي سريع (للـ cache، المقاسات، الإعدادات)
+  hive: ^2.2.0
+  hive_flutter: ^1.1.0
+
+  # إدارة الحالة (State Management) - نستخدم Provider كأول خيار بسيط وقوي
+  provider: ^6.1.2
+
+  # اختيار الصور والتقاطها بالكاميرا
+  image_picker: ^0.8.8+7
+
+  # إنشاء ملفات PDF وتوليدها
+  pdf: ^3.10.0
+  printing: ^5.12.0
+
+  # رسوم متحركة (مثل Lottie في Splash أو Loading)
+  lottie: ^2.7.0
+
+  # تخزين الإعدادات (مثل الثيم، جودة الكاميرا)
+  shared_preferences: ^2.2.2
+
+  # للتعامل مع المسارات والملفات
+  path: ^1.8.3
+
+  # لو حابب تعمل ZIP للنسخة الاحتياطية
+  archive: ^3.5.1
+
+  # عمل deep link أو فتح سياسة الخصوصية في المتصفح
+  url_launcher: ^6.3.0
+
+  # لتحسين UI مع الحواف والزوايا (مفيد في الأزرار)
+  flutter_screenutil: ^5.9.3
+
+  # لتغيير اسم التطبيق (في وقت البناء)
+  rename: ^3.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+  # للتأكد من إغلاق boxes في Hive بعد الاختبارات
+  mockito: ^5.4.4
+
+# إعدادات Flutter
+flutter:
+  # تفعيل توليد الأصول (مثل الصور والخطوط)
+  generate: true
+
+  # الأصول (Assets)
+  # ممكن تفعيلها لاحقًا لما نضيف الصور أو الرموز
+  # assets:
+  #   - assets/images/
+  #   - assets/animations/
+  #   - assets/icons/
+  #   - assets/fonts/
+
+  # الخطوط (مثال: Cairo للعربية)
+  fonts:
+    - family: Cairo
+      fonts:
+        - asset: assets/fonts/Cairo-Regular.ttf
+        - asset: assets/fonts/Cairo-Bold.ttf
+          weight: 700
+
+  # دعم Material Design (يسمح باستخدام Material Icons)
+  uses-material-design: true
