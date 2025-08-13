@@ -17,6 +17,7 @@ dependencies:
   # تخزين محلي سريع (للـ cache، المقاسات، الإعدادات)
   hive: ^2.2.0
   hive_flutter: ^1.1.0
+  hive_generator: ^2.0.1
 
   # إدارة الحالة (State Management) - نستخدم Provider كأول خيار بسيط وقوي
   provider: ^6.1.2
@@ -49,6 +50,7 @@ dependencies:
   # لتغيير اسم التطبيق (في وقت البناء)
   rename: ^3.1.0
   path_provider: ^2.1.5
+  camera: ^0.11.2
 
 dev_dependencies:
   flutter_test:
@@ -57,6 +59,8 @@ dev_dependencies:
 
   # للتأكد من إغلاق boxes في Hive بعد الاختبارات
   mockito: ^5.4.4
+  build_runner: ^2.5.4
+
 
 # إعدادات Flutter
 flutter:
