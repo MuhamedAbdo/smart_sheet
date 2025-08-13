@@ -64,8 +64,8 @@ flutter:
 
   # الأصول (Assets)
   # ممكن تفعيلها لاحقًا لما نضيف الصور أو الرموز
-  # assets:
-  #   - assets/images/
+  assets:
+    - assets/images/
   #   - assets/animations/
   #   - assets/icons/
   #   - assets/fonts/
