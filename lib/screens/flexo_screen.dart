@@ -1,40 +1,42 @@
-// lib/src/screens/home/home_screen.dart
+// lib/src/screens/flexo/flexo_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:smart_sheet/screens/flexo_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
-import 'package:smart_sheet/widgets/home_button.dart'; // ✅ صحّح المسار
+import 'package:smart_sheet/widgets/home_button.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class FlexoScreen extends StatelessWidget {
+  const FlexoScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Smart Sheet',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          'الفلكسو',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
         elevation: 1,
       ),
-      // ✅ AppDrawer دلوقتي بدون أي parameters
-      drawer: const AppDrawer(),
+      drawer: const AppDrawer(), // ✅ الـ Drawer متاح في كل الشاشات
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // عنوان فوق الأزرار
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12),
-              color: Colors.blue.shade50,
+              color: Colors.green.shade50,
               child: const Text(
                 'اختر القسم الذي تريد العمل فيه:',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.blue,
+                  color: Colors.green,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -48,89 +50,67 @@ class HomeScreen extends StatelessWidget {
                 childAspectRatio: 1.1,
                 children: [
                   HomeButton(
-                    icon: Icons.factory,
-                    label: 'خط الإنتاج',
+                    icon: Icons.build_circle,
+                    label: 'تركيب السيريل',
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('تم الدخول إلى خط الإنتاج'),
+                          content: Text('تم فتح نموذج تركيب السيريل'),
                         ),
                       );
                     },
                   ),
                   HomeButton(
-                    icon: Icons.print,
-                    label: 'الفلكسو',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const FlexoScreen()),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.cut,
-                    label: 'التكسير',
+                    icon: Icons.receipt,
+                    label: 'تقرير الأحبار',
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('تم الدخول إلى التكشير'),
+                          content: Text('تم عرض تقرير الأحبار'),
                         ),
                       );
                     },
                   ),
                   HomeButton(
-                    icon: Icons.push_pin,
-                    label: 'الدبوس',
+                    icon: Icons.inventory,
+                    label: 'وارد المخزن',
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('تم الدخول إلى الدبوس'),
+                          content: Text('عرض واردات المخزن'),
                         ),
                       );
                     },
                   ),
                   HomeButton(
-                    icon: Icons.science,
-                    label: 'السليكات',
+                    icon: Icons.settings,
+                    label: 'الصيانة',
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('تم الدخول إلى السليكات'),
+                          content: Text('تم فتح قائمة الصيانة'),
                         ),
                       );
                     },
                   ),
                   HomeButton(
-                    icon: Icons.warehouse,
-                    label: 'المخازن',
+                    icon: Icons.calculate,
+                    label: 'الآلة الحاسبة',
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('تم الدخول إلى المخازن'),
+                          content: Text('تم فتح الآلة الحاسبة'),
                         ),
                       );
                     },
                   ),
                   HomeButton(
-                    icon: Icons.add,
-                    label: 'إضافة مقاس',
+                    icon: Icons.group,
+                    label: 'طاقم العمل',
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('فتح نموذج إضافة مقاس'),
-                        ),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.save,
-                    label: 'المقاسات المحفوظة',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('عرض المقاسات المحفوظة'),
+                          content: Text('عرض أعضاء طاقم العمل'),
                         ),
                       );
                     },
