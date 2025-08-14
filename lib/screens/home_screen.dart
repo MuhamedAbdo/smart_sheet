@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/flexo_screen.dart';
+import 'package:smart_sheet/screens/sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart'; // ✅ صحّح المسار
 
@@ -117,10 +118,10 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.add,
                     label: 'إضافة مقاس',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('فتح نموذج إضافة مقاس'),
-                        ),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const SheetSizeScreen()),
                       );
                     },
                   ),
