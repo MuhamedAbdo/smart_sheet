@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/sheet_size_buttons.dart';
 import 'package:smart_sheet/widgets/sheet_size_calculations.dart';
@@ -33,7 +34,7 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
   final heightController = TextEditingController();
 
   // Camera
-  CameraController? _cameraController; // ✅ غير من late إلى ?
+  CameraController? _cameraController;
   bool _isCameraReady = false;
   bool _isProcessing = false;
   List<File> _capturedImages = [];
@@ -55,9 +56,16 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
   String productionHeight = "";
   String productionWidth2 = "";
 
+  late Box _savedSheetSizesBox;
+
   @override
   void initState() {
     super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    _savedSheetSizesBox = await Hive.openBox('savedSheetSizes');
     _initializeCamera();
     if (widget.existingData != null) {
       _loadExistingData(widget.existingData!);
@@ -73,7 +81,7 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
       );
 
       _cameraController = CameraController(backCamera, ResolutionPreset.medium);
-      await _cameraController!.initialize(); // ⚠️ await مهم
+      await _cameraController!.initialize();
       if (!mounted) return;
       setState(() {
         _isCameraReady = true;
@@ -218,15 +226,105 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
     });
   }
 
-  void saveSheetSize() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("تم الحفظ بنجاح")),
-    );
+  Future<void> _saveSheetSize() async {
+    final newRecord = {
+      'clientName': clientNameController.text,
+      'productName': productNameController.text,
+      'productCode': productCodeController.text,
+      'length': lengthController.text,
+      'width': widthController.text,
+      'height': heightController.text,
+      'sheetLengthResult': sheetLengthResult,
+      'sheetWidthResult': sheetWidthResult,
+      'productionWidth1': productionWidth1,
+      'productionHeight': productionHeight,
+      'productionWidth2': productionWidth2,
+      'isOverFlap': isOverFlap,
+      'isFlap': isFlap,
+      'isOneFlap': isOneFlap,
+      'isTwoFlap': isTwoFlap,
+      'addTwoMm': addTwoMm,
+      'isFullSize': isFullSize,
+      'isQuarterSize': isQuarterSize,
+      'isQuarterWidth': isQuarterWidth,
+      'imagePaths': _capturedImages.map((file) => file.path).toList(),
+      'date': DateTime.now().toIso8601String(),
+    };
+
+    // إذا كان في تعديل
+    if (widget.existingDataKey != null) {
+      await _savedSheetSizesBox.put(widget.existingDataKey, newRecord);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("تم تحديث المقاس بنجاح!")),
+        );
+      }
+      Navigator.pop(context);
+      return;
+    }
+
+    // التحقق من التكرار
+    bool isDuplicate = false;
+    for (var key in _savedSheetSizesBox.keys) {
+      final existing = _savedSheetSizesBox.get(key) as Map;
+      if (existing['clientName'] == newRecord['clientName'] &&
+          existing['productCode'] == newRecord['productCode']) {
+        if (isQuarterSize) {
+          if (existing['isQuarterSize'] == true &&
+              existing['isQuarterWidth'] == isQuarterWidth) {
+            isDuplicate = true;
+            break;
+          }
+        } else {
+          isDuplicate = true;
+          break;
+        }
+      }
+    }
+
+    if (isDuplicate) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("تنبيه"),
+            content: const Text("هذا المقاس موجود بالفعل. هل تريد استبداله؟"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("لا"),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await _savedSheetSizesBox.add(newRecord);
+                  Navigator.pop(context);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("تم الحفظ بنجاح!")),
+                    );
+                    Navigator.pop(context);
+                  }
+                },
+                child: const Text("نعم"),
+              ),
+            ],
+          ),
+        );
+      }
+    } else {
+      await _savedSheetSizesBox.add(newRecord);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("تم الحفظ بنجاح!")),
+        );
+        Navigator.pop(context);
+      }
+    }
   }
 
   @override
   void dispose() {
-    _cameraController?.dispose(); // ✅ آمن ضد null
+    _cameraController?.dispose();
     clientNameController.dispose();
     productNameController.dispose();
     productCodeController.dispose();
@@ -246,7 +344,7 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
-            onPressed: saveSheetSize,
+            onPressed: _saveSheetSize, // ✅ الحفظ من خلال أيقونة الحفظ فقط
           ),
         ],
       ),
@@ -331,9 +429,10 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
                 },
               ),
               const SizedBox(height: 20),
+              // ✅ تم إزالة زر الحفظ من الـ body
               SheetSizeButtons(
-                onCalculate: calculateSheet,
-                onSave: saveSheetSize,
+                onCalculate: calculateSheet, onSave: () {},
+                // لا يوجد onSave
               ),
               const SizedBox(height: 20),
               SheetSizeCalculations(

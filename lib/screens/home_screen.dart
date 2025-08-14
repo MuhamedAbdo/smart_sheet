@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/flexo_screen.dart';
+import 'package:smart_sheet/screens/saved_sizes_screen.dart';
 import 'package:smart_sheet/screens/sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart'; // ✅ صحّح المسار
@@ -129,10 +130,10 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.save,
                     label: 'المقاسات المحفوظة',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('عرض المقاسات المحفوظة'),
-                        ),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const SavedSizesScreen()),
                       );
                     },
                   ),

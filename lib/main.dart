@@ -22,9 +22,12 @@ Future<void> main() async {
 
   if (!kIsWeb) {
     await Hive.initFlutter();
+
+    // ✅ افتح كل الصناديق هنا
     await Hive.openBox('settings');
     await Hive.openBox('measurements');
     await Hive.openBox('serial_setup_state');
+    await Hive.openBox('savedSheetSizes'); // ✅ الصندوق الجديد
   }
 
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
@@ -52,13 +55,10 @@ class SmartSheetApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: themeProvider.theme,
       home: const SplashScreen(),
-
-      // ✅ سجّل كل الـ routes هنا
       routes: {
         SettingsScreen.routeName: (context) => const SettingsScreen(),
         CameraQualitySettingsScreen.routeName: (context) =>
             const CameraQualitySettingsScreen(),
-        // أضف باقي الصفحات هنا لاحقًا
       },
     );
   }
