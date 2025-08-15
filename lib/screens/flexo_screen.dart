@@ -1,6 +1,7 @@
 // lib/src/screens/flexo/flexo_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:smart_sheet/screens/ink_report_screen.dart';
 import 'package:smart_sheet/screens/serial_setup_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
@@ -66,9 +67,10 @@ class FlexoScreen extends StatelessWidget {
                     icon: Icons.receipt,
                     label: 'تقرير الأحبار',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('تم عرض تقرير الأحبار'),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const InkReportScreen(),
                         ),
                       );
                     },

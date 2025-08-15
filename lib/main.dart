@@ -27,7 +27,8 @@ Future<void> main() async {
     await Hive.openBox('settings');
     await Hive.openBox('measurements');
     await Hive.openBox('serial_setup_state');
-    await Hive.openBox('savedSheetSizes'); // ✅ الصندوق الجديد
+    await Hive.openBox('savedSheetSizes');
+    await Hive.openBox('inkReports'); // ✅ الصندوق الجديد
   }
 
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
