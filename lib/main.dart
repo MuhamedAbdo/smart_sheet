@@ -32,6 +32,7 @@ Future<void> main() async {
     await Hive.openBox('savedSheetSizes');
     await Hive.openBox('inkReports');
     await Hive.openBox('maintenanceRecords'); // ✅ فتح صندوق الصيانة
+    await Hive.openBox('storeEntries'); // ✅ أضف هذا السطر
   }
 
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);

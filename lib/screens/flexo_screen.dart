@@ -5,6 +5,7 @@ import 'package:smart_sheet/screens/calculator_screen.dart';
 import 'package:smart_sheet/screens/ink_report_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/serial_setup_screen.dart';
+import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
 
@@ -81,9 +82,10 @@ class FlexoScreen extends StatelessWidget {
                     icon: Icons.inventory,
                     label: 'وارد المخزن',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('عرض واردات المخزن'),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const StoreEntryScreen(),
                         ),
                       );
                     },
