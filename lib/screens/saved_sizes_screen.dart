@@ -1,7 +1,9 @@
 // lib/src/screens/saved/saved_sizes_screen.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/screens/ink_report_screen.dart';
 import 'package:smart_sheet/screens/sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
@@ -53,7 +55,6 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             return const Center(child: Text("🚫 لا توجد مقاسات محفوظة."));
           }
 
-          // ✅ استخدم List<MapEntry> علشان تحافظ على الـ key مع الـ value
           final List<MapEntry<dynamic, Map>> entries = box
               .toMap()
               .entries
@@ -75,15 +76,17 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
                     productName.contains(query) ||
                     productCode.contains(query);
               })
-              .map((entry) =>
-                  MapEntry(entry.key, Map<String, dynamic>.from(entry.value)))
+              .map((entry) => MapEntry(
+                    entry.key,
+                    Map<String, dynamic>.from(entry.value),
+                  ))
               .toList()
             ..sort((a, b) {
               final dateA =
                   DateTime.tryParse(a.value['date'] ?? '') ?? DateTime(1970);
               final dateB =
                   DateTime.tryParse(b.value['date'] ?? '') ?? DateTime(1970);
-              return dateB.compareTo(dateA); // الأحدث أولًا
+              return dateB.compareTo(dateA);
             });
 
           if (entries.isEmpty) {
@@ -117,15 +120,42 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
                   _showSizeDetails(context, record);
                 },
                 onPrint: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text("طباعة التقرير غير متوفرة بعد")),
-                  );
+                  // ✅ فتح نموذج تقرير الأحبار مع تعبئة تلقائية
+                  _openInkReportWithSheetData(context, record);
                 },
               );
             },
           );
         },
+      ),
+    );
+  }
+
+  void _openInkReportWithSheetData(BuildContext context, Map record) {
+    // ✅ تحويل بيانات المقاس إلى صيغة "تقرير الأحبار"
+    final initialData = {
+      'date': DateTime.now().toIso8601String(),
+      'clientName': record['clientName'] ?? '',
+      'product': record['productName'] ?? '',
+      'productCode': record['productCode']?.toString() ?? '',
+      'dimensions': {
+        'length': record['length']?.toString() ?? '',
+        'width': record['width']?.toString() ?? '',
+        'height': record['height']?.toString() ?? '',
+      },
+      'imagePaths': (record['imagePaths'] is List)
+          ? List<String>.from(record['imagePaths'])
+          : [],
+      'colors': [],
+      'quantity': '',
+      'notes': '',
+    };
+
+    // ✅ الانتقال إلى InkReportScreen مع البيانات الأولية
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => InkReportScreen(initialData: initialData),
       ),
     );
   }

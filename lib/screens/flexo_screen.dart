@@ -1,7 +1,9 @@
 // lib/src/screens/flexo/flexo_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:smart_sheet/screens/calculator_screen.dart';
 import 'package:smart_sheet/screens/ink_report_screen.dart';
+import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/serial_setup_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
@@ -90,9 +92,10 @@ class FlexoScreen extends StatelessWidget {
                     icon: Icons.settings,
                     label: 'الصيانة',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('تم فتح قائمة الصيانة'),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MaintenanceScreen(),
                         ),
                       );
                     },
@@ -101,9 +104,10 @@ class FlexoScreen extends StatelessWidget {
                     icon: Icons.calculate,
                     label: 'الآلة الحاسبة',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('تم فتح الآلة الحاسبة'),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CalculatorScreen(),
                         ),
                       );
                     },

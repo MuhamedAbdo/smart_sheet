@@ -1,3 +1,5 @@
+// lib/src/screens/flexo/ink_report_screen.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -20,15 +22,22 @@ class _InkReportScreenState extends State<InkReportScreen> {
   void initState() {
     super.initState();
     _inkReportBox = Hive.box('inkReports');
+
+    // ✅ إذا وُجد initialData، افتح الـ dialog فورًا بعد رسم الشاشة
+    if (widget.initialData != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showAddReportDialog(widget.initialData);
+      });
+    }
   }
 
-  void _showAddReportDialog() {
+  void _showAddReportDialog([Map<String, dynamic>? prefillData]) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (context) {
         return InkReportForm(
-          initialData: widget.initialData,
+          initialData: prefillData,
           onSave: (report) {
             _inkReportBox.add(report);
             if (mounted) {
@@ -104,7 +113,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
                         ...record['colors'].map<Widget>((c) {
                           final color = c['color'] ?? '';
                           var quantity = (c['quantity'] ?? '').toString();
-                          // ✅ إضافة صفر قبل الفاصلة إذا لزم الأمر
                           if (quantity.startsWith('.')) {
                             quantity = '0$quantity';
                           }
@@ -136,8 +144,8 @@ class _InkReportScreenState extends State<InkReportScreen> {
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
                         onPressed: () {
-                          final sanitizedRecord = _convertValuesToString(
-                              record); // ✅ تحويل كل القيم إلى نصوص
+                          final sanitizedRecord =
+                              _convertValuesToString(record);
                           showModalBottomSheet(
                             context: context,
                             isScrollControlled: true,
@@ -178,7 +186,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddReportDialog,
+        onPressed: () => _showAddReportDialog(),
         child: const Icon(Icons.add),
       ),
     );
