@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/calculator_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/new_sheet_size_screen.dart';
+import 'package:smart_sheet/screens/sheet_count_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
@@ -123,9 +124,10 @@ class ProductionLineScreen extends StatelessWidget {
                     icon: Icons.production_quantity_limits,
                     label: 'عدد الشيتات',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('شاشة "عدد الشيتات" قيد التطوير'),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SheetCountScreen(),
                         ),
                       );
                     },
