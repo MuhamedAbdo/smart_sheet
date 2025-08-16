@@ -2,8 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/flexo_screen.dart';
+import 'package:smart_sheet/screens/production_line_screen.dart';
 import 'package:smart_sheet/screens/saved_sizes_screen.dart';
-import 'package:smart_sheet/screens/sheet_size_screen.dart';
+import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart'; // ✅ صحّح المسار
 
@@ -53,10 +54,10 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.factory,
                     label: 'خط الإنتاج',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('تم الدخول إلى خط الإنتاج'),
-                        ),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ProductionLineScreen()),
                       );
                     },
                   ),
@@ -122,7 +123,7 @@ class HomeScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const SheetSizeScreen()),
+                            builder: (context) => const AddSheetSizeScreen()),
                       );
                     },
                   ),

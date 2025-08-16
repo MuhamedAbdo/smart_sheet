@@ -1,5 +1,3 @@
-// lib/src/widgets/workers/worker_list.dart
-
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
@@ -13,8 +11,10 @@ class WorkerList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final box = Hive.box<Worker>('workers');
+
     return ValueListenableBuilder(
-      valueListenable: Hive.box<Worker>('workers').listenable(),
+      valueListenable: box.listenable(),
       builder: (context, Box<Worker> box, _) {
         if (box.isEmpty) {
           return const Center(child: Text("🚫 لا يوجد عمال بعد"));

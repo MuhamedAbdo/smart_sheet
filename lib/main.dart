@@ -1,5 +1,3 @@
-// lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
@@ -16,8 +14,7 @@ import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-// استيراد الشاشات
-
+// ✅ إزالة المسافات
 const String supabaseUrl = 'https://edytjabmzjtidmtukvxt.supabase.co';
 const String supabaseAnonKey =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkeXRqYWJtemp0aWRtdHVrdnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxMDAyMjAsImV4cCI6MjA3MDY3NjIyMH0.xUmC4xHSP5c3kFK-jg7qZCDhrFw8rBGhZkbNdCk7kKw';
@@ -28,11 +25,11 @@ Future<void> main() async {
   if (!kIsWeb) {
     await Hive.initFlutter();
 
-    // تسجيل الأدابترات
+    // ✅ 1. تسجيل الـ Adapters أولًا
     Hive.registerAdapter(WorkerAdapter());
     Hive.registerAdapter(WorkerActionAdapter());
 
-    // فتح الصناديق بالـ type الصحيح
+    // ✅ 2. فتح الصناديق مرة واحدة فقط
     await Hive.openBox('settings');
     await Hive.openBox('measurements');
     await Hive.openBox('serial_setup_state');
@@ -41,12 +38,9 @@ Future<void> main() async {
     await Hive.openBox('maintenanceRecords');
     await Hive.openBox('storeEntries');
 
-    if (!Hive.isBoxOpen('workers')) {
-      await Hive.openBox<Worker>('workers');
-    }
-    if (!Hive.isBoxOpen('worker_actions')) {
-      await Hive.openBox<WorkerAction>('worker_actions');
-    }
+    // ✅ صناديق العمال والإجراءات
+    await Hive.openBox<WorkerAction>('worker_actions');
+    await Hive.openBox<Worker>('workers');
   }
 
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);

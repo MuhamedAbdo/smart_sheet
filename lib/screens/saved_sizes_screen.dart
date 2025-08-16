@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/screens/ink_report_screen.dart';
-import 'package:smart_sheet/screens/sheet_size_screen.dart';
+import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
@@ -105,7 +105,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => SheetSizeScreen(
+                      builder: (_) => AddSheetSizeScreen(
                         existingData: record,
                         existingDataKey: key,
                       ),
