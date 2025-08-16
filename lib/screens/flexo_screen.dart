@@ -6,6 +6,10 @@ import 'package:smart_sheet/screens/ink_report_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/serial_setup_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
+import 'package:smart_sheet/screens/workers_screen.dart';
+
+// ✅ استيراد الشاشات
+
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
 
@@ -118,9 +122,13 @@ class FlexoScreen extends StatelessWidget {
                     icon: Icons.group,
                     label: 'طاقم العمل',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('عرض أعضاء طاقم العمل'),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const WorkersScreen(
+                            departmentBoxName: 'workers',
+                            departmentTitle: 'طاقم الإنتاج',
+                          ),
                         ),
                       );
                     },

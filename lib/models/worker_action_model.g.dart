@@ -22,13 +22,17 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
       date: fields[2] as DateTime,
       notes: fields[3] as String?,
       returnDate: fields[4] as DateTime?,
+      startTimeHour: fields[5] as int?,
+      startTimeMinute: fields[6] as int?,
+      endTimeHour: fields[7] as int?,
+      endTimeMinute: fields[8] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, WorkerAction obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.type)
       ..writeByte(1)
@@ -38,7 +42,15 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
       ..writeByte(3)
       ..write(obj.notes)
       ..writeByte(4)
-      ..write(obj.returnDate);
+      ..write(obj.returnDate)
+      ..writeByte(5)
+      ..write(obj.startTimeHour)
+      ..writeByte(6)
+      ..write(obj.startTimeMinute)
+      ..writeByte(7)
+      ..write(obj.endTimeHour)
+      ..writeByte(8)
+      ..write(obj.endTimeMinute);
   }
 
   @override
