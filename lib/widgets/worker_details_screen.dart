@@ -21,9 +21,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.worker.actions.box == null) {
-      widget.worker.reconnectActionsBox();
-    }
   }
 
   @override

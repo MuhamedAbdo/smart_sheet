@@ -139,8 +139,9 @@ class InkReportList extends StatelessWidget {
         return MapEntry(
             k,
             v.map((item) {
-              if (item is Map)
+              if (item is Map) {
                 return _convertValuesToString(Map<String, dynamic>.from(item));
+              }
               if (item is int || item is double) return item.toString();
               return item;
             }).toList());

@@ -153,7 +153,9 @@ class _InkReportFormState extends State<InkReportForm> {
   Future<void> _captureImage() async {
     if (!_isCameraReady ||
         _cameraController == null ||
-        !_cameraController!.value.isInitialized) return;
+        !_cameraController!.value.isInitialized) {
+      return;
+    }
 
     setState(() => _isProcessing = true);
     try {
@@ -431,7 +433,7 @@ class _InkReportFormState extends State<InkReportForm> {
                       const SizedBox(height: 8), // ✅ المسافة بين الألوان
                     ],
                   );
-                }).toList(),
+                }),
                 ElevatedButton.icon(
                     onPressed: _addColorField,
                     icon: const Icon(Icons.add),
