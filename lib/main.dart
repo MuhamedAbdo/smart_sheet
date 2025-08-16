@@ -34,6 +34,7 @@ Future<void> main() async {
     await Hive.openBox('measurements');
     await Hive.openBox('serial_setup_state');
     await Hive.openBox('savedSheetSizes');
+    await Hive.openBox('savedSheetSizes_production'); // 👈 أضف ده
     await Hive.openBox('inkReports');
     await Hive.openBox('maintenanceRecords');
     await Hive.openBox('storeEntries');

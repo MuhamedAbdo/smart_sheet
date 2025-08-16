@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/calculator_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
+import 'package:smart_sheet/screens/new_sheet_size_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
@@ -58,7 +59,14 @@ class ProductionLineScreen extends StatelessWidget {
                   HomeButton(
                     icon: Icons.straighten,
                     label: 'مقاس الشيت',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NewSheetSizeScreen(),
+                        ),
+                      );
+                    },
                   ),
                   HomeButton(
                     icon: Icons.calculate,
