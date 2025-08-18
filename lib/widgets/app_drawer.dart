@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/providers/auth_provider.dart';
+import 'package:smart_sheet/screens/backup_restore_screen.dart';
 import 'package:smart_sheet/screens/login_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
 
@@ -92,13 +93,15 @@ class AppDrawer extends StatelessWidget {
           // القائمة
           ListTile(
             leading: const Icon(Icons.backup),
-            title: const Text('رفع نسخة احتياطية'),
+            title: const Text('النسخ الاحتياطي'),
             enabled: isLoggedIn,
             onTap: isLoggedIn
                 ? () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('جاري رفع النسخة...')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const BackupRestoreScreen()),
                     );
                   }
                 : null,
@@ -113,8 +116,10 @@ class AppDrawer extends StatelessWidget {
             onTap: isLoggedIn
                 ? () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('جاري الاستعادة...')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const BackupRestoreScreen()),
                     );
                   }
                 : null,
