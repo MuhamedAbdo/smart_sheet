@@ -1,5 +1,3 @@
-// lib/src/models/worker_model.dart
-
 import 'package:hive_flutter/hive_flutter.dart';
 import 'worker_action_model.dart';
 
@@ -44,7 +42,7 @@ class Worker extends HiveObject {
       'phone': phone,
       'job': job,
       'has_medical_insurance': hasMedicalInsurance,
-      'actions': actions.map((action) => action.toJson()).toList(),
+      'actions': actions.toList().map((a) => a.toJson()).toList(), // ✅
     };
   }
 

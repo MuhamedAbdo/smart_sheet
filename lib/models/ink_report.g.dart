@@ -22,20 +22,19 @@ class InkReportAdapter extends TypeAdapter<InkReport> {
       clientName: fields[2] as String,
       product: fields[3] as String,
       productCode: fields[4] as String,
-      dimensions: (fields[5] as Map).cast<String, dynamic>(),
-      colors: (fields[6] as List)
-          .map((dynamic e) => (e as Map).cast<String, double>())
-          .toList(),
+      dimensions: fields[5] as Dimension,
+      colors: (fields[6] as List).cast<ColorQuantity>(),
       quantity: fields[7] as int,
       notes: fields[8] as String?,
       imageUrls: (fields[9] as List).cast<String>(),
+      imagePaths: (fields[10] as List).cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, InkReport obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -55,7 +54,9 @@ class InkReportAdapter extends TypeAdapter<InkReport> {
       ..writeByte(8)
       ..write(obj.notes)
       ..writeByte(9)
-      ..write(obj.imageUrls);
+      ..write(obj.imageUrls)
+      ..writeByte(10)
+      ..write(obj.imagePaths);
   }
 
   @override

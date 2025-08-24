@@ -1,5 +1,3 @@
-// lib/src/models/maintenance_record.dart
-
 import 'package:hive_flutter/hive_flutter.dart';
 
 part 'maintenance_record.g.dart';
@@ -32,4 +30,26 @@ class MaintenanceRecord extends HiveObject {
     required this.action,
     this.notes,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'date': date,
+      'machine': machine,
+      'issue': issue,
+      'technician': technician,
+      'action': action,
+      'notes': notes,
+    };
+  }
+
+  factory MaintenanceRecord.fromJson(Map<String, dynamic> map) {
+    return MaintenanceRecord(
+      date: map['date'] ?? '',
+      machine: map['machine'] ?? '',
+      issue: map['issue'] ?? '',
+      technician: map['technician'] ?? '',
+      action: map['action'] ?? '',
+      notes: map['notes'],
+    );
+  }
 }

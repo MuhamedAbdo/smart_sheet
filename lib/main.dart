@@ -3,8 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'package:smart_sheet/models/color_quantity.dart';
+import 'package:smart_sheet/models/dimension.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/models/ink_report.dart';
 import 'package:smart_sheet/providers/auth_provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/camera_quality_settings_screen.dart';
@@ -30,18 +33,23 @@ Future<void> main() async {
     // ✅ 1. تسجيل الـ Adapters أولًا
     Hive.registerAdapter(WorkerAdapter());
     Hive.registerAdapter(WorkerActionAdapter());
+    Hive.registerAdapter(InkReportAdapter());
+    Hive.registerAdapter(DimensionAdapter());
+    Hive.registerAdapter(ColorQuantityAdapter());
 
     // ✅ 2. فتح الصناديق مرة واحدة فقط
     await Hive.openBox('settings');
     await Hive.openBox('measurements');
     await Hive.openBox('serial_setup_state');
     await Hive.openBox('savedSheetSizes');
-    await Hive.openBox('savedSheetSizes_production'); // ✅ أضف ده
-    await Hive.openBox('inkReports');
+    await Hive.openBox('savedSheetSizes_production');
     await Hive.openBox('maintenanceRecords');
     await Hive.openBox('storeEntries');
 
-    // ✅ صناديق العمال والإجراءات
+    // ✅ Reset لصندوق inkReports عشان يمنع الكراش
+    await Hive.deleteBoxFromDisk('inkReports');
+    await Hive.openBox<InkReport>('inkReports');
+
     await Hive.openBox<WorkerAction>('worker_actions');
     await Hive.openBox<Worker>('workers');
   }

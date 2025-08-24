@@ -1,5 +1,3 @@
-// lib/src/models/store_entry.dart
-
 import 'package:hive_flutter/hive_flutter.dart';
 
 part 'store_entry.g.dart';

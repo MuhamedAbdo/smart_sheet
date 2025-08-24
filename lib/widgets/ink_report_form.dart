@@ -6,7 +6,6 @@ import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_view/photo_view.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ColorField {
   final TextEditingController colorController;
@@ -81,34 +80,32 @@ class _InkReportFormState extends State<InkReportForm> {
   }
 
   void _loadInitialData(Map<String, dynamic> data) {
-    dateController.text = data['date'] ?? '';
-    clientNameController.text = data['clientName'] ?? '';
-    productController.text = data['product'] ?? '';
+    dateController.text = data['date']?.toString() ?? '';
+    clientNameController.text = data['clientName']?.toString() ?? '';
+    productController.text = data['product']?.toString() ?? '';
     productCodeController.text = data['productCode']?.toString() ?? '';
 
-    final dimensions = Map<String, dynamic>.from(data['dimensions'] ?? {});
+    final dimensions = data['dimensions'] as Map<String, dynamic>? ?? {};
     lengthController.text = dimensions['length']?.toString() ?? '';
     widthController.text = dimensions['width']?.toString() ?? '';
     heightController.text = dimensions['height']?.toString() ?? '';
 
     quantityController.text = data['quantity']?.toString() ?? '';
-    notesController.text = data['notes'] ?? '';
+    notesController.text = data['notes']?.toString() ?? '';
 
     colors.clear();
-    if (data.containsKey('colors') && data['colors'] is List) {
-      colors = (data['colors'] as List).map((c) {
-        return ColorField(
-          colorController: TextEditingController(text: c['color']),
-          quantityController:
-              TextEditingController(text: (c['quantity'] ?? 0).toString()),
-        );
-      }).toList();
-    }
+    final colorsList = data['colors'] as List? ?? [];
+    colors = colorsList.map((c) {
+      return ColorField(
+        colorController:
+            TextEditingController(text: c['color']?.toString() ?? ''),
+        quantityController:
+            TextEditingController(text: (c['quantity'] ?? 0).toString()),
+      );
+    }).toList();
 
-    if (data.containsKey('imagePaths') && data['imagePaths'] is List) {
-      final List<String> paths = List<String>.from(data['imagePaths']);
-      _capturedImages = paths.map((p) => File(p)).toList();
-    }
+    final imagePaths = data['imagePaths'] as List? ?? [];
+    _capturedImages = imagePaths.map((p) => File(p.toString())).toList();
   }
 
   Future<void> _initializeCamera() async {
@@ -129,16 +126,7 @@ class _InkReportFormState extends State<InkReportForm> {
         orElse: () => cameras.first,
       );
 
-      final prefs = await SharedPreferences.getInstance();
-      final String quality = prefs.getString('camera_quality') ?? 'medium';
-
-      ResolutionPreset preset = switch (quality) {
-        'low' => ResolutionPreset.low,
-        'high' => ResolutionPreset.high,
-        'medium' || _ => ResolutionPreset.medium,
-      };
-
-      _cameraController = CameraController(backCamera, preset);
+      _cameraController = CameraController(backCamera, ResolutionPreset.medium);
       await _cameraController!.initialize();
 
       if (mounted) {
@@ -222,9 +210,9 @@ class _InkReportFormState extends State<InkReportForm> {
       'product': productController.text,
       'productCode': productCodeController.text,
       'dimensions': {
-        'length': lengthController.text,
-        'width': widthController.text,
-        'height': heightController.text,
+        'length': double.tryParse(lengthController.text.trim()) ?? 0.0,
+        'width': double.tryParse(widthController.text.trim()) ?? 0.0,
+        'height': double.tryParse(heightController.text.trim()) ?? 0.0,
       },
       'colors': colors
           .map((c) => {
@@ -236,6 +224,7 @@ class _InkReportFormState extends State<InkReportForm> {
       'quantity': int.tryParse(quantityController.text.trim()) ?? 0,
       'notes': notesController.text.trim(),
       'imagePaths': _capturedImages.map((f) => f.path).toList(),
+      'image_urls': [], // سيتم ملؤه عند الرفع لاحقًا
     };
 
     widget.onSave(report);
@@ -352,7 +341,6 @@ class _InkReportFormState extends State<InkReportForm> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                // ✅ الكاميرا
                 if (_isCameraReady && _cameraController != null)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,7 +418,7 @@ class _InkReportFormState extends State<InkReportForm> {
                               onPressed: () => _removeColorField(index)),
                         ],
                       ),
-                      const SizedBox(height: 8), // ✅ المسافة بين الألوان
+                      const SizedBox(height: 8),
                     ],
                   );
                 }),
@@ -477,6 +465,8 @@ class _InkReportFormState extends State<InkReportForm> {
   }
 
   void _showFullScreenImage(int index) {
+    final PageController controller = PageController(initialPage: index);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -485,13 +475,22 @@ class _InkReportFormState extends State<InkReportForm> {
         alignment: Alignment.topRight,
         children: [
           PageView.builder(
+            controller: controller,
             itemCount: _capturedImages.length,
             itemBuilder: (context, i) => Center(
-                child: PhotoView(imageProvider: FileImage(_capturedImages[i]))),
+                child: PhotoView(
+              imageProvider: FileImage(_capturedImages[i]),
+              backgroundDecoration: const BoxDecoration(color: Colors.black),
+              minScale: PhotoViewComputedScale.contained * 1,
+              maxScale: PhotoViewComputedScale.covered * 2,
+            )),
           ),
           IconButton(
               icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: () => Navigator.pop(context)),
+              onPressed: () {
+                controller.dispose();
+                Navigator.pop(context);
+              }),
         ],
       ),
     );

@@ -1,5 +1,3 @@
-// lib/src/models/worker_action_model.dart
-
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -46,7 +44,6 @@ class WorkerAction extends HiveObject {
     this.endTimeMinute,
   });
 
-  // ✅ getter: تحويل إلى TimeOfDay (اختياري)
   TimeOfDay? get startTime {
     if (startTimeHour == null || startTimeMinute == null) return null;
     return TimeOfDay(hour: startTimeHour!, minute: startTimeMinute!);

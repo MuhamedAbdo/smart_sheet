@@ -1,10 +1,9 @@
-// lib/src/screens/backup/backup_restore_screen.dart
-
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/models/ink_report.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
+import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -19,34 +18,59 @@ class BackupRestoreScreen extends StatelessWidget {
 
       final backupData = <String, dynamic>{};
 
+      // 1. الصناديق العادية (Map<String, dynamic>)
       for (final boxName in [
         'settings',
         'savedSheetSizes',
-        'inkReports',
         'maintenanceRecords',
-        'storeEntries',
-        'workers',
-        'worker_actions'
+        'storeEntries'
       ]) {
         if (Hive.isBoxOpen(boxName)) {
           final box = Hive.box(boxName);
-
-          if (boxName == 'workers') {
-            backupData[boxName] = box
-                .toMap()
-                .map((key, value) => MapEntry(key, (value as Worker).toJson()));
-          } else if (boxName == 'worker_actions') {
-            backupData[boxName] = box.toMap().map((key, value) =>
-                MapEntry(key, (value as WorkerAction).toJson()));
-          } else {
-            backupData[boxName] = Map.from(box.toMap());
-          }
+          backupData[boxName] = Map.from(box.toMap());
         }
       }
 
+      // 2. صندوق التقارير (Box<InkReport>)
+      if (Hive.isBoxOpen('inkReports')) {
+        final box = Hive.box('inkReports'); // 👈 بدون <InkReport>
+        backupData['inkReports'] = box.toMap().map((key, value) {
+          if (value is InkReport) {
+            return MapEntry(key.toString(), value.toJson());
+          } else if (value is Map) {
+            return MapEntry(
+              key.toString(),
+              InkReport.fromJson(Map<String, dynamic>.from(value)).toJson(),
+            );
+          } else {
+            throw Exception("قيمة غير متوقعة في inkReports: $value");
+          }
+        });
+      }
+
+      // 3. صندوق العمال (Box<Worker>)
+      if (Hive.isBoxOpen('workers')) {
+        final box = Hive.box<Worker>('workers');
+        backupData['workers'] = box.toMap().map((key, value) => MapEntry(
+              key.toString(),
+              (value as Worker).toJson(),
+            ));
+      }
+
+      // 4. صندوق الإجراءات (Box<WorkerAction>)
+      if (Hive.isBoxOpen('worker_actions')) {
+        final box = Hive.box<WorkerAction>('worker_actions');
+        backupData['worker_actions'] = box.toMap().map((key, value) => MapEntry(
+              key.toString(),
+              (value as WorkerAction).toJson(),
+            ));
+      }
+
+      // ✅ تحويل إلى JSON للتأكد
       final jsonData = json.encode(backupData);
       final Uint8List bytes = Uint8List.fromList(utf8.encode(jsonData));
 
+      // ✅ رفع على Supabase
       final fileName = 'backup_${DateTime.now().toIso8601String()}.json';
       await Supabase.instance.client.storage.from('backups').uploadBinary(
             fileName,
@@ -57,7 +81,7 @@ class BackupRestoreScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('✅ تم رفع النسخة الاحتياطية بنجاح')),
       );
-    } catch (e) {
+    } on Exception catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ خطأ في النسخ: ${e.toString()}')),
       );
@@ -78,45 +102,78 @@ class BackupRestoreScreen extends StatelessWidget {
         return;
       }
 
+      // رتب الملفات من الأحدث للأقدم
       files.sort((a, b) => b.updatedAt!.compareTo(a.updatedAt!));
       final latestFile = files.first;
 
+      // نزّل الملف
       final downloadedData = await Supabase.instance.client.storage
           .from('backups')
           .download(latestFile.name);
 
+      // حوّل إلى نص
       final String jsonString = String.fromCharCodes(downloadedData);
       final backupData = json.decode(jsonString) as Map<String, dynamic>;
 
-      for (final entry in backupData.entries) {
-        final boxName = entry.key;
-        final data = entry.value as Map<dynamic, dynamic>;
+      // استعد كل صندوق حسب نوعه
 
-        if (Hive.isBoxOpen(boxName)) {
+      // الصناديق العادية
+      for (final boxName in [
+        'settings',
+        'savedSheetSizes',
+        'maintenanceRecords',
+        'storeEntries'
+      ]) {
+        if (Hive.isBoxOpen(boxName) && backupData.containsKey(boxName)) {
           final box = Hive.box(boxName);
           await box.clear();
-
-          if (boxName == 'workers') {
-            data.forEach((key, value) {
-              box.put(key, Worker.fromJson(Map<String, dynamic>.from(value)));
-            });
-          } else if (boxName == 'worker_actions') {
-            data.forEach((key, value) {
-              box.put(
-                  key, WorkerAction.fromJson(Map<String, dynamic>.from(value)));
-            });
-          } else {
-            data.forEach((key, value) {
-              box.put(key, value);
-            });
-          }
+          final data = backupData[boxName] as Map<dynamic, dynamic>;
+          data.forEach((key, value) {
+            box.put(key, value);
+          });
         }
+      }
+
+      // صندوق InkReports
+      if (Hive.isBoxOpen('inkReports') &&
+          backupData.containsKey('inkReports')) {
+        final box = Hive.box('inkReports'); // 👈 بدون <InkReport>
+        await box.clear();
+        final data = backupData['inkReports'] as Map<dynamic, dynamic>;
+        data.forEach((key, value) {
+          if (value is InkReport) {
+            box.put(key, value);
+          } else if (value is Map) {
+            box.put(key, InkReport.fromJson(Map<String, dynamic>.from(value)));
+          }
+        });
+      }
+
+      // صندوق العمال
+      if (Hive.isBoxOpen('workers') && backupData.containsKey('workers')) {
+        final box = Hive.box<Worker>('workers');
+        await box.clear();
+        final data = backupData['workers'] as Map<dynamic, dynamic>;
+        data.forEach((key, value) {
+          box.put(key, Worker.fromJson(Map<String, dynamic>.from(value)));
+        });
+      }
+
+      // صندوق الإجراءات
+      if (Hive.isBoxOpen('worker_actions') &&
+          backupData.containsKey('worker_actions')) {
+        final box = Hive.box<WorkerAction>('worker_actions');
+        await box.clear();
+        final data = backupData['worker_actions'] as Map<dynamic, dynamic>;
+        data.forEach((key, value) {
+          box.put(key, WorkerAction.fromJson(Map<String, dynamic>.from(value)));
+        });
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('✅ تم استعادة النسخة من: ${latestFile.name}')),
       );
-    } catch (e) {
+    } on Exception catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ خطأ في الاستعادة: ${e.toString()}')),
       );

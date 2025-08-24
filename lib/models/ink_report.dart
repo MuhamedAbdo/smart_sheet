@@ -1,40 +1,45 @@
 // lib/src/models/ink_report.dart
 
 import 'package:hive_flutter/hive_flutter.dart';
+import 'dimension.dart';
+import 'color_quantity.dart';
 
 part 'ink_report.g.dart';
 
 @HiveType(typeId: 3)
 class InkReport extends HiveObject {
   @HiveField(0)
-  final String id;
+  late String id;
 
   @HiveField(1)
-  final String date;
+  late String date;
 
   @HiveField(2)
-  final String clientName;
+  late String clientName;
 
   @HiveField(3)
-  final String product;
+  late String product;
 
   @HiveField(4)
-  final String productCode;
+  late String productCode;
 
   @HiveField(5)
-  final Map<String, dynamic> dimensions;
+  late Dimension dimensions;
 
   @HiveField(6)
-  final List<Map<String, double>> colors;
+  late List<ColorQuantity> colors;
 
   @HiveField(7)
-  final int quantity;
+  late int quantity;
 
   @HiveField(8)
-  final String? notes;
+  late String? notes;
 
   @HiveField(9)
-  final List<String> imageUrls;
+  late List<String> imageUrls; // للسحابة
+
+  @HiveField(10)
+  late List<String> imagePaths; // للجهاز المحلي
 
   InkReport({
     required this.id,
@@ -47,6 +52,7 @@ class InkReport extends HiveObject {
     required this.quantity,
     this.notes,
     required this.imageUrls,
+    required this.imagePaths,
   });
 
   Map<String, dynamic> toJson() {
@@ -56,42 +62,42 @@ class InkReport extends HiveObject {
       'client_name': clientName,
       'product': product,
       'product_code': productCode,
-      'dimensions': dimensions,
-      'colors': colors.map((c) => c).toList(),
+      'dimensions': dimensions.toMap(),
+      'colors': colors.map((c) => c.toMap()).toList(),
       'quantity': quantity,
       'notes': notes,
       'image_urls': imageUrls,
+      'imagePaths': imagePaths,
     };
   }
 
   factory InkReport.fromJson(Map<String, dynamic> map) {
-    List<dynamic> colorsList = map['colors'] ?? [];
-    List<dynamic> imagesList = map['image_urls'] ?? [];
-
-    List<Map<String, double>> parsedColors = colorsList
-        .map<Map<String, double>>((item) => Map<String, double>.from(
-            (item as Map)
-                .map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))))
-        .toList();
-
-    List<String> parsedImages =
-        imagesList.map((item) => item.toString()).toList();
+    // 🟡 Debugging print
+    print("⚠️ InkReport.fromJson input: $map");
 
     return InkReport(
-      id: map['id'] ?? '',
-      date: map['date'] ?? '',
-      clientName: map['client_name'] ?? '',
-      product: map['product'] ?? '',
-      productCode: map['product_code'] ?? '',
-      dimensions: map['dimensions'] is Map
-          ? Map<String, dynamic>.from(map['dimensions'])
-          : {},
-      colors: parsedColors,
-      quantity: map['quantity'] is int
-          ? map['quantity']
-          : int.tryParse(map['quantity'].toString()) ?? 0,
-      notes: map['notes'],
-      imageUrls: parsedImages,
+      id: map['id']?.toString() ?? '',
+      date: map['date']?.toString() ?? '',
+      clientName: map['client_name']?.toString() ?? '',
+      product: map['product']?.toString() ?? '',
+      productCode: map['product_code']?.toString() ?? '',
+      dimensions: (map['dimensions'] is Map<String, dynamic>)
+          ? Dimension.fromMap(Map<String, dynamic>.from(map['dimensions']))
+          : Dimension(length: 0, width: 0, height: 0),
+      colors: (map['colors'] is List)
+          ? (map['colors'] as List)
+              .whereType<Map>()
+              .map((c) => ColorQuantity.fromMap(Map<String, dynamic>.from(c)))
+              .toList()
+          : <ColorQuantity>[],
+      quantity: (map['quantity'] as num?)?.toInt() ?? 0,
+      notes: map['notes']?.toString(),
+      imageUrls: (map['image_urls'] is List)
+          ? (map['image_urls'] as List).map((e) => e.toString()).toList()
+          : <String>[],
+      imagePaths: (map['imagePaths'] is List)
+          ? (map['imagePaths'] as List).map((e) => e.toString()).toList()
+          : <String>[],
     );
   }
 }
