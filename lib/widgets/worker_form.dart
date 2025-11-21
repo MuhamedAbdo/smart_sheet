@@ -6,17 +6,23 @@ import 'package:smart_sheet/models/worker_model.dart';
 
 class WorkerForm extends StatefulWidget {
   final Worker? existingWorker;
+  final Box<Worker> box; // ✅ إضافة الحقل
 
-  const WorkerForm({super.key, this.existingWorker});
+  const WorkerForm(
+      {super.key, this.existingWorker, required this.box}); // ✅ تعديل المُنشئ
 
   @override
   State<WorkerForm> createState() => _WorkerFormState();
 
-  // ✅ الدالة الثابتة لفتح الـ Dialog
-  static void show(BuildContext context, {Worker? existingWorker}) {
+  // ✅ تعديل الدالة الثابتة لتمرير الصندوق
+  static void show(BuildContext context,
+      {Worker? existingWorker, Box<Worker>? box}) {
+    // ✅ تأكد من أن الصندوق مُمرر، وإلا استخدم القيمة الافتراضية (لكن من الأفضل دائمًا تمريره)
+    final effectiveBox = box ?? Hive.box<Worker>('workers');
     showDialog(
       context: context,
-      builder: (context) => WorkerForm(existingWorker: existingWorker),
+      builder: (context) => WorkerForm(
+          existingWorker: existingWorker, box: effectiveBox), // ✅ تمرير الصندوق
     );
   }
 }
@@ -46,9 +52,9 @@ class _WorkerFormState extends State<WorkerForm> {
   }
 
   void _saveWorker() {
-    final box = Hive.box<Worker>('workers');
+    // ✅ استخدام الصندوق المُمرر
     if (widget.existingWorker == null) {
-      box.add(Worker(
+      widget.box.add(Worker(
         name: nameController.text,
         phone: phoneController.text,
         job: job,

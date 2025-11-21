@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/finished_product_screen.dart';
+import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart'; // ✅ استيراد زر الواجهة
 
@@ -61,6 +62,22 @@ class StapleDepartmentScreen extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (context) =>
                               const FinishedProductScreen(), // <-- هنا
+                        ),
+                      );
+                    },
+                  ),
+                  HomeButton(
+                    icon: Icons.people,
+                    label: 'طاقم الدبوس',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const WorkersScreen(
+                            departmentBoxName:
+                                'workers_staple', // ✅ اسم الصندوق المخصص
+                            departmentTitle: 'طاقم الدبوس', // ✅ عنوان القسم
+                          ),
                         ),
                       );
                     },

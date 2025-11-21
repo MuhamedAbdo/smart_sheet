@@ -8,8 +8,10 @@ import 'package:smart_sheet/widgets/app_drawer.dart';
 
 class WorkerDetailsScreen extends StatefulWidget {
   final Worker worker;
+  final Box<Worker> box; // ✅ إضافة الحقل
 
-  const WorkerDetailsScreen({super.key, required this.worker});
+  const WorkerDetailsScreen(
+      {super.key, required this.worker, required this.box}); // ✅ تعديل المُنشئ
 
   @override
   State<WorkerDetailsScreen> createState() => _WorkerDetailsScreenState();
@@ -53,7 +55,10 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                           margin: const EdgeInsets.symmetric(
                               vertical: 8, horizontal: 16),
                           child: ListTile(
-                            title: Text("${action.type} (${action.days} يوم)"),
+                            // ✅ تعديل عرض النوع وعدد الأيام
+                            title: Text(
+                              "${action.type} (${action.days.toStringAsFixed(0)} يوم)", // ✅ استخدام toStringAsFixed(0)
+                            ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -116,12 +121,24 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
   void _showAddActionDialog(BuildContext context) {
     final actionType = ValueNotifier<String>('إجازة');
-    final days = ValueNotifier<double>(1.0);
+    final days = ValueNotifier<double>(1.0); // ✅ تغيير إلى double مؤقتًا
     final date = ValueNotifier<DateTime>(DateTime.now());
     final returnDate = ValueNotifier<DateTime?>(null);
     final startTime = ValueNotifier<TimeOfDay?>(null);
     final endTime = ValueNotifier<TimeOfDay?>(null);
     final notesController = TextEditingController();
+
+    // ✅ دالة لحساب الأيام
+    void calculateDays() {
+      if (returnDate.value != null) {
+        final difference =
+            returnDate.value!.difference(date.value).inDays.abs();
+        days.value = (difference + 1)
+            .toDouble(); // +1 لأن الفرق بين يوم 1 و 3 هو يومان، لكن العدد الفعلي 3-1=2، نريد 3 أيام (1، 2، 3)
+      } else {
+        days.value = 1.0; // افتراضيًا 1 يوم إذا لم يكن هناك تاريخ عودة
+      }
+    }
 
     showDialog(
       context: context,
@@ -143,7 +160,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                     DropdownMenuItem(
                         value: 'تأمين صحي', child: Text('تأمين صحي')),
                   ],
-                  onChanged: (val) => actionType.value = val ?? 'إجازة',
+                  onChanged: (val) =>
+                      setState(() => actionType.value = val ?? 'إجازة'),
                   decoration: const InputDecoration(labelText: "نوع الإجراء"),
                 ),
                 TextField(
@@ -161,6 +179,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                     );
                     if (picked != null) {
                       date.value = picked;
+                      calculateDays(); // ✅ حساب الأيام عند تغيير التاريخ
                       setState(() {});
                     }
                   },
@@ -184,6 +203,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                       );
                       if (picked != null) {
                         returnDate.value = picked;
+                        calculateDays(); // ✅ حساب الأيام عند تغيير تاريخ العودة
                         setState(() {});
                       }
                     },
@@ -209,9 +229,16 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             ElevatedButton(
               onPressed: () async {
                 final actionBox = Hive.box<WorkerAction>('worker_actions');
+                // ✅ استخدام القيمة المحسوبة من الدالة
+                final calculatedDays = returnDate.value != null
+                    ? (returnDate.value!.difference(date.value).inDays.abs() +
+                            1)
+                        .toDouble()
+                    : 1.0;
+
                 final newAction = WorkerAction(
                   type: actionType.value,
-                  days: days.value,
+                  days: calculatedDays, // ✅ استخدام القيمة المحسوبة
                   date: date.value,
                   returnDate: returnDate.value,
                   notes: notesController.text,
@@ -224,7 +251,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 final savedAction = actionBox.get(key);
                 if (savedAction != null) {
                   widget.worker.actions.add(savedAction);
-                  await widget.worker.save();
+                  await widget.worker.save(); // ✅ الحفظ على الكائن نفسه
                 }
                 Navigator.pop(context);
                 _refresh();
@@ -266,12 +293,29 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   Future<void> _showEditActionDialog(
       BuildContext context, WorkerAction action, int index) async {
     final actionType = ValueNotifier<String>(action.type);
-    final days = ValueNotifier<double>(action.days);
+    // ✅ استخدام عدد الأيام المحسوب من التاريخين إذا كان التاريخين معرفين
+    final days = ValueNotifier<double>(
+      (action.returnDate != null)
+          ? (action.returnDate!.difference(action.date).inDays.abs() + 1)
+              .toDouble()
+          : action.days, // استخدام القيمة المحفوظة كاحتياط
+    );
     final date = ValueNotifier<DateTime>(action.date);
     final returnDate = ValueNotifier<DateTime?>(action.returnDate);
     final startTime = ValueNotifier<TimeOfDay?>(action.startTime);
     final endTime = ValueNotifier<TimeOfDay?>(action.endTime);
     final notesController = TextEditingController(text: action.notes ?? '');
+
+    // ✅ دالة لحساب الأيام
+    void calculateDays() {
+      if (returnDate.value != null) {
+        final difference =
+            returnDate.value!.difference(date.value).inDays.abs();
+        days.value = (difference + 1).toDouble();
+      } else {
+        days.value = 1.0;
+      }
+    }
 
     await showDialog(
       context: context,
@@ -293,7 +337,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                     DropdownMenuItem(
                         value: 'تأمين صحي', child: Text('تأمين صحي')),
                   ],
-                  onChanged: (val) => actionType.value = val ?? 'إجازة',
+                  onChanged: (val) =>
+                      setState(() => actionType.value = val ?? 'إجازة'),
                   decoration: const InputDecoration(labelText: "نوع الإجراء"),
                 ),
                 TextField(
@@ -311,6 +356,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                     );
                     if (picked != null) {
                       date.value = picked;
+                      calculateDays(); // ✅ حساب الأيام عند تغيير التاريخ
                       setState(() {});
                     }
                   },
@@ -334,6 +380,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                       );
                       if (picked != null) {
                         returnDate.value = picked;
+                        calculateDays(); // ✅ حساب الأيام عند تغيير تاريخ العودة
                         setState(() {});
                       }
                     },
@@ -359,9 +406,17 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             ElevatedButton(
               onPressed: () async {
                 final actionBox = Hive.box<WorkerAction>('worker_actions');
-                final newAction = WorkerAction(
+                // ✅ استخدام القيمة المحسوبة من الدالة
+                final calculatedDays = returnDate.value != null
+                    ? (returnDate.value!.difference(date.value).inDays.abs() +
+                            1)
+                        .toDouble()
+                    : days
+                        .value; // استخدام القيمة المدخلة يدويًا إذا لم يكن هناك تاريخ عودة
+
+                final updatedAction = WorkerAction(
                   type: actionType.value,
-                  days: days.value,
+                  days: calculatedDays, // ✅ استخدام القيمة المحسوبة
                   date: date.value,
                   returnDate: returnDate.value,
                   notes: notesController.text,
@@ -370,12 +425,12 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   endTimeHour: endTime.value?.hour,
                   endTimeMinute: endTime.value?.minute,
                 );
-                final key = await actionBox.add(newAction);
+                final key = await actionBox.add(updatedAction);
                 final savedAction = actionBox.get(key);
                 if (savedAction != null) {
                   widget.worker.actions.removeAt(index);
                   widget.worker.actions.insert(index, savedAction);
-                  await widget.worker.save();
+                  await widget.worker.save(); // ✅ الحفظ على الكائن نفسه
                 }
                 Navigator.pop(context);
                 _refresh();

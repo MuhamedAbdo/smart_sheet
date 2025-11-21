@@ -136,14 +136,16 @@ class FlexoScreen extends StatelessWidget {
                   ),
                   HomeButton(
                     icon: Icons.group,
-                    label: 'طاقم العمل',
+                    label: 'طاقم الفلكسو', // ✅ تغيير التسمية
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const WorkersScreen(
-                            departmentBoxName: 'workers',
-                            departmentTitle: 'طاقم الإنتاج',
+                            // ← استخدام WorkersScreen الجديد
+                            departmentBoxName:
+                                'workers_flexo', // ✅ اسم الصندوق المخصص
+                            departmentTitle: 'طاقم الفلكسو', // ✅ عنوان القسم
                           ),
                         ),
                       );

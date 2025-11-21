@@ -48,6 +48,12 @@ Future<void> main() async {
     // ✅ صناديق العمال والإجراءات
     await Hive.openBox<WorkerAction>('worker_actions');
     await Hive.openBox<Worker>('workers');
+    // ✅ أضف هذا السطر لفتح صندوق 'workers_flexo'
+    await Hive.openBox<Worker>('workers_flexo'); // <-- هنا
+    // ✅ أضف هذا السطر لفتح صندوق 'workers_production'
+    await Hive.openBox<Worker>('workers_production'); // <-- هنا
+    // ✅ أضف هذا السطر لفتح صندوق 'workers_staple'
+    await Hive.openBox<Worker>('workers_staple'); // <-- هنا
 
     // ✅ أضف هذا السطر لفتح صندوق_finished_product_model
     await Hive.openBox<FinishedProduct>('finished_products'); // <-- هنا
@@ -84,10 +90,16 @@ class SmartSheetApp extends StatelessWidget {
             const CameraQualitySettingsScreen(),
         '/maintenance': (context) => const MaintenanceScreen(),
         '/store_entry': (context) => const StoreEntryScreen(),
+        // ✅ تحديث مسار '/workers' لتمرير الاسم بشكل عام
         '/workers': (context) => const WorkersScreen(
-              departmentBoxName: 'workers',
-              departmentTitle: 'طاقم العمل',
+              departmentBoxName: 'workers', // القيمة الافتراضية
+              departmentTitle: 'طاقم العمل', // القيمة الافتراضية
             ),
+        // ✅ يمكنك إضافة مسار لطاقم الدبوس إذا أردت (اختياري)
+        // '/workers_staple': (context) => const WorkersScreen(
+        //       departmentBoxName: 'workers_staple',
+        //       departmentTitle: 'طاقم الدبوس',
+        //     ),
       },
     );
   }

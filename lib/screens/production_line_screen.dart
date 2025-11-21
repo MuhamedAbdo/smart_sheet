@@ -108,14 +108,16 @@ class ProductionLineScreen extends StatelessWidget {
                   ),
                   HomeButton(
                     icon: Icons.group,
-                    label: 'طاقم العمل',
+                    label: 'طاقم خط الإنتاج', // ✅ تغيير التسمية
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const WorkersScreen(
-                            departmentBoxName: 'workers',
-                            departmentTitle: 'طاقم خط الإنتاج',
+                            // ← استخدام WorkersScreen الجديد
+                            departmentBoxName:
+                                'workers_production', // ✅ اسم الصندوق المخصص
+                            departmentTitle: 'طاقم خط الإنتاج', // ✅ عنوان القسم
                           ),
                         ),
                       );
