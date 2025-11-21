@@ -6,11 +6,12 @@ import 'package:provider/provider.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 // ✅ أضف هذا السطر
-import 'package:smart_sheet/models/finished_product_model.dart'; // <-- هنا
+import 'package:smart_sheet/models/finished_product_model.dart'; // <-- ✅ خلي بالك، ده السطر الجديد
 import 'package:smart_sheet/providers/auth_provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/camera_quality_settings_screen.dart';
-import 'package:smart_sheet/screens/maintenance_screen.dart';
+// ✅ استيراد الشاشة المُعدّة
+import 'package:smart_sheet/screens/maintenance_screen.dart'; // <-- هنا
 import 'package:smart_sheet/screens/settings_screen.dart';
 import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
@@ -33,7 +34,8 @@ Future<void> main() async {
     Hive.registerAdapter(WorkerAdapter());
     Hive.registerAdapter(WorkerActionAdapter());
     // ✅ أضف هذا السطر لتسجيل نموذج_finished_product_model
-    Hive.registerAdapter(FinishedProductAdapter()); // <-- هنا
+    Hive.registerAdapter(
+        FinishedProductAdapter()); // <-- ✅ خلي بالك، ده السطر الجديد
 
     // ✅ 2. فتح الصناديق مرة واحدة فقط
     await Hive.openBox('settings');
@@ -49,14 +51,18 @@ Future<void> main() async {
     await Hive.openBox<WorkerAction>('worker_actions');
     await Hive.openBox<Worker>('workers');
     // ✅ أضف هذا السطر لفتح صندوق 'workers_flexo'
-    await Hive.openBox<Worker>('workers_flexo'); // <-- هنا
+    await Hive.openBox<Worker>(
+        'workers_flexo'); // <-- ✅ خلي بالك، ده السطر الجديد
     // ✅ أضف هذا السطر لفتح صندوق 'workers_production'
-    await Hive.openBox<Worker>('workers_production'); // <-- هنا
+    await Hive.openBox<Worker>(
+        'workers_production'); // <-- ✅ خلي بالك، ده السطر الجديد
     // ✅ أضف هذا السطر لفتح صندوق 'workers_staple'
-    await Hive.openBox<Worker>('workers_staple'); // <-- هنا
+    await Hive.openBox<Worker>(
+        'workers_staple'); // <-- ✅ خلي بالك، ده السطر الجديد
 
     // ✅ أضف هذا السطر لفتح صندوق_finished_product_model
-    await Hive.openBox<FinishedProduct>('finished_products'); // <-- هنا
+    await Hive.openBox<FinishedProduct>(
+        'finished_products'); // <-- ✅ خلي بالك، ده السطر الجديد
   }
 
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
@@ -88,7 +94,11 @@ class SmartSheetApp extends StatelessWidget {
         SettingsScreen.routeName: (context) => const SettingsScreen(),
         CameraQualitySettingsScreen.routeName: (context) =>
             const CameraQualitySettingsScreen(),
-        '/maintenance': (context) => const MaintenanceScreen(),
+        // ✅ تعديل مسار '/maintenance' لتمرير الاسم والعنوان الافتراضي (مثلاً، إنتاج)
+        '/maintenance': (context) => const MaintenanceScreen(
+              boxName: 'maintenanceRecords', // ✅ الاسم الافتراضي
+              title: 'سجلات الصيانة', // ✅ العنوان الافتراضي
+            ),
         '/store_entry': (context) => const StoreEntryScreen(),
         // ✅ تحديث مسار '/workers' لتمرير الاسم بشكل عام
         '/workers': (context) => const WorkersScreen(

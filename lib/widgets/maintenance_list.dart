@@ -20,11 +20,24 @@ class MaintenanceList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ استخدام ValueListenableBuilder للتحديث التلقائي عند إضافة الصور
     return ValueListenableBuilder(
       valueListenable: box.listenable(),
       builder: (context, Box box, _) {
         if (box.isEmpty) {
-          return const Center(child: Text("🚫 لا يوجد سجلات صيانة بعد"));
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.build, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  "🚫 لا يوجد سجلات صيانة بعد",
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ],
+            ),
+          );
         }
 
         return ListView.builder(

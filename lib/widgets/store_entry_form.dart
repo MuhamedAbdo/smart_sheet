@@ -60,6 +60,7 @@ class _StoreEntryFormState extends State<StoreEntryForm> {
     if (picked != null) {
       dateController.text = "${picked.year}-${picked.month}-${picked.day}";
     }
+    // إذا عادت picked بقيمة null، فلن يتم تغيير محتوى الحقل
   }
 
   void _save() {

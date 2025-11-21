@@ -24,6 +24,10 @@ class MaintenanceRecord extends HiveObject {
   @HiveField(5)
   final String? notes;
 
+  // ✅ إضافة الحقل لدعم الصور
+  @HiveField(6)
+  final List<String>? imagePaths;
+
   MaintenanceRecord({
     required this.date,
     required this.machine,
@@ -31,5 +35,36 @@ class MaintenanceRecord extends HiveObject {
     required this.technician,
     required this.action,
     this.notes,
+    // ✅ تمرير الحقل الجديد في المُنشئ
+    this.imagePaths,
   });
+
+  // ✅ دالة لتحويل النموذج إلى Map (للاستخدام مع Hive)
+  Map<String, dynamic> toJson() {
+    return {
+      'date': date,
+      'machine': machine,
+      'issue': issue,
+      'technician': technician,
+      'action': action,
+      'notes': notes,
+      // ✅ إضافة الحقل الجديد إلى التحويل
+      'imagePaths': imagePaths,
+    };
+  }
+
+  // ✅ دالة لتحويل Map إلى نموذج (للاستخدام مع Hive)
+  factory MaintenanceRecord.fromJson(Map<String, dynamic> map) {
+    return MaintenanceRecord(
+      date: map['date'] ?? '',
+      machine: map['machine'] ?? '',
+      issue: map['issue'] ?? '',
+      technician: map['technician'] ?? '',
+      action: map['action'] ?? '',
+      notes: map['notes'],
+      // ✅ قراءة الحقل الجديد من الـ Map
+      imagePaths:
+          (map['imagePaths'] as List?)?.map((e) => e.toString()).toList(),
+    );
+  }
 }

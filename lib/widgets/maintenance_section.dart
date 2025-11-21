@@ -43,9 +43,15 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
         onSave: (record) async {
           final box = await _boxFuture;
           if (index == null) {
-            box.add(record);
+            await box.add(record);
           } else {
-            box.putAt(index, record);
+            await box.putAt(index, record);
+          }
+          // ✅ إعادة تحميل البيانات لعرض الصور مباشرة
+          if (mounted) {
+            setState(() {
+              _boxFuture = _openBox();
+            });
           }
           Navigator.pop(context);
         },
@@ -56,6 +62,12 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
   void _deleteMaintenance(int index) async {
     final box = await _boxFuture;
     await box.deleteAt(index);
+    // ✅ إعادة تحميل البيانات
+    if (mounted) {
+      setState(() {
+        _boxFuture = _openBox();
+      });
+    }
   }
 
   @override
@@ -71,7 +83,6 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
           final box = snapshot.data!;
 
           return Scaffold(
-            // ✅ تم إضافة Scaffold هنا
             body: MaintenanceList(
               box: box,
               onAdd: () => _addOrEditMaintenance(),

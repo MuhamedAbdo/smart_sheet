@@ -115,12 +115,14 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled: true, // ✅ لجعل النافذة تملأ الشاشة جزئيًا
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
           return Padding(
             padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom),
+                bottom: MediaQuery.of(context)
+                    .viewInsets
+                    .bottom), // ✅ لتجنب مشكلة لوحة المفاتيح
             child: SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -128,7 +130,8 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                   key: formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize:
+                        MainAxisSize.min, // ✅ لجعل الارتفاع يتناسب مع المحتوى
                     children: [
                       Text(
                         existingProduct == null
@@ -216,61 +219,89 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                         maxLines: 3,
                       ),
                       const SizedBox(height: 16),
-                      // عرض الصور الملتقطة
-                      if (capturedImages.isNotEmpty)
-                        SizedBox(
-                          height: 100,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: capturedImages.length,
-                            itemBuilder: (context, index) => Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4.0),
-                              child: Stack(
-                                alignment: Alignment.topRight,
-                                children: [
-                                  GestureDetector(
-                                    onTap: () => _showFullScreenImage(
-                                        context, capturedImages, index),
-                                    child: Image.file(
-                                      capturedImages[index],
-                                      width: 80,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.close,
-                                        size: 18, color: Colors.red),
-                                    onPressed: () {
-                                      setModalState(() {
-                                        capturedImages.removeAt(index);
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 8),
-                      // زر التقاط صورة
+                      // ✅ قسم الكاميرا (يظهر فقط إذا كانت الكاميرا متوفرة)
                       if (_isCameraAvailable)
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            // ✅ استخدام الكонт롤ر نفسه
-                            final image = await _captureImage();
-                            if (image != null) {
-                              setModalState(() {
-                                capturedImages.add(image);
-                              });
-                            }
-                          },
-                          icon: const Icon(Icons.camera_alt),
-                          label: const Text("التقط صورة"),
+                        Column(
+                          children: [
+                            const Text(
+                              "📸 معاينة الكاميرا",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                            // ✅ عرض معاينة الكاميرا
+                            Container(
+                              height: 200, // ارتفاع مناسب للمعاينة
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: CameraPreview(_cameraController),
+                            ),
+                            const SizedBox(height: 8),
+                            // ✅ زر التقاط الصورة
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final image = await _captureImage();
+                                if (image != null) {
+                                  setModalState(() {
+                                    capturedImages.add(image);
+                                  });
+                                }
+                              },
+                              icon: const Icon(Icons.camera),
+                              label: const Text("التقط صورة"),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
                         )
                       else
                         const Text("الكاميرا غير متاحة"),
+                      // عرض الصور الملتقطة مسبقًا
+                      if (capturedImages.isNotEmpty)
+                        Column(
+                          children: [
+                            const Text(
+                              "🖼️ الصور الملتقطة",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height: 100,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: capturedImages.length,
+                                itemBuilder: (context, index) => Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4.0),
+                                  child: Stack(
+                                    alignment: Alignment.topRight,
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () => _showFullScreenImage(
+                                            context, capturedImages, index),
+                                        child: Image.file(
+                                          capturedImages[index],
+                                          width: 80,
+                                          height: 80,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close,
+                                            size: 18, color: Colors.red),
+                                        onPressed: () {
+                                          setModalState(() {
+                                            capturedImages.removeAt(index);
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       const SizedBox(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -626,7 +657,7 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
         ],
       ),
       drawer: const AppDrawer(),
-      body: ValueListenableBuilder<Box<FinishedProduct>>(
+      body: ValueListenableBuilder(
         valueListenable: _productsBox!.listenable(),
         builder: (context, Box<FinishedProduct> box, _) {
           if (box.isEmpty) {

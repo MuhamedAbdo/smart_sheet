@@ -101,7 +101,12 @@ class ProductionLineScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const MaintenanceScreen(),
+                          builder: (context) => const MaintenanceScreen(
+                            // ✅ أضف المعلمات المطلوبة
+                            boxName:
+                                'maintenance_production', // <-- اسم الصندوق الخاص بخط الإنتاج
+                            title: 'صيانة خط الإنتاج', // <-- عنوان الشاشة
+                          ),
                         ),
                       );
                     },

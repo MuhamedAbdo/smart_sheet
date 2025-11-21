@@ -104,7 +104,12 @@ class FlexoScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const MaintenanceScreen(),
+                          builder: (context) => const MaintenanceScreen(
+                            // ✅ أضف المعلمات المطلوبة
+                            boxName:
+                                'maintenance_flexo', // <-- اسم الصندوق الخاص بـ Flexo
+                            title: 'صيانة الفلكسو', // <-- عنوان الشاشة
+                          ),
                         ),
                       );
                     },

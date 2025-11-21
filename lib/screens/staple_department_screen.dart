@@ -1,10 +1,12 @@
 // lib/src/screens/staple/staple_department_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:smart_sheet/screens/calculator_screen.dart';
 import 'package:smart_sheet/screens/finished_product_screen.dart';
+import 'package:smart_sheet/screens/maintenance_screen.dart'; // ✅ استيراد شاشة الصيانة المُعدّة
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
-import 'package:smart_sheet/widgets/home_button.dart'; // ✅ استيراد زر الواجهة
+import 'package:smart_sheet/widgets/home_button.dart';
 
 class StapleDepartmentScreen extends StatelessWidget {
   const StapleDepartmentScreen({super.key});
@@ -23,12 +25,11 @@ class StapleDepartmentScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 1,
       ),
-      drawer: const AppDrawer(), // ✅ الـ Drawer متاح
+      drawer: const AppDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // عنوان فوق الأزرار
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -52,7 +53,6 @@ class StapleDepartmentScreen extends StatelessWidget {
                 mainAxisSpacing: 16,
                 childAspectRatio: 1.1,
                 children: [
-                  // ✅ زر جديد يوجه إلى finished_product_screen
                   HomeButton(
                     icon: Icons.check_circle,
                     label: 'المنتج التام',
@@ -60,8 +60,7 @@ class StapleDepartmentScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              const FinishedProductScreen(), // <-- هنا
+                          builder: (context) => const FinishedProductScreen(),
                         ),
                       );
                     },
@@ -74,22 +73,42 @@ class StapleDepartmentScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const WorkersScreen(
-                            departmentBoxName:
-                                'workers_staple', // ✅ اسم الصندوق المخصص
-                            departmentTitle: 'طاقم الدبوس', // ✅ عنوان القسم
+                            departmentBoxName: 'workers_staple',
+                            departmentTitle: 'طاقم الدبوس',
                           ),
                         ),
                       );
                     },
                   ),
-                  // HomeButton(
-                  //   icon: Icons.settings,
-                  //   label: 'إعدادات الدبوس', // مثال لزر آخر يمكنك إضافته لاحقًا
-                  //   onTap: () {
-                  //     // Navigator.push(...);
-                  //   },
-                  // ),
-                  // يمكنك إضافة المزيد من الأزرار هنا
+                  HomeButton(
+                    icon: Icons.calculate,
+                    label: 'الآلة الحاسبة',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CalculatorScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  // ✅ زر "الصيانة" الجديد
+                  HomeButton(
+                    icon: Icons.settings,
+                    label: 'الصيانة',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MaintenanceScreen(
+                            boxName:
+                                'maintenance_staple', // ✅ اسم الصندوق المخصص للدبوس
+                            title: 'صيانة الدبوس', // ✅ عنوان الشاشة
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
