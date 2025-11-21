@@ -6,6 +6,8 @@ import 'package:smart_sheet/providers/auth_provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/backup_restore_screen.dart';
 import 'package:smart_sheet/screens/login_screen.dart';
+import 'package:smart_sheet/screens/screens/about_screen.dart';
+import 'package:smart_sheet/screens/screens/privacy_policy_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -162,13 +164,11 @@ class AppDrawer extends StatelessWidget {
             title: Text('عن التطبيق',
                 style: TextStyle(color: isDarkMode ? Colors.white : null)),
             onTap: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Smart Sheet v0.1.0\nلإدارة مصانع الكرتون',
-                      style:
-                          TextStyle(color: isDarkMode ? Colors.white : null)),
-                ),
+              Navigator.pop(context); // ✅ إغلاق الـ Drawer
+              // ✅ الانتقال إلى شاشة "عن التطبيق"
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AboutScreen()),
               );
             },
           ),
@@ -178,13 +178,12 @@ class AppDrawer extends StatelessWidget {
             title: Text('سياسة الخصوصية',
                 style: TextStyle(color: isDarkMode ? Colors.white : null)),
             onTap: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('عرض سياسة الخصوصية',
-                      style:
-                          TextStyle(color: isDarkMode ? Colors.white : null)),
-                ),
+              Navigator.pop(context); // ✅ إغلاق الـ Drawer
+              // ✅ الانتقال إلى شاشة "سياسة الخصوصية"
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const PrivacyPolicyScreen()),
               );
             },
           ),
