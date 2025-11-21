@@ -2,11 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/calculator_screen.dart';
+import 'package:smart_sheet/screens/color_palette_screen.dart';
 import 'package:smart_sheet/screens/ink_report_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/serial_setup_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
+// ✅ أضف هذا السطر لاستيراد شاشة البالتة
 
 // ✅ استيراد الشاشات
 
@@ -115,6 +117,19 @@ class FlexoScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const CalculatorScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  // ✅ أضف هذا الزر الجديد
+                  HomeButton(
+                    icon: Icons.palette,
+                    label: 'بالتة الألوان',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ColorPaletteScreen(),
                         ),
                       );
                     },
