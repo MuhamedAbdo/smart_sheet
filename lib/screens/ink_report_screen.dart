@@ -5,8 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/ink_report_form.dart';
-// ✅ استيراد الـ Widget الجديد لعرض الصور ملء الشاشة
-import 'package:smart_sheet/widgets/full_screen_image_page.dart'; // <-- هنا
+import 'package:smart_sheet/widgets/full_screen_image_page.dart';
 
 class InkReportScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
@@ -26,7 +25,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
   String _searchQuery = '';
 
   // Filter / Sort
-  bool _sortDescending = true; // true => الأحدث (الأعلى)
+  bool _sortDescending = true;
   bool _onlyWithImages = false;
 
   @override
@@ -34,14 +33,12 @@ class _InkReportScreenState extends State<InkReportScreen> {
     super.initState();
     _inkReportBox = Hive.box('inkReports');
 
-    // ✅ إذا وُجد initialData، افتح الـ dialog فورًا بعد رسم الشاشة
     if (widget.initialData != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showAddReportDialog(widget.initialData);
       });
     }
 
-    // ✅ إضافة مستمع للبحث
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.trim();
@@ -77,22 +74,117 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // ✅ دالة جديدة لفتح الصور ملء الشاشة
   void _showFullScreenImage(List<String> imagePaths, int initialIndex) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FullScreenImagePage(
-          images: imagePaths
-              .map((path) => File(path))
-              .toList(), // تحويل المسارات إلى ملفات
+          images: imagePaths.map((path) => File(path)).toList(),
           initialIndex: initialIndex,
         ),
       ),
     );
   }
 
-  // --- دالتي الفلترة والبحث ---
+  // ✅ دالة لعرض المقاسات بالتنسيق المطلوب
+  Widget _buildDimensionsText(dynamic dimensions) {
+    if (dimensions is! Map) return const Text("📏 غير محدد");
+
+    final length = dimensions['length']?.toString() ?? '';
+    final width = dimensions['width']?.toString() ?? '';
+    final height = dimensions['height']?.toString() ?? '';
+
+    String formatNumber(String value) {
+      if (value.contains('.')) {
+        final parts = value.split('.');
+        if (parts[1] == '0') {
+          return parts[0];
+        }
+        return value
+            .replaceAll(RegExp(r'0*$'), '')
+            .replaceAll(RegExp(r'\.$'), '');
+      }
+      return value;
+    }
+
+    final formattedLength = formatNumber(length);
+    final formattedWidth = formatNumber(width);
+    final formattedHeight = formatNumber(height);
+
+    return Text("📏 $formattedLength/$formattedWidth/$formattedHeight");
+  }
+
+  // ✅ دالة لعرض الألوان والكميات
+  Widget _buildColorsList(List<dynamic> colors) {
+    if (colors.isEmpty) return const Text("🎨 لا توجد ألوان");
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: colors.map<Widget>((c) {
+        final color = c['color'] ?? '';
+        var quantity = (c['quantity'] ?? '').toString();
+        if (quantity.startsWith('.')) {
+          quantity = '0$quantity';
+        }
+        return Text("🎨 $color - $quantity لتر");
+      }).toList(),
+    );
+  }
+
+  // ✅ دالة لعرض عدد الشيتات
+  Widget _buildQuantityText(dynamic quantity) {
+    final qty = quantity?.toString() ?? '0';
+    return Text("🔢 عدد الشيتات: $qty");
+  }
+
+  // ✅ دالة لعرض الملاحظات
+  Widget _buildNotesText(dynamic notes) {
+    if (notes == null || notes.toString().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("📝 الملاحظات:",
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        Text(notes.toString()),
+      ],
+    );
+  }
+
+  // ✅ دالة لعرض الصور
+  Widget _buildImagesList(List<String> images) {
+    if (images.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("📸 الصور المرفقة:",
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 60,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: images.length,
+            itemBuilder: (context, i) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: GestureDetector(
+                onTap: () => _showFullScreenImage(images, i),
+                child: Image.file(
+                  File(images[i]),
+                  width: 50,
+                  height: 50,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   bool _matchesSearch(Map<String, dynamic> report, String q) {
     if (q.isEmpty) return true;
     final lower = q.toLowerCase();
@@ -179,10 +271,10 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
+  // ✅ تعديل نوع البيانات المُعادة
   List<MapEntry<dynamic, Map<String, dynamic>>> _prepareRecords(Box box) {
     var entries = box.toMap().entries.toList();
 
-    // الترتيب حسب التاريخ (date) الموجود في record
     entries.sort((a, b) {
       DateTime parseDate(dynamic value) {
         if (value is String) {
@@ -193,38 +285,64 @@ class _InkReportScreenState extends State<InkReportScreen> {
         return DateTime(1970);
       }
 
-      final da = parseDate(a.value['date']);
-      final db = parseDate(b.value['date']);
-      return db.compareTo(da); // ترتيب تنازلي (الأحدث أولاً)
+      // ✅ التأكد من أن a.value و b.value من نوع Map قبل الوصول إلى 'date'
+      final aValue = a.value;
+      final bValue = b.value;
+      if (aValue is Map && bValue is Map) {
+        final da = parseDate(aValue['date']);
+        final db = parseDate(bValue['date']);
+        return db.compareTo(da);
+      } else {
+        return 0; // إذا لم تكن Maps، لا تغيّر الترتيب
+      }
     });
 
-    // عكس الترتيب إذا كان _sortDescending = false (الأقدم أولاً)
     if (!_sortDescending) {
       entries = entries.reversed.toList();
     }
 
     var filtered = entries;
     if (_onlyWithImages) {
-      filtered = filtered
-          .where((e) =>
-              (e.value as Map)['imagePaths']?.length ??
-              0 > 0) // ✅ casting إلى Map
-          .toList();
+      filtered = filtered.where((e) {
+        final value = e.value;
+        // ✅ تحقق من أن القيمة عبارة عن Map قبل محاولة الوصول إلى 'imagePaths'
+        if (value is Map) {
+          final imagePaths = value['imagePaths'];
+          // ✅ تحقق من أن imagePaths هو List قبل محاولة الوصول إلى length
+          if (imagePaths is List) {
+            return imagePaths.isNotEmpty;
+          }
+        }
+        // ✅ إذا لم تكن Map أو imagePaths ليست List، أعد false
+        return false;
+      }).toList();
     }
 
     if (_searchQuery.isNotEmpty) {
-      filtered = filtered
-          .where((e) => _matchesSearch(e.value as Map<String, dynamic>,
-              _searchQuery)) // ✅ casting إلى Map<String, dynamic>
-          .toList();
+      filtered = filtered.where((e) {
+        final value = e.value;
+        if (value is Map<String, dynamic>) {
+          // ✅ استخدام _matchesSearch بعد التأكد من النوع
+          return _matchesSearch(value, _searchQuery);
+        }
+        return false; // إذا لم يكن Map<String, dynamic>، لا يطابق البحث
+      }).toList();
     }
 
-    return filtered
-        .map(
-            (entry) => MapEntry(entry.key, entry.value as Map<String, dynamic>))
-        .toList(); // ✅ casting النهائي للقائمة
+    // ✅ التحويل الآمن من dynamic إلى Map<String, dynamic>
+    return filtered.map((entry) {
+      final dynamic key = entry.key;
+      final dynamic value = entry.value;
+      if (value is Map) {
+        // استخدام cast لتحويل Map<dynamic, dynamic> إلى Map<String, dynamic>
+        final typedValue = Map<String, dynamic>.from(value);
+        return MapEntry(key, typedValue);
+      } else {
+        // إذا لم يكن Map، أعد مدخلًا فارغًا أو تجاهل
+        return MapEntry(key, <String, dynamic>{});
+      }
+    }).toList();
   }
-  // ---
 
   @override
   Widget build(BuildContext context) {
@@ -301,98 +419,156 @@ class _InkReportScreenState extends State<InkReportScreen> {
             itemCount: prepared.length,
             itemBuilder: (context, index) {
               final entry = prepared[index];
-              final key = entry.key;
-              final record =
-                  entry.value; // ✅ الآن record هو Map<String, dynamic>
-              // ✅ تعديل كيفية تحويل imagePaths إلى List<String>
+              final dynamic key = entry.key;
+              // ✅ الآن، entry.value هو Map<String, dynamic> مضمون
+              final Map<String, dynamic> record = entry.value;
+
               final images = (record['imagePaths'] is List)
                   ? (record['imagePaths'] as List)
                       .map((e) => e.toString())
-                      .toList() // <-- تم التعديل هنا
+                      .toList()
                   : <String>[];
+              final colors = (record['colors'] is List)
+                  ? List<dynamic>.from(record['colors'])
+                  : [];
+              final quantity = record['quantity'];
+              final notes = record['notes'];
+              final productCode = record['productCode'];
 
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                child: ListTile(
-                  title: Text("📅 ${record['date'] ?? ''}"),
-                  subtitle: Column(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("👤 ${record['clientName'] ?? ''}"),
-                      Text("📦 ${record['product'] ?? ''}"),
-                      Text("📏 ${record['dimensions'] ?? ''}"),
-                      if (record['colors'] is List)
-                        ...record['colors'].map<Widget>((c) {
-                          final color = c['color'] ?? '';
-                          var quantity = (c['quantity'] ?? '').toString();
-                          if (quantity.startsWith('.')) {
-                            quantity = '0$quantity';
-                          }
-                          return Text("🎨 $color - $quantity لتر");
-                        }).toList(),
-                      if (images.isNotEmpty)
-                        SizedBox(
-                          height: 60,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: images.length,
-                            itemBuilder: (context, i) => Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4.0),
-                              child: GestureDetector(
-                                // ✅ إضافة GestureDetector
-                                onTap: () => _showFullScreenImage(images,
-                                    i), // ✅ استدعاء الدالة الجديدة عند النقر
-                                child: Image.file(
-                                  File(images[i]), // ✅ تحويل المسار إلى ملف
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.cover,
-                                ),
+                      // ✅ العنوان والتاريخ
+                      Row(
+                        children: [
+                          const Icon(Icons.description,
+                              color: Colors.blue, size: 24),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "📅 ${record['date'] ?? ''}",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () {
-                          final sanitizedRecord =
-                              _convertValuesToString(record);
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            builder: (context) {
-                              return InkReportForm(
-                                initialData: sanitizedRecord,
-                                reportKey: key.toString(),
-                                onSave: (updatedReport) {
-                                  _inkReportBox.put(key, updatedReport);
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text("✅ تم تحديث التقرير")),
-                                    );
-                                    Navigator.pop(context);
-                                  }
-                                },
-                              );
-                            },
-                          );
-                        },
+                        ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          _inkReportBox.delete(key);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("🗑️ تم حذف التقرير")),
-                          );
-                        },
+                      const SizedBox(height: 12),
+
+                      // ✅ المعلومات الأساسية
+                      _buildInfoRow("👤 العميل:",
+                          record['clientName']?.toString() ?? 'غير محدد'),
+                      _buildInfoRow("📦 الصنف:",
+                          record['product']?.toString() ?? 'غير محدد'),
+                      if (productCode != null &&
+                          productCode.toString().isNotEmpty)
+                        _buildInfoRow("🔢 كود الصنف:", productCode.toString()),
+
+                      const SizedBox(height: 8),
+
+                      // ✅ المقاسات
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("📏 المقاسات:",
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child:
+                                  _buildDimensionsText(record['dimensions'])),
+                        ],
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // ✅ عدد الشيتات
+                      _buildQuantityText(quantity),
+
+                      const SizedBox(height: 8),
+
+                      // ✅ الألوان
+                      _buildColorsList(colors),
+
+                      const SizedBox(height: 8),
+
+                      // ✅ الملاحظات
+                      _buildNotesText(notes),
+
+                      const SizedBox(height: 8),
+
+                      // ✅ الصور
+                      _buildImagesList(images),
+
+                      const SizedBox(height: 12),
+
+                      // ✅ أزرار التحكم
+                      Container(
+                        padding: const EdgeInsets.only(top: 12),
+                        decoration: BoxDecoration(
+                          border: Border(
+                              top: BorderSide(color: Colors.grey.shade300)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  // ✅ التأكد من أن record هو Map<String, dynamic> قبل التمرير
+                                  final sanitizedRecord =
+                                      _convertValuesToString(record);
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    builder: (context) {
+                                      return InkReportForm(
+                                        initialData: sanitizedRecord,
+                                        reportKey: key.toString(),
+                                        onSave: (updatedReport) {
+                                          _inkReportBox.put(key, updatedReport);
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                  content: Text(
+                                                      "✅ تم تحديث التقرير")),
+                                            );
+                                            Navigator.pop(context);
+                                          }
+                                        },
+                                      );
+                                    },
+                                  );
+                                },
+                                icon: const Icon(Icons.edit, size: 18),
+                                label: const Text('تعديل'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  _inkReportBox.delete(key);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text("🗑️ تم حذف التقرير")),
+                                  );
+                                },
+                                icon: const Icon(Icons.delete, size: 18),
+                                label: const Text('حذف'),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -409,6 +585,25 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
+  // ✅ دالة مساعدة لعرض صفوف المعلومات
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(label,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
   Map<String, dynamic> _convertToTypedMap(dynamic data) {
     if (data is Map<String, dynamic>) return data;
     if (data is! Map) return {};
@@ -416,7 +611,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     Map<String, dynamic> result = {};
     data.forEach((key, value) {
       final String stringKey = key.toString();
-
       if (value is Map) {
         result[stringKey] = _convertToTypedMap(value);
       } else if (value is List) {
@@ -440,9 +634,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
           k,
           v.map((item) {
             if (item is Map) {
-              return _convertValuesToString(
-                Map<String, dynamic>.from(item),
-              );
+              return _convertValuesToString(Map<String, dynamic>.from(item));
             }
             return item?.toString() ?? '';
           }).toList(),
