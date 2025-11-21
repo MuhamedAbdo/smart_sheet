@@ -1,6 +1,8 @@
 // lib/src/screens/splash/splash_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -35,38 +37,50 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.white,
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkTheme;
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // صورة الشعار
+            // صورة الشعار حسب الثيم
             Image(
-              image: AssetImage('assets/images/logo.png'),
+              image: AssetImage(
+                isDarkMode
+                    ? 'assets/images/logo_dark.jpg'
+                    : 'assets/images/logo_light.jpg',
+              ),
               width: 120,
               height: 120,
             ),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             // اسم التطبيق
             Text(
               'Smart Sheet',
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: isDarkMode ? Colors.white : Colors.black,
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             // نص التحميل
             Text(
               'جاري التحميل...',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 16,
+                color: isDarkMode ? Colors.grey[300] : Colors.grey,
+              ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             // مؤشر التحميل
             CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isDarkMode ? Colors.blue[300]! : Colors.blue,
+              ),
             ),
           ],
         ),

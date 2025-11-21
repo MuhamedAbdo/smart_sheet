@@ -80,7 +80,7 @@ class _WorkerFormState extends State<WorkerForm> {
               decoration: const InputDecoration(labelText: "📞 الهاتف"),
               keyboardType: TextInputType.phone),
           DropdownButtonFormField(
-            value: job,
+            initialValue: job,
             items: jobOptions
                 .map((j) => DropdownMenuItem(value: j, child: Text(j)))
                 .toList(),

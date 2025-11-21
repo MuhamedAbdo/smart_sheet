@@ -1,15 +1,35 @@
 // lib/src/providers/theme_provider.dart
 
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 class ThemeProvider with ChangeNotifier {
-  bool _isDarkTheme = false;
+  static const String _settingsBox = 'settings';
+  static const String _themeKey = 'isDarkTheme';
+
+  late bool _isDarkTheme;
 
   bool get isDarkTheme => _isDarkTheme;
 
-  void toggleTheme() {
-    _isDarkTheme = !_isDarkTheme;
+  ThemeProvider() {
+    _loadTheme();
+  }
+
+  Future<void> _loadTheme() async {
+    final box = Hive.box(_settingsBox);
+    _isDarkTheme = box.get(_themeKey, defaultValue: false);
     notifyListeners();
+  }
+
+  Future<void> toggleTheme() async {
+    _isDarkTheme = !_isDarkTheme;
+    await _saveTheme();
+    notifyListeners();
+  }
+
+  Future<void> _saveTheme() async {
+    final box = Hive.box(_settingsBox);
+    await box.put(_themeKey, _isDarkTheme);
   }
 
   ThemeData get theme => _isDarkTheme ? _darkTheme : _lightTheme;

@@ -40,8 +40,9 @@ class ProductionLineScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 12),
               color: Colors.blue.shade50,
               child: const Text(
-                'اختر القسم الذي تريد العمل فيه:',
+                'اختر القسم الذي تريد العمل فيه :',
                 textAlign: TextAlign.center,
+                textDirection: TextDirection.rtl,
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.blue,

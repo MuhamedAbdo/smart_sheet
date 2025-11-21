@@ -156,7 +156,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                   onChanged: (v) => setState(() => isFixed = v ?? false)),
             ]),
             DropdownButtonFormField<String>(
-              value: repairLocation,
+              initialValue: repairLocation,
               items: const [
                 DropdownMenuItem(value: 'في المصنع', child: Text('في المصنع')),
                 DropdownMenuItem(

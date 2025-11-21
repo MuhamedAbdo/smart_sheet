@@ -39,7 +39,7 @@ class SettingsScreen extends StatelessWidget {
               value: themeProvider.isDarkTheme,
               onChanged: (value) => themeProvider.toggleTheme(),
               activeTrackColor: Colors.grey[700],
-              activeColor: Colors.orange,
+              activeThumbColor: Colors.orange,
             ),
             onTap: () {},
           ),

@@ -133,7 +133,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: actionType.value,
+                  initialValue: actionType.value,
                   items: const [
                     DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
                     DropdownMenuItem(value: 'غياب', child: Text('غياب')),
@@ -283,7 +283,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: actionType.value,
+                  initialValue: actionType.value,
                   items: const [
                     DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
                     DropdownMenuItem(value: 'غياب', child: Text('غياب')),
