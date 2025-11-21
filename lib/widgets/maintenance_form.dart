@@ -70,6 +70,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
+    // ✅ تحقق من أن picked ليس null قبل استخدامه
     if (picked != null) {
       controller.text = "${picked.year}-${picked.month}-${picked.day}";
     }

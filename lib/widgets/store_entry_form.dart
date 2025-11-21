@@ -1,6 +1,6 @@
 // lib/src/widgets/store/store_entry_form.dart
 
-import 'package:flutter/material.dart'; // ✅ هذا الاستيراد يحتوي على showDialog
+import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class StoreEntryForm extends StatefulWidget {
@@ -56,6 +56,7 @@ class _StoreEntryFormState extends State<StoreEntryForm> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
+    // ✅ تحقق من أن picked ليس null قبل استخدامه
     if (picked != null) {
       dateController.text = "${picked.year}-${picked.month}-${picked.day}";
     }

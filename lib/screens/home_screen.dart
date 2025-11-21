@@ -5,6 +5,7 @@ import 'package:smart_sheet/screens/flexo_screen.dart';
 import 'package:smart_sheet/screens/production_line_screen.dart';
 import 'package:smart_sheet/screens/saved_sizes_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
+import 'package:smart_sheet/screens/staple_department_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart'; // ✅ صحّح المسار
 
@@ -88,10 +89,12 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.push_pin,
                     label: 'الدبوس',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('تم الدخول إلى الدبوس'),
-                        ),
+                      // ✅ استبدال الـ SnackBar بعملية توجيه للشاشة الجديدة
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const StapleDepartmentScreen()),
                       );
                     },
                   ),

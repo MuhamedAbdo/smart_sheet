@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/worker_model.dart';
+// ✅ أضف هذا السطر
+import 'package:smart_sheet/models/finished_product_model.dart'; // <-- هنا
 import 'package:smart_sheet/providers/auth_provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/camera_quality_settings_screen.dart';
@@ -30,6 +32,8 @@ Future<void> main() async {
     // ✅ 1. تسجيل الـ Adapters أولًا
     Hive.registerAdapter(WorkerAdapter());
     Hive.registerAdapter(WorkerActionAdapter());
+    // ✅ أضف هذا السطر لتسجيل نموذج_finished_product_model
+    Hive.registerAdapter(FinishedProductAdapter()); // <-- هنا
 
     // ✅ 2. فتح الصناديق مرة واحدة فقط
     await Hive.openBox('settings');
@@ -44,6 +48,9 @@ Future<void> main() async {
     // ✅ صناديق العمال والإجراءات
     await Hive.openBox<WorkerAction>('worker_actions');
     await Hive.openBox<Worker>('workers');
+
+    // ✅ أضف هذا السطر لفتح صندوق_finished_product_model
+    await Hive.openBox<FinishedProduct>('finished_products'); // <-- هنا
   }
 
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
