@@ -2,25 +2,38 @@
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import '../../models/store_entry_model.dart';
 
 class StoreEntryForm extends StatefulWidget {
+  final String boxName; // ✅ إضافة boxName
   final int? index;
-  final Map<String, dynamic>? existingData;
+  final StoreEntry? existing;
 
-  const StoreEntryForm({super.key, this.index, this.existingData});
+  const StoreEntryForm({
+    super.key,
+    required this.boxName, // ✅ مطلوب
+    this.index,
+    this.existing,
+  });
+
+  static void show(
+    BuildContext context, {
+    required String boxName, // ✅ جعل boxName مطلوبًا
+    int? index,
+    StoreEntry? existing,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => StoreEntryForm(
+        boxName: boxName,
+        index: index,
+        existing: existing,
+      ),
+    );
+  }
 
   @override
   State<StoreEntryForm> createState() => _StoreEntryFormState();
-
-  // ✅ غير الاسم من showDialog إلى show
-  static void show(BuildContext context,
-      {int? index, Map<String, dynamic>? existingData}) {
-    showDialog(
-      context: context,
-      builder: (context) =>
-          StoreEntryForm(index: index, existingData: existingData),
-    );
-  }
 }
 
 class _StoreEntryFormState extends State<StoreEntryForm> {
@@ -33,50 +46,43 @@ class _StoreEntryFormState extends State<StoreEntryForm> {
   @override
   void initState() {
     super.initState();
-    _initializeControllers();
-  }
-
-  void _initializeControllers() {
-    dateController =
-        TextEditingController(text: widget.existingData?['date'] ?? '');
-    productController =
-        TextEditingController(text: widget.existingData?['product'] ?? '');
-    unitController =
-        TextEditingController(text: widget.existingData?['unit'] ?? '');
+    final e = widget.existing;
+    dateController = TextEditingController(text: e?.date ?? '');
+    productController = TextEditingController(text: e?.product ?? '');
+    unitController = TextEditingController(text: e?.unit ?? '');
     quantityController =
-        TextEditingController(text: widget.existingData?['quantity'] ?? '');
-    notesController =
-        TextEditingController(text: widget.existingData?['notes'] ?? '');
+        TextEditingController(text: e?.quantity.toString() ?? '');
+    notesController = TextEditingController(text: e?.notes ?? '');
   }
 
   Future<void> _selectDate(BuildContext context) async {
     DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: DateTime.tryParse(dateController.text) ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
-    // ✅ تحقق من أن picked ليس null قبل استخدامه
     if (picked != null) {
       dateController.text = "${picked.year}-${picked.month}-${picked.day}";
     }
-    // إذا عادت picked بقيمة null، فلن يتم تغيير محتوى الحقل
   }
 
   void _save() {
-    final record = {
-      'date': dateController.text,
-      'product': productController.text,
-      'unit': unitController.text,
-      'quantity': quantityController.text,
-      'notes': notesController.text,
-    };
+    final box =
+        Hive.box<StoreEntry>(widget.boxName); // ✅ استخدام الصندوق الصحيح
 
-    final box = Hive.box('storeEntries');
+    final entry = StoreEntry(
+      date: dateController.text,
+      product: productController.text,
+      unit: unitController.text,
+      quantity: int.tryParse(quantityController.text) ?? 0,
+      notes: notesController.text.isEmpty ? null : notesController.text,
+    );
+
     if (widget.index == null) {
-      box.add(record);
+      box.add(entry);
     } else {
-      box.putAt(widget.index!, record);
+      box.putAt(widget.index!, entry);
     }
 
     Navigator.pop(context);
@@ -129,7 +135,7 @@ class _StoreEntryFormState extends State<StoreEntryForm> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: Navigator.of(context).pop,
           child: const Text("❌ إلغاء"),
         ),
         ElevatedButton(

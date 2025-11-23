@@ -6,19 +6,26 @@ import 'package:smart_sheet/widgets/store_entry_form.dart';
 import 'package:smart_sheet/widgets/store_entry_list.dart';
 
 class StoreEntryScreen extends StatelessWidget {
-  const StoreEntryScreen({super.key});
+  final String boxName; // ✅ اسم الصندوق المخصص للقسم
+  final String title;
+
+  const StoreEntryScreen({
+    super.key,
+    required this.boxName,
+    this.title = "تقارير وارد المخزن",
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: const Text("📄 تقارير وارد المخزن"),
+        title: Text("📄 $title"),
         centerTitle: true,
       ),
-      body: const StoreEntryList(),
+      body: StoreEntryList(boxName: boxName),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => StoreEntryForm.show(context),
+        onPressed: () => StoreEntryForm.show(context, boxName: boxName),
         child: const Icon(Icons.add),
       ),
     );

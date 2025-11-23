@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'store_entry.dart';
+part of 'store_entry_model.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
@@ -18,9 +18,9 @@ class StoreEntryAdapter extends TypeAdapter<StoreEntry> {
     };
     return StoreEntry(
       date: fields[0] as String,
-      type: fields[1] as String,
+      product: fields[1] as String,
       unit: fields[2] as String,
-      count: fields[3] as int,
+      quantity: fields[3] as int,
       notes: fields[4] as String?,
     );
   }
@@ -32,11 +32,11 @@ class StoreEntryAdapter extends TypeAdapter<StoreEntry> {
       ..writeByte(0)
       ..write(obj.date)
       ..writeByte(1)
-      ..write(obj.type)
+      ..write(obj.product)
       ..writeByte(2)
       ..write(obj.unit)
       ..writeByte(3)
-      ..write(obj.count)
+      ..write(obj.quantity)
       ..writeByte(4)
       ..write(obj.notes);
   }

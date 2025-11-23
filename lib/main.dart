@@ -7,6 +7,7 @@ import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
 import 'package:smart_sheet/models/maintenance_record_model.dart';
+import 'package:smart_sheet/models/store_entry_model.dart'; // ✅ نموذج المخزن
 import 'package:smart_sheet/providers/auth_provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/camera_quality_settings_screen.dart';
@@ -23,35 +24,52 @@ Future<void> main() async {
   if (!kIsWeb) {
     await Hive.initFlutter();
 
+    // ┌───────────────────────────────┐
+    // │       تسجيل محولات Hive     │
+    // └───────────────────────────────┘
     Hive.registerAdapter(WorkerAdapter());
     Hive.registerAdapter(WorkerActionAdapter());
     Hive.registerAdapter(FinishedProductAdapter());
     Hive.registerAdapter(MaintenanceRecordAdapter());
+    Hive.registerAdapter(StoreEntryAdapter()); // ✅ محول المخزن
 
-    // الصناديق العامة
+    // ┌───────────────────────────────┐
+    // │       الصناديق العامة         │
+    // │ (غير مُ typing - تخزن كـ Map) │
+    // └───────────────────────────────┘
     await Hive.openBox('settings');
     await Hive.openBox('measurements');
     await Hive.openBox('serial_setup_state');
     await Hive.openBox('savedSheetSizes');
     await Hive.openBox('savedSheetSizes_production');
     await Hive.openBox('inkReports');
+
+    // ⚠️ (يمكن حذفه لاحقًا بعد التأكد من عدم الاستخدام)
     await Hive.openBox('storeEntries');
 
-    // ✅ صناديق الصيانة — بأسماء جديدة لتجنب التعارض
+    // ┌───────────────────────────────────────────┐
+    // │       صناديق النماذج (مُ typing)          │
+    // │ (تخزن ككائنات، وليس كـ Map)             │
+    // └───────────────────────────────────────────┘
+    // الصيانة
     await Hive.openBox<MaintenanceRecord>('maintenance_records_main');
-    await Hive.openBox<MaintenanceRecord>('maintenance_staple_v2'); // ← جديد
-    await Hive.openBox<MaintenanceRecord>('maintenance_flexo_v2'); // ← جديد
-    await Hive.openBox<MaintenanceRecord>(
-        'maintenance_production_v2'); // ← جديد
+    await Hive.openBox<MaintenanceRecord>('maintenance_staple_v2');
+    await Hive.openBox<MaintenanceRecord>('maintenance_flexo_v2');
+    await Hive.openBox<MaintenanceRecord>('maintenance_production_v2');
 
-    // صناديق العمال
+    // المخازن — منفصلة لكل قسم
+    await Hive.openBox<StoreEntry>('store_flexo'); // ✅ الفلكسو
+    await Hive.openBox<StoreEntry>('store_production'); // ✅ خط الإنتاج
+    await Hive.openBox<StoreEntry>('store_staple'); // ✅ الدبوس
+
+    // العمال
     await Hive.openBox<WorkerAction>('worker_actions');
     await Hive.openBox<Worker>('workers');
     await Hive.openBox<Worker>('workers_flexo');
     await Hive.openBox<Worker>('workers_production');
     await Hive.openBox<Worker>('workers_staple');
 
-    // صندوق المنتجات
+    // المنتجات النهائية
     await Hive.openBox<FinishedProduct>('finished_products');
   }
 
@@ -66,6 +84,9 @@ Future<void> main() async {
   );
 }
 
+// ┌───────────────────────────────┐
+// │      إعدادات التطبيق         │
+// └───────────────────────────────┘
 class SmartSheetApp extends StatelessWidget {
   const SmartSheetApp({super.key});
 
@@ -86,7 +107,10 @@ class SmartSheetApp extends StatelessWidget {
               boxName: 'maintenance_records_main',
               title: 'سجلات الصيانة',
             ),
-        '/store_entry': (context) => const StoreEntryScreen(),
+        '/store_entry': (context) => const StoreEntryScreen(
+              boxName: 'store_flexo', // ← مثال أولي (يمكنك تغييره حسب السياق)
+              title: 'وارد المخزن',
+            ),
         '/workers': (context) => const WorkersScreen(
               departmentBoxName: 'workers',
               departmentTitle: 'طاقم العمل',

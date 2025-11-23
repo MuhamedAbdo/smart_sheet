@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/calculator_screen.dart';
 import 'package:smart_sheet/screens/finished_product_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
+import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
@@ -102,6 +103,21 @@ class StapleDepartmentScreen extends StatelessWidget {
                           builder: (context) => const MaintenanceScreen(
                             boxName: 'maintenance_staple_v2', // ← اسم جديد
                             title: 'صيانة الدبوس',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  HomeButton(
+                    icon: Icons.inventory,
+                    label: 'وارد المخزن',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const StoreEntryScreen(
+                            boxName: 'store_staple',
+                            title: 'وارد مخزن الدبوس',
                           ),
                         ),
                       );

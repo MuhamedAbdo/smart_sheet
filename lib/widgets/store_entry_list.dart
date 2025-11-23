@@ -2,17 +2,22 @@
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:smart_sheet/widgets/store_entry_card.dart';
-import 'package:smart_sheet/widgets/store_entry_form.dart';
+import '../../models/store_entry_model.dart';
+import 'store_entry_card.dart';
+import 'store_entry_form.dart';
 
 class StoreEntryList extends StatelessWidget {
-  const StoreEntryList({super.key});
+  final String boxName;
+
+  const StoreEntryList({super.key, required this.boxName});
 
   @override
   Widget build(BuildContext context) {
+    final box = Hive.box<StoreEntry>(boxName);
+
     return ValueListenableBuilder(
-      valueListenable: Hive.box('storeEntries').listenable(),
-      builder: (context, Box box, _) {
+      valueListenable: box.listenable(),
+      builder: (context, Box<StoreEntry> box, _) {
         if (box.isEmpty) {
           return const Center(child: Text("🚫 لا يوجد تقارير وارد المخزن بعد"));
         }
@@ -20,13 +25,14 @@ class StoreEntryList extends StatelessWidget {
         return ListView.builder(
           itemCount: box.length,
           itemBuilder: (context, index) {
-            final record = box.getAt(index) as Map<String, dynamic>;
+            final entry = box.getAt(index)!;
             return StoreEntryCard(
-              record: record,
+              record: entry,
               onEdit: () => StoreEntryForm.show(
                 context,
+                boxName: boxName,
                 index: index,
-                existingData: record,
+                existing: entry,
               ),
               onDelete: () => box.deleteAt(index),
             );

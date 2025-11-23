@@ -92,7 +92,10 @@ class FlexoScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const StoreEntryScreen(),
+                          builder: (context) => const StoreEntryScreen(
+                            boxName: 'store_flexo',
+                            title: 'وارد مخزن الفلكسو',
+                          ),
                         ),
                       );
                     },

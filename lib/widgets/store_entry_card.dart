@@ -1,9 +1,10 @@
 // lib/src/widgets/store/store_entry_card.dart
 
 import 'package:flutter/material.dart';
+import '../../models/store_entry_model.dart';
 
 class StoreEntryCard extends StatelessWidget {
-  final Map<String, dynamic> record;
+  final StoreEntry record;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -19,15 +20,14 @@ class StoreEntryCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       child: ListTile(
-        title: Text("📅 ${record['date'] ?? ''}"),
+        title: Text("📅 ${record.date}"),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("📦 الصنف: ${record['product'] ?? ''}"),
-            Text("📏 الوحدة: ${record['unit'] ?? ''}"),
-            Text("🔢 العدد: ${record['quantity'] ?? ''}"),
-            if (record['notes'] != null && record['notes'].isNotEmpty)
-              Text("📝 ملاحظات: ${record['notes']}"),
+            Text("📦 الصنف: ${record.product}"),
+            Text("📏 الوحدة: ${record.unit}"),
+            Text("🔢 العدد: ${record.quantity}"),
+            if (record.notes != null) Text("📝 ملاحظات: ${record.notes!}"),
           ],
         ),
         trailing: Row(
