@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class ThemeProvider with ChangeNotifier {
-  static const String _settingsBox = 'settings';
   static const String _themeKey = 'isDarkTheme';
 
   late bool _isDarkTheme;
@@ -16,7 +15,8 @@ class ThemeProvider with ChangeNotifier {
   }
 
   Future<void> _loadTheme() async {
-    final box = Hive.box(_settingsBox);
+    // ✅ فتح الصندوق داخليًا
+    final box = await Hive.openBox('settings');
     _isDarkTheme = box.get(_themeKey, defaultValue: false);
     notifyListeners();
   }
@@ -28,7 +28,7 @@ class ThemeProvider with ChangeNotifier {
   }
 
   Future<void> _saveTheme() async {
-    final box = Hive.box(_settingsBox);
+    final box = await Hive.openBox('settings');
     await box.put(_themeKey, _isDarkTheme);
   }
 

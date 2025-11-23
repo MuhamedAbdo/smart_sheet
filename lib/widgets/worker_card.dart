@@ -97,10 +97,10 @@ class _WorkerCardState extends State<WorkerCard> {
             ),
 
             _buildInfoRow('الوظيفة:', widget.worker.job),
-            _buildInfoRow(
-              'التأمين الصحي:',
-              widget.worker.hasMedicalInsurance ? 'نعم' : 'لا',
-            ),
+            // _buildInfoRow(
+            //   'التأمين الصحي:',
+            //   widget.worker.hasMedicalInsurance ? 'نعم' : 'لا',
+            // ),
             const SizedBox(height: 10),
 
             Row(
