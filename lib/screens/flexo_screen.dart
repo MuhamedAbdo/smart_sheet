@@ -107,7 +107,7 @@ class FlexoScreen extends StatelessWidget {
                           builder: (context) => const MaintenanceScreen(
                             // ✅ أضف المعلمات المطلوبة
                             boxName:
-                                'maintenance_flexo', // <-- اسم الصندوق الخاص بـ Flexo
+                                'maintenance_flexo_v2', // <-- اسم الصندوق الخاص بـ Flexo
                             title: 'صيانة الفلكسو', // <-- عنوان الشاشة
                           ),
                         ),

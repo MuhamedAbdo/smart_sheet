@@ -7,17 +7,16 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:smart_sheet/models/finished_product_model.dart';
-import 'package:smart_sheet/widgets/app_drawer.dart';
-import 'package:permission_handler/permission_handler.dart'; // ✅ أضف هذا
+import '../../models/maintenance_record_model.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class MaintenanceForm extends StatefulWidget {
-  final Map<String, dynamic>? existingData;
-  final void Function(Map<String, dynamic>) onSave;
+  final MaintenanceRecord? existing;
+  final Function(MaintenanceRecord record) onSave;
 
   const MaintenanceForm({
     super.key,
-    this.existingData,
+    this.existing,
     required this.onSave,
   });
 
@@ -43,7 +42,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   List<File> _capturedImages = [];
   bool _isProcessing = false;
 
-  // ✅ إضافة نفس حقول الكاميرا مثل ink_report_form
   CameraController? _cameraController;
   bool _isCameraReady = false;
 
@@ -51,7 +49,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   void initState() {
     super.initState();
     _initializeControllers();
-    _initializeCamera(); // ✅ نفس دالة ink_report_form
+    _initializeCamera();
   }
 
   @override
@@ -70,37 +68,31 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   }
 
   void _initializeControllers() {
-    issueDateController =
-        TextEditingController(text: widget.existingData?['issueDate'] ?? '');
-    machineController =
-        TextEditingController(text: widget.existingData?['machine'] ?? '');
-    issueDescController = TextEditingController(
-        text: widget.existingData?['issueDescription'] ?? '');
-    reportDateController =
-        TextEditingController(text: widget.existingData?['reportDate'] ?? '');
-    reportedToTechnicianController = TextEditingController(
-        text: widget.existingData?['reportedToTechnician'] ?? '');
-    actionController =
-        TextEditingController(text: widget.existingData?['actionTaken'] ?? '');
-    actionDateController =
-        TextEditingController(text: widget.existingData?['actionDate'] ?? '');
-    repairedByController =
-        TextEditingController(text: widget.existingData?['repairedBy'] ?? '');
-    notesController =
-        TextEditingController(text: widget.existingData?['notes'] ?? '');
+    final e = widget.existing;
 
-    isFixed = widget.existingData?['isFixed'] ?? false;
-    repairLocation = widget.existingData?['repairLocation'] ?? 'في المصنع';
+    issueDateController = TextEditingController(text: e?.issueDate ?? '');
+    machineController = TextEditingController(text: e?.machine ?? '');
+    issueDescController =
+        TextEditingController(text: e?.issueDescription ?? '');
+    reportDateController = TextEditingController(text: e?.reportDate ?? '');
+    reportedToTechnicianController =
+        TextEditingController(text: e?.reportedToTechnician ?? '');
+    actionController = TextEditingController(text: e?.actionTaken ?? '');
+    actionDateController = TextEditingController(text: e?.actionDate ?? '');
+    repairedByController = TextEditingController(text: e?.repairedBy ?? '');
+    notesController = TextEditingController(text: e?.notes ?? '');
 
-    final existingImagePaths = widget.existingData?['imagePaths'] as List?;
+    isFixed = e?.isFixed ?? false;
+    repairLocation = e?.repairLocation ?? 'في المصنع';
+
+    final existingImagePaths = e?.imagePaths;
     _capturedImages = existingImagePaths
-            ?.map((path) => File(path.toString()))
+            ?.map((path) => File(path))
             .where((file) => file.existsSync())
             .toList() ??
         [];
   }
 
-  // ✅ نفس دالة ink_report_form بالضبط
   Future<void> _initializeCamera() async {
     var status = await Permission.camera.request();
     if (!status.isGranted) {
@@ -121,7 +113,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
 
       _cameraController = CameraController(
         backCamera,
-        ResolutionPreset.medium, // ✅ نفس الإعدادات
+        ResolutionPreset.medium,
         enableAudio: false,
       );
 
@@ -136,7 +128,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     }
   }
 
-  // ✅ نفس دالة ink_report_form بالضبط
   Future<void> _captureImage() async {
     if (!_isCameraReady ||
         _cameraController == null ||
@@ -176,7 +167,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     }
   }
 
-  // ✅ دالة اختيار صورة من المعرض
   Future<void> _pickImageFromGallery() async {
     if (_isProcessing) return;
 
@@ -252,20 +242,20 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   }
 
   void _saveRecord() {
-    final record = {
-      'issueDate': issueDateController.text,
-      'machine': machineController.text,
-      'issueDescription': issueDescController.text,
-      'reportDate': reportDateController.text,
-      'reportedToTechnician': reportedToTechnicianController.text,
-      'actionTaken': actionController.text,
-      'actionDate': actionDateController.text,
-      'isFixed': isFixed,
-      'repairLocation': repairLocation,
-      'repairedBy': repairedByController.text,
-      'notes': notesController.text,
-      'imagePaths': _capturedImages.map((file) => file.path).toList(),
-    };
+    final record = MaintenanceRecord(
+      machine: machineController.text,
+      isFixed: isFixed,
+      issueDate: issueDateController.text,
+      reportDate: reportDateController.text,
+      actionDate: actionDateController.text,
+      issueDescription: issueDescController.text,
+      actionTaken: actionController.text,
+      repairLocation: repairLocation,
+      repairedBy: repairedByController.text,
+      reportedToTechnician: reportedToTechnicianController.text,
+      notes: notesController.text.isEmpty ? null : notesController.text,
+      imagePaths: _capturedImages.map((file) => file.path).toList(),
+    );
 
     widget.onSave(record);
   }
@@ -283,7 +273,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                widget.existingData == null
+                widget.existing == null
                     ? "➕ إضافة سجل صيانة"
                     : "✏️ تعديل سجل صيانة",
                 style: Theme.of(context)
@@ -292,8 +282,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                     .copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-
-              // ✅ الحقول النصية
               TextField(
                 controller: issueDateController,
                 readOnly: true,
@@ -347,7 +335,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                     border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
-
               Row(children: [
                 const Text("✅ تم الإصلاح؟"),
                 Checkbox(
@@ -355,7 +342,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                   onChanged: (v) => setState(() => isFixed = v ?? false),
                 ),
               ]),
-
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: repairLocation,
@@ -370,7 +356,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                 decoration: const InputDecoration(
                     labelText: "🏠 مكان الإصلاح", border: OutlineInputBorder()),
               ),
-
               const SizedBox(height: 12),
               TextField(
                 controller: repairedByController,
@@ -378,7 +363,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                     labelText: "🛠 تم الإصلاح بواسطة",
                     border: OutlineInputBorder()),
               ),
-
               const SizedBox(height: 12),
               TextField(
                 controller: notesController,
@@ -386,10 +370,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                 decoration: const InputDecoration(
                     labelText: "📝 ملاحظات", border: OutlineInputBorder()),
               ),
-
               const SizedBox(height: 20),
-
-              // --- قسم الصور - بنفس طريقة ink_report_form ---
               if (_isCameraReady && _cameraController != null)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,32 +385,41 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _isProcessing ? null : _captureImage,
-                            icon: _isProcessing
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.camera_alt),
-                            label: const Text("التقط صورة"),
+                        ElevatedButton.icon(
+                          onPressed: _isProcessing ? null : _captureImage,
+                          icon: _isProcessing
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.camera_alt, size: 18),
+                          label: const Text(
+                            "التقط صورة",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 14),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed:
-                                _isProcessing ? null : _pickImageFromGallery,
-                            icon: const Icon(Icons.photo_library),
-                            label: const Text("المعرض"),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blueGrey,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
                         ),
+                        const SizedBox(width: 10),
+                        // Expanded(
+                        //   child: ElevatedButton.icon(
+                        //     onPressed:
+                        //         _isProcessing ? null : _pickImageFromGallery,
+                        //     icon: const Icon(Icons.photo_library),
+                        //     label: const Text("المعرض"),
+                        //     style: ElevatedButton.styleFrom(
+                        //       backgroundColor: Colors.blueGrey,
+                        //     ),
+                        //   ),
+                        // ),
                       ],
                     ),
                     if (_capturedImages.isNotEmpty) ...[
@@ -515,7 +505,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                     CircularProgressIndicator(),
                   ],
                 ),
-
               const SizedBox(height: 24),
               Row(
                 children: [

@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/calculator_screen.dart';
 import 'package:smart_sheet/screens/finished_product_screen.dart';
-import 'package:smart_sheet/screens/maintenance_screen.dart'; // ✅ استيراد شاشة الصيانة المُعدّة
+import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
@@ -92,7 +92,6 @@ class StapleDepartmentScreen extends StatelessWidget {
                       );
                     },
                   ),
-                  // ✅ زر "الصيانة" الجديد
                   HomeButton(
                     icon: Icons.settings,
                     label: 'الصيانة',
@@ -101,9 +100,8 @@ class StapleDepartmentScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const MaintenanceScreen(
-                            boxName:
-                                'maintenance_staple', // ✅ اسم الصندوق المخصص للدبوس
-                            title: 'صيانة الدبوس', // ✅ عنوان الشاشة
+                            boxName: 'maintenance_staple_v2', // ← اسم جديد
+                            title: 'صيانة الدبوس',
                           ),
                         ),
                       );

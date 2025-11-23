@@ -399,8 +399,9 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
 
   // ✅ تعديل دالة التقاط الصورة
   Future<File?> _captureImage() async {
-    if (!_isCameraAvailable || !_cameraController.value.isInitialized)
+    if (!_isCameraAvailable || !_cameraController.value.isInitialized) {
       return null;
+    }
 
     if (!mounted) return null;
 

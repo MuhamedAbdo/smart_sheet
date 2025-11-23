@@ -104,7 +104,7 @@ class ProductionLineScreen extends StatelessWidget {
                           builder: (context) => const MaintenanceScreen(
                             // ✅ أضف المعلمات المطلوبة
                             boxName:
-                                'maintenance_production', // <-- اسم الصندوق الخاص بخط الإنتاج
+                                'maintenance_production_v2', // <-- اسم الصندوق الخاص بخط الإنتاج
                             title: 'صيانة خط الإنتاج', // <-- عنوان الشاشة
                           ),
                         ),

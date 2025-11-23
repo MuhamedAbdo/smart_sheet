@@ -1,14 +1,15 @@
 // lib/src/widgets/maintenance/maintenance_list.dart
 
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:smart_sheet/widgets/maintenance_card.dart';
+import 'package:hive/hive.dart';
+import '../../models/maintenance_record_model.dart';
+import 'maintenance_card.dart';
 
 class MaintenanceList extends StatelessWidget {
-  final Box box;
+  final Box<MaintenanceRecord> box;
   final VoidCallback onAdd;
-  final void Function(int, Map<String, dynamic>) onEdit;
-  final void Function(int) onDelete;
+  final Function(int index, MaintenanceRecord record) onEdit;
+  final Function(int index) onDelete;
 
   const MaintenanceList({
     super.key,
@@ -20,39 +21,20 @@ class MaintenanceList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ استخدام ValueListenableBuilder للتحديث التلقائي عند إضافة الصور
-    return ValueListenableBuilder(
-      valueListenable: box.listenable(),
-      builder: (context, Box box, _) {
-        if (box.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.build, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  "🚫 لا يوجد سجلات صيانة بعد",
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              ],
-            ),
-          );
-        }
+    if (box.isEmpty) {
+      return const Center(
+        child: Text("لا توجد سجلات صيانة"),
+      );
+    }
 
-        return ListView.builder(
-          itemCount: box.length,
-          itemBuilder: (context, index) {
-            final record = box.getAt(index);
-            if (record is Map<String, dynamic>) {
-              return MaintenanceCard(
-                record: record,
-                onEdit: () => onEdit(index, record),
-                onDelete: () => onDelete(index),
-              );
-            }
-            return Container();
-          },
+    return ListView.builder(
+      itemCount: box.length,
+      itemBuilder: (context, index) {
+        final item = box.getAt(index)!;
+        return MaintenanceCard(
+          record: item,
+          onEdit: () => onEdit(index, item),
+          onDelete: () => onDelete(index),
         );
       },
     );

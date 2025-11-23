@@ -1,9 +1,10 @@
 // lib/src/widgets/maintenance/maintenance_section.dart
 
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:smart_sheet/widgets/maintenance_form.dart';
-import 'package:smart_sheet/widgets/maintenance_list.dart';
+import 'package:hive/hive.dart';
+import '../../models/maintenance_record_model.dart';
+import 'maintenance_form.dart';
+import 'maintenance_list.dart';
 
 class MaintenanceSection extends StatefulWidget {
   final String boxName;
@@ -20,7 +21,7 @@ class MaintenanceSection extends StatefulWidget {
 }
 
 class _MaintenanceSectionState extends State<MaintenanceSection> {
-  late Future<Box> _boxFuture;
+  late Future<Box<MaintenanceRecord>> _boxFuture;
 
   @override
   void initState() {
@@ -28,76 +29,60 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
     _boxFuture = _openBox();
   }
 
-  Future<Box> _openBox() async {
-    if (!Hive.isBoxOpen(widget.boxName)) {
-      await Hive.openBox(widget.boxName);
-    }
-    return Hive.box(widget.boxName);
+  Future<Box<MaintenanceRecord>> _openBox() async {
+    return await Hive.openBox<MaintenanceRecord>(widget.boxName);
   }
 
-  void _addOrEditMaintenance({int? index, Map<String, dynamic>? existingData}) {
+  void _addOrEdit({int? index, MaintenanceRecord? existing}) {
     showDialog(
       context: context,
-      builder: (context) => MaintenanceForm(
-        existingData: existingData,
+      builder: (_) => MaintenanceForm(
+        existing: existing,
         onSave: (record) async {
           final box = await _boxFuture;
+
           if (index == null) {
             await box.add(record);
           } else {
             await box.putAt(index, record);
           }
-          // ✅ إعادة تحميل البيانات لعرض الصور مباشرة
-          if (mounted) {
-            setState(() {
-              _boxFuture = _openBox();
-            });
-          }
+
+          if (mounted) setState(() {});
           Navigator.pop(context);
         },
       ),
     );
   }
 
-  void _deleteMaintenance(int index) async {
+  void _delete(int index) async {
     final box = await _boxFuture;
     await box.deleteAt(index);
-    // ✅ إعادة تحميل البيانات
-    if (mounted) {
-      setState(() {
-        _boxFuture = _openBox();
-      });
-    }
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Box>(
+    return FutureBuilder<Box<MaintenanceRecord>>(
       future: _boxFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          if (snapshot.hasError) {
-            return Center(child: Text("❌ خطأ: ${snapshot.error}"));
-          }
-
-          final box = snapshot.data!;
-
-          return Scaffold(
-            body: MaintenanceList(
-              box: box,
-              onAdd: () => _addOrEditMaintenance(),
-              onEdit: (index, data) =>
-                  _addOrEditMaintenance(index: index, existingData: data),
-              onDelete: _deleteMaintenance,
-            ),
-            floatingActionButton: FloatingActionButton(
-              onPressed: () => _addOrEditMaintenance(),
-              child: const Icon(Icons.add),
-            ),
-          );
-        } else {
+      builder: (_, snapshot) {
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
+
+        final box = snapshot.data!;
+
+        return Scaffold(
+          body: MaintenanceList(
+            box: box,
+            onAdd: () => _addOrEdit(),
+            onEdit: (i, r) => _addOrEdit(index: i, existing: r),
+            onDelete: _delete,
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => _addOrEdit(),
+            child: const Icon(Icons.add),
+          ),
+        );
       },
     );
   }
