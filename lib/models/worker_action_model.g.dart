@@ -8,7 +8,7 @@ part of 'worker_action_model.dart';
 
 class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
   @override
-  final int typeId = 2;
+  final int typeId = 11;
 
   @override
   WorkerAction read(BinaryReader reader) {
@@ -26,13 +26,15 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
       startTimeMinute: fields[6] as int?,
       endTimeHour: fields[7] as int?,
       endTimeMinute: fields[8] as int?,
+      amount: fields[9] as double?,
+      bonusDays: fields[10] as double?,
     );
   }
 
   @override
   void write(BinaryWriter writer, WorkerAction obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.type)
       ..writeByte(1)
@@ -50,7 +52,11 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
       ..writeByte(7)
       ..write(obj.endTimeHour)
       ..writeByte(8)
-      ..write(obj.endTimeMinute);
+      ..write(obj.endTimeMinute)
+      ..writeByte(9)
+      ..write(obj.amount)
+      ..writeByte(10)
+      ..write(obj.bonusDays);
   }
 
   @override

@@ -134,12 +134,12 @@ class AppDrawer extends StatelessWidget {
             enabled: isLoggedIn,
             onTap: isLoggedIn
                 ? () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const BackupRestoreScreen()),
-                    );
+                    // Navigator.pop(context);
+                    // Navigator.push(
+                    //   context,
+                    //   MaterialPageRoute(
+                    //       builder: (_) => const BackupRestoreScreen()),
+                    // );
                   }
                 : null,
             trailing: !isLoggedIn
