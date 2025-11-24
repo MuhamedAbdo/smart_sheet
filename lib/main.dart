@@ -44,19 +44,19 @@ Future<void> main() async {
     await Hive.openBox<MaintenanceRecord>('maintenance_staple_v2');
     await Hive.openBox<MaintenanceRecord>('maintenance_flexo_v2');
     await Hive.openBox<MaintenanceRecord>('maintenance_production_v2');
-
+    await Hive.openBox<MaintenanceRecord>('maintenance_crushing_v2');
     // المخازن
     await Hive.openBox<StoreEntry>('store_flexo');
     await Hive.openBox<StoreEntry>('store_production');
     await Hive.openBox<StoreEntry>('store_staple');
-
+    await Hive.openBox<StoreEntry>('store_crushing');
     // العمال
     await Hive.openBox<WorkerAction>('worker_actions');
     await Hive.openBox<Worker>('workers');
     await Hive.openBox<Worker>('workers_flexo');
     await Hive.openBox<Worker>('workers_production');
     await Hive.openBox<Worker>('workers_staple');
-
+    await Hive.openBox<Worker>('workers_crushing');
     // المنتجات
     await Hive.openBox<FinishedProduct>('finished_products');
   }

@@ -235,8 +235,11 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
+
     if (picked != null) {
-      controller.text = "${picked.year}-${picked.month}-${picked.day}";
+      // ✅ تم إضافة فحص null + تنسيق التاريخ بشكل صحيح
+      controller.text =
+          "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
     }
   }
 
@@ -407,18 +410,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        // Expanded(
-                        //   child: ElevatedButton.icon(
-                        //     onPressed:
-                        //         _isProcessing ? null : _pickImageFromGallery,
-                        //     icon: const Icon(Icons.photo_library),
-                        //     label: const Text("المعرض"),
-                        //     style: ElevatedButton.styleFrom(
-                        //       backgroundColor: Colors.blueGrey,
-                        //     ),
-                        //   ),
-                        // ),
                       ],
                     ),
                     if (_capturedImages.isNotEmpty) ...[

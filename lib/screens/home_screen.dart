@@ -1,6 +1,7 @@
 // lib/src/screens/home/home_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:smart_sheet/screens/crushing_screen.dart';
 import 'package:smart_sheet/screens/flexo_screen.dart';
 import 'package:smart_sheet/screens/production_line_screen.dart';
 import 'package:smart_sheet/screens/saved_sizes_screen.dart';
@@ -78,9 +79,10 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.cut,
                     label: 'التكسير',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('تم الدخول إلى التكشير'),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CrushingScreen(),
                         ),
                       );
                     },
