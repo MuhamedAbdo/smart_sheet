@@ -1,4 +1,4 @@
-// lib/src/screens/sheet_size_screen.dart
+// lib/src/screens/add_sheet_size_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
@@ -14,32 +14,41 @@ import 'package:smart_sheet/widgets/sheet_size_checkboxes.dart';
 import 'package:smart_sheet/widgets/sheet_size_form.dart';
 import 'package:smart_sheet/widgets/sheet_size_production_table.dart';
 
-class SheetSizeScreen extends StatefulWidget {
+class AddSheetSizeScreen extends StatefulWidget {
   final Map? existingData;
   final dynamic existingDataKey;
 
-  const SheetSizeScreen({super.key, this.existingData, this.existingDataKey});
+  const AddSheetSizeScreen({
+    super.key,
+    this.existingData,
+    this.existingDataKey,
+  });
 
   @override
-  State<SheetSizeScreen> createState() => _SheetSizeScreenState();
+  State<AddSheetSizeScreen> createState() => _AddSheetSizeScreenState();
 }
 
-class _SheetSizeScreenState extends State<SheetSizeScreen> {
-  // Controllers
+class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
+  // --- نوع العملية ---
+  String _processType = "تفصيل";
+
+  // --- بيانات العميل (للتفصيل فقط) ---
   final clientNameController = TextEditingController();
   final productNameController = TextEditingController();
   final productCodeController = TextEditingController();
+
+  // --- الأبعاد المشتركة ---
   final lengthController = TextEditingController();
   final widthController = TextEditingController();
   final heightController = TextEditingController();
 
-  // Camera
+  // --- الكاميرا (مشتركة) ---
   CameraController? _cameraController;
   bool _isCameraReady = false;
   bool _isProcessing = false;
   List<File> _capturedImages = [];
 
-  // Checkboxes
+  // --- خيارات الفلاب (للتفصيل فقط) ---
   bool isOverFlap = false;
   bool isFlap = true;
   bool isOneFlap = false;
@@ -49,7 +58,7 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
   bool isQuarterSize = false;
   bool isQuarterWidth = true;
 
-  // Results
+  // --- النتائج ---
   String sheetLengthResult = "";
   String sheetWidthResult = "";
   String productionWidth1 = "";
@@ -96,27 +105,34 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
   }
 
   void _loadExistingData(Map data) {
-    clientNameController.text = data['clientName']?.toString() ?? '';
-    productNameController.text = data['productName']?.toString() ?? '';
-    productCodeController.text = data['productCode']?.toString() ?? '';
+    _processType = data['processType'] ?? 'تفصيل';
+
+    if (_processType == "تفصيل") {
+      clientNameController.text = data['clientName']?.toString() ?? '';
+      productNameController.text = data['productName']?.toString() ?? '';
+      productCodeController.text = data['productCode']?.toString() ?? '';
+    }
+
     lengthController.text = data['length']?.toString() ?? '';
     widthController.text = data['width']?.toString() ?? '';
     heightController.text = data['height']?.toString() ?? '';
 
-    isOverFlap = data['isOverFlap'] ?? false;
-    isFlap = data['isFlap'] ?? true;
-    isOneFlap = data['isOneFlap'] ?? false;
-    isTwoFlap = data['isTwoFlap'] ?? true;
-    addTwoMm = data['addTwoMm'] ?? false;
-    isFullSize = data['isFullSize'] ?? true;
-    isQuarterSize = data['isQuarterSize'] ?? false;
-    isQuarterWidth = data['isQuarterWidth'] ?? true;
+    if (_processType == "تفصيل") {
+      isOverFlap = data['isOverFlap'] ?? false;
+      isFlap = data['isFlap'] ?? true;
+      isOneFlap = data['isOneFlap'] ?? false;
+      isTwoFlap = data['isTwoFlap'] ?? true;
+      addTwoMm = data['addTwoMm'] ?? false;
+      isFullSize = data['isFullSize'] ?? true;
+      isQuarterSize = data['isQuarterSize'] ?? false;
+      isQuarterWidth = data['isQuarterWidth'] ?? true;
 
-    sheetLengthResult = data['sheetLengthResult']?.toString() ?? '';
-    sheetWidthResult = data['sheetWidthResult']?.toString() ?? '';
-    productionWidth1 = data['productionWidth1']?.toString() ?? '';
-    productionHeight = data['productionHeight']?.toString() ?? '';
-    productionWidth2 = data['productionWidth2']?.toString() ?? '';
+      sheetLengthResult = data['sheetLengthResult']?.toString() ?? '';
+      sheetWidthResult = data['sheetWidthResult']?.toString() ?? '';
+      productionWidth1 = data['productionWidth1']?.toString() ?? '';
+      productionHeight = data['productionHeight']?.toString() ?? '';
+      productionWidth2 = data['productionWidth2']?.toString() ?? '';
+    }
 
     if (data.containsKey('imagePaths') && data['imagePaths'] is List) {
       final List<dynamic> paths = List.from(data['imagePaths']);
@@ -166,6 +182,8 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
   }
 
   void calculateSheet() {
+    if (_processType != "تفصيل") return; // الحساب فقط في التفصيل
+
     double length = double.tryParse(lengthController.text) ?? 0.0;
     double width = double.tryParse(widthController.text) ?? 0.0;
     double height = double.tryParse(heightController.text) ?? 0.0;
@@ -227,98 +245,46 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
   }
 
   Future<void> _saveSheetSize() async {
-    final newRecord = {
-      'clientName': clientNameController.text,
-      'productName': productNameController.text,
-      'productCode': productCodeController.text,
+    final newRecord = <String, dynamic>{
+      'processType': _processType,
       'length': lengthController.text,
       'width': widthController.text,
       'height': heightController.text,
-      'sheetLengthResult': sheetLengthResult,
-      'sheetWidthResult': sheetWidthResult,
-      'productionWidth1': productionWidth1,
-      'productionHeight': productionHeight,
-      'productionWidth2': productionWidth2,
-      'isOverFlap': isOverFlap,
-      'isFlap': isFlap,
-      'isOneFlap': isOneFlap,
-      'isTwoFlap': isTwoFlap,
-      'addTwoMm': addTwoMm,
-      'isFullSize': isFullSize,
-      'isQuarterSize': isQuarterSize,
-      'isQuarterWidth': isQuarterWidth,
       'imagePaths': _capturedImages.map((file) => file.path).toList(),
       'date': DateTime.now().toIso8601String(),
     };
 
-    // إذا كان في تعديل
+    if (_processType == "تفصيل") {
+      newRecord.addAll({
+        'clientName': clientNameController.text,
+        'productName': productNameController.text,
+        'productCode': productCodeController.text,
+        'isOverFlap': isOverFlap,
+        'isFlap': isFlap,
+        'isOneFlap': isOneFlap,
+        'isTwoFlap': isTwoFlap,
+        'addTwoMm': addTwoMm,
+        'isFullSize': isFullSize,
+        'isQuarterSize': isQuarterSize,
+        'isQuarterWidth': isQuarterWidth,
+        'sheetLengthResult': sheetLengthResult,
+        'sheetWidthResult': sheetWidthResult,
+        'productionWidth1': productionWidth1,
+        'productionHeight': productionHeight,
+        'productionWidth2': productionWidth2,
+      });
+    }
+
     if (widget.existingDataKey != null) {
       await _savedSheetSizesBox.put(widget.existingDataKey, newRecord);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("تم تحديث المقاس بنجاح!")),
-        );
-      }
-      Navigator.pop(context);
-      return;
-    }
-
-    // التحقق من التكرار
-    bool isDuplicate = false;
-    for (var key in _savedSheetSizesBox.keys) {
-      final existing = _savedSheetSizesBox.get(key) as Map;
-      if (existing['clientName'] == newRecord['clientName'] &&
-          existing['productCode'] == newRecord['productCode']) {
-        if (isQuarterSize) {
-          if (existing['isQuarterSize'] == true &&
-              existing['isQuarterWidth'] == isQuarterWidth) {
-            isDuplicate = true;
-            break;
-          }
-        } else {
-          isDuplicate = true;
-          break;
-        }
-      }
-    }
-
-    if (isDuplicate) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("تنبيه"),
-            content: const Text("هذا المقاس موجود بالفعل. هل تريد استبداله؟"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("لا"),
-              ),
-              TextButton(
-                onPressed: () async {
-                  await _savedSheetSizesBox.add(newRecord);
-                  Navigator.pop(context);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("تم الحفظ بنجاح!")),
-                    );
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text("نعم"),
-              ),
-            ],
-          ),
-        );
-      }
     } else {
       await _savedSheetSizesBox.add(newRecord);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("تم الحفظ بنجاح!")),
-        );
-        Navigator.pop(context);
-      }
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("تم الحفظ")));
+      Navigator.pop(context);
     }
   }
 
@@ -342,10 +308,7 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
         title: const Text("إضافة مقاس جديد"),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _saveSheetSize, // ✅ الحفظ من خلال أيقونة الحفظ فقط
-          ),
+          IconButton(icon: const Icon(Icons.save), onPressed: _saveSheetSize),
         ],
       ),
       body: GestureDetector(
@@ -361,8 +324,13 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
                 lengthController: lengthController,
                 widthController: widthController,
                 heightController: heightController,
+                processType: _processType,
+                onProcessTypeChanged: (value) =>
+                    setState(() => _processType = value),
               ),
               const SizedBox(height: 20),
+
+              // --- الكاميرا (مشتركة) ---
               SheetSizeCamera(
                 cameraController: _cameraController,
                 isCameraReady: _isCameraReady,
@@ -372,79 +340,66 @@ class _SheetSizeScreenState extends State<SheetSizeScreen> {
                 onRemoveImage: _removeImage,
               ),
               const SizedBox(height: 20),
-              SheetSizeCheckboxes(
-                isOverFlap: isOverFlap,
-                isFlap: isFlap,
-                isOneFlap: isOneFlap,
-                isTwoFlap: isTwoFlap,
-                addTwoMm: addTwoMm,
-                isFullSize: isFullSize,
-                isQuarterSize: isQuarterSize,
-                isQuarterWidth: isQuarterWidth,
-                onOverFlapChanged: (value) {
-                  setState(() {
-                    isOverFlap = value!;
-                    isFlap = !value;
-                  });
-                },
-                onFlapChanged: (value) {
-                  setState(() {
-                    isFlap = value!;
-                    isOverFlap = !value;
-                  });
-                },
-                onOneFlapChanged: (value) {
-                  setState(() {
-                    isOneFlap = value!;
-                    isTwoFlap = !value;
-                  });
-                },
-                onTwoFlapChanged: (value) {
-                  setState(() {
-                    isTwoFlap = value!;
-                    isOneFlap = !value;
-                  });
-                },
-                onAddTwoMmChanged: (value) {
-                  setState(() {
-                    addTwoMm = value!;
-                  });
-                },
-                onFullSizeChanged: (value) {
-                  setState(() {
-                    isFullSize = value!;
+
+              // --- خيارات الفلاب (للتفصيل فقط) ---
+              if (_processType == "تفصيل") ...[
+                SheetSizeCheckboxes(
+                  isOverFlap: isOverFlap,
+                  isFlap: isFlap,
+                  isOneFlap: isOneFlap,
+                  isTwoFlap: isTwoFlap,
+                  addTwoMm: addTwoMm,
+                  isFullSize: isFullSize,
+                  isQuarterSize: isQuarterSize,
+                  isQuarterWidth: isQuarterWidth,
+                  onOverFlapChanged: (v) => setState(() {
+                    isOverFlap = v!;
+                    isFlap = !v;
+                  }),
+                  onFlapChanged: (v) => setState(() {
+                    isFlap = v!;
+                    isOverFlap = !v;
+                  }),
+                  onOneFlapChanged: (v) => setState(() {
+                    isOneFlap = v!;
+                    isTwoFlap = !v;
+                  }),
+                  onTwoFlapChanged: (v) => setState(() {
+                    isTwoFlap = v!;
+                    isOneFlap = !v;
+                  }),
+                  onAddTwoMmChanged: (v) => setState(() {
+                    addTwoMm = v!;
+                  }),
+                  onFullSizeChanged: (v) => setState(() {
+                    isFullSize = v!;
                     isQuarterSize = false;
-                  });
-                },
-                onQuarterSizeChanged: (value) {
-                  setState(() {
-                    isQuarterSize = value!;
+                  }),
+                  onQuarterSizeChanged: (v) => setState(() {
+                    isQuarterSize = v!;
                     isFullSize = false;
-                  });
-                },
-                onQuarterWidthChanged: (value) {
-                  setState(() {
-                    isQuarterWidth = value!;
-                  });
-                },
-              ),
-              const SizedBox(height: 20),
-              // ✅ تم إزالة زر الحفظ من الـ body
-              SheetSizeButtons(
-                onCalculate: calculateSheet, onSave: () {},
-                // لا يوجد onSave
-              ),
-              const SizedBox(height: 20),
-              SheetSizeCalculations(
-                sheetLengthResult: sheetLengthResult,
-                sheetWidthResult: sheetWidthResult,
-              ),
-              const SizedBox(height: 20),
-              SheetSizeProductionTable(
-                productionWidth1: productionWidth1,
-                productionHeight: productionHeight,
-                productionWidth2: productionWidth2,
-              ),
+                  }),
+                  onQuarterWidthChanged: (v) => setState(() {
+                    isQuarterWidth = v!;
+                  }),
+                ),
+                const SizedBox(height: 20),
+                SheetSizeButtons(
+                  onCalculate: calculateSheet,
+                  onSave: () {},
+                ),
+                const SizedBox(height: 20),
+                SheetSizeCalculations(
+                  sheetLengthResult: sheetLengthResult,
+                  sheetWidthResult: sheetWidthResult,
+                ),
+                const SizedBox(height: 20),
+                SheetSizeProductionTable(
+                  productionWidth1: productionWidth1,
+                  productionHeight: productionHeight,
+                  productionWidth2: productionWidth2,
+                ),
+              ],
             ],
           ),
         ),

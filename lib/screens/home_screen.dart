@@ -8,13 +8,16 @@ import 'package:smart_sheet/screens/saved_sizes_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/screens/staple_department_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
-import 'package:smart_sheet/widgets/home_button.dart'; // ✅ صحّح المسار
+import 'package:smart_sheet/widgets/home_button.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -24,7 +27,6 @@ class HomeScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 1,
       ),
-      // ✅ AppDrawer دلوقتي بدون أي parameters
       drawer: const AppDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -33,14 +35,14 @@ class HomeScreen extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12),
-              color: Colors.blue.shade50,
-              child: const Text(
+              color: colorScheme.primary.withOpacity(0.1),
+              child: Text(
                 'اختر القسم الذي تريد العمل فيه :',
                 textAlign: TextAlign.center,
                 textDirection: TextDirection.rtl,
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.blue,
+                  color: colorScheme.primary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -60,7 +62,8 @@ class HomeScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const ProductionLineScreen()),
+                          builder: (context) => const ProductionLineScreen(),
+                        ),
                       );
                     },
                   ),
@@ -71,7 +74,8 @@ class HomeScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const FlexoScreen()),
+                          builder: (context) => const FlexoScreen(),
+                        ),
                       );
                     },
                   ),
@@ -91,12 +95,11 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.push_pin,
                     label: 'الدبوس',
                     onTap: () {
-                      // ✅ استبدال الـ SnackBar بعملية توجيه للشاشة الجديدة
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) =>
-                                const StapleDepartmentScreen()),
+                          builder: (context) => const StapleDepartmentScreen(),
+                        ),
                       );
                     },
                   ),
@@ -106,7 +109,7 @@ class HomeScreen extends StatelessWidget {
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('تم الدخول إلى السليكات'),
+                          content: Text('سيتم تطويره قريبًا'),
                         ),
                       );
                     },
@@ -117,7 +120,7 @@ class HomeScreen extends StatelessWidget {
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('تم الدخول إلى المخازن'),
+                          content: Text('سيتم تطويره قريبًا'),
                         ),
                       );
                     },
@@ -129,7 +132,8 @@ class HomeScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const AddSheetSizeScreen()),
+                          builder: (context) => const AddSheetSizeScreen(),
+                        ),
                       );
                     },
                   ),
@@ -140,7 +144,8 @@ class HomeScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const SavedSizesScreen()),
+                          builder: (context) => const SavedSizesScreen(),
+                        ),
                       );
                     },
                   ),

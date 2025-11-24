@@ -1,14 +1,11 @@
-// lib/src/widgets/saved/saved_size_card.dart
+// lib/src/widgets/saved_size_card.dart
 
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:photo_view/photo_view.dart';
 
 class SavedSizeCard extends StatelessWidget {
-  final Map record;
+  final Map<String, dynamic> record;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final VoidCallback onViewDetails;
   final VoidCallback onPrint;
 
   const SavedSizeCard({
@@ -16,51 +13,179 @@ class SavedSizeCard extends StatelessWidget {
     required this.record,
     required this.onEdit,
     required this.onDelete,
-    required this.onViewDetails,
     required this.onPrint,
   });
 
-  String _extractDateOnly(String? dateTimeString) {
-    if (dateTimeString == null || dateTimeString.isEmpty) return '';
-    try {
-      final date = DateTime.tryParse(dateTimeString);
-      if (date != null) {
-        return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-      }
-      return dateTimeString.split(' ').first;
-    } catch (e) {
-      return dateTimeString;
-    }
-  }
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-  void _showFullScreenImage(BuildContext context, List<String> imagePaths) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        color: Colors.black,
-        child: Stack(
-          alignment: Alignment.topRight,
+    // --- نوع العملية ---
+    final processType = record['processType'] ?? 'تفصيل';
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            PageView.builder(
-              itemCount: imagePaths.length,
-              itemBuilder: (context, index) {
-                return Center(
-                  child: PhotoView(
-                    imageProvider: FileImage(File(imagePaths[index])),
-                    minScale: PhotoViewComputedScale.contained * 0.8,
-                    maxScale: PhotoViewComputedScale.covered * 2.5,
+            // --- العنوان والشريحة ---
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- بيانات العميل (للتفصيل فقط) ---
+                      if (processType == 'تفصيل') ...[
+                        Text(
+                          record['clientName'] ?? 'غير معروف',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "الصنف: ${record['productName'] ?? '—'}",
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        Text(
+                          "الكود: ${record['productCode'] ?? '—'}",
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      // --- نوع العملية ---
+                      Chip(
+                        label: Text(
+                          processType,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        backgroundColor: (processType == 'تكسير')
+                            ? Colors.orange
+                            : Colors.blue,
+                      ),
+                    ],
                   ),
-                );
-              },
+                ),
+                const SizedBox(width: 10),
+                // --- أيقونة العين ---
+                IconButton(
+                  icon: const Icon(Icons.visibility),
+                  onPressed: () {
+                    if (processType == 'تكسير') {
+                      final sheetL = record['sheetLengthManual'] ?? '—';
+                      final sheetW = record['sheetWidthManual'] ?? '—';
+                      final type = record['cuttingType'] ?? 'غير معروف';
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text("تفاصيل التكسير"),
+                          content: Text(
+                            "طول الشيت: $sheetL سم\nعرض الشيت: $sheetW سم\nالنوع: $type",
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: Navigator.of(context).pop,
+                              child: const Text("حسنًا"),
+                            ),
+                          ],
+                        ),
+                      );
+                    } else {
+                      _showFullDetails(context, record);
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  color: colorScheme.primary,
+                  onPressed: onEdit,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  color: Colors.red,
+                  onPressed: onDelete,
+                ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                onPressed: Navigator.of(context).pop,
+
+            const SizedBox(height: 10),
+
+            // --- الأبعاد الأساسية (دائماً) ---
+            Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(text: "📏 الطول: "),
+                  TextSpan(
+                    text: "${record['length'] ?? '—'} سم",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const TextSpan(text: "\n📐 العرض: "),
+                  TextSpan(
+                    text: "${record['width'] ?? '—'} سم",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const TextSpan(text: "\n📏 الارتفاع: "),
+                  TextSpan(
+                    text: "${record['height'] ?? '—'} سم",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
+              style: const TextStyle(fontSize: 14),
+            ),
+
+            const SizedBox(height: 10),
+
+            // --- طول/عرض الشيت (للتكسير اليدوي أو التفصيل المحسوب) ---
+            if (processType == 'تكسير') ...[
+              Text.rich(
+                TextSpan(
+                  children: [
+                    const TextSpan(text: "📏 طول الشيت: "),
+                    TextSpan(
+                      text: "${record['sheetLengthManual'] ?? '—'} سم",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const TextSpan(text: "\n📐 عرض الشيت: "),
+                    TextSpan(
+                      text: "${record['sheetWidthManual'] ?? '—'} سم",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const TextSpan(text: "\n🔧 النوع: "),
+                    TextSpan(
+                      text: record['cuttingType'] ?? '—',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 10),
+            ] else if (processType == 'تفصيل') ...[
+              if ((record['sheetLengthResult']?.isNotEmpty ?? false) ||
+                  (record['sheetWidthResult']?.isNotEmpty ?? false))
+                Text(
+                  "${record['sheetLengthResult']}\n${record['sheetWidthResult']}",
+                  style: const TextStyle(fontSize: 14),
+                ),
+              const SizedBox(height: 10),
+            ],
+
+            // --- زر الطباعة ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onPrint,
+                  icon: const Icon(Icons.print),
+                  label: const Text("طباعة"),
+                ),
+              ],
             ),
           ],
         ),
@@ -68,105 +193,109 @@ class SavedSizeCard extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final List<String> imagePaths = (record['imagePaths'] is List)
-        ? List<String>.from(record['imagePaths'])
-        : [];
+  void _showFullDetails(BuildContext context, Map<String, dynamic> record) {
+    double length = double.tryParse(record['length']?.toString() ?? '0') ?? 0.0;
+    double width = double.tryParse(record['width']?.toString() ?? '0') ?? 0.0;
+    double height = double.tryParse(record['height']?.toString() ?? '0') ?? 0.0;
+    bool isFullSize = record['isFullSize'] ?? true;
+    bool isQuarterSize = record['isQuarterSize'] ?? false;
+    bool isOverFlap = record['isOverFlap'] ?? false;
+    bool isTwoFlap = record['isTwoFlap'] ?? true;
+    bool addTwoMm = record['addTwoMm'] ?? false;
 
-    final String displayDate = _extractDateOnly(record['date']);
+    double sheetLength = 0.0;
+    double sheetWidth = 0.0;
+    String productionWidth1 = '';
+    String productionWidth2 = '';
+    String productionHeight = '';
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("📅 التاريخ: $displayDate",
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text("👤 اسم العميل: ${record['clientName']}",
-                style: Theme.of(context).textTheme.bodyMedium),
-            Text("📦 الصنف: ${record['productName']}",
-                style: Theme.of(context).textTheme.bodyMedium),
-            Text("🔢 كود الصنف: ${record['productCode'] ?? ''}",
-                style: Theme.of(context).textTheme.bodyMedium),
-            Text(
-              "📏 المقاس: طول ${record['length']} × عرض ${record['width']} × ارتفاع ${record['height']}",
-            ),
-            if (record['isQuarterSize'] == true)
-              Text(
-                "(${record['isQuarterWidth'] == true ? 'عرض' : 'طول'})",
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, color: Colors.blue),
-              ),
-            if (imagePaths.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: SizedBox(
-                  height: 60,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: imagePaths.length,
-                    itemBuilder: (context, imgIndex) {
-                      final imagePath = imagePaths[imgIndex];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: FutureBuilder<bool>(
-                          future: File(imagePath).exists(),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const SizedBox.square(
-                                  dimension: 50,
-                                  child: Center(
-                                      child: CircularProgressIndicator()));
-                            }
-                            if (snapshot.hasData && snapshot.data == true) {
-                              return GestureDetector(
-                                onTap: () =>
-                                    _showFullScreenImage(context, imagePaths),
-                                child: Image.file(
-                                  File(imagePath),
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.cover,
-                                ),
-                              );
-                            } else {
-                              return const Icon(Icons.broken_image,
-                                  size: 30, color: Colors.red);
-                            }
-                          },
-                        ),
-                      );
-                    },
+    if (isFullSize) {
+      sheetLength = ((length + width) * 2) + 4;
+    } else if (isQuarterSize) {
+      sheetLength = width + 4;
+    } else {
+      sheetLength = length + width + 4;
+    }
+
+    if (isOverFlap && isTwoFlap) {
+      sheetWidth = addTwoMm ? height + (width * 2) + 0.4 : height + (width * 2);
+    } else if (record['isOneFlap'] == true && isOverFlap) {
+      sheetWidth = addTwoMm ? height + width + 0.2 : height + width;
+    } else if (record['isTwoFlap'] == true) {
+      sheetWidth = addTwoMm ? height + width + 0.4 : height + width;
+    } else if (record['isOneFlap'] == true) {
+      sheetWidth = addTwoMm ? height + (width / 2) + 0.2 : height + (width / 2);
+    }
+
+    productionHeight = height.toStringAsFixed(2);
+
+    if (isOverFlap && isTwoFlap) {
+      productionWidth1 = addTwoMm
+          ? (width + 0.2).toStringAsFixed(2)
+          : width.toStringAsFixed(2);
+      productionWidth2 = productionWidth1;
+    } else if (isOverFlap && record['isOneFlap'] == true) {
+      productionWidth1 = ".....";
+      productionWidth2 = addTwoMm
+          ? (width + 0.2).toStringAsFixed(2)
+          : width.toStringAsFixed(2);
+    } else if (record['isTwoFlap'] == true) {
+      productionWidth1 = addTwoMm
+          ? ((width / 2) + 0.2).toStringAsFixed(2)
+          : (width / 2).toStringAsFixed(2);
+      productionWidth2 = productionWidth1;
+    } else if (record['isOneFlap'] == true) {
+      productionWidth1 = ".....";
+      productionWidth2 = addTwoMm
+          ? ((width / 2) + 0.2).toStringAsFixed(2)
+          : (width / 2).toStringAsFixed(2);
+    } else {
+      productionWidth1 = productionWidth2 = ".....";
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("تفاصيل المقاس"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("📏 طول الشيت: ${sheetLength.toStringAsFixed(2)} سم"),
+              Text("📐 عرض الشيت: ${sheetWidth.toStringAsFixed(2)} سم"),
+              const SizedBox(height: 16),
+              const Text("🔧 مقاسات خط الإنتاج",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Table(
+                border: TableBorder.all(),
+                children: [
+                  TableRow(
+                    children: [
+                      _buildTableCell(productionWidth1),
+                      _buildTableCell(productionHeight),
+                      _buildTableCell(productionWidth2),
+                    ],
                   ),
-                ),
+                ],
               ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(
-                    icon:
-                        const Icon(Icons.remove_red_eye, color: Colors.orange),
-                    onPressed: onViewDetails),
-                IconButton(
-                    icon: const Icon(Icons.print, color: Colors.purple),
-                    onPressed: onPrint),
-                IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.green),
-                    onPressed: onEdit),
-                IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: onDelete),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: Navigator.of(context).pop,
+            child: const Text("حسنًا"),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildTableCell(String value) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Center(child: Text(value)),
     );
   }
 }

@@ -53,6 +53,7 @@ class CrushingScreen extends StatelessWidget {
                 mainAxisSpacing: 16,
                 childAspectRatio: 1.1,
                 children: [
+                  // 👥 طاقم التكسير
                   HomeButton(
                     icon: Icons.group,
                     label: 'طاقم التكسير',
@@ -68,6 +69,8 @@ class CrushingScreen extends StatelessWidget {
                       );
                     },
                   ),
+
+                  // 📦 وارد المخزن
                   HomeButton(
                     icon: Icons.inventory,
                     label: 'وارد المخزن',
@@ -83,6 +86,8 @@ class CrushingScreen extends StatelessWidget {
                       );
                     },
                   ),
+
+                  // 🛠️ الصيانة
                   HomeButton(
                     icon: Icons.settings,
                     label: 'الصيانة',
@@ -98,6 +103,8 @@ class CrushingScreen extends StatelessWidget {
                       );
                     },
                   ),
+
+                  // 🧮 الآلة الحاسبة
                   HomeButton(
                     icon: Icons.calculate,
                     label: 'الآلة الحاسبة',
@@ -106,6 +113,48 @@ class CrushingScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const CalculatorScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                  // 📏 سجل قوالب التكسير (فارغ مؤقتًا)
+                  HomeButton(
+                    icon: Icons.dvr,
+                    label: 'قوالب التكسير',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('سيتم تطويره قريبًا'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                    },
+                  ),
+
+                  // 📋 تقرير الإنتاج والجودة (فارغ مؤقتًا)
+                  HomeButton(
+                    icon: Icons.checklist,
+                    label: 'تقرير الجودة',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('سيتم تطويره قريبًا'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                    },
+                  ),
+
+                  // ⚙️ إدارة أدوات التكسير (فارغ مؤقتًا)
+                  HomeButton(
+                    icon: Icons.widgets,
+                    label: 'أدوات التكسير',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('سيتم تطويره قريبًا'),
+                          backgroundColor: Colors.orange,
                         ),
                       );
                     },
