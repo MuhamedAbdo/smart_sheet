@@ -17,6 +17,10 @@ class WorkerActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       clipBehavior: Clip.antiAlias,
@@ -27,8 +31,7 @@ class WorkerActionCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(_getIcon(),
-                    color: Theme.of(context).primaryColor, size: 24),
+                Icon(_getIcon(), color: colorScheme.primary, size: 24),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -36,7 +39,7 @@ class WorkerActionCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
+                      color: colorScheme.primary,
                     ),
                   ),
                 ),
@@ -44,41 +47,101 @@ class WorkerActionCard extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             if (action.type == 'إجازة' || action.type == 'غياب') ...[
-              _buildSectionTitle('🗓️ التواريخ'),
-              _buildInfoRow('تاريخ البدء:', _f(action.date)),
+              _buildSectionTitle('🗓️ التواريخ', color: colorScheme.primary),
+              _buildInfoRow(
+                'تاريخ البدء:',
+                _f(action.date),
+                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                valueColor: textTheme.bodyMedium?.color,
+              ),
               if (action.returnDate != null)
-                _buildInfoRow('تاريخ العودة:', _f(action.returnDate!)),
-              _buildInfoRow('عدد الأيام:', action.days.toStringAsFixed(0)),
+                _buildInfoRow(
+                  'تاريخ العودة:',
+                  _f(action.returnDate!),
+                  labelColor:
+                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: textTheme.bodyMedium?.color,
+                ),
+              _buildInfoRow(
+                'عدد الأيام:',
+                action.days.toStringAsFixed(0),
+                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                valueColor: textTheme.bodyMedium?.color,
+              ),
             ] else if (action.type == 'مكافئة' || action.type == 'جزاء') ...[
-              _buildSectionTitle('💰 القيمة'),
+              _buildSectionTitle('💰 القيمة', color: colorScheme.primary),
               if (action.amount != null)
                 _buildInfoRow(
-                    'المكافأة:', '${action.amount!.toStringAsFixed(2)} جنيه'),
+                  'المكافأة:',
+                  '${action.amount!.toStringAsFixed(2)} جنيه',
+                  labelColor:
+                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: textTheme.bodyMedium?.color,
+                ),
               if (action.bonusDays != null)
                 _buildInfoRow(
-                    'أيام مكافئة:', _formatBonusDays(action.bonusDays!)),
+                  'أيام مكافئة:',
+                  _formatBonusDays(action.bonusDays!),
+                  labelColor:
+                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: textTheme.bodyMedium?.color,
+                ),
             ] else if (action.type == 'إذن' || action.type == 'تأمين صحي') ...[
-              _buildSectionTitle('⏰ التوقيت'),
-              _buildInfoRow('التاريخ:', _f(action.date)),
+              _buildSectionTitle('⏰ التوقيت', color: colorScheme.primary),
+              _buildInfoRow(
+                'التاريخ:',
+                _f(action.date),
+                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                valueColor: textTheme.bodyMedium?.color,
+              ),
               if (action.startTime != null)
-                _buildInfoRow('وقت الخروج:', action.startTime!.format(context)),
+                _buildInfoRow(
+                  'وقت الخروج:',
+                  action.startTime!.format(context),
+                  labelColor:
+                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: textTheme.bodyMedium?.color,
+                ),
               if (action.endTime != null)
-                _buildInfoRow('وقت العودة:', action.endTime!.format(context)),
+                _buildInfoRow(
+                  'وقت العودة:',
+                  action.endTime!.format(context),
+                  labelColor:
+                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: textTheme.bodyMedium?.color,
+                ),
               if (action.duration != null)
-                _buildInfoRow('المدة:', action.duration!),
+                _buildInfoRow(
+                  'المدة:',
+                  action.duration!,
+                  labelColor:
+                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: textTheme.bodyMedium?.color,
+                ),
             ],
             const SizedBox(height: 10),
             if (action.notes != null && action.notes!.isNotEmpty) ...[
-              _buildSectionTitle('📝 الملاحظات'),
+              _buildSectionTitle('📝 الملاحظات', color: colorScheme.primary),
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.grey[50],
+                  color: theme.brightness == Brightness.dark
+                      ? Colors.grey[800]
+                      : Colors.grey[50],
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(
+                    color: theme.brightness == Brightness.dark
+                        ? Colors.grey[700]!
+                        : Colors.grey[300]!,
+                  ),
                 ),
-                child:
-                    Text(action.notes!, style: const TextStyle(fontSize: 14)),
+                child: Text(
+                  action.notes!,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: textTheme.bodyMedium?.color,
+                  ),
+                ),
               ),
               const SizedBox(height: 10),
             ],
@@ -87,13 +150,13 @@ class WorkerActionCard extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: onEdit,
-                    icon: Icon(Icons.edit,
-                        size: 18, color: Theme.of(context).primaryColor),
+                    icon:
+                        Icon(Icons.edit, size: 18, color: colorScheme.primary),
                     label: Text('تعديل',
-                        style:
-                            TextStyle(color: Theme.of(context).primaryColor)),
+                        style: TextStyle(color: colorScheme.primary)),
                     style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -137,33 +200,51 @@ class WorkerActionCard extends StatelessWidget {
     }
   }
 
-  Widget _buildSectionTitle(String title) => Padding(
+  Widget _buildSectionTitle(String title, {required Color color}) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
-        child: Text(title,
-            style: const TextStyle(
-                fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blue)),
-      );
-
-  Widget _buildInfoRow(String label, String value) => Padding(
-        padding: const EdgeInsets.only(bottom: 5),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-                width: 120,
-                child: Text(label,
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey))),
-            const SizedBox(width: 8),
-            Expanded(
-                child: Text(value,
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w500))),
-          ],
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
       );
+
+  Widget _buildInfoRow(String label, String value,
+      {Color? labelColor, Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: labelColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: valueColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   String _f(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

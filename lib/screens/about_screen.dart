@@ -120,7 +120,7 @@ class AboutScreen extends StatelessWidget {
             const SizedBox(height: 24),
             // معلومات المطور (اختياري)
             const Text(
-              'المطور :\n Muhamed Abdelaaleem\nالبريد الإلكتروني : mohamedabdo9999933@gmail.com',
+              'المطور :\n Muhamed Abdelaal\nالبريد الإلكتروني : mohamedabdo9999933@gmail.com',
               textAlign: TextAlign.right, // ✅ محاذاة من اليمين
               textDirection: TextDirection.rtl, // ✅ اتجاه النص من اليمين لليسار
               style: TextStyle(

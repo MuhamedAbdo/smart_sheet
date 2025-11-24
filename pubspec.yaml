@@ -11,8 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Supabase للـ Auth، Database، وStorage
-  supabase_flutter: ^2.9.1
+ 
 
   # تخزين محلي سريع (للـ cache، المقاسات، الإعدادات)
   hive: ^2.2.0

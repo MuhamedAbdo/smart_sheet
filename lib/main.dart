@@ -23,12 +23,14 @@ Future<void> main() async {
   if (!kIsWeb) {
     await Hive.initFlutter();
 
+    // تسجيل الـ adapters
     Hive.registerAdapter(WorkerAdapter());
     Hive.registerAdapter(WorkerActionAdapter());
     Hive.registerAdapter(FinishedProductAdapter());
     Hive.registerAdapter(MaintenanceRecordAdapter());
     Hive.registerAdapter(StoreEntryAdapter());
 
+    // فتح كل الصناديق مسبقًا — بما فيها 'settings'
     await Hive.openBox('settings');
     await Hive.openBox('measurements');
     await Hive.openBox('serial_setup_state');

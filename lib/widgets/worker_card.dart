@@ -1,7 +1,8 @@
 // lib/src/widgets/workers/worker_card.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // ✅ لاستخدام Clipboard
+import 'package:flutter/services.dart';
+
 import '../../models/worker_model.dart';
 
 class WorkerCard extends StatefulWidget {
@@ -42,7 +43,6 @@ class _WorkerCardState extends State<WorkerCard> {
       ),
     );
 
-    // إعادة اللون الأصلي بعد 3 ثوانٍ
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
@@ -54,6 +54,10 @@ class _WorkerCardState extends State<WorkerCard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       clipBehavior: Clip.antiAlias,
@@ -66,7 +70,7 @@ class _WorkerCardState extends State<WorkerCard> {
               children: [
                 Icon(
                   Icons.person,
-                  color: Theme.of(context).primaryColor,
+                  color: colorScheme.primary,
                   size: 24,
                 ),
                 const SizedBox(width: 10),
@@ -76,60 +80,54 @@ class _WorkerCardState extends State<WorkerCard> {
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
+                      color: colorScheme.primary,
                     ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 14),
-
-            _buildSectionTitle('📞 التواصل'),
-
-            // ✅ رقم الهاتف مع دعم النسخ عند الضغط المطول
+            _buildSectionTitle('📞 التواصل', color: colorScheme.primary),
             GestureDetector(
               onLongPress: _copyPhoneToClipboard,
               child: _buildInfoRow(
                 'الهاتف:',
                 widget.worker.phone,
+                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                 valueColor: _isPhoneCopied ? Colors.green : null,
+                textColor: textTheme.bodyMedium?.color,
               ),
             ),
-
-            _buildInfoRow('الوظيفة:', widget.worker.job),
-            // _buildInfoRow(
-            //   'التأمين الصحي:',
-            //   widget.worker.hasMedicalInsurance ? 'نعم' : 'لا',
-            // ),
+            _buildInfoRow(
+              'الوظيفة:',
+              widget.worker.job,
+              labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+              textColor: textTheme.bodyMedium?.color,
+            ),
             const SizedBox(height: 10),
-
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: widget.onTap,
                     icon: Icon(Icons.list_alt,
-                        size: 18, color: Theme.of(context).primaryColor),
+                        size: 18, color: colorScheme.primary),
                     label: Text('التفاصيل',
-                        style:
-                            TextStyle(color: Theme.of(context).primaryColor)),
+                        style: TextStyle(color: colorScheme.primary)),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                        padding: const EdgeInsets.symmetric(vertical: 12)),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: widget.onEdit,
-                    icon: Icon(Icons.edit,
-                        size: 18, color: Theme.of(context).primaryColor),
+                    icon:
+                        Icon(Icons.edit, size: 18, color: colorScheme.primary),
                     label: Text('تعديل',
-                        style:
-                            TextStyle(color: Theme.of(context).primaryColor)),
+                        style: TextStyle(color: colorScheme.primary)),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                        padding: const EdgeInsets.symmetric(vertical: 12)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -154,21 +152,27 @@ class _WorkerCardState extends State<WorkerCard> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, {required Color color}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.bold,
-          color: Colors.blue,
+          color: color,
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {Color? valueColor}) {
+  Widget _buildInfoRow(
+    String label,
+    String value, {
+    Color? labelColor,
+    Color? valueColor,
+    Color? textColor,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
       child: Row(
@@ -178,10 +182,10 @@ class _WorkerCardState extends State<WorkerCard> {
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey,
+                color: labelColor,
               ),
             ),
           ),
@@ -192,7 +196,7 @@ class _WorkerCardState extends State<WorkerCard> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: valueColor, // ✅ تغيير اللون عند النسخ
+                color: valueColor ?? textColor,
               ),
             ),
           ),
