@@ -1,6 +1,8 @@
 // lib/src/widgets/saved_size_card.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:photo_view/photo_view.dart';
 
 class SavedSizeCard extends StatelessWidget {
   final Map<String, dynamic> record;
@@ -23,6 +25,11 @@ class SavedSizeCard extends StatelessWidget {
 
     // --- نوع العملية ---
     final processType = record['processType'] ?? 'تفصيل';
+
+    // --- تحميل الصور ---
+    final images = (record['imagePaths'] is List)
+        ? (record['imagePaths'] as List).map((e) => e.toString()).toList()
+        : <String>[];
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
@@ -176,6 +183,38 @@ class SavedSizeCard extends StatelessWidget {
               const SizedBox(height: 10),
             ],
 
+            // --- عرض الصور ---
+            if (images.isNotEmpty) ...[
+              const Text("📸 الصور:",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 60,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: images.length,
+                  itemBuilder: (context, i) {
+                    final file = File(images[i]);
+                    if (!file.existsSync()) return const SizedBox();
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      child: GestureDetector(
+                        onTap: () => _showFullScreenImage(context, images, i),
+                        child: Image.file(
+                          file,
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+
             // --- زر الطباعة ---
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -288,6 +327,38 @@ class SavedSizeCard extends StatelessWidget {
             child: const Text("حسنًا"),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showFullScreenImage(
+      BuildContext context, List<String> images, int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text('الصورة (${index + 1} من ${images.length})'),
+            centerTitle: true,
+          ),
+          body: PhotoView(
+            imageProvider: FileImage(File(images[index])),
+            minScale: PhotoViewComputedScale.contained * 0.8,
+            maxScale: PhotoViewComputedScale.covered * 2.5,
+            loadingBuilder: (context, event) =>
+                const Center(child: CircularProgressIndicator()),
+            errorBuilder: (context, error, stackTrace) => const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error, size: 50, color: Colors.red),
+                  SizedBox(height: 16),
+                  Text("تعذر تحميل الصورة"),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
