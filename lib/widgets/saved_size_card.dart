@@ -332,33 +332,22 @@ class SavedSizeCard extends StatelessWidget {
   }
 
   void _showFullScreenImage(
-      BuildContext context, List<String> images, int index) {
+    BuildContext context,
+    List<String> images,
+    int initialIndex,
+  ) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: Text('الصورة (${index + 1} من ${images.length})'),
-            centerTitle: true,
-          ),
-          body: PhotoView(
-            imageProvider: FileImage(File(images[index])),
-            minScale: PhotoViewComputedScale.contained * 0.8,
-            maxScale: PhotoViewComputedScale.covered * 2.5,
-            loadingBuilder: (context, event) =>
-                const Center(child: CircularProgressIndicator()),
-            errorBuilder: (context, error, stackTrace) => const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error, size: 50, color: Colors.red),
-                  SizedBox(height: 16),
-                  Text("تعذر تحميل الصورة"),
-                ],
-              ),
-            ),
-          ),
-        ),
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return _FullScreenImageGallery(
+            images: images,
+            initialIndex: initialIndex,
+          );
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
       ),
     );
   }
@@ -367,6 +356,85 @@ class SavedSizeCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Center(child: Text(value)),
+    );
+  }
+}
+
+// --- شاشة العرض الكامل مع التنقل بالسحب ---
+class _FullScreenImageGallery extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+
+  const _FullScreenImageGallery({
+    required this.images,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_FullScreenImageGallery> createState() =>
+      _FullScreenImageGalleryState();
+}
+
+class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('الصورة (${_currentIndex + 1} من ${widget.images.length})'),
+        centerTitle: true,
+        backgroundColor: Colors.black54,
+      ),
+      backgroundColor: Colors.black,
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.images.length,
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        itemBuilder: (context, index) {
+          return PhotoView(
+            imageProvider: FileImage(File(widget.images[index])),
+            minScale: PhotoViewComputedScale.contained * 0.8,
+            maxScale: PhotoViewComputedScale.covered * 3.0,
+            loadingBuilder: (context, event) {
+              return const Center(child: CircularProgressIndicator());
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error, size: 50, color: Colors.red),
+                    SizedBox(height: 16),
+                    Text(
+                      "تعذر تحميل الصورة",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

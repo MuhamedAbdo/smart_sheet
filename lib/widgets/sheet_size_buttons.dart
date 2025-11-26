@@ -23,12 +23,7 @@ class SheetSizeButtons extends StatelessWidget {
           ),
           child: const Text("احسب"),
         ),
-        const SizedBox(height: 20),
-        ElevatedButton.icon(
-          onPressed: onSave,
-          icon: const Icon(Icons.save),
-          label: const Text("حفظ"),
-        ),
+        //
       ],
     );
   }
