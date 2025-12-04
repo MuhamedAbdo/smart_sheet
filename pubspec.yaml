@@ -11,8 +11,6 @@ dependencies:
   flutter:
     sdk: flutter
 
- 
-
   # تخزين محلي سريع (للـ cache، المقاسات، الإعدادات)
   hive: ^2.2.0
   hive_flutter: ^1.1.0
@@ -26,7 +24,7 @@ dependencies:
 
   # إنشاء ملفات PDF وتوليدها
   pdf: ^3.10.0
-  printing: ^5.12.0
+  printing: ^5.14.2 # تم التأكد من أحدث نسخة موجودة في lock file
 
   # رسوم متحركة (مثل Lottie في Splash أو Loading)
   lottie: ^2.7.0
@@ -54,6 +52,9 @@ dependencies:
   permission_handler: ^12.0.1
   math_expressions: ^3.0.0
   change_app_package_name: ^1.5.0
+  device_info_plus: ^12.3.0
+  open_file: ^3.5.10
+  file_picker: ^10.3.7
 
 dev_dependencies:
   flutter_test:

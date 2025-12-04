@@ -236,8 +236,8 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
       lastDate: DateTime(2100),
     );
 
+    // ✅ تم إضافة فحص null
     if (picked != null) {
-      // ✅ تم إضافة فحص null + تنسيق التاريخ بشكل صحيح
       controller.text =
           "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
     }

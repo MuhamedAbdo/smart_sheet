@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/utils/pdf_export_helper.dart';
 
 class InkReportList extends StatelessWidget {
   final Box box;
@@ -126,7 +127,7 @@ class InkReportList extends StatelessWidget {
 
                     const SizedBox(height: 8),
 
-                    // ✅ الصور - تم إصلاح نوع البيانات هنا
+                    // ✅ الصور
                     _buildImagesList(images, context),
 
                     const SizedBox(height: 12),
@@ -140,6 +141,18 @@ class InkReportList extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
+                          // ✅ زر تصدير PDF الجديد
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  exportReportToPdf(context, record, images),
+                              icon: const Icon(Icons.picture_as_pdf,
+                                  size: 18, color: Colors.green),
+                              label: const Text('تصدير PDF',
+                                  style: TextStyle(color: Colors.green)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () =>
@@ -182,7 +195,7 @@ class InkReportList extends StatelessWidget {
     String formatNumber(String value) {
       if (value.contains('.')) {
         final parts = value.split('.');
-        if (parts[1] == '0') {
+        if (parts.length > 1 && parts[1] == '0') {
           return parts[0];
         }
         return value
@@ -247,9 +260,12 @@ class InkReportList extends StatelessWidget {
     );
   }
 
-  // ✅ دالة لعرض الصور - تم إصلاح نوع المعامل
+  // ✅ دالة لعرض الصور
   Widget _buildImagesList(List<String> images, BuildContext context) {
-    if (images.isEmpty) return const SizedBox.shrink();
+    final existingImages =
+        images.where((path) => File(path).existsSync()).toList();
+
+    if (existingImages.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,11 +277,11 @@ class InkReportList extends StatelessWidget {
           height: 60,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: images.length,
+            itemCount: existingImages.length,
             itemBuilder: (context, i) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
               child: Image.file(
-                File(images[i]),
+                File(existingImages[i]),
                 width: 50,
                 height: 50,
                 fit: BoxFit.cover,
@@ -296,6 +312,7 @@ class InkReportList extends StatelessWidget {
     );
   }
 
+  // دالة مساعدة لتحويل البيانات من Hive (ديناميكية) إلى Map<String, dynamic>
   Map<String, dynamic> _convertToTypedMap(dynamic data) {
     if (data is! Map) return {};
     Map<String, dynamic> result = {};
@@ -315,6 +332,7 @@ class InkReportList extends StatelessWidget {
     return result;
   }
 
+  // دالة مساعدة لتحويل الأرقام إلى سلاسل نصية لتعبئة TextFields في نموذج التعديل
   Map<String, dynamic> _convertValuesToString(Map<String, dynamic> data) {
     return data.map((k, v) {
       if (v is int || v is double) {

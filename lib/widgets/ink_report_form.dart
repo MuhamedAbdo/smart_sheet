@@ -76,7 +76,7 @@ class _InkReportFormState extends State<InkReportForm> {
       _loadInitialData(widget.initialData!);
     } else {
       dateController.text =
-          "${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}";
+          "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}";
     }
   }
 
@@ -209,7 +209,8 @@ class _InkReportFormState extends State<InkReportForm> {
       lastDate: DateTime(2100),
     );
     if (picked != null && mounted) {
-      dateController.text = "${picked.year}-${picked.month}-${picked.day}";
+      dateController.text =
+          "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
     }
   }
 
@@ -262,213 +263,219 @@ class _InkReportFormState extends State<InkReportForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.reportKey == null
-                      ? "🆕 إضافة تقرير"
-                      : "✏️ تعديل تقرير",
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge!
-                      .copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: dateController,
-                  readOnly: true,
-                  onTap: _selectDate,
-                  decoration: const InputDecoration(
-                      labelText: "📅 التاريخ", border: OutlineInputBorder()),
-                  validator: (v) => v!.isEmpty ? "مطلوب" : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: clientNameController,
-                  decoration: const InputDecoration(
-                      labelText: "👤 اسم العميل", border: OutlineInputBorder()),
-                  validator: (v) => v!.isEmpty ? "مطلوب" : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: productController,
-                  decoration: const InputDecoration(
-                      labelText: "📦 الصنف", border: OutlineInputBorder()),
-                  validator: (v) => v!.isEmpty ? "مطلوب" : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: productCodeController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                      labelText: "🔢 كود الصنف", border: OutlineInputBorder()),
-                  validator: (v) => v!.isEmpty ? "مطلوب" : null,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: lengthController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                            labelText: "📏 الطول",
-                            border: OutlineInputBorder()),
-                        validator: (v) => v!.isEmpty ? "مطلوب" : null,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: widthController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                            labelText: "📏 العرض",
-                            border: OutlineInputBorder()),
-                        validator: (v) => v!.isEmpty ? "مطلوب" : null,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: heightController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                            labelText: "📏 الارتفاع",
-                            border: OutlineInputBorder()),
-                        validator: (v) => v!.isEmpty ? "مطلوب" : null,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // ✅ الكاميرا
-                if (_isCameraReady && _cameraController != null)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return Directionality(
+      textDirection: TextDirection.rtl, // ✅ الحل للمشكلة 1
+      child: Padding(
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.reportKey == null
+                        ? "🆕 إضافة تقرير"
+                        : "✏️ تعديل تقرير",
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge!
+                        .copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: dateController,
+                    readOnly: true,
+                    onTap: _selectDate,
+                    decoration: const InputDecoration(
+                        labelText: "📅 التاريخ", border: OutlineInputBorder()),
+                    validator: (v) => v!.isEmpty ? "مطلوب" : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: clientNameController,
+                    decoration: const InputDecoration(
+                        labelText: "👤 اسم العميل",
+                        border: OutlineInputBorder()),
+                    validator: (v) => v!.isEmpty ? "مطلوب" : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: productController,
+                    decoration: const InputDecoration(
+                        labelText: "📦 الصنف", border: OutlineInputBorder()),
+                    validator: (v) => v!.isEmpty ? "مطلوب" : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: productCodeController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: "🔢 كود الصنف",
+                        border: OutlineInputBorder()),
+                    validator: (v) => v!.isEmpty ? "مطلوب" : null,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
                     children: [
-                      const Text("📸 الصور",
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                          height: 200,
-                          child: CameraPreview(_cameraController!)),
-                      const SizedBox(height: 8),
-                      ElevatedButton.icon(
-                        onPressed: _isProcessing ? null : _captureImage,
-                        icon: const Icon(Icons.camera),
-                        label: const Text("التقط صورة"),
-                      ),
-                      if (_capturedImages.isNotEmpty)
-                        SizedBox(
-                          height: 100,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _capturedImages.length,
-                            itemBuilder: (context, i) => Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4.0),
-                              child: Stack(
-                                  alignment: Alignment.topRight,
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () => _showFullScreenImage(i),
-                                      child: Image.file(_capturedImages[i],
-                                          width: 80,
-                                          height: 80,
-                                          fit: BoxFit.cover),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.close,
-                                          size: 18, color: Colors.red),
-                                      onPressed: () => _removeImage(i),
-                                    ),
-                                  ]),
-                            ),
-                          ),
+                      Expanded(
+                        child: TextFormField(
+                          controller: lengthController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                              labelText: "📏 الطول",
+                              border: OutlineInputBorder()),
+                          validator: (v) => v!.isEmpty ? "مطلوب" : null,
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          controller: widthController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                              labelText: "📏 العرض",
+                              border: OutlineInputBorder()),
+                          validator: (v) => v!.isEmpty ? "مطلوب" : null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          controller: heightController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                              labelText: "📏 الارتفاع",
+                              border: OutlineInputBorder()),
+                          validator: (v) => v!.isEmpty ? "مطلوب" : null,
+                        ),
+                      ),
                     ],
                   ),
-                const SizedBox(height: 16),
-                const Text("🎨 الألوان",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                ...colors.map((c) {
-                  final index = colors.indexOf(c);
-                  return Column(
+                  const SizedBox(height: 16),
+                  // ✅ الكاميرا
+                  if (_isCameraReady && _cameraController != null)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("📸 الصور",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                            height: 200,
+                            child: CameraPreview(_cameraController!)),
+                        const SizedBox(height: 8),
+                        ElevatedButton.icon(
+                          onPressed: _isProcessing ? null : _captureImage,
+                          icon: const Icon(Icons.camera),
+                          label: const Text("التقط صورة"),
+                        ),
+                        if (_capturedImages.isNotEmpty)
+                          SizedBox(
+                            height: 100,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _capturedImages.length,
+                              itemBuilder: (context, i) => Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 4.0),
+                                child: Stack(
+                                    alignment: Alignment.topRight,
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () => _showFullScreenImage(i),
+                                        child: Image.file(_capturedImages[i],
+                                            width: 80,
+                                            height: 80,
+                                            fit: BoxFit.cover),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close,
+                                            size: 18, color: Colors.red),
+                                        onPressed: () => _removeImage(i),
+                                      ),
+                                    ]),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  const SizedBox(height: 16),
+                  const Text("🎨 الألوان",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...colors.map((c) {
+                    final index = colors.indexOf(c);
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                    controller: c.colorController,
+                                    decoration: const InputDecoration(
+                                        labelText: "اللون",
+                                        border: OutlineInputBorder()))),
+                            const SizedBox(width: 8),
+                            Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                    controller: c.quantityController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                        labelText: "الكمية (لتر)",
+                                        border: OutlineInputBorder()))),
+                            IconButton(
+                                icon:
+                                    const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () => _removeColorField(index)),
+                          ],
+                        ),
+                        const SizedBox(height: 8), // ✅ المسافة بين الألوان
+                      ],
+                    );
+                  }),
+                  ElevatedButton.icon(
+                      onPressed: _addColorField,
+                      icon: const Icon(Icons.add),
+                      label: const Text("إضافة لون")),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: quantityController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: "🔢 عدد الشيتات",
+                        border: OutlineInputBorder()),
+                    validator: (v) => v!.isEmpty ? "مطلوب" : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                        labelText: "📝 ملاحظات", border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                              flex: 3,
-                              child: TextFormField(
-                                  controller: c.colorController,
-                                  decoration: const InputDecoration(
-                                      labelText: "اللون",
-                                      border: OutlineInputBorder()))),
-                          const SizedBox(width: 8),
-                          Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                  controller: c.quantityController,
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                      labelText: "الكمية (لتر)",
-                                      border: OutlineInputBorder()))),
-                          IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _removeColorField(index)),
-                        ],
-                      ),
-                      const SizedBox(height: 8), // ✅ المسافة بين الألوان
+                      Expanded(
+                          child: TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("❌ إلغاء"))),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: ElevatedButton(
+                              onPressed: _saveReport,
+                              child: const Text("💾 حفظ التقرير"))),
                     ],
-                  );
-                }),
-                ElevatedButton.icon(
-                    onPressed: _addColorField,
-                    icon: const Icon(Icons.add),
-                    label: const Text("إضافة لون")),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: quantityController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                      labelText: "🔢 عدد الشيتات",
-                      border: OutlineInputBorder()),
-                  validator: (v) => v!.isEmpty ? "مطلوب" : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: notesController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                      labelText: "📝 ملاحظات", border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                        child: TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text("❌ إلغاء"))),
-                    const SizedBox(width: 8),
-                    Expanded(
-                        child: ElevatedButton(
-                            onPressed: _saveReport,
-                            child: const Text("💾 حفظ التقرير"))),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

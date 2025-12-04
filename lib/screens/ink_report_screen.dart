@@ -1,11 +1,10 @@
-// lib/src/screens/flexo/ink_report_screen.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
-import 'package:smart_sheet/widgets/ink_report_form.dart';
 import 'package:smart_sheet/widgets/full_screen_image_page.dart';
+import 'package:smart_sheet/widgets/ink_report_form.dart';
+import '../../../utils/pdf_export_helper.dart';
 
 class InkReportScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
@@ -86,7 +85,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // ✅ دالة لعرض المقاسات بالتنسيق المطلوب
   Widget _buildDimensionsText(dynamic dimensions) {
     if (dimensions is! Map) return const Text("📏 غير محدد");
 
@@ -114,7 +112,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     return Text("📏 $formattedLength/$formattedWidth/$formattedHeight");
   }
 
-  // ✅ دالة لعرض الألوان والكميات
   Widget _buildColorsList(List<dynamic> colors) {
     if (colors.isEmpty) return const Text("🎨 لا توجد ألوان");
 
@@ -131,13 +128,11 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // ✅ دالة لعرض عدد الشيتات
   Widget _buildQuantityText(dynamic quantity) {
     final qty = quantity?.toString() ?? '0';
     return Text("🔢 عدد الشيتات: $qty");
   }
 
-  // ✅ دالة لعرض الملاحظات
   Widget _buildNotesText(dynamic notes) {
     if (notes == null || notes.toString().isEmpty) {
       return const SizedBox.shrink();
@@ -152,10 +147,8 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // ✅ دالة لعرض الصور
   Widget _buildImagesList(List<String> images) {
     if (images.isEmpty) return const SizedBox.shrink();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -180,20 +173,27 @@ class _InkReportScreenState extends State<InkReportScreen> {
               ),
             ),
           ),
-        ),
+        )
       ],
     );
   }
 
+  // ✅ تحسين البحث: البحث الدقيق في كود الصنف، جزئي في العميل والصنف
   bool _matchesSearch(Map<String, dynamic> report, String q) {
     if (q.isEmpty) return true;
-    final lower = q.toLowerCase();
-    final client = (report['clientName'] ?? '').toString().toLowerCase();
-    final product = (report['product'] ?? '').toString().toLowerCase();
-    final code = (report['productCode'] ?? '').toString().toLowerCase();
-    return client.contains(lower) ||
-        product.contains(lower) ||
-        code.contains(lower);
+
+    // نجري مقارنة دقيقة (==) بعد تحويل النصوص إلى lowercase وإزالة الفراغات
+    final query = q.toLowerCase().trim();
+    final client = (report['clientName'] ?? '').toString().toLowerCase().trim();
+    final product = (report['product'] ?? '').toString().toLowerCase().trim();
+    final code = (report['productCode'] ?? '').toString().toLowerCase().trim();
+
+    // مطابقة دقيقة على أي من الحقول
+    if (client.isNotEmpty && client == query) return true;
+    if (product.isNotEmpty && product == query) return true;
+    if (code.isNotEmpty && code == query) return true;
+
+    return false;
   }
 
   void _showFilterSheet() {
@@ -271,7 +271,30 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // ✅ تعديل نوع البيانات المُعادة
+  Future<void> _exportFilteredReports(
+      List<MapEntry<dynamic, Map<String, dynamic>>> preparedRecords) async {
+    final List<Map<String, dynamic>> recordsToExport = preparedRecords
+        .map((entry) => _convertValuesToString(entry.value))
+        .toList();
+
+    if (recordsToExport.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("⚠️ لا توجد تقارير لتصديرها")),
+      );
+      return;
+    }
+
+    try {
+      await exportReportsToPdf(context, recordsToExport);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ فشل تصدير التقرير المجمع: $e')),
+        );
+      }
+    }
+  }
+
   List<MapEntry<dynamic, Map<String, dynamic>>> _prepareRecords(Box box) {
     var entries = box.toMap().entries.toList();
 
@@ -285,35 +308,27 @@ class _InkReportScreenState extends State<InkReportScreen> {
         return DateTime(1970);
       }
 
-      // ✅ التأكد من أن a.value و b.value من نوع Map قبل الوصول إلى 'date'
       final aValue = a.value;
       final bValue = b.value;
       if (aValue is Map && bValue is Map) {
         final da = parseDate(aValue['date']);
         final db = parseDate(bValue['date']);
-        return db.compareTo(da);
+        return _sortDescending ? db.compareTo(da) : da.compareTo(db);
       } else {
-        return 0; // إذا لم تكن Maps، لا تغيّر الترتيب
+        return 0;
       }
     });
-
-    if (!_sortDescending) {
-      entries = entries.reversed.toList();
-    }
 
     var filtered = entries;
     if (_onlyWithImages) {
       filtered = filtered.where((e) {
         final value = e.value;
-        // ✅ تحقق من أن القيمة عبارة عن Map قبل محاولة الوصول إلى 'imagePaths'
         if (value is Map) {
           final imagePaths = value['imagePaths'];
-          // ✅ تحقق من أن imagePaths هو List قبل محاولة الوصول إلى length
           if (imagePaths is List) {
             return imagePaths.isNotEmpty;
           }
         }
-        // ✅ إذا لم تكن Map أو imagePaths ليست List، أعد false
         return false;
       }).toList();
     }
@@ -322,23 +337,19 @@ class _InkReportScreenState extends State<InkReportScreen> {
       filtered = filtered.where((e) {
         final value = e.value;
         if (value is Map<String, dynamic>) {
-          // ✅ استخدام _matchesSearch بعد التأكد من النوع
           return _matchesSearch(value, _searchQuery);
         }
-        return false; // إذا لم يكن Map<String, dynamic>، لا يطابق البحث
+        return false;
       }).toList();
     }
 
-    // ✅ التحويل الآمن من dynamic إلى Map<String, dynamic>
     return filtered.map((entry) {
       final dynamic key = entry.key;
       final dynamic value = entry.value;
       if (value is Map) {
-        // استخدام cast لتحويل Map<dynamic, dynamic> إلى Map<String, dynamic>
         final typedValue = Map<String, dynamic>.from(value);
         return MapEntry(key, typedValue);
       } else {
-        // إذا لم يكن Map، أعد مدخلًا فارغًا أو تجاهل
         return MapEntry(key, <String, dynamic>{});
       }
     }).toList();
@@ -362,7 +373,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
               _searchFocus.unfocus();
             },
             decoration: InputDecoration(
-              hintText: 'ابحث بكود الصنف، الصنف أو اسم العميل',
+              hintText: 'ابحث بالعميل (جزئي)، الصنف (جزئي)، كود الصنف (دقيق)',
               hintStyle: const TextStyle(color: Colors.white70),
               filled: false,
               prefixIcon: IconButton(
@@ -392,6 +403,49 @@ class _InkReportScreenState extends State<InkReportScreen> {
         ),
         centerTitle: true,
         actions: [
+          // ✅ PopupMenuButton مع خيارين: تصدير وحفظ
+          ValueListenableBuilder(
+            valueListenable: _inkReportBox.listenable(),
+            builder: (context, Box box, child) {
+              final preparedRecords = _prepareRecords(box);
+              return PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) {
+                  if (value == 'export') {
+                    _exportFilteredReports(preparedRecords);
+                  } else if (value == 'save') {
+                    final recordsToSave = preparedRecords
+                        .map((entry) => _convertValuesToString(entry.value))
+                        .toList();
+                    savePdfToDevice(
+                        context, recordsToSave); // ✅ استدعاء الدالة الجديدة
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'export',
+                    child: Row(
+                      children: [
+                        Icon(Icons.share, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text('تصدير ومشاركة PDF'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'save',
+                    child: Row(
+                      children: [
+                        Icon(Icons.save, color: Colors.green),
+                        SizedBox(width: 8),
+                        Text('حفظ في ذاكرة الهاتف'),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterSheet,
@@ -405,9 +459,9 @@ class _InkReportScreenState extends State<InkReportScreen> {
             return const Center(child: Text("🚫 لا يوجد تقارير"));
           }
 
-          final prepared = _prepareRecords(box);
+          final allRecords = _prepareRecords(box);
 
-          if (prepared.isEmpty) {
+          if (allRecords.isEmpty) {
             return Center(
               child: Text(_searchQuery.isNotEmpty
                   ? 'لا توجد نتائج مطابقة لـ "$_searchQuery"'
@@ -416,11 +470,10 @@ class _InkReportScreenState extends State<InkReportScreen> {
           }
 
           return ListView.builder(
-            itemCount: prepared.length,
+            itemCount: allRecords.length,
             itemBuilder: (context, index) {
-              final entry = prepared[index];
+              final entry = allRecords[index];
               final dynamic key = entry.key;
-              // ✅ الآن، entry.value هو Map<String, dynamic> مضمون
               final Map<String, dynamic> record = entry.value;
 
               final images = (record['imagePaths'] is List)
@@ -521,7 +574,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
                             Expanded(
                               child: OutlinedButton.icon(
                                 onPressed: () {
-                                  // ✅ التأكد من أن record هو Map<String, dynamic> قبل التمرير
                                   final sanitizedRecord =
                                       _convertValuesToString(record);
                                   showModalBottomSheet(
@@ -585,7 +637,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // ✅ دالة مساعدة لعرض صفوف المعلومات
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -602,27 +653,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
         ],
       ),
     );
-  }
-
-  Map<String, dynamic> _convertToTypedMap(dynamic data) {
-    if (data is Map<String, dynamic>) return data;
-    if (data is! Map) return {};
-
-    Map<String, dynamic> result = {};
-    data.forEach((key, value) {
-      final String stringKey = key.toString();
-      if (value is Map) {
-        result[stringKey] = _convertToTypedMap(value);
-      } else if (value is List) {
-        result[stringKey] = value.map((item) {
-          if (item is Map) return _convertToTypedMap(item);
-          return item;
-        }).toList();
-      } else {
-        result[stringKey] = value;
-      }
-    });
-    return result;
   }
 
   Map<String, dynamic> _convertValuesToString(Map<String, dynamic> input) {
