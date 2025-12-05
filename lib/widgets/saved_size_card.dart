@@ -26,6 +26,11 @@ class SavedSizeCard extends StatelessWidget {
     // --- نوع العملية ---
     final processType = record['processType'] ?? 'تفصيل';
 
+    // --- بيانات العميل (للجميع) ---
+    final clientName = record['clientName']?.toString() ?? '';
+    final productName = record['productName']?.toString() ?? '';
+    final productCode = record['productCode']?.toString() ?? '';
+
     // --- تحميل الصور ---
     final images = (record['imagePaths'] is List)
         ? (record['imagePaths'] as List).map((e) => e.toString()).toList()
@@ -45,26 +50,33 @@ class SavedSizeCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // --- بيانات العميل (للتفصيل فقط) ---
-                      if (processType == 'تفصيل') ...[
+                      // --- بيانات العميل (للجميع) ---
+                      if (clientName.isNotEmpty) ...[
                         Text(
-                          record['clientName'] ?? 'غير معروف',
+                          clientName,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          "الصنف: ${record['productName'] ?? '—'}",
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        Text(
-                          "الكود: ${record['productCode'] ?? '—'}",
-                          style: const TextStyle(fontSize: 14),
-                        ),
+                      ],
+
+                      // --- بيانات المنتج والكود (للجميع) ---
+                      if (productName.isNotEmpty || productCode.isNotEmpty) ...[
+                        if (productName.isNotEmpty)
+                          Text(
+                            "الصنف: $productName",
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        if (productCode.isNotEmpty)
+                          Text(
+                            "الكود: $productCode",
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         const SizedBox(height: 6),
                       ],
+
                       // --- نوع العملية ---
                       Chip(
                         label: Text(
@@ -91,8 +103,21 @@ class SavedSizeCard extends StatelessWidget {
                         context: context,
                         builder: (context) => AlertDialog(
                           title: const Text("تفاصيل التكسير"),
-                          content: Text(
-                            "طول الشيت: $sheetL سم\nعرض الشيت: $sheetW سم\nالنوع: $type",
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (clientName.isNotEmpty)
+                                Text("👤 العميل: $clientName"),
+                              if (productName.isNotEmpty)
+                                Text("🏷️ الصنف: $productName"),
+                              if (productCode.isNotEmpty)
+                                Text("🔢 الكود: $productCode"),
+                              const SizedBox(height: 10),
+                              Text("📏 طول الشيت: $sheetL سم"),
+                              Text("📐 عرض الشيت: $sheetW سم"),
+                              Text("🔧 النوع: $type"),
+                            ],
                           ),
                           actions: [
                             TextButton(
@@ -242,6 +267,11 @@ class SavedSizeCard extends StatelessWidget {
     bool isTwoFlap = record['isTwoFlap'] ?? true;
     bool addTwoMm = record['addTwoMm'] ?? false;
 
+    // بيانات العميل
+    final clientName = record['clientName']?.toString() ?? '';
+    final productName = record['productName']?.toString() ?? '';
+    final productCode = record['productCode']?.toString() ?? '';
+
     double sheetLength = 0.0;
     double sheetWidth = 0.0;
     String productionWidth1 = '';
@@ -301,6 +331,12 @@ class SavedSizeCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // بيانات العميل
+              if (clientName.isNotEmpty) Text("👤 العميل: $clientName"),
+              if (productName.isNotEmpty) Text("🏷️ الصنف: $productName"),
+              if (productCode.isNotEmpty) Text("🔢 الكود: $productCode"),
+
+              const SizedBox(height: 10),
               Text("📏 طول الشيت: ${sheetLength.toStringAsFixed(2)} سم"),
               Text("📐 عرض الشيت: ${sheetWidth.toStringAsFixed(2)} سم"),
               const SizedBox(height: 16),

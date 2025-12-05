@@ -56,20 +56,28 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
 
           final entries = box.toMap().entries.where((entry) {
             final record = entry.value as Map<dynamic, dynamic>;
+
+            // البحث في جميع الحقول المشتركة
             final productCode =
                 (record['productCode']?.toString() ?? '').toLowerCase();
             final clientName =
                 (record['clientName']?.toString() ?? '').toLowerCase();
             final productName =
                 (record['productName']?.toString() ?? '').toLowerCase();
+            final processType = record['processType']?.toString() ?? 'تفصيل';
             final query = searchQuery.toLowerCase();
 
             if (searchQuery.isEmpty) return true;
+
+            // البحث برقم المنتج
             if (int.tryParse(searchQuery) != null) {
               return productCode.contains(query);
             }
+
+            // البحث بالاسم أو نوع العملية
             return clientName.contains(query) ||
                 productName.contains(query) ||
+                processType.contains(query) ||
                 productCode.contains(query);
           }).map((entry) {
             // تحويل المفتاح إلى String يدويًا لضمان السلامة
@@ -78,6 +86,13 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             originalMap.forEach((key, value) {
               safeMap[key.toString()] = value;
             });
+
+            // التأكد من وجود جميع الحقول الأساسية
+            safeMap['clientName'] = safeMap['clientName'] ?? '';
+            safeMap['productName'] = safeMap['productName'] ?? '';
+            safeMap['productCode'] = safeMap['productCode']?.toString() ?? '';
+            safeMap['processType'] = safeMap['processType'] ?? 'تفصيل';
+
             return MapEntry(entry.key, safeMap);
           }).toList()
             ..sort((a, b) {
@@ -99,6 +114,12 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
               final record = entry.value; // الآن من نوع Map<String, dynamic>
               final key = entry.key;
 
+              // تسجيل البيانات للتأكد من وجودها
+              debugPrint('Record $index - Process: ${record['processType']}');
+              debugPrint('  Client: ${record['clientName']}');
+              debugPrint('  Product: ${record['productName']}');
+              debugPrint('  Code: ${record['productCode']}');
+
               return SavedSizeCard(
                 record: record,
                 onEdit: () {
@@ -113,9 +134,28 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
                   );
                 },
                 onDelete: () {
-                  savedSheetSizesBox.delete(key);
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text("تأكيد الحذف"),
+                      content: const Text("هل أنت متأكد من حذف هذا المقاس؟"),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text("إلغاء"),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            savedSheetSizesBox.delete(key);
+                            Navigator.pop(ctx);
+                          },
+                          child: const Text("حذف",
+                              style: TextStyle(color: Colors.red)),
+                        ),
+                      ],
+                    ),
+                  );
                 },
-                // ✅ تم إزالة onViewDetails لأن الكارت لا يدعمه
                 onPrint: () {
                   _openInkReportWithSheetData(context, record);
                 },
@@ -124,16 +164,41 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
           );
         },
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AddSheetSizeScreen()),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
     );
   }
 
   void _openInkReportWithSheetData(
       BuildContext context, Map<String, dynamic> record) {
+    // استخراج البيانات مع قيم افتراضية آمنة
+    final clientName = record['clientName']?.toString() ?? '';
+    final productName = record['productName']?.toString() ?? '';
+    final productCode = record['productCode']?.toString() ?? '';
+    final processType = record['processType']?.toString() ?? 'تفصيل';
+
+    // إذا كانت قيم فارغة وكان النوع "تكسير"، نعطيها قيم وصفية
+    final displayClientName = clientName.isEmpty && processType == 'تكسير'
+        ? 'مقاس تكسير'
+        : clientName;
+    final displayProductName =
+        productName.isEmpty && processType == 'تكسير' ? 'تكسير' : productName;
+    final displayProductCode = productCode.isEmpty && processType == 'تكسير'
+        ? 'تك-${DateTime.now().millisecondsSinceEpoch % 10000}'
+        : productCode;
+
     final initialData = {
       'date': DateTime.now().toIso8601String(),
-      'clientName': record['clientName'] ?? '',
-      'product': record['productName'] ?? '',
-      'productCode': record['productCode']?.toString() ?? '',
+      'clientName': displayClientName,
+      'product': displayProductName,
+      'productCode': displayProductCode,
       'dimensions': {
         'length': record['length']?.toString() ?? '',
         'width': record['width']?.toString() ?? '',
@@ -145,6 +210,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
       'colors': [],
       'quantity': '',
       'notes': '',
+      'processType': processType,
     };
 
     Navigator.push(

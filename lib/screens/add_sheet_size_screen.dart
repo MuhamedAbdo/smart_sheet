@@ -228,6 +228,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   }
 
   Future<void> _saveSheetSize() async {
+    // ✅ الحقول الأساسية تُحفَظ دائمًا (للعرض والبحث)
     final record = <String, dynamic>{
       'processType': _processType,
       'clientName': clientNameController.text,
@@ -240,6 +241,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'date': DateTime.now().toIso8601String(),
     };
 
+    // ✅ إضافة الحقول الخاصة حسب النوع
     if (_processType == "تفصيل") {
       record.addAll({
         'isOverFlap': isOverFlap,

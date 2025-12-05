@@ -225,6 +225,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     }
   }
 
+  // ✅ تم إصلاحها: التحقق من picked != null
   Future<void> _selectDate(
       BuildContext context, TextEditingController controller) async {
     DateTime? picked = await showDatePicker(
@@ -236,7 +237,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
       lastDate: DateTime(2100),
     );
 
-    // ✅ تم إضافة فحص null
     if (picked != null) {
       controller.text =
           "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
