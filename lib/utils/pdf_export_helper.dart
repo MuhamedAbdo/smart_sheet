@@ -1,3 +1,5 @@
+// lib/src/utils/pdf_export_helper.dart
+
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show compute, debugPrint;
@@ -312,6 +314,44 @@ Future<void> exportReportToPdf(BuildContext context,
 // دوال Isolate
 // ---------------------------------
 
+/// ✅ دالة مساعدة لعرض "الصنف + المقاس" في سطرين
+String _buildProductWithDimensions(Map<String, dynamic> record) {
+  final product = record['product']?.toString() ?? '---';
+  final dimensions = record['dimensions'];
+  String dimensionsStr = '';
+
+  if (dimensions is Map) {
+    final length = dimensions['length']?.toString() ?? '';
+    final width = dimensions['width']?.toString() ?? '';
+    final height = dimensions['height']?.toString() ?? '';
+
+    String formatNumber(String value) {
+      if (value.isEmpty) return '';
+      if (value.contains('.')) {
+        final parts = value.split('.');
+        if (parts.length > 1 && parts[1] == '0') return parts[0];
+        return value
+            .replaceAll(RegExp(r'0*$'), '')
+            .replaceAll(RegExp(r'\.$'), '');
+      }
+      return value;
+    }
+
+    final formattedLength = formatNumber(length);
+    final formattedWidth = formatNumber(width);
+    final formattedHeight = formatNumber(height);
+
+    if (formattedLength.isNotEmpty &&
+        formattedWidth.isNotEmpty &&
+        formattedHeight.isNotEmpty) {
+      dimensionsStr = '$formattedLength/$formattedWidth/$formattedHeight';
+    }
+  }
+
+  if (dimensionsStr.isEmpty) return product;
+  return '$product\n$dimensionsStr';
+}
+
 Future<Uint8List> _generateConsolidatedPdfBytes(
     Map<String, dynamic> params) async {
   final List<dynamic> records = params['records'] as List<dynamic>;
@@ -436,7 +476,8 @@ Future<Uint8List> _generateConsolidatedPdfBytes(
               alignment: pw.Alignment.center,
               child: inkTable,
             ),
-            _buildDataCell(record['product']?.toString() ?? '---', arabicFont),
+            _buildDataCell(_buildProductWithDimensions(record),
+                arabicFont), // ✅ التعديل هنا
             _buildDataCell(
                 record['clientName']?.toString() ?? '---', arabicFont),
             _buildDataCell(
@@ -649,8 +690,8 @@ Future<Uint8List> _generateSingleReportPdfBytes(
                         alignment: pw.Alignment.center,
                         child: inkTable,
                       ),
-                      _buildDataCell(
-                          record['product']?.toString() ?? '---', arabicFont),
+                      _buildDataCell(_buildProductWithDimensions(record),
+                          arabicFont), // ✅ التعديل هنا
                       _buildDataCell(record['clientName']?.toString() ?? '---',
                           arabicFont),
                       _buildDataCell(

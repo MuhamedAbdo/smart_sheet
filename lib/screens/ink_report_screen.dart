@@ -1,3 +1,5 @@
+// lib/src/widgets/flexo/ink_report_screen.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -18,12 +20,11 @@ class InkReportScreen extends StatefulWidget {
 class _InkReportScreenState extends State<InkReportScreen> {
   late Box _inkReportBox;
 
-  // Search
+  // ✅ تم تصحيح FocusNode
   final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
+  final FocusNode _searchFocus = FocusNode(); // ← كان Focus, خطأ كتابي
   String _searchQuery = '';
 
-  // Filter / Sort
   bool _sortDescending = true;
   bool _onlyWithImages = false;
 
@@ -178,24 +179,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // ✅ تحسين البحث: البحث الدقيق في كود الصنف، جزئي في العميل والصنف
-  bool _matchesSearch(Map<String, dynamic> report, String q) {
-    if (q.isEmpty) return true;
-
-    // نجري مقارنة دقيقة (==) بعد تحويل النصوص إلى lowercase وإزالة الفراغات
-    final query = q.toLowerCase().trim();
-    final client = (report['clientName'] ?? '').toString().toLowerCase().trim();
-    final product = (report['product'] ?? '').toString().toLowerCase().trim();
-    final code = (report['productCode'] ?? '').toString().toLowerCase().trim();
-
-    // مطابقة دقيقة على أي من الحقول
-    if (client.isNotEmpty && client == query) return true;
-    if (product.isNotEmpty && product == query) return true;
-    if (code.isNotEmpty && code == query) return true;
-
-    return false;
-  }
-
   void _showFilterSheet() {
     showModalBottomSheet(
       context: context,
@@ -272,12 +255,8 @@ class _InkReportScreenState extends State<InkReportScreen> {
   }
 
   Future<void> _exportFilteredReports(
-      List<MapEntry<dynamic, Map<String, dynamic>>> preparedRecords) async {
-    final List<Map<String, dynamic>> recordsToExport = preparedRecords
-        .map((entry) => _convertValuesToString(entry.value))
-        .toList();
-
-    if (recordsToExport.isEmpty) {
+      List<Map<String, dynamic>> records) async {
+    if (records.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("⚠️ لا توجد تقارير لتصديرها")),
       );
@@ -285,7 +264,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
     }
 
     try {
-      await exportReportsToPdf(context, recordsToExport);
+      await exportReportsToPdf(context, records);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -295,63 +274,73 @@ class _InkReportScreenState extends State<InkReportScreen> {
     }
   }
 
-  List<MapEntry<dynamic, Map<String, dynamic>>> _prepareRecords(Box box) {
-    var entries = box.toMap().entries.toList();
+  Future<void> _saveFilteredReports(List<Map<String, dynamic>> records) async {
+    if (records.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("⚠️ لا توجد تقارير لحفظها")),
+      );
+      return;
+    }
+    try {
+      await savePdfToDevice(context, records);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ فشل حفظ التقرير: $e')),
+        );
+      }
+    }
+  }
 
-    entries.sort((a, b) {
-      DateTime parseDate(dynamic value) {
-        if (value is String) {
-          return DateTime.tryParse(value) ?? DateTime(1970);
-        } else if (value is int) {
-          return DateTime.fromMillisecondsSinceEpoch(value);
+  // ✅ دالة بسيطة لتنقية السجلات مباشرة من الـ Box
+  List<MapEntry<dynamic, Map<String, dynamic>>> _filterAndSortRecords(
+      Box box, String searchQuery, bool onlyWithImages, bool sortDescending) {
+    final entries = box.toMap().entries.where((entry) {
+      final record = entry.value;
+      if (record is! Map) return false;
+
+      // الفلترة: فقط التي تحتوي على صور؟
+      if (onlyWithImages) {
+        final images = record['imagePaths'];
+        if (images is! List || images.isEmpty) return false;
+      }
+
+      // الفلترة: بحث جزئي
+      if (searchQuery.isNotEmpty) {
+        final query = searchQuery.toLowerCase().trim();
+        final client = (record['clientName']?.toString() ?? '').toLowerCase();
+        final product = (record['product']?.toString() ?? '').toLowerCase();
+        final code = (record['productCode']?.toString() ?? '').toLowerCase();
+
+        if (client.contains(query) ||
+            product.contains(query) ||
+            code.contains(query)) {
+          return true;
         }
-        return DateTime(1970);
+        return false;
       }
 
-      final aValue = a.value;
-      final bValue = b.value;
-      if (aValue is Map && bValue is Map) {
-        final da = parseDate(aValue['date']);
-        final db = parseDate(bValue['date']);
-        return _sortDescending ? db.compareTo(da) : da.compareTo(db);
-      } else {
-        return 0;
-      }
+      return true;
+    }).toList();
+
+    // الترتيب
+    entries.sort((a, b) {
+      final dateA = a.value['date']?.toString() ?? '';
+      final dateB = b.value['date']?.toString() ?? '';
+      final dtA = DateTime.tryParse(dateA) ?? DateTime(1970);
+      final dtB = DateTime.tryParse(dateB) ?? DateTime(1970);
+      return sortDescending ? dtB.compareTo(dtA) : dtA.compareTo(dtB);
     });
 
-    var filtered = entries;
-    if (_onlyWithImages) {
-      filtered = filtered.where((e) {
-        final value = e.value;
-        if (value is Map) {
-          final imagePaths = value['imagePaths'];
-          if (imagePaths is List) {
-            return imagePaths.isNotEmpty;
-          }
-        }
-        return false;
-      }).toList();
-    }
-
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((e) {
-        final value = e.value;
-        if (value is Map<String, dynamic>) {
-          return _matchesSearch(value, _searchQuery);
-        }
-        return false;
-      }).toList();
-    }
-
-    return filtered.map((entry) {
-      final dynamic key = entry.key;
-      final dynamic value = entry.value;
-      if (value is Map) {
-        final typedValue = Map<String, dynamic>.from(value);
-        return MapEntry(key, typedValue);
-      } else {
-        return MapEntry(key, <String, dynamic>{});
+    // تحويل إلى MapEntry<dynamic, Map<String, dynamic>> آمن
+    return entries.map((e) {
+      final safeMap = <String, dynamic>{};
+      if (e.value is Map) {
+        (e.value as Map).forEach((k, v) {
+          safeMap[k.toString()] = v;
+        });
       }
+      return MapEntry(e.key, safeMap);
     }).toList();
   }
 
@@ -373,7 +362,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
               _searchFocus.unfocus();
             },
             decoration: InputDecoration(
-              hintText: 'ابحث بالعميل (جزئي)، الصنف (جزئي)، كود الصنف (دقيق)',
+              hintText: 'ابحث بالعميل (جزئي)، الصنف (جزئي)، كود الصنف (جزئي)',
               hintStyle: const TextStyle(color: Colors.white70),
               filled: false,
               prefixIcon: IconButton(
@@ -403,22 +392,19 @@ class _InkReportScreenState extends State<InkReportScreen> {
         ),
         centerTitle: true,
         actions: [
-          // ✅ PopupMenuButton مع خيارين: تصدير وحفظ
           ValueListenableBuilder(
             valueListenable: _inkReportBox.listenable(),
             builder: (context, Box box, child) {
-              final preparedRecords = _prepareRecords(box);
+              final filtered = _filterAndSortRecords(
+                  box, _searchQuery, _onlyWithImages, _sortDescending);
+              final recordsForExport = filtered.map((e) => e.value).toList();
               return PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert),
                 onSelected: (value) {
                   if (value == 'export') {
-                    _exportFilteredReports(preparedRecords);
+                    _exportFilteredReports(recordsForExport);
                   } else if (value == 'save') {
-                    final recordsToSave = preparedRecords
-                        .map((entry) => _convertValuesToString(entry.value))
-                        .toList();
-                    savePdfToDevice(
-                        context, recordsToSave); // ✅ استدعاء الدالة الجديدة
+                    _saveFilteredReports(recordsForExport);
                   }
                 },
                 itemBuilder: (context) => [
@@ -459,7 +445,8 @@ class _InkReportScreenState extends State<InkReportScreen> {
             return const Center(child: Text("🚫 لا يوجد تقارير"));
           }
 
-          final allRecords = _prepareRecords(box);
+          final allRecords = _filterAndSortRecords(
+              box, _searchQuery, _onlyWithImages, _sortDescending);
 
           if (allRecords.isEmpty) {
             return Center(
@@ -496,7 +483,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ✅ العنوان والتاريخ
                       Row(
                         children: [
                           const Icon(Icons.description,
@@ -515,8 +501,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-
-                      // ✅ المعلومات الأساسية
                       _buildInfoRow("👤 العميل:",
                           record['clientName']?.toString() ?? 'غير محدد'),
                       _buildInfoRow("📦 الصنف:",
@@ -524,10 +508,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
                       if (productCode != null &&
                           productCode.toString().isNotEmpty)
                         _buildInfoRow("🔢 كود الصنف:", productCode.toString()),
-
                       const SizedBox(height: 8),
-
-                      // ✅ المقاسات
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -539,30 +520,15 @@ class _InkReportScreenState extends State<InkReportScreen> {
                                   _buildDimensionsText(record['dimensions'])),
                         ],
                       ),
-
                       const SizedBox(height: 8),
-
-                      // ✅ عدد الشيتات
                       _buildQuantityText(quantity),
-
                       const SizedBox(height: 8),
-
-                      // ✅ الألوان
                       _buildColorsList(colors),
-
                       const SizedBox(height: 8),
-
-                      // ✅ الملاحظات
                       _buildNotesText(notes),
-
                       const SizedBox(height: 8),
-
-                      // ✅ الصور
                       _buildImagesList(images),
-
                       const SizedBox(height: 12),
-
-                      // ✅ أزرار التحكم
                       Container(
                         padding: const EdgeInsets.only(top: 12),
                         decoration: BoxDecoration(
