@@ -78,8 +78,10 @@ class SheetSizeForm extends StatelessWidget {
         // --- حقول التكسير ---
         if (processType == "تكسير") ...[
           const SizedBox(height: 16),
-          _buildTextField("طول الشيت", sheetLengthManualController!),
-          _buildTextField("عرض الشيت", sheetWidthManualController!),
+          _buildTextField(
+              "طول الشيت", sheetLengthManualController!, TextInputType.number),
+          _buildTextField(
+              "عرض الشيت", sheetWidthManualController!, TextInputType.number),
           const SizedBox(height: 12),
           const Text("نوع الشريحة:",
               style: TextStyle(fontWeight: FontWeight.bold)),
