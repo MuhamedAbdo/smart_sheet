@@ -51,6 +51,20 @@ class ImageCaptureSection extends StatelessWidget {
               itemCount: capturedImages.length,
               itemBuilder: (context, imgIndex) {
                 final imagePath = capturedImages[imgIndex];
+
+                // ✅ التحقق من وجود الملف قبل العرض
+                if (!imagePath.existsSync()) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.broken_image, color: Colors.red),
+                    ),
+                  );
+                }
+
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4.0),
                   child: Stack(

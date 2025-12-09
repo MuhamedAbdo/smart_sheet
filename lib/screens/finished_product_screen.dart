@@ -8,7 +8,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/finished_product_image_viewer.dart';
-import 'package:smart_sheet/widgets/full_screen_image_page.dart'; // ✅ استيراد الـ Widget الجديد
+import 'package:smart_sheet/widgets/full_screen_image_page.dart';
 
 class FinishedProductScreen extends StatefulWidget {
   const FinishedProductScreen({super.key});
@@ -26,14 +26,12 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
   String _searchQuery = '';
 
   // Filter / Sort
-  String _sortBy = 'date'; // 'date' أو 'clientName'
-  bool _sortAscending =
-      false; // false => الأحدث (الأعلى) => ممكن تعدلها حسب منطقك
+  String _sortBy = 'date';
+  bool _sortAscending = false;
   bool _onlyWithImages = false;
 
   late List<CameraDescription> _cameras;
   bool _isCameraAvailable = false;
-  // ✅ إضافة الحقل للكاميرا
   late CameraController _cameraController;
 
   @override
@@ -52,7 +50,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
   void dispose() {
     _searchController.dispose();
     _searchFocus.dispose();
-    // ✅ إضافة تعطيل الكاميرا في dispose
     _cameraController.dispose();
     super.dispose();
   }
@@ -71,7 +68,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
       _cameras = await availableCameras();
       if (_cameras.isNotEmpty) {
         _isCameraAvailable = true;
-        // ✅ تهيئة كонтрولر الكاميرا هنا
         final camera = _cameras.first;
         _cameraController = CameraController(
           camera,
@@ -87,7 +83,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
 
   void _showAddEditDialog([FinishedProduct? existingProduct, dynamic key]) {
     final formKey = GlobalKey<FormState>();
-    // ✅ إضافة المراقبة للحقل الجديد
     final dateBackerController =
         TextEditingController(text: existingProduct?.dateBacker);
     final clientNameController =
@@ -110,19 +105,19 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
         TextEditingController(text: existingProduct?.technician);
     final notesController = TextEditingController(text: existingProduct?.notes);
 
+    // ✅ تحميل الصور مع تجاهل الملفات المفقودة
     List<File> capturedImages =
         existingProduct?.imagePaths?.map((path) => File(path)).toList() ?? [];
+    capturedImages = capturedImages.where((file) => file.existsSync()).toList();
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // ✅ لجعل النافذة تملأ الشاشة جزئيًا
+      isScrollControlled: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
           return Padding(
             padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context)
-                    .viewInsets
-                    .bottom), // ✅ لتجنب مشكلة لوحة المفاتيح
+                bottom: MediaQuery.of(context).viewInsets.bottom),
             child: SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -130,8 +125,7 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                   key: formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize:
-                        MainAxisSize.min, // ✅ لجعل الارتفاع يتناسب مع المحتوى
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         existingProduct == null
@@ -140,15 +134,14 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                       const SizedBox(height: 16),
-                      // ✅ إضافة TextFormField لـ Date Backer في الأعلى
                       TextFormField(
                         controller: dateBackerController,
-                        readOnly: true, // نجعله للقراءة فقط لاختيار التاريخ
+                        readOnly: true,
                         decoration: const InputDecoration(
                             labelText: "📅 تاريخ الإسناد",
                             border: OutlineInputBorder()),
-                        onTap: () => _selectDateBacker(context,
-                            dateBackerController), // ✅ استدعاء دالة اختيار التاريخ
+                        onTap: () =>
+                            _selectDateBacker(context, dateBackerController),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -219,7 +212,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                         maxLines: 3,
                       ),
                       const SizedBox(height: 16),
-                      // ✅ قسم الكاميرا (يظهر فقط إذا كانت الكاميرا متوفرة)
                       if (_isCameraAvailable)
                         Column(
                           children: [
@@ -228,9 +220,8 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 8),
-                            // ✅ عرض معاينة الكاميرا
                             Container(
-                              height: 200, // ارتفاع مناسب للمعاينة
+                              height: 200,
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey),
                                 borderRadius: BorderRadius.circular(8),
@@ -238,7 +229,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                               child: CameraPreview(_cameraController),
                             ),
                             const SizedBox(height: 8),
-                            // ✅ زر التقاط الصورة
                             ElevatedButton.icon(
                               onPressed: () async {
                                 final image = await _captureImage();
@@ -256,7 +246,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                         )
                       else
                         const Text("الكاميرا غير متاحة"),
-                      // عرض الصور الملتقطة مسبقًا
                       if (capturedImages.isNotEmpty)
                         Column(
                           children: [
@@ -319,7 +308,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                             onPressed: () {
                               if (formKey.currentState!.validate()) {
                                 final product = FinishedProduct(
-                                  // ✅ إضافة الحقل الجديد إلى المنتج
                                   dateBacker: dateBackerController.text,
                                   clientName: clientNameController.text,
                                   productName: productNameController.text,
@@ -341,9 +329,8 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                                 if (existingProduct == null) {
                                   _productsBox?.add(product);
                                 } else {
-                                  // ✅ تعديل العنصر الحالي
-                                  existingProduct.dateBacker = product
-                                      .dateBacker; // ✅ تحديث الحقل الجديد
+                                  existingProduct.dateBacker =
+                                      product.dateBacker;
                                   existingProduct.clientName =
                                       product.clientName;
                                   existingProduct.productName =
@@ -361,9 +348,9 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                                   existingProduct.technician =
                                       product.technician;
                                   existingProduct.notes = product.notes;
-                                  existingProduct.save(); // ✅ حفظ التغييرات
+                                  existingProduct.save();
                                 }
-                                Navigator.of(context).pop(); // إغلاق الـ Dialog
+                                Navigator.of(context).pop();
                               }
                             },
                             child: const Text("💾 حفظ"),
@@ -381,7 +368,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
     );
   }
 
-  // ✅ دالة جديدة لاختيار التاريخ
   Future<void> _selectDateBacker(
       BuildContext context, TextEditingController controller) async {
     final DateTime? picked = await showDatePicker(
@@ -393,11 +379,11 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
       lastDate: DateTime(2100),
     );
     if (picked != null) {
-      controller.text = "${picked.year}-${picked.month}-${picked.day}";
+      controller.text =
+          "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
     }
   }
 
-  // ✅ تعديل دالة التقاط الصورة
   Future<File?> _captureImage() async {
     if (!_isCameraAvailable || !_cameraController.value.isInitialized) {
       return null;
@@ -407,11 +393,16 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
 
     try {
       final XFile image = await _cameraController.takePicture();
-      final dir =
-          await getApplicationDocumentsDirectory(); // ✅ استخدام مجلد دائم
-      final String path =
-          '${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg'; // ✅ اسم فريد
-      final File savedImage = await File(image.path).copy(path);
+
+      // ✅ تعديل: حفظ الصورة في مجلد فرعي مخصص
+      final appDir = await getApplicationDocumentsDirectory();
+      final imageDir = Directory('${appDir.path}/finished_product_images');
+      await imageDir.create(recursive: true);
+
+      final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String newPath = '${imageDir.path}/$fileName';
+
+      final File savedImage = await File(image.path).copy(newPath);
 
       return savedImage;
     } catch (e) {
@@ -422,12 +413,10 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
 
   void _showFullScreenImage(
       BuildContext context, List<File> images, int initialIndex) {
-    // ✅ استبدال المحتوى بـ Navigator.push
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FullScreenImagePage(
-          // ✅ استيراد الـ Widget من الملف الصحيح
           images: images,
           initialIndex: initialIndex,
         ),
@@ -435,7 +424,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
     );
   }
 
-  // --- دالتي الفلترة والترتيب ---
   bool _matchesSearch(FinishedProduct product, String q) {
     if (q.isEmpty) return true;
     final lower = q.toLowerCase();
@@ -450,7 +438,7 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
         order.contains(lower) ||
         code.contains(lower) ||
         tech.contains(lower) ||
-        dateBacker.contains(lower); // ✅ إضافة الحقل الجديد إلى البحث
+        dateBacker.contains(lower);
   }
 
   void _showFilterSheet() {
@@ -555,27 +543,22 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
       Box<FinishedProduct> box) {
     var entries = box.toMap().entries.toList();
 
-    // الترتيب حسب الحقل المحدد (_sortBy)
     entries.sort((a, b) {
       int result = 0;
       switch (_sortBy) {
         case 'date':
-          // مقارنة حسب dateBacker (كـ String)
           final dateA = a.value.dateBacker ?? '';
           final dateB = b.value.dateBacker ?? '';
           result = dateA.compareTo(dateB);
           break;
         case 'clientName':
-          // مقارنة حسب clientName (كـ String)
           final clientA = a.value.clientName ?? '';
           final clientB = b.value.clientName ?? '';
           result = clientA.compareTo(clientB);
           break;
         default:
-          // ترتيب افتراضي حسب المفتاح (الرقم التسلسلي في Hive)
           result = a.key.compareTo(b.key);
       }
-      // عكس النتيجة إذا كان الترتيب تنازليًا
       if (!_sortAscending) {
         result = -result;
       }
@@ -596,7 +579,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
 
     return filtered;
   }
-  // ---
 
   @override
   Widget build(BuildContext context) {
@@ -711,7 +693,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                                 icon:
                                     const Icon(Icons.delete, color: Colors.red),
                                 onPressed: () {
-                                  // ✅ حذف العنصر من الصندوق
                                   _productsBox?.delete(key);
                                 },
                               ),
@@ -719,7 +700,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                           ),
                         ],
                       ),
-                      // ✅ عرض الحقل الجديد في الـ Card
                       if (product.dateBacker != null &&
                           product.dateBacker!.isNotEmpty)
                         Text("📅 تاريخ الإسناد: ${product.dateBacker}"),
@@ -744,7 +724,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                         Text("👨‍🔧 الفني: ${product.technician}"),
                       if (product.notes != null && product.notes!.isNotEmpty)
                         Text("📝 ملاحظات: ${product.notes}"),
-                      // ✅ استبدال قسم الصور بـ الـ Widget الجديد
                       FinishedProductImageViewer(
                         imagePaths: product.imagePaths ?? [],
                       ),

@@ -137,10 +137,16 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     setState(() => _isProcessing = true);
     try {
       final XFile image = await _cameraController!.takePicture();
-      final dir = await getTemporaryDirectory();
-      final String path =
-          '${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final File savedImage = await File(image.path).copy(path);
+
+      // ✅ تعديل جوهري: حفظ الصورة في مجلد دائم داخل التطبيق
+      final appDir = await getApplicationDocumentsDirectory();
+      final imageDir = Directory('${appDir.path}/maintenance_images');
+      await imageDir.create(recursive: true);
+
+      final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String newPath = '${imageDir.path}/$fileName';
+
+      final File savedImage = await File(image.path).copy(newPath);
 
       setState(() {
         _capturedImages.add(savedImage);
@@ -180,6 +186,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
       );
 
       if (pickedFile != null) {
+        // ✅ الصور من المعرض تُحفظ بالفعل في مجلد دائم — لا تحتاج تعديل
         final directory = await getApplicationDocumentsDirectory();
         final String newPath =
             '${directory.path}/maintenance_gallery_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -225,7 +232,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     }
   }
 
-  // ✅ تم إصلاحها: التحقق من picked != null
   Future<void> _selectDate(
       BuildContext context, TextEditingController controller) async {
     DateTime? picked = await showDatePicker(

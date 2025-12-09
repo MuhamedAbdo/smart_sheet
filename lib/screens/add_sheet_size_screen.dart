@@ -135,9 +135,12 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       _cuttingType = data['cuttingType'] ?? 'دوبل';
     }
 
+    // ✅ تحميل الصور مع تجاهل الملفات المفقودة
     if (data.containsKey('imagePaths') && data['imagePaths'] is List) {
-      _capturedImages =
-          (data['imagePaths'] as List).map((p) => File(p.toString())).toList();
+      _capturedImages = (data['imagePaths'] as List)
+          .map((p) => File(p.toString()))
+          .where((file) => file.existsSync()) // ← إضافة هذا التحقق
+          .toList();
     }
   }
 
@@ -153,12 +156,19 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     setState(() => _isProcessing = true);
     try {
       final XFile image = await _cameraController!.takePicture();
-      final dir = await getTemporaryDirectory();
-      final pathStr =
-          '${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final saved = await File(image.path).copy(pathStr);
+
+      // ✅ تعديل جوهري: حفظ الصورة في مجلد دائم داخل التطبيق
+      final appDir = await getApplicationDocumentsDirectory();
+      final imageDir = Directory('${appDir.path}/sheet_size_images');
+      await imageDir.create(recursive: true);
+
+      final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String newPath = '${imageDir.path}/$fileName';
+
+      final File savedImage = await File(image.path).copy(newPath);
+
       setState(() {
-        _capturedImages.add(saved);
+        _capturedImages.add(savedImage);
         _isProcessing = false;
       });
     } catch (e) {

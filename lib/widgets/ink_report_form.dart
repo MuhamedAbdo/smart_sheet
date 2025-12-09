@@ -105,9 +105,11 @@ class _InkReportFormState extends State<InkReportForm> {
       }).toList();
     }
 
+    // ✅ تحميل الصور مع تجاهل الملفات المفقودة (لتجنب الكراش)
     if (data.containsKey('imagePaths') && data['imagePaths'] is List) {
       final List<String> paths = List<String>.from(data['imagePaths']);
-      _capturedImages = paths.map((p) => File(p)).toList();
+      _capturedImages =
+          paths.where((p) => File(p).existsSync()).map((p) => File(p)).toList();
     }
   }
 
@@ -160,10 +162,16 @@ class _InkReportFormState extends State<InkReportForm> {
     setState(() => _isProcessing = true);
     try {
       final XFile image = await _cameraController!.takePicture();
-      final dir = await getTemporaryDirectory();
-      final String path =
-          '${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final File savedImage = await File(image.path).copy(path);
+
+      // ✅ حفظ الصورة في مجلد دائم داخل مجلد التطبيق (يُضمن في النسخة الاحتياطية)
+      final appDir = await getApplicationDocumentsDirectory();
+      final imageDir = Directory('${appDir.path}/app_images');
+      await imageDir.create(recursive: true);
+
+      final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String newPath = '${imageDir.path}/$fileName';
+
+      final File savedImage = await File(image.path).copy(newPath);
 
       setState(() {
         _capturedImages.add(savedImage);
@@ -264,7 +272,7 @@ class _InkReportFormState extends State<InkReportForm> {
   @override
   Widget build(BuildContext context) {
     return Directionality(
-      textDirection: TextDirection.rtl, // ✅ الحل للمشكلة 1
+      textDirection: TextDirection.rtl,
       child: Padding(
         padding:
             EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -436,7 +444,7 @@ class _InkReportFormState extends State<InkReportForm> {
                                 onPressed: () => _removeColorField(index)),
                           ],
                         ),
-                        const SizedBox(height: 8), // ✅ المسافة بين الألوان
+                        const SizedBox(height: 8),
                       ],
                     );
                   }),

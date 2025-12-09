@@ -52,13 +52,55 @@ class _FullScreenImagePageState extends State<FullScreenImagePage> {
           });
         },
         itemBuilder: (context, index) {
+          final file = widget.images[index];
+
+          // ✅ التحقق من وجود الملف
+          if (!file.existsSync()) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.broken_image, size: 80, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    'الصورة غير متوفرة',
+                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('العودة'),
+                  ),
+                ],
+              ),
+            );
+          }
+
           return PhotoView(
-            imageProvider: FileImage(widget.images[index]),
+            imageProvider: FileImage(file),
             minScale: PhotoViewComputedScale.contained * 0.8,
             maxScale: PhotoViewComputedScale.covered * 2.5,
             loadingBuilder: (context, event) => const Center(
               child: CircularProgressIndicator(),
             ),
+            errorBuilder: (context, error, stackTrace) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error, size: 80, color: Colors.red),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'فشل تحميل الصورة',
+                      style: TextStyle(fontSize: 18),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('العودة'),
+                    ),
+                  ],
+                ),
+              );
+            },
           );
         },
       ),

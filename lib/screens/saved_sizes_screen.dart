@@ -1,5 +1,6 @@
 // lib/src/screens/saved/saved_sizes_screen.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/screens/ink_report_screen.dart';
@@ -57,7 +58,6 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
           final entries = box.toMap().entries.where((entry) {
             final record = entry.value as Map<dynamic, dynamic>;
 
-            // البحث في جميع الحقول المشتركة
             final productCode =
                 (record['productCode']?.toString() ?? '').toLowerCase();
             final clientName =
@@ -69,25 +69,21 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
 
             if (searchQuery.isEmpty) return true;
 
-            // البحث برقم المنتج
             if (int.tryParse(searchQuery) != null) {
               return productCode.contains(query);
             }
 
-            // البحث بالاسم أو نوع العملية
             return clientName.contains(query) ||
                 productName.contains(query) ||
                 processType.contains(query) ||
                 productCode.contains(query);
           }).map((entry) {
-            // تحويل المفتاح إلى String يدويًا لضمان السلامة
             final originalMap = entry.value as Map<dynamic, dynamic>;
             final safeMap = <String, dynamic>{};
             originalMap.forEach((key, value) {
               safeMap[key.toString()] = value;
             });
 
-            // التأكد من وجود جميع الحقول الأساسية
             safeMap['clientName'] = safeMap['clientName'] ?? '';
             safeMap['productName'] = safeMap['productName'] ?? '';
             safeMap['productCode'] = safeMap['productCode']?.toString() ?? '';
@@ -111,14 +107,8 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             itemCount: entries.length,
             itemBuilder: (context, index) {
               final entry = entries[index];
-              final record = entry.value; // الآن من نوع Map<String, dynamic>
+              final record = entry.value;
               final key = entry.key;
-
-              // تسجيل البيانات للتأكد من وجودها
-              debugPrint('Record $index - Process: ${record['processType']}');
-              debugPrint('  Client: ${record['clientName']}');
-              debugPrint('  Product: ${record['productName']}');
-              debugPrint('  Code: ${record['productCode']}');
 
               return SavedSizeCard(
                 record: record,
@@ -178,13 +168,11 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
 
   void _openInkReportWithSheetData(
       BuildContext context, Map<String, dynamic> record) {
-    // استخراج البيانات مع قيم افتراضية آمنة
     final clientName = record['clientName']?.toString() ?? '';
     final productName = record['productName']?.toString() ?? '';
     final productCode = record['productCode']?.toString() ?? '';
     final processType = record['processType']?.toString() ?? 'تفصيل';
 
-    // إذا كانت قيم فارغة وكان النوع "تكسير"، نعطيها قيم وصفية
     final displayClientName = clientName.isEmpty && processType == 'تكسير'
         ? 'مقاس تكسير'
         : clientName;
@@ -193,6 +181,14 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     final displayProductCode = productCode.isEmpty && processType == 'تكسير'
         ? 'تك-${DateTime.now().millisecondsSinceEpoch % 10000}'
         : productCode;
+
+    // ✅ تصفية الصور الموجودة فقط
+    final imagePaths = (record['imagePaths'] is List)
+        ? (record['imagePaths'] as List)
+            .map((e) => e.toString())
+            .where((path) => File(path).existsSync())
+            .toList()
+        : <String>[];
 
     final initialData = {
       'date': DateTime.now().toIso8601String(),
@@ -204,9 +200,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         'width': record['width']?.toString() ?? '',
         'height': record['height']?.toString() ?? '',
       },
-      'imagePaths': (record['imagePaths'] is List)
-          ? List<String>.from(record['imagePaths'])
-          : [],
+      'imagePaths': imagePaths, // ← ✅ المسارات المصفاة
       'colors': [],
       'quantity': '',
       'notes': '',

@@ -20,9 +20,8 @@ class InkReportScreen extends StatefulWidget {
 class _InkReportScreenState extends State<InkReportScreen> {
   late Box _inkReportBox;
 
-  // ✅ تم تصحيح FocusNode
   final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocus = FocusNode(); // ← كان Focus, خطأ كتابي
+  final FocusNode _searchFocus = FocusNode();
   String _searchQuery = '';
 
   bool _sortDescending = true;
@@ -75,12 +74,20 @@ class _InkReportScreenState extends State<InkReportScreen> {
   }
 
   void _showFullScreenImage(List<String> imagePaths, int initialIndex) {
+    // ✅ تصفية الصور الموجودة فقط قبل العرض
+    final validPaths =
+        imagePaths.where((path) => File(path).existsSync()).toList();
+    if (validPaths.isEmpty) return;
+
+    final initialValidIndex = validPaths.indexOf(imagePaths[initialIndex]);
+    if (initialValidIndex == -1) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FullScreenImagePage(
-          images: imagePaths.map((path) => File(path)).toList(),
-          initialIndex: initialIndex,
+          images: validPaths.map((path) => File(path)).toList(),
+          initialIndex: initialValidIndex,
         ),
       ),
     );
@@ -150,6 +157,13 @@ class _InkReportScreenState extends State<InkReportScreen> {
 
   Widget _buildImagesList(List<String> images) {
     if (images.isEmpty) return const SizedBox.shrink();
+
+    // ✅ تصفية الصور الموجودة فقط
+    final validImages =
+        images.where((path) => File(path).existsSync()).toList();
+
+    if (validImages.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -160,16 +174,25 @@ class _InkReportScreenState extends State<InkReportScreen> {
           height: 60,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: images.length,
+            itemCount: validImages.length,
             itemBuilder: (context, i) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
               child: GestureDetector(
-                onTap: () => _showFullScreenImage(images, i),
+                onTap: () => _showFullScreenImage(validImages, i),
                 child: Image.file(
-                  File(images[i]),
+                  File(validImages[i]),
                   width: 50,
                   height: 50,
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 50,
+                      height: 50,
+                      color: Colors.grey[300],
+                      child:
+                          const Icon(Icons.error, size: 20, color: Colors.red),
+                    );
+                  },
                 ),
               ),
             ),
@@ -292,20 +315,17 @@ class _InkReportScreenState extends State<InkReportScreen> {
     }
   }
 
-  // ✅ دالة بسيطة لتنقية السجلات مباشرة من الـ Box
   List<MapEntry<dynamic, Map<String, dynamic>>> _filterAndSortRecords(
       Box box, String searchQuery, bool onlyWithImages, bool sortDescending) {
     final entries = box.toMap().entries.where((entry) {
       final record = entry.value;
       if (record is! Map) return false;
 
-      // الفلترة: فقط التي تحتوي على صور؟
       if (onlyWithImages) {
         final images = record['imagePaths'];
         if (images is! List || images.isEmpty) return false;
       }
 
-      // الفلترة: بحث جزئي
       if (searchQuery.isNotEmpty) {
         final query = searchQuery.toLowerCase().trim();
         final client = (record['clientName']?.toString() ?? '').toLowerCase();
@@ -323,7 +343,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
       return true;
     }).toList();
 
-    // الترتيب
     entries.sort((a, b) {
       final dateA = a.value['date']?.toString() ?? '';
       final dateB = b.value['date']?.toString() ?? '';
@@ -332,7 +351,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
       return sortDescending ? dtB.compareTo(dtA) : dtA.compareTo(dtB);
     });
 
-    // تحويل إلى MapEntry<dynamic, Map<String, dynamic>> آمن
     return entries.map((e) {
       final safeMap = <String, dynamic>{};
       if (e.value is Map) {
@@ -527,7 +545,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
                       const SizedBox(height: 8),
                       _buildNotesText(notes),
                       const SizedBox(height: 8),
-                      _buildImagesList(images),
+                      _buildImagesList(images), // ✅ الآن آمن
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.only(top: 12),

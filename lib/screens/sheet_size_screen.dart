@@ -134,9 +134,13 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       productionWidth2 = data['productionWidth2']?.toString() ?? '';
     }
 
+    // ✅ تحميل الصور مع تجاهل الملفات المفقودة
     if (data.containsKey('imagePaths') && data['imagePaths'] is List) {
       final List<dynamic> paths = List.from(data['imagePaths']);
-      _capturedImages = paths.map((p) => File(p.toString())).toList();
+      _capturedImages = paths
+          .map((p) => File(p.toString()))
+          .where((file) => file.existsSync()) // ← إضافة هذا التحقق
+          .toList();
     }
   }
 
@@ -156,9 +160,15 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
     try {
       final XFile image = await _cameraController!.takePicture();
-      final Directory dir = await getTemporaryDirectory();
-      final String imagePath =
-          path.join(dir.path, '${DateTime.now().millisecondsSinceEpoch}.jpg');
+
+      // ✅ تعديل جوهري: حفظ الصورة في مجلد دائم داخل التطبيق
+      final appDir = await getApplicationDocumentsDirectory();
+      final imageDir = Directory('${appDir.path}/sheet_size_images');
+      await imageDir.create(recursive: true);
+
+      final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String imagePath = '${imageDir.path}/$fileName';
+
       final File savedImage = await File(image.path).copy(imagePath);
 
       setState(() {
@@ -182,7 +192,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   }
 
   void calculateSheet() {
-    if (_processType != "تفصيل") return; // الحساب فقط في التفصيل
+    if (_processType != "تفصيل") return;
 
     double length = double.tryParse(lengthController.text) ?? 0.0;
     double width = double.tryParse(widthController.text) ?? 0.0;

@@ -53,13 +53,28 @@ class SheetSizeCamera extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               itemCount: capturedImages.length,
               itemBuilder: (context, index) {
+                final file = capturedImages[index];
+
+                // ✅ التحقق من وجود الملف قبل العرض
+                if (!file.existsSync()) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.broken_image, color: Colors.red),
+                    ),
+                  );
+                }
+
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4.0),
                   child: Stack(
                     alignment: Alignment.topRight,
                     children: [
                       Image.file(
-                        capturedImages[index],
+                        file,
                         width: 80,
                         height: 80,
                         fit: BoxFit.cover,

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'package:smart_sheet/globals.dart'; // ← إضافة هذا السطر
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
@@ -77,6 +78,7 @@ class SmartSheetApp extends StatelessWidget {
     final themeProvider = context.watch<ThemeProvider>();
 
     return MaterialApp(
+      scaffoldMessengerKey: scaffoldMessengerKey, // ← ربط المفتاح هنا
       title: 'Smart Sheet',
       debugShowCheckedModeBanner: false,
       theme: themeProvider.theme,
