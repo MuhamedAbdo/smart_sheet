@@ -47,7 +47,7 @@ Future<void> _addDirectoryToZipInIsolate(
 class BackupService {
   static const String _backupFileName = 'smart_sheet_backup.zip';
 
-  /// 💾 إنشاء نسخة احتياطية مع مؤشر تقدم نشط
+  /// 💾 إنشاء نسخة احتياطية مع مؤشر تقدم نشط (يطلب من المستخدم اختيار المجلد دائمًا)
   Future<String?> createBackup() async {
     try {
       if (kIsWeb) return 'غير مدعوم على الويب.';
@@ -61,20 +61,21 @@ class BackupService {
         [tempDir.path, appDir.path, _backupFileName],
       );
 
-      // حفظ الملف
-      final bytes = await File(zipPath).readAsBytes();
+      // ✅ استخدام FilePicker دومًا لضمان ظهور نافذة الحفظ
       final savedPath = await FilePicker.platform.saveFile(
         fileName: _backupFileName,
-        bytes: bytes,
+        bytes: await File(zipPath).readAsBytes(),
         type: FileType.custom,
         allowedExtensions: ['zip'],
         dialogTitle: 'اختر مكان حفظ النسخة الاحتياطية',
       );
 
-      await File(zipPath).delete(); // تنظيف الملف المؤقت
+      await File(zipPath).delete();
 
       if (savedPath == null) return null;
-      return '✅ تم الحفظ بنجاح.';
+
+      // ✅ عرض المسار الكامل للمستخدم
+      return '✅ تم الحفظ بنجاح في:\n$savedPath';
     } catch (e) {
       return '❌ خطأ: ${e.toString()}';
     }
