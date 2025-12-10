@@ -28,20 +28,18 @@ class AddSheetSizeScreen extends StatefulWidget {
 }
 
 class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
+  // --- نوع العملية ---
   String _processType = "تفصيل";
 
-  // --- مشترك ---
+  // --- بيانات العميل (للتفصيل فقط) ---
   final clientNameController = TextEditingController();
   final productNameController = TextEditingController();
   final productCodeController = TextEditingController();
+
+  // --- الأبعاد المشتركة ---
   final lengthController = TextEditingController();
   final widthController = TextEditingController();
   final heightController = TextEditingController();
-
-  // --- للتكسير ---
-  final sheetLengthManualController = TextEditingController();
-  final sheetWidthManualController = TextEditingController();
-  String? _cuttingType = "دوبل"; // افتراضي
 
   // --- الكاميرا (مشتركة) ---
   CameraController? _cameraController;
@@ -49,7 +47,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   bool _isProcessing = false;
   List<File> _capturedImages = [];
 
-  // --- الفلاب (للتفصيل فقط) ---
+  // --- خيارات الفلاب (للتفصيل فقط) ---
   bool isOverFlap = false;
   bool isFlap = true;
   bool isOneFlap = false;
@@ -59,7 +57,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   bool isQuarterSize = false;
   bool isQuarterWidth = true;
 
-  // --- النتائج (للتفصيل فقط) ---
+  // --- النتائج ---
   String sheetLengthResult = "";
   String sheetWidthResult = "";
   String productionWidth1 = "";
@@ -99,7 +97,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("الكاميرا غير متاحة")),
+          const SnackBar(content: Text("الكاميرا غير متاحة على هذا الجهاز")),
         );
       }
     }
@@ -108,12 +106,15 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   void _loadExistingData(Map data) {
     _processType = data['processType'] ?? 'تفصيل';
 
-    clientNameController.text = data['clientName'] ?? '';
-    productNameController.text = data['productName'] ?? '';
-    productCodeController.text = data['productCode']?.toString() ?? '';
-    lengthController.text = data['length'] ?? '';
-    widthController.text = data['width'] ?? '';
-    heightController.text = data['height'] ?? '';
+    if (_processType == "تفصيل") {
+      clientNameController.text = data['clientName']?.toString() ?? '';
+      productNameController.text = data['productName']?.toString() ?? '';
+      productCodeController.text = data['productCode']?.toString() ?? '';
+    }
+
+    lengthController.text = data['length']?.toString() ?? '';
+    widthController.text = data['width']?.toString() ?? '';
+    heightController.text = data['height']?.toString() ?? '';
 
     if (_processType == "تفصيل") {
       isOverFlap = data['isOverFlap'] ?? false;
@@ -124,22 +125,20 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       isFullSize = data['isFullSize'] ?? true;
       isQuarterSize = data['isQuarterSize'] ?? false;
       isQuarterWidth = data['isQuarterWidth'] ?? true;
-      sheetLengthResult = data['sheetLengthResult'] ?? '';
-      sheetWidthResult = data['sheetWidthResult'] ?? '';
-      productionWidth1 = data['productionWidth1'] ?? '';
-      productionHeight = data['productionHeight'] ?? '';
-      productionWidth2 = data['productionWidth2'] ?? '';
-    } else if (_processType == "تكسير") {
-      sheetLengthManualController.text = data['sheetLengthManual'] ?? '';
-      sheetWidthManualController.text = data['sheetWidthManual'] ?? '';
-      _cuttingType = data['cuttingType'] ?? 'دوبل';
+
+      sheetLengthResult = data['sheetLengthResult']?.toString() ?? '';
+      sheetWidthResult = data['sheetWidthResult']?.toString() ?? '';
+      productionWidth1 = data['productionWidth1']?.toString() ?? '';
+      productionHeight = data['productionHeight']?.toString() ?? '';
+      productionWidth2 = data['productionWidth2']?.toString() ?? '';
     }
 
     // ✅ تحميل الصور مع تجاهل الملفات المفقودة
     if (data.containsKey('imagePaths') && data['imagePaths'] is List) {
-      _capturedImages = (data['imagePaths'] as List)
+      final List<dynamic> paths = List.from(data['imagePaths']);
+      _capturedImages = paths
           .map((p) => File(p.toString()))
-          .where((file) => file.existsSync()) // ← إضافة هذا التحقق
+          .where((file) => file.existsSync())
           .toList();
     }
   }
@@ -148,112 +147,127 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     if (!_isCameraReady ||
         _cameraController == null ||
         !_cameraController!.value.isInitialized) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("الكاميرا غير جاهزة")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("الكاميرا غير جاهزة")),
+      );
       return;
     }
 
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+    });
+
     try {
       final XFile image = await _cameraController!.takePicture();
 
-      // ✅ تعديل جوهري: حفظ الصورة في مجلد دائم داخل التطبيق
+      // ✅ حفظ الصورة في مجلد دائم داخل التطبيق
       final appDir = await getApplicationDocumentsDirectory();
       final imageDir = Directory('${appDir.path}/sheet_size_images');
       await imageDir.create(recursive: true);
 
       final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final String newPath = '${imageDir.path}/$fileName';
+      final String imagePath = '${imageDir.path}/$fileName';
 
-      final File savedImage = await File(image.path).copy(newPath);
+      final File savedImage = await File(image.path).copy(imagePath);
 
       setState(() {
         _capturedImages.add(savedImage);
         _isProcessing = false;
       });
     } catch (e) {
-      setState(() => _isProcessing = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("خطأ: $e")));
+      setState(() {
+        _isProcessing = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("خطأ: $e")),
+      );
     }
   }
 
-  void _removeImage(int index) =>
-      setState(() => _capturedImages.removeAt(index));
+  void _removeImage(int index) {
+    setState(() {
+      _capturedImages.removeAt(index);
+    });
+  }
 
   void calculateSheet() {
     if (_processType != "تفصيل") return;
 
-    double l = double.tryParse(lengthController.text) ?? 0;
-    double w = double.tryParse(widthController.text) ?? 0;
-    double h = double.tryParse(heightController.text) ?? 0;
-    double sheetL = 0, sheetW = 0;
+    double length = double.tryParse(lengthController.text) ?? 0.0;
+    double width = double.tryParse(widthController.text) ?? 0.0;
+    double height = double.tryParse(heightController.text) ?? 0.0;
+    double sheetLength = 0.0;
+    double sheetWidth = 0.0;
 
     if (isFullSize) {
-      sheetL = (l + w) * 2 + 4;
+      sheetLength = ((length + width) * 2) + 4;
     } else if (isQuarterSize) {
-      sheetL = isQuarterWidth ? w + 4 : l + 4;
+      if (isQuarterWidth) {
+        sheetLength = width + 4;
+      } else {
+        sheetLength = length + 4;
+      }
     } else {
-      sheetL = l + w + 4;
+      sheetLength = length + width + 4;
     }
 
     if (isOverFlap && isTwoFlap) {
-      sheetW = addTwoMm ? h + w * 2 + 0.4 : h + w * 2;
+      sheetWidth = addTwoMm ? height + (width * 2) + 0.4 : height + (width * 2);
     } else if (isOverFlap && isOneFlap) {
-      sheetW = addTwoMm ? h + w + 0.2 : h + w;
+      sheetWidth = addTwoMm ? height + width + 0.2 : height + width;
     } else if (isFlap && isTwoFlap) {
-      sheetW = addTwoMm ? h + w + 0.4 : h + w;
+      sheetWidth = addTwoMm ? height + width + 0.4 : height + width;
     } else if (isFlap && isOneFlap) {
-      sheetW = addTwoMm ? h + w / 2 + 0.2 : h + w / 2;
+      sheetWidth = addTwoMm ? height + (width / 2) + 0.2 : height + (width / 2);
     }
 
-    productionHeight = h.toStringAsFixed(2);
+    productionHeight = height.toStringAsFixed(2);
 
     if (isOverFlap && isTwoFlap) {
-      productionWidth1 =
-          addTwoMm ? (w + 0.2).toStringAsFixed(2) : w.toStringAsFixed(2);
+      productionWidth1 = addTwoMm
+          ? (width + 0.2).toStringAsFixed(2)
+          : width.toStringAsFixed(2);
       productionWidth2 = productionWidth1;
     } else if (isOverFlap && isOneFlap) {
       productionWidth1 = ".....";
-      productionWidth2 =
-          addTwoMm ? (w + 0.2).toStringAsFixed(2) : w.toStringAsFixed(2);
+      productionWidth2 = addTwoMm
+          ? (width + 0.2).toStringAsFixed(2)
+          : width.toStringAsFixed(2);
     } else if (isFlap && isTwoFlap) {
       productionWidth1 = addTwoMm
-          ? ((w / 2) + 0.2).toStringAsFixed(2)
-          : (w / 2).toStringAsFixed(2);
+          ? ((width / 2) + 0.2).toStringAsFixed(2)
+          : (width / 2).toStringAsFixed(2);
       productionWidth2 = productionWidth1;
     } else if (isFlap && isOneFlap) {
       productionWidth1 = ".....";
       productionWidth2 = addTwoMm
-          ? ((w / 2) + 0.2).toStringAsFixed(2)
-          : (w / 2).toStringAsFixed(2);
+          ? ((width / 2) + 0.2).toStringAsFixed(2)
+          : (width / 2).toStringAsFixed(2);
     } else {
       productionWidth1 = productionWidth2 = ".....";
     }
 
     setState(() {
-      sheetLengthResult = "طول الشيت: ${sheetL.toStringAsFixed(2)} سم";
-      sheetWidthResult = "عرض الشيت: ${sheetW.toStringAsFixed(2)} سم";
+      sheetLengthResult = "طول الشيت: ${sheetLength.toStringAsFixed(2)} سم";
+      sheetWidthResult = "عرض الشيت: ${sheetWidth.toStringAsFixed(2)} سم";
     });
   }
 
   Future<void> _saveSheetSize() async {
-    // ✅ الحقول الأساسية تُحفَظ دائمًا (للعرض والبحث)
-    final record = <String, dynamic>{
+    final newRecord = <String, dynamic>{
       'processType': _processType,
-      'clientName': clientNameController.text,
-      'productName': productNameController.text,
-      'productCode': productCodeController.text,
       'length': lengthController.text,
       'width': widthController.text,
       'height': heightController.text,
-      'imagePaths': _capturedImages.map((f) => f.path).toList(),
+      'imagePaths': _capturedImages.map((file) => file.path).toList(),
       'date': DateTime.now().toIso8601String(),
     };
 
-    // ✅ إضافة الحقول الخاصة حسب النوع
     if (_processType == "تفصيل") {
-      record.addAll({
+      newRecord.addAll({
+        'clientName': clientNameController.text,
+        'productName': productNameController.text,
+        'productCode': productCodeController.text,
         'isOverFlap': isOverFlap,
         'isFlap': isFlap,
         'isOneFlap': isOneFlap,
@@ -268,18 +282,12 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         'productionHeight': productionHeight,
         'productionWidth2': productionWidth2,
       });
-    } else if (_processType == "تكسير") {
-      record.addAll({
-        'sheetLengthManual': sheetLengthManualController.text,
-        'sheetWidthManual': sheetWidthManualController.text,
-        'cuttingType': _cuttingType,
-      });
     }
 
     if (widget.existingDataKey != null) {
-      await _savedSheetSizesBox.put(widget.existingDataKey, record);
+      await _savedSheetSizesBox.put(widget.existingDataKey, newRecord);
     } else {
-      await _savedSheetSizesBox.add(record);
+      await _savedSheetSizesBox.add(newRecord);
     }
 
     if (mounted) {
@@ -290,6 +298,18 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   }
 
   @override
+  void dispose() {
+    _cameraController?.dispose();
+    clientNameController.dispose();
+    productNameController.dispose();
+    productCodeController.dispose();
+    lengthController.dispose();
+    widthController.dispose();
+    heightController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const AppDrawer(),
@@ -297,7 +317,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         title: const Text("إضافة مقاس جديد"),
         centerTitle: true,
         actions: [
-          IconButton(icon: const Icon(Icons.save), onPressed: _saveSheetSize)
+          IconButton(icon: const Icon(Icons.save), onPressed: _saveSheetSize),
         ],
       ),
       body: GestureDetector(
@@ -313,11 +333,6 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 lengthController: lengthController,
                 widthController: widthController,
                 heightController: heightController,
-                sheetLengthManualController: sheetLengthManualController,
-                sheetWidthManualController: sheetWidthManualController,
-                cuttingType: _cuttingType,
-                onCuttingTypeChanged: (value) =>
-                    setState(() => _cuttingType = value),
                 processType: _processType,
                 onProcessTypeChanged: (value) =>
                     setState(() => _processType = value),
@@ -335,7 +350,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
               ),
               const SizedBox(height: 20),
 
-              // --- الفلاب و"احسب" و"مقاسات خط الإنتاج" (للتفصيل فقط) ---
+              // --- خيارات الفلاب (للتفصيل فقط) ---
               if (_processType == "تفصيل") ...[
                 SheetSizeCheckboxes(
                   isOverFlap: isOverFlap,
@@ -346,19 +361,42 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                   isFullSize: isFullSize,
                   isQuarterSize: isQuarterSize,
                   isQuarterWidth: isQuarterWidth,
-                  onOverFlapChanged: (v) => setState(() => isOverFlap = v!),
-                  onFlapChanged: (v) => setState(() => isFlap = v!),
-                  onOneFlapChanged: (v) => setState(() => isOneFlap = v!),
-                  onTwoFlapChanged: (v) => setState(() => isTwoFlap = v!),
-                  onAddTwoMmChanged: (v) => setState(() => addTwoMm = v!),
-                  onFullSizeChanged: (v) => setState(() => isFullSize = v!),
-                  onQuarterSizeChanged: (v) =>
-                      setState(() => isQuarterSize = v!),
-                  onQuarterWidthChanged: (v) =>
-                      setState(() => isQuarterWidth = v!),
+                  onOverFlapChanged: (v) => setState(() {
+                    isOverFlap = v!;
+                    isFlap = !v;
+                  }),
+                  onFlapChanged: (v) => setState(() {
+                    isFlap = v!;
+                    isOverFlap = !v;
+                  }),
+                  onOneFlapChanged: (v) => setState(() {
+                    isOneFlap = v!;
+                    isTwoFlap = !v;
+                  }),
+                  onTwoFlapChanged: (v) => setState(() {
+                    isTwoFlap = v!;
+                    isOneFlap = !v;
+                  }),
+                  onAddTwoMmChanged: (v) => setState(() {
+                    addTwoMm = v!;
+                  }),
+                  onFullSizeChanged: (v) => setState(() {
+                    isFullSize = v!;
+                    isQuarterSize = false;
+                  }),
+                  onQuarterSizeChanged: (v) => setState(() {
+                    isQuarterSize = v!;
+                    isFullSize = false;
+                  }),
+                  onQuarterWidthChanged: (v) => setState(() {
+                    isQuarterWidth = v!;
+                  }),
                 ),
                 const SizedBox(height: 20),
-                SheetSizeButtons(onCalculate: calculateSheet, onSave: () {}),
+                SheetSizeButtons(
+                  onCalculate: calculateSheet,
+                  onSave: () {},
+                ),
                 const SizedBox(height: 20),
                 SheetSizeCalculations(
                   sheetLengthResult: sheetLengthResult,

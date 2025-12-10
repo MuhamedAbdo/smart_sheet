@@ -138,7 +138,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     try {
       final XFile image = await _cameraController!.takePicture();
 
-      // ✅ تعديل جوهري: حفظ الصورة في مجلد دائم داخل التطبيق
+      // ✅ حفظ الصورة في مجلد دائم داخل التطبيق
       final appDir = await getApplicationDocumentsDirectory();
       final imageDir = Directory('${appDir.path}/maintenance_images');
       await imageDir.create(recursive: true);
@@ -186,7 +186,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
       );
 
       if (pickedFile != null) {
-        // ✅ الصور من المعرض تُحفظ بالفعل في مجلد دائم — لا تحتاج تعديل
         final directory = await getApplicationDocumentsDirectory();
         final String newPath =
             '${directory.path}/maintenance_gallery_${DateTime.now().millisecondsSinceEpoch}.jpg';

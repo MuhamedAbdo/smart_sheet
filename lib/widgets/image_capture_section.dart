@@ -1,19 +1,19 @@
-// lib/src/widgets/camera/image_capture_section.dart
+// lib/src/widgets/sheet_size/sheet_size_camera.dart
 
 import 'dart:io';
-import 'package:camera/camera.dart';
-import 'package:flutter/material.dart';
 
-class ImageCaptureSection extends StatelessWidget {
+import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
+
+class SheetSizeCamera extends StatelessWidget {
   final CameraController? cameraController;
   final bool isCameraReady;
   final bool isProcessing;
   final List<File> capturedImages;
   final VoidCallback onCaptureImage;
   final Function(int) onRemoveImage;
-  final Function(String) onShowFullScreenImage;
 
-  const ImageCaptureSection({
+  const SheetSizeCamera({
     super.key,
     required this.cameraController,
     required this.isCameraReady,
@@ -21,7 +21,6 @@ class ImageCaptureSection extends StatelessWidget {
     required this.capturedImages,
     required this.onCaptureImage,
     required this.onRemoveImage,
-    required this.onShowFullScreenImage,
   });
 
   @override
@@ -32,28 +31,30 @@ class ImageCaptureSection extends StatelessWidget {
           SizedBox(
             height: 200,
             child: CameraPreview(cameraController!),
+          )
+        else if (cameraController == null)
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text("جاري تهيئة الكاميرا..."),
           ),
-        const SizedBox(height: 12),
-        if (cameraController != null)
-          ElevatedButton.icon(
-            onPressed: isProcessing ? null : onCaptureImage,
-            icon: const Icon(Icons.camera),
-            label: const Text("التقط صورة"),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-          ),
+        const SizedBox(height: 10),
+        ElevatedButton.icon(
+          onPressed: isProcessing || !isCameraReady ? null : onCaptureImage,
+          icon: const Icon(Icons.camera),
+          label: const Text("التقط صورة"),
+        ),
+        const SizedBox(height: 10),
         if (capturedImages.isNotEmpty)
           SizedBox(
             height: 100,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: capturedImages.length,
-              itemBuilder: (context, imgIndex) {
-                final imagePath = capturedImages[imgIndex];
+              itemBuilder: (context, index) {
+                final file = capturedImages[index];
 
                 // ✅ التحقق من وجود الملف قبل العرض
-                if (!imagePath.existsSync()) {
+                if (!file.existsSync()) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4.0),
                     child: Container(
@@ -70,19 +71,16 @@ class ImageCaptureSection extends StatelessWidget {
                   child: Stack(
                     alignment: Alignment.topRight,
                     children: [
-                      GestureDetector(
-                        onTap: () => onShowFullScreenImage(imagePath.path),
-                        child: Image.file(
-                          imagePath,
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
-                        ),
+                      Image.file(
+                        file,
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
                       ),
                       IconButton(
                         icon: const Icon(Icons.close,
                             size: 18, color: Colors.red),
-                        onPressed: () => onRemoveImage(imgIndex),
+                        onPressed: () => onRemoveImage(index),
                       ),
                     ],
                   ),

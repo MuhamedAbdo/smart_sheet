@@ -27,7 +27,6 @@ class SheetSizeCamera extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // ✅ فقط إذا الكاميرا موجودة واتهيأت
         if (isCameraReady && cameraController != null)
           SizedBox(
             height: 200,
@@ -38,7 +37,6 @@ class SheetSizeCamera extends StatelessWidget {
             padding: EdgeInsets.all(16.0),
             child: Text("جاري تهيئة الكاميرا..."),
           ),
-
         const SizedBox(height: 10),
         ElevatedButton.icon(
           onPressed: isProcessing || !isCameraReady ? null : onCaptureImage,

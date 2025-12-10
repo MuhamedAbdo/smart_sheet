@@ -105,7 +105,7 @@ class _InkReportFormState extends State<InkReportForm> {
       }).toList();
     }
 
-    // ✅ تحميل الصور مع تجاهل الملفات المفقودة (لتجنب الكراش)
+    // ✅ تحميل الصور مع تجاهل الملفات المفقودة
     if (data.containsKey('imagePaths') && data['imagePaths'] is List) {
       final List<String> paths = List<String>.from(data['imagePaths']);
       _capturedImages =
@@ -163,7 +163,7 @@ class _InkReportFormState extends State<InkReportForm> {
     try {
       final XFile image = await _cameraController!.takePicture();
 
-      // ✅ حفظ الصورة في مجلد دائم داخل مجلد التطبيق (يُضمن في النسخة الاحتياطية)
+      // ✅ حفظ الصورة في مجلد دائم داخل التطبيق
       final appDir = await getApplicationDocumentsDirectory();
       final imageDir = Directory('${appDir.path}/app_images');
       await imageDir.create(recursive: true);

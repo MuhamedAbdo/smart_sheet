@@ -11,8 +11,16 @@ import 'package:smart_sheet/screens/about_screen.dart';
 import 'package:smart_sheet/screens/privacy_policy_screen.dart';
 import 'package:smart_sheet/services/backup_service.dart';
 
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
+
+  @override
+  State<AppDrawer> createState() => _AppDrawerState();
+}
+
+class _AppDrawerState extends State<AppDrawer> {
+  bool _isBackupInProgress = false;
+  bool _isRestoreInProgress = false;
 
   void _showMessage(String message, {bool isError = false}) {
     scaffoldMessengerKey.currentState?.showSnackBar(
@@ -80,14 +88,27 @@ class AppDrawer extends StatelessWidget {
 
           // 💾 زر النسخ الاحتياطي
           ListTile(
-            leading:
-                Icon(Icons.archive, color: isDarkMode ? Colors.white : null),
+            leading: _isBackupInProgress
+                ? const CircularProgressIndicator(strokeWidth: 2)
+                : Icon(Icons.archive, color: isDarkMode ? Colors.white : null),
             title: Text('نسخة احتياطية',
                 style: TextStyle(color: isDarkMode ? Colors.white : null)),
             onTap: () async {
-              Navigator.pop(context);
-              _showMessage('جاري إنشاء النسخة الاحتياطية...', isError: false);
+              if (_isBackupInProgress || _isRestoreInProgress) return;
+
+              // ✅ تحقق من mounted قبل setState
+              if (!mounted) return;
+              setState(() => _isBackupInProgress = true);
+
+              Navigator.pop(context); // ← إغلاق الـ Drawer هنا
+
               final result = await BackupService().createBackup();
+
+              // ✅ تحقق من mounted قبل setState
+              if (mounted) {
+                setState(() => _isBackupInProgress = false);
+              }
+
               if (result != null) {
                 _showMessage(result, isError: result.contains('❌'));
               }
@@ -96,32 +117,39 @@ class AppDrawer extends StatelessWidget {
 
           // 🔁 زر استعادة البيانات
           ListTile(
-            leading:
-                Icon(Icons.restore, color: isDarkMode ? Colors.white : null),
+            leading: _isRestoreInProgress
+                ? const CircularProgressIndicator(strokeWidth: 2)
+                : Icon(Icons.restore, color: isDarkMode ? Colors.white : null),
             title: Text('استعادة البيانات',
                 style: TextStyle(color: isDarkMode ? Colors.white : null)),
             onTap: () async {
-              Navigator.pop(context);
-              _showMessage('جاري استعادة البيانات...', isError: false);
+              if (_isBackupInProgress || _isRestoreInProgress) return;
+
+              // ✅ تحقق من mounted قبل setState
+              if (!mounted) return;
+              setState(() => _isRestoreInProgress = true);
+
+              Navigator.pop(context); // ← إغلاق الـ Drawer هنا
+
               final result = await BackupService().restoreBackup();
 
               if (result != null) {
                 final isError = result.contains('❌');
                 _showMessage(result, isError: isError);
 
-                // ✅ إذا كانت الاستعادة ناجحة، أغلق التطبيق بعد 3 ثوانٍ
                 if (!isError && result.contains('سيتم إغلاق')) {
-                  // انتظر 3 ثوانٍ لإظهار الرسالة للمستخدم
                   await Future.delayed(const Duration(seconds: 3));
-
                   if (kIsWeb) {
-                    // على الويب: لا يمكن استخدام exit، لذا نعيد التوجيه للشاشة الرئيسية
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   } else {
-                    // على الموبايل: إغلاق التطبيق تمامًا
                     exit(0);
                   }
                 }
+              }
+
+              // ✅ تحقق من mounted قبل setState
+              if (mounted) {
+                setState(() => _isRestoreInProgress = false);
               }
             },
           ),

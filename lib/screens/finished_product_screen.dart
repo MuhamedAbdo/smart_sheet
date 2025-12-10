@@ -394,7 +394,7 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
     try {
       final XFile image = await _cameraController.takePicture();
 
-      // ✅ تعديل: حفظ الصورة في مجلد فرعي مخصص
+      // ✅ حفظ الصورة في مجلد دائم
       final appDir = await getApplicationDocumentsDirectory();
       final imageDir = Directory('${appDir.path}/finished_product_images');
       await imageDir.create(recursive: true);

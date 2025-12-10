@@ -366,7 +366,7 @@ Future<Uint8List> _generateConsolidatedPdfBytes(
   final pdf = pw.Document();
 
   // ✅ الآن: كل صفحة تحتوي على 10 صفوف رئيسية (خلاف صف العنوان)
-  const int recordsPerPage = 10;
+  const int recordsPerPage = 9;
   final int totalPages = (records.length / recordsPerPage).ceil();
 
   for (int page = 0; page < totalPages; page++) {
