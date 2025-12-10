@@ -19,8 +19,7 @@ class AppDrawer extends StatefulWidget {
 }
 
 class _AppDrawerState extends State<AppDrawer> {
-  bool _isBackupInProgress = false;
-  bool _isRestoreInProgress = false;
+  // ✅ لا حاجة لحالة المؤشر هنا
 
   void _showMessage(String message, {bool isError = false}) {
     scaffoldMessengerKey.currentState?.showSnackBar(
@@ -30,6 +29,27 @@ class _AppDrawerState extends State<AppDrawer> {
         duration: const Duration(seconds: 5),
       ),
     );
+  }
+
+  // ✅ دالة لعرض SnackBar مع مؤشر تقدم
+  void _showProgressSnackBar(BuildContext context, String message) {
+    scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(strokeWidth: 2),
+            const SizedBox(width: 12),
+            Text(message),
+          ],
+        ),
+        duration: const Duration(hours: 1), // لا يختفي تلقائيًا
+      ),
+    );
+  }
+
+  // ✅ دالة لإغلاق مؤشر التقدم
+  void _hideProgressSnackBar() {
+    scaffoldMessengerKey.currentState?.hideCurrentSnackBar();
   }
 
   @override
@@ -88,68 +108,64 @@ class _AppDrawerState extends State<AppDrawer> {
 
           // 💾 زر النسخ الاحتياطي
           ListTile(
-            leading: _isBackupInProgress
-                ? const CircularProgressIndicator(strokeWidth: 2)
-                : Icon(Icons.archive, color: isDarkMode ? Colors.white : null),
+            leading:
+                Icon(Icons.archive, color: isDarkMode ? Colors.white : null),
             title: Text('نسخة احتياطية',
                 style: TextStyle(color: isDarkMode ? Colors.white : null)),
             onTap: () async {
-              if (_isBackupInProgress || _isRestoreInProgress) return;
+              Navigator.pop(context); // إغلاق الـ Drawer
 
-              // ✅ تحقق من mounted قبل setState
-              if (!mounted) return;
-              setState(() => _isBackupInProgress = true);
+              // ✅ عرض مؤشر تقدم في SnackBar
+              _showProgressSnackBar(context, 'جاري إنشاء النسخة الاحتياطية...');
 
-              Navigator.pop(context); // ← إغلاق الـ Drawer هنا
+              try {
+                final result = await BackupService().createBackup();
 
-              final result = await BackupService().createBackup();
+                // ✅ إغلاق مؤشر التقدم
+                _hideProgressSnackBar();
 
-              // ✅ تحقق من mounted قبل setState
-              if (mounted) {
-                setState(() => _isBackupInProgress = false);
-              }
-
-              if (result != null) {
-                _showMessage(result, isError: result.contains('❌'));
+                if (result != null) {
+                  _showMessage(result, isError: result.contains('❌'));
+                }
+              } catch (e) {
+                _hideProgressSnackBar();
+                _showMessage('❌ حدث خطأ: ${e.toString()}', isError: true);
               }
             },
           ),
 
           // 🔁 زر استعادة البيانات
           ListTile(
-            leading: _isRestoreInProgress
-                ? const CircularProgressIndicator(strokeWidth: 2)
-                : Icon(Icons.restore, color: isDarkMode ? Colors.white : null),
+            leading:
+                Icon(Icons.restore, color: isDarkMode ? Colors.white : null),
             title: Text('استعادة البيانات',
                 style: TextStyle(color: isDarkMode ? Colors.white : null)),
             onTap: () async {
-              if (_isBackupInProgress || _isRestoreInProgress) return;
+              Navigator.pop(context);
 
-              // ✅ تحقق من mounted قبل setState
-              if (!mounted) return;
-              setState(() => _isRestoreInProgress = true);
+              _showProgressSnackBar(context, 'جاري استعادة البيانات...');
 
-              Navigator.pop(context); // ← إغلاق الـ Drawer هنا
+              try {
+                final result = await BackupService().restoreBackup();
 
-              final result = await BackupService().restoreBackup();
+                _hideProgressSnackBar();
 
-              if (result != null) {
-                final isError = result.contains('❌');
-                _showMessage(result, isError: isError);
+                if (result != null) {
+                  final isError = result.contains('❌');
+                  _showMessage(result, isError: isError);
 
-                if (!isError && result.contains('سيتم إغلاق')) {
-                  await Future.delayed(const Duration(seconds: 3));
-                  if (kIsWeb) {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  } else {
-                    exit(0);
+                  if (!isError && result.contains('سيتم إغلاق')) {
+                    await Future.delayed(const Duration(seconds: 3));
+                    if (kIsWeb) {
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                    } else {
+                      exit(0);
+                    }
                   }
                 }
-              }
-
-              // ✅ تحقق من mounted قبل setState
-              if (mounted) {
-                setState(() => _isRestoreInProgress = false);
+              } catch (e) {
+                _hideProgressSnackBar();
+                _showMessage('❌ حدث خطأ: ${e.toString()}', isError: true);
               }
             },
           ),
