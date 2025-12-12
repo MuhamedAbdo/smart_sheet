@@ -3,10 +3,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smart_sheet/utils/image_utils.dart'; // ← إضافة استيراد دالة الحفظ
 
 class ColorField {
   final TextEditingController colorController;
@@ -163,15 +163,9 @@ class _InkReportFormState extends State<InkReportForm> {
     try {
       final XFile image = await _cameraController!.takePicture();
 
-      // ✅ حفظ الصورة في مجلد دائم داخل التطبيق
-      final appDir = await getApplicationDocumentsDirectory();
-      final imageDir = Directory('${appDir.path}/app_images');
-      await imageDir.create(recursive: true);
-
-      final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final String newPath = '${imageDir.path}/$fileName';
-
-      final File savedImage = await File(image.path).copy(newPath);
+      // ✅ استخدام الدالة الجديدة لحفظ الصورة (تعيد المسار الكامل)
+      final imagePath = await saveImagePermanently(File(image.path));
+      final savedImage = File(imagePath);
 
       setState(() {
         _capturedImages.add(savedImage);

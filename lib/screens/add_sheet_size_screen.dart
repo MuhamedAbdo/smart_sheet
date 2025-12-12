@@ -41,6 +41,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   final widthController = TextEditingController();
   final heightController = TextEditingController();
 
+  // --- حقول التكسير (مهم!) ---
+  final sheetLengthManualController = TextEditingController();
+  final sheetWidthManualController = TextEditingController();
+
   // --- الكاميرا (مشتركة) ---
   CameraController? _cameraController;
   bool _isCameraReady = false;
@@ -115,6 +119,14 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     lengthController.text = data['length']?.toString() ?? '';
     widthController.text = data['width']?.toString() ?? '';
     heightController.text = data['height']?.toString() ?? '';
+
+    // ✅ تحميل حقول التكسير
+    if (_processType == "تكسير") {
+      sheetLengthManualController.text =
+          data['sheetLengthManual']?.toString() ?? '';
+      sheetWidthManualController.text =
+          data['sheetWidthManual']?.toString() ?? '';
+    }
 
     if (_processType == "تفصيل") {
       isOverFlap = data['isOverFlap'] ?? false;
@@ -282,6 +294,13 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         'productionHeight': productionHeight,
         'productionWidth2': productionWidth2,
       });
+    } else if (_processType == "تكسير") {
+      // ✅ حفظ حقول التكسير
+      newRecord.addAll({
+        'sheetLengthManual': sheetLengthManualController.text,
+        'sheetWidthManual': sheetWidthManualController.text,
+        'cuttingType': 'دوبل', // أو القيمة المحددة من المستخدم
+      });
     }
 
     if (widget.existingDataKey != null) {
@@ -306,6 +325,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     lengthController.dispose();
     widthController.dispose();
     heightController.dispose();
+    sheetLengthManualController.dispose(); // ✅
+    sheetWidthManualController.dispose(); // ✅
     super.dispose();
   }
 
@@ -333,6 +354,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 lengthController: lengthController,
                 widthController: widthController,
                 heightController: heightController,
+                sheetLengthManualController: sheetLengthManualController, // ✅
+                sheetWidthManualController: sheetWidthManualController, // ✅
                 processType: _processType,
                 onProcessTypeChanged: (value) =>
                     setState(() => _processType = value),

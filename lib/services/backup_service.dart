@@ -26,20 +26,29 @@ Future<String> _createZipInIsolate(List<dynamic> args) async {
   return tempZipPath;
 }
 
-// ✅ دالة مساعدة للضغط (بدون استخدام Hive أو context)
+// ✅ دالة مساعدة للضغط (تدعم جميع المجلدات الفرعية بشكل كامل)
 Future<void> _addDirectoryToZipInIsolate(
   ZipFileEncoder encoder,
   Directory dir,
   String basePath,
 ) async {
-  final entities = dir.listSync(recursive: false);
-  for (final entity in entities) {
+  // توحيد basePath ليكون متوافقًا مع النظام
+  String cleanBasePath = basePath;
+  if (!cleanBasePath.endsWith('/') && !cleanBasePath.endsWith('\\')) {
+    cleanBasePath = '$cleanBasePath${Platform.isWindows ? '\\' : '/'}';
+  }
+
+  // الحصول على جميع الملفات (بما في ذلك داخل المجلدات الفرعية)
+  final allEntities = dir.listSync(recursive: true);
+
+  for (final entity in allEntities) {
     if (entity is File) {
-      final relativePath = p.relative(entity.path, from: basePath);
-      final zipPath = relativePath.replaceAll(RegExp(r'[\\/]'), '/');
-      encoder.addFile(entity, zipPath);
-    } else if (entity is Directory) {
-      await _addDirectoryToZipInIsolate(encoder, entity, basePath);
+      // حساب المسار النسبي من basePath
+      String relativePath =
+          entity.path.replaceFirst(RegExp('^$cleanBasePath'), '');
+      // توحيد الفواصل إلى / لملفات ZIP
+      relativePath = relativePath.replaceAll(RegExp(r'[\\/]'), '/');
+      encoder.addFile(entity, relativePath);
     }
   }
 }
@@ -81,7 +90,7 @@ class BackupService {
     }
   }
 
-  /// 🔄 استعادة النسخة الاحتياطية
+  /// 🔄 استعادة النسخة الاحتياطية مع إصلاح مسارات الصور
   Future<String?> restoreBackup() async {
     try {
       if (kIsWeb) return 'غير مدعوم على الويب.';
@@ -115,9 +124,86 @@ class BackupService {
         }
       }
 
+      // ✅ إصلاح مسارات الصور بعد الاستعادة
+      await _fixImagePathsAfterRestore();
+
       return '✅ تم استعادة البيانات بنجاح.\nسيتم إغلاق التطبيق خلال 3 ثوانٍ.\nيرجى إعادة فتحه يدويًا لاستكمال التحديث.';
     } catch (e) {
       return '❌ خطأ: ${e.toString()}';
+    }
+  }
+
+  // ✅ دالة لإصلاح مسارات الصور بعد الاستعادة
+  Future<void> _fixImagePathsAfterRestore() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final appDirPath = appDir.path;
+
+    // جمع جميع أسماء الملفات الموجودة في مجلدات الصور
+    final fileNameToPath = <String, String>{};
+    final imageFolders = [
+      'app_images',
+      'maintenance_images',
+      'sheet_size_images',
+      'finished_product_images'
+    ];
+
+    for (final folder in imageFolders) {
+      final dir = Directory('$appDirPath/$folder');
+      if (dir.existsSync()) {
+        final files = dir.listSync();
+        for (final entity in files) {
+          if (entity is File) {
+            final fileName = entity.path.split('/').last;
+            fileNameToPath[fileName] = entity.path;
+          }
+        }
+      }
+    }
+
+    // تحديث المسارات في جميع صناديق Hive
+    final boxNames = [
+      'inkReports',
+      'finished_products',
+      'savedSheetSizes',
+      'savedSheetSizes_production',
+      'maintenance_records_main',
+      'maintenance_staple_v2',
+      'maintenance_flexo_v2',
+      'maintenance_production_v2',
+      'maintenance_crushing_v2',
+    ];
+
+    for (final boxName in boxNames) {
+      try {
+        final box = await Hive.openBox(boxName);
+        final keys = box.keys.toList();
+
+        for (final key in keys) {
+          final record = box.get(key);
+          if (record is Map && record.containsKey('imagePaths')) {
+            final oldPaths = record['imagePaths'] as List;
+            final newPaths = <String>[];
+
+            for (final oldPath in oldPaths) {
+              if (oldPath is String) {
+                final fileName = oldPath.split('/').last;
+                if (fileNameToPath.containsKey(fileName)) {
+                  newPaths.add(fileNameToPath[fileName]!);
+                } else {
+                  newPaths
+                      .add(oldPath); // الحفاظ على المسار الأصلي إذا لم يُوجد
+                }
+              }
+            }
+
+            final updatedRecord = Map<String, dynamic>.from(record);
+            updatedRecord['imagePaths'] = newPaths;
+            await box.put(key, updatedRecord);
+          }
+        }
+      } catch (e) {
+        debugPrint('فشل تحديث $boxName: $e');
+      }
     }
   }
 }
