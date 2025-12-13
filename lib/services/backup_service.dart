@@ -1,9 +1,7 @@
-// lib/services/backup_service.dart
-
 import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart'; // لتضمين compute
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -11,7 +9,40 @@ import 'package:path_provider/path_provider.dart';
 class BackupService {
   static const String _backupFileName = 'smart_sheet_backup.zip';
 
-  /// 💾 إنشاء نسخة احتياطية (بدون Isolate لضمان اكتمال الضغط مع الملفات الكبيرة)
+  // ✅ دالة مساعدة ثابتة (static) للتشغيل داخل Isolate
+  // تقوم بالضغط وتجميع الملفات في الخلفية
+  @pragma('vm:entry-point') // لضمان عملها بشكل صحيح في Isolate
+  static Future<void> _createBackupInternal(List<String> args) async {
+    final appDirPath = args[0];
+    final tempZipPath = args[1];
+
+    final appDir = Directory(appDirPath);
+
+    final encoder = ZipFileEncoder();
+    encoder.create(tempZipPath);
+
+    // جمع جميع الملفات بشكل تكراري باستخدام listSync(recursive: true)
+    final allEntities = appDir.listSync(recursive: true);
+    final allFiles = allEntities.whereType<File>().toList();
+
+    final basePath = appDirPath;
+
+    // إضافة كل ملف واحدًا تلو الآخر
+    for (final file in allFiles) {
+      try {
+        final relativePath = file.path
+            .replaceFirst(RegExp('^${p.normalize(basePath)}[/\\\\]?'), '');
+        final zipPath = relativePath.replaceAll(RegExp(r'[\\/]'), '/');
+        encoder.addFile(file, zipPath);
+      } catch (e) {
+        debugPrint('فشل إضافة الملف في Isolate: ${file.path} - $e');
+      }
+    }
+
+    await encoder.close();
+  }
+
+  /// 💾 إنشاء نسخة احتياطية (باستخدام compute لنقل الضغط إلى Isolate)
   Future<String?> createBackup() async {
     try {
       if (kIsWeb) return 'غير مدعوم على الويب.';
@@ -19,14 +50,17 @@ class BackupService {
       final appDir = await getApplicationDocumentsDirectory();
       final tempDir = await getTemporaryDirectory();
       final tempZipPath = p.join(tempDir.path, _backupFileName);
+      final appDirPath = appDir.path;
 
-      final encoder = ZipFileEncoder();
-      encoder.create(tempZipPath);
+      // تأكد من حذف أي ملف مؤقت سابق
+      if (await File(tempZipPath).exists()) {
+        await File(tempZipPath).delete();
+      }
 
-      // ✅ إضافة جميع الملفات (بما في ذلك الصور) بشكل متسلسل
-      await _addDirectoryToZip(encoder, appDir, appDir.path);
+      // ✅ هذا يحل مشكلة التأخير: تنفيذ عملية الضغط في خلفية منفصلة
+      await compute(_createBackupInternal, [appDirPath, tempZipPath]);
 
-      await encoder.close();
+      // العمليات التالية (الحفظ عبر FilePicker) سريعة وتتم على الخيط الرئيسي
 
       final bytes = await File(tempZipPath).readAsBytes();
       final savedPath = await FilePicker.platform.saveFile(
@@ -37,6 +71,7 @@ class BackupService {
         dialogTitle: 'اختر مكان حفظ النسخة الاحتياطية',
       );
 
+      // حذف الملف المؤقت بعد الحفظ أو الإلغاء
       await File(tempZipPath).delete();
 
       if (savedPath == null) return null;
@@ -64,9 +99,14 @@ class BackupService {
 
       final appDir = await getApplicationDocumentsDirectory();
       final appDirInstance = Directory(appDir.path);
+
+      // حذف مجلد البيانات الحالي بالكامل
       if (appDirInstance.existsSync()) {
         await appDirInstance.delete(recursive: true);
       }
+
+      // إعادة إنشاء المجلد قبل فك الضغط إليه
+      await appDirInstance.create(recursive: true);
 
       final bytes = await File(zipPath).readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);
@@ -75,6 +115,7 @@ class BackupService {
         if (file.isFile) {
           final outputPath = p.join(appDir.path, file.name);
           final outputFile = File(outputPath);
+
           await outputFile.create(recursive: true);
           await outputFile.writeAsBytes(file.content as List<int>);
         }
@@ -86,44 +127,6 @@ class BackupService {
       return '✅ تم استعادة البيانات بنجاح.\nسيتم إغلاق التطبيق خلال 3 ثوانٍ.\nيرجى إعادة فتحه يدويًا لاستكمال التحديث.';
     } catch (e) {
       return '❌ خطأ: ${e.toString()}';
-    }
-  }
-
-  // ✅ دالة مساعدة: إضافة مجلد كامل إلى ZIP (مع دعم كامل للتكرار)
-  Future<void> _addDirectoryToZip(
-    ZipFileEncoder encoder,
-    Directory dir,
-    String basePath,
-  ) async {
-    // جمع جميع الملفات بشكل متكرر
-    final allFiles = <File>[];
-    void collectFiles(Directory currentDir) {
-      try {
-        final entities = currentDir.listSync(recursive: false);
-        for (final entity in entities) {
-          if (entity is File) {
-            allFiles.add(entity);
-          } else if (entity is Directory) {
-            collectFiles(entity);
-          }
-        }
-      } catch (e) {
-        debugPrint('لا يمكن قراءة المجلد: ${currentDir.path} - $e');
-      }
-    }
-
-    collectFiles(dir);
-
-    // إضافة كل ملف واحدًا تلو الآخر
-    for (final file in allFiles) {
-      try {
-        final relativePath = file.path
-            .replaceFirst(RegExp('^${p.normalize(basePath)}[/\\\\]?'), '');
-        final zipPath = relativePath.replaceAll(RegExp(r'[\\/]'), '/');
-        encoder.addFile(file, zipPath);
-      } catch (e) {
-        debugPrint('فشل إضافة الملف: ${file.path} - $e');
-      }
     }
   }
 

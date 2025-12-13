@@ -1,5 +1,3 @@
-// lib/src/widgets/drawers/app_drawer.dart
-
 import 'dart:io' show exit;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -19,8 +17,6 @@ class AppDrawer extends StatefulWidget {
 }
 
 class _AppDrawerState extends State<AppDrawer> {
-  // ✅ لا حاجة لحالة المؤشر هنا
-
   void _showMessage(String message, {bool isError = false}) {
     scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
@@ -113,15 +109,17 @@ class _AppDrawerState extends State<AppDrawer> {
             title: Text('نسخة احتياطية',
                 style: TextStyle(color: isDarkMode ? Colors.white : null)),
             onTap: () async {
-              Navigator.pop(context); // إغلاق الـ Drawer
-
-              // ✅ عرض مؤشر تقدم في SnackBar
+              // ✅ 1. عرض مؤشر التقدم فوراً قبل إغلاق الـ Drawer
               _showProgressSnackBar(context, 'جاري إنشاء النسخة الاحتياطية...');
 
+              // 2. إغلاق الـ Drawer
+              Navigator.pop(context);
+
               try {
+                // الآن يتم تنفيذ عملية الضغط الطويلة في خلفية منفصلة
                 final result = await BackupService().createBackup();
 
-                // ✅ إغلاق مؤشر التقدم
+                // 3. إغلاق مؤشر التقدم
                 _hideProgressSnackBar();
 
                 if (result != null) {
@@ -141,9 +139,11 @@ class _AppDrawerState extends State<AppDrawer> {
             title: Text('استعادة البيانات',
                 style: TextStyle(color: isDarkMode ? Colors.white : null)),
             onTap: () async {
-              Navigator.pop(context);
-
+              // ✅ 1. عرض مؤشر التقدم فوراً قبل إغلاق الـ Drawer
               _showProgressSnackBar(context, 'جاري استعادة البيانات...');
+
+              // 2. إغلاق الـ Drawer
+              Navigator.pop(context);
 
               try {
                 final result = await BackupService().restoreBackup();
