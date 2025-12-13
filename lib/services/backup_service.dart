@@ -8,82 +8,38 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-// ✅ دالة منفصلة للضغط (ستعمل في Isolate)
-Future<String> _createZipInIsolate(List<dynamic> args) async {
-  final String tempDirPath = args[0];
-  final String appDirPath = args[1];
-  final String backupFileName = args[2];
-
-  final tempZipPath = p.join(tempDirPath, backupFileName);
-  final encoder = ZipFileEncoder();
-  encoder.create(tempZipPath);
-
-  final appDir = Directory(appDirPath);
-  await _addDirectoryToZipInIsolate(encoder, appDir, appDirPath);
-
-  await encoder.close();
-
-  return tempZipPath;
-}
-
-// ✅ دالة مساعدة للضغط (تدعم جميع المجلدات الفرعية بشكل كامل)
-Future<void> _addDirectoryToZipInIsolate(
-  ZipFileEncoder encoder,
-  Directory dir,
-  String basePath,
-) async {
-  // توحيد basePath ليكون متوافقًا مع النظام
-  String cleanBasePath = basePath;
-  if (!cleanBasePath.endsWith('/') && !cleanBasePath.endsWith('\\')) {
-    cleanBasePath = '$cleanBasePath${Platform.isWindows ? '\\' : '/'}';
-  }
-
-  // الحصول على جميع الملفات (بما في ذلك داخل المجلدات الفرعية)
-  final allEntities = dir.listSync(recursive: true);
-
-  for (final entity in allEntities) {
-    if (entity is File) {
-      // حساب المسار النسبي من basePath
-      String relativePath =
-          entity.path.replaceFirst(RegExp('^$cleanBasePath'), '');
-      // توحيد الفواصل إلى / لملفات ZIP
-      relativePath = relativePath.replaceAll(RegExp(r'[\\/]'), '/');
-      encoder.addFile(entity, relativePath);
-    }
-  }
-}
-
 class BackupService {
   static const String _backupFileName = 'smart_sheet_backup.zip';
 
-  /// 💾 إنشاء نسخة احتياطية مع مؤشر تقدم نشط (يطلب من المستخدم اختيار المجلد دائمًا)
+  /// 💾 إنشاء نسخة احتياطية (بدون Isolate لضمان اكتمال الضغط مع الملفات الكبيرة)
   Future<String?> createBackup() async {
     try {
       if (kIsWeb) return 'غير مدعوم على الويب.';
 
       final appDir = await getApplicationDocumentsDirectory();
       final tempDir = await getTemporaryDirectory();
+      final tempZipPath = p.join(tempDir.path, _backupFileName);
 
-      // ✅ تشغيل الضغط في خلفية (لا يجمد الواجهة)
-      final zipPath = await compute(
-        _createZipInIsolate,
-        [tempDir.path, appDir.path, _backupFileName],
-      );
+      final encoder = ZipFileEncoder();
+      encoder.create(tempZipPath);
 
-      // ✅ استخدام FilePicker دومًا لضمان ظهور نافذة الحفظ
+      // ✅ إضافة جميع الملفات (بما في ذلك الصور) بشكل متسلسل
+      await _addDirectoryToZip(encoder, appDir, appDir.path);
+
+      await encoder.close();
+
+      final bytes = await File(tempZipPath).readAsBytes();
       final savedPath = await FilePicker.platform.saveFile(
         fileName: _backupFileName,
-        bytes: await File(zipPath).readAsBytes(),
+        bytes: bytes,
         type: FileType.custom,
         allowedExtensions: ['zip'],
         dialogTitle: 'اختر مكان حفظ النسخة الاحتياطية',
       );
 
-      await File(zipPath).delete();
+      await File(tempZipPath).delete();
 
       if (savedPath == null) return null;
-
-      // ✅ عرض المسار الكامل للمستخدم
       return '✅ تم الحفظ بنجاح في:\n$savedPath';
     } catch (e) {
       return '❌ خطأ: ${e.toString()}';
@@ -130,6 +86,44 @@ class BackupService {
       return '✅ تم استعادة البيانات بنجاح.\nسيتم إغلاق التطبيق خلال 3 ثوانٍ.\nيرجى إعادة فتحه يدويًا لاستكمال التحديث.';
     } catch (e) {
       return '❌ خطأ: ${e.toString()}';
+    }
+  }
+
+  // ✅ دالة مساعدة: إضافة مجلد كامل إلى ZIP (مع دعم كامل للتكرار)
+  Future<void> _addDirectoryToZip(
+    ZipFileEncoder encoder,
+    Directory dir,
+    String basePath,
+  ) async {
+    // جمع جميع الملفات بشكل متكرر
+    final allFiles = <File>[];
+    void collectFiles(Directory currentDir) {
+      try {
+        final entities = currentDir.listSync(recursive: false);
+        for (final entity in entities) {
+          if (entity is File) {
+            allFiles.add(entity);
+          } else if (entity is Directory) {
+            collectFiles(entity);
+          }
+        }
+      } catch (e) {
+        debugPrint('لا يمكن قراءة المجلد: ${currentDir.path} - $e');
+      }
+    }
+
+    collectFiles(dir);
+
+    // إضافة كل ملف واحدًا تلو الآخر
+    for (final file in allFiles) {
+      try {
+        final relativePath = file.path
+            .replaceFirst(RegExp('^${p.normalize(basePath)}[/\\\\]?'), '');
+        final zipPath = relativePath.replaceAll(RegExp(r'[\\/]'), '/');
+        encoder.addFile(file, zipPath);
+      } catch (e) {
+        debugPrint('فشل إضافة الملف: ${file.path} - $e');
+      }
     }
   }
 

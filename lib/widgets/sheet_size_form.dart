@@ -40,6 +40,9 @@ class SheetSizeForm extends StatelessWidget {
     required this.onProcessTypeChanged,
   });
 
+  // ✅ الحصول على القيمة الفعلية لنوع الشريحة (مع افتراضي)
+  String get _effectiveCuttingType => cuttingType ?? 'دوبل';
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -90,19 +93,19 @@ class SheetSizeForm extends StatelessWidget {
           RadioListTile<String>(
             title: const Text("دوبل"),
             value: "دوبل",
-            groupValue: cuttingType,
+            groupValue: _effectiveCuttingType, // ← القيمة الفعلية
             onChanged: onCuttingTypeChanged,
           ),
           RadioListTile<String>(
             title: const Text("سنجل C"),
             value: "سنجل C",
-            groupValue: cuttingType,
+            groupValue: _effectiveCuttingType, // ← القيمة الفعلية
             onChanged: onCuttingTypeChanged,
           ),
           RadioListTile<String>(
             title: const Text("سنجل E"),
             value: "سنجل E",
-            groupValue: cuttingType,
+            groupValue: _effectiveCuttingType, // ← القيمة الفعلية
             onChanged: onCuttingTypeChanged,
           ),
         ],

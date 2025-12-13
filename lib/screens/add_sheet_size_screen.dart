@@ -30,8 +30,9 @@ class AddSheetSizeScreen extends StatefulWidget {
 class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   // --- نوع العملية ---
   String _processType = "تفصيل";
+  String _cuttingType = 'دوبل'; // ← متغير جديد لإدارة نوع الشريحة
 
-  // --- بيانات العميل (للتفصيل فقط) ---
+  // --- بيانات العميل (مشتركة) ---
   final clientNameController = TextEditingController();
   final productNameController = TextEditingController();
   final productCodeController = TextEditingController();
@@ -109,12 +110,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   void _loadExistingData(Map data) {
     _processType = data['processType'] ?? 'تفصيل';
+    _cuttingType = data['cuttingType'] ?? 'دوبل'; // ← تحميل نوع الشريحة
 
-    if (_processType == "تفصيل") {
-      clientNameController.text = data['clientName']?.toString() ?? '';
-      productNameController.text = data['productName']?.toString() ?? '';
-      productCodeController.text = data['productCode']?.toString() ?? '';
-    }
+    clientNameController.text = data['clientName']?.toString() ?? '';
+    productNameController.text = data['productName']?.toString() ?? '';
+    productCodeController.text = data['productCode']?.toString() ?? '';
 
     lengthController.text = data['length']?.toString() ?? '';
     widthController.text = data['width']?.toString() ?? '';
@@ -265,9 +265,49 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     });
   }
 
+  // ✅ دالة للتحقق من التكرار
+  bool _isDuplicateRecord(String clientName, String productCode) {
+    if (clientName.isEmpty || productCode.isEmpty) return false;
+
+    for (final key in _savedSheetSizesBox.keys) {
+      final record = _savedSheetSizesBox.get(key);
+      if (record is Map) {
+        final existingClient = (record['clientName'] ?? '').toString().trim();
+        final existingCode = (record['productCode'] ?? '').toString().trim();
+
+        // تجاهل السجل الحالي عند التعديل
+        if (widget.existingDataKey != null && key == widget.existingDataKey) {
+          continue;
+        }
+
+        if (existingClient == clientName && existingCode == productCode) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   Future<void> _saveSheetSize() async {
+    final clientName = clientNameController.text.trim();
+    final productCode = productCodeController.text.trim();
+
+    // ✅ التحقق من التكرار قبل الحفظ
+    if (_isDuplicateRecord(clientName, productCode)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("❌ هذا العميل مع نفس كود الصنف موجود مسبقًا!"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final newRecord = <String, dynamic>{
       'processType': _processType,
+      'clientName': clientName,
+      'productName': productNameController.text.trim(),
+      'productCode': productCode,
       'length': lengthController.text,
       'width': widthController.text,
       'height': heightController.text,
@@ -277,9 +317,6 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
     if (_processType == "تفصيل") {
       newRecord.addAll({
-        'clientName': clientNameController.text,
-        'productName': productNameController.text,
-        'productCode': productCodeController.text,
         'isOverFlap': isOverFlap,
         'isFlap': isFlap,
         'isOneFlap': isOneFlap,
@@ -295,11 +332,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         'productionWidth2': productionWidth2,
       });
     } else if (_processType == "تكسير") {
-      // ✅ حفظ حقول التكسير
       newRecord.addAll({
         'sheetLengthManual': sheetLengthManualController.text,
         'sheetWidthManual': sheetWidthManualController.text,
-        'cuttingType': 'دوبل', // أو القيمة المحددة من المستخدم
+        'cuttingType': _cuttingType, // ← القيمة الفعلية المختارة
       });
     }
 
@@ -325,8 +361,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     lengthController.dispose();
     widthController.dispose();
     heightController.dispose();
-    sheetLengthManualController.dispose(); // ✅
-    sheetWidthManualController.dispose(); // ✅
+    sheetLengthManualController.dispose();
+    sheetWidthManualController.dispose();
     super.dispose();
   }
 
@@ -354,8 +390,16 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 lengthController: lengthController,
                 widthController: widthController,
                 heightController: heightController,
-                sheetLengthManualController: sheetLengthManualController, // ✅
-                sheetWidthManualController: sheetWidthManualController, // ✅
+                sheetLengthManualController: sheetLengthManualController,
+                sheetWidthManualController: sheetWidthManualController,
+                cuttingType: _cuttingType, // ←
+                onCuttingTypeChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _cuttingType = value;
+                    });
+                  }
+                }, // ←
                 processType: _processType,
                 onProcessTypeChanged: (value) =>
                     setState(() => _processType = value),

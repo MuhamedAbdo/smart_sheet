@@ -545,7 +545,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
                       const SizedBox(height: 8),
                       _buildNotesText(notes),
                       const SizedBox(height: 8),
-                      _buildImagesList(images), // ✅ الآن آمن
+                      _buildImagesList(images),
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.only(top: 12),
@@ -591,10 +591,37 @@ class _InkReportScreenState extends State<InkReportScreen> {
                             Expanded(
                               child: ElevatedButton.icon(
                                 onPressed: () {
-                                  _inkReportBox.delete(key);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text("🗑️ تم حذف التقرير")),
+                                  // ✅ تأكيد الحذف قبل التنفيذ
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text("تأكيد الحذف"),
+                                      content: const Text(
+                                          "هل أنت متأكد من حذف هذا التقرير؟"),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(ctx),
+                                          child: const Text("إلغاء"),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            _inkReportBox.delete(key);
+                                            Navigator.pop(ctx);
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                    content: Text(
+                                                        "🗑️ تم حذف التقرير")),
+                                              );
+                                            }
+                                          },
+                                          child: const Text("حذف",
+                                              style:
+                                                  TextStyle(color: Colors.red)),
+                                        ),
+                                      ],
+                                    ),
                                   );
                                 },
                                 icon: const Icon(Icons.delete, size: 18),
