@@ -9,9 +9,8 @@ import 'package:path_provider/path_provider.dart';
 class BackupService {
   static const String _backupFileName = 'smart_sheet_backup.zip';
 
-  // ✅ دالة مساعدة ثابتة (static) للتشغيل داخل Isolate
-  // تقوم بالضغط وتجميع الملفات في الخلفية
-  @pragma('vm:entry-point') // لضمان عملها بشكل صحيح في Isolate
+  // ✅ دالة مساعدة ثابتة (static) لعملية الضغط في Isolate
+  @pragma('vm:entry-point')
   static Future<void> _createBackupInternal(List<String> args) async {
     final appDirPath = args[0];
     final tempZipPath = args[1];
@@ -21,13 +20,11 @@ class BackupService {
     final encoder = ZipFileEncoder();
     encoder.create(tempZipPath);
 
-    // جمع جميع الملفات بشكل تكراري باستخدام listSync(recursive: true)
     final allEntities = appDir.listSync(recursive: true);
     final allFiles = allEntities.whereType<File>().toList();
 
     final basePath = appDirPath;
 
-    // إضافة كل ملف واحدًا تلو الآخر
     for (final file in allFiles) {
       try {
         final relativePath = file.path
@@ -42,7 +39,52 @@ class BackupService {
     await encoder.close();
   }
 
-  /// 💾 إنشاء نسخة احتياطية (باستخدام compute لنقل الضغط إلى Isolate)
+  // ✅ دالة مساعدة ثابتة (static) لعملية فك الضغط والكتابة في Isolate
+  @pragma('vm:entry-point')
+  static Future<void> _restoreBackupInternal(List<String> args) async {
+    final zipPath = args[0];
+    final appDirPath = args[1];
+
+    // 🛑 التعديل الرئيسي: استخدام فك الضغط التدريجي (Streaming)
+    // لتقليل الضغط على الذاكرة والكتابة بشكل أكثر كفاءة.
+    try {
+      // فتح ملف ZIP كـ Input Stream بدلاً من تحميله بالكامل كـ Bytes
+      final inputStream = InputFileStream(zipPath);
+      final archive = ZipDecoder().decodeBuffer(inputStream);
+
+      for (final file in archive) {
+        if (file.isFile) {
+          final outputPath = p.join(appDirPath, file.name);
+          final outputFile = File(outputPath);
+
+          try {
+            await outputFile.create(recursive: true);
+
+            // كتابة المحتوى على القرص
+            if (file.content is List<int>) {
+              // يتم استخدام هذا المسار للملفات الصغيرة بعد فك الضغط
+              await outputFile.writeAsBytes(file.content as List<int>);
+            } else if (file.content is InputStream) {
+              // هذا المسار غير شائع مع decodeBuffer لكن يضمن التعامل مع التدفق إذا حدث
+              final outputStream = OutputFileStream(outputPath);
+              await file.content.copyTo(outputStream);
+              outputStream.close();
+            }
+          } catch (e) {
+            debugPrint('ERROR: Failed to write file ${file.name}: $e');
+          }
+        }
+      }
+      // إغلاق التدفق بعد الانتهاء
+      inputStream.close();
+    } catch (e) {
+      debugPrint('CRITICAL ERROR in _restoreBackupInternal: $e');
+      // يمكن إلقاء خطأ هنا ليمسكه FutureBuilder
+      throw Exception('Failed to decompress backup file: $e');
+    }
+  }
+
+  /// 💾 إنشاء نسخة احتياطية
   Future<String?> createBackup() async {
     try {
       if (kIsWeb) return 'غير مدعوم على الويب.';
@@ -52,15 +94,11 @@ class BackupService {
       final tempZipPath = p.join(tempDir.path, _backupFileName);
       final appDirPath = appDir.path;
 
-      // تأكد من حذف أي ملف مؤقت سابق
       if (await File(tempZipPath).exists()) {
         await File(tempZipPath).delete();
       }
 
-      // ✅ هذا يحل مشكلة التأخير: تنفيذ عملية الضغط في خلفية منفصلة
       await compute(_createBackupInternal, [appDirPath, tempZipPath]);
-
-      // العمليات التالية (الحفظ عبر FilePicker) سريعة وتتم على الخيط الرئيسي
 
       final bytes = await File(tempZipPath).readAsBytes();
       final savedPath = await FilePicker.platform.saveFile(
@@ -71,7 +109,6 @@ class BackupService {
         dialogTitle: 'اختر مكان حفظ النسخة الاحتياطية',
       );
 
-      // حذف الملف المؤقت بعد الحفظ أو الإلغاء
       await File(tempZipPath).delete();
 
       if (savedPath == null) return null;
@@ -81,7 +118,7 @@ class BackupService {
     }
   }
 
-  /// 🔄 استعادة النسخة الاحتياطية مع إصلاح مسارات الصور
+  /// 🔄 استعادة النسخة الاحتياطية
   Future<String?> restoreBackup() async {
     try {
       if (kIsWeb) return 'غير مدعوم على الويب.';
@@ -99,6 +136,7 @@ class BackupService {
 
       final appDir = await getApplicationDocumentsDirectory();
       final appDirInstance = Directory(appDir.path);
+      final appDirPath = appDir.path;
 
       // حذف مجلد البيانات الحالي بالكامل
       if (appDirInstance.existsSync()) {
@@ -108,18 +146,8 @@ class BackupService {
       // إعادة إنشاء المجلد قبل فك الضغط إليه
       await appDirInstance.create(recursive: true);
 
-      final bytes = await File(zipPath).readAsBytes();
-      final archive = ZipDecoder().decodeBytes(bytes);
-
-      for (final file in archive) {
-        if (file.isFile) {
-          final outputPath = p.join(appDir.path, file.name);
-          final outputFile = File(outputPath);
-
-          await outputFile.create(recursive: true);
-          await outputFile.writeAsBytes(file.content as List<int>);
-        }
-      }
+      // ✅ نقل عملية فك الضغط والكتابة إلى Isolate
+      await compute(_restoreBackupInternal, [zipPath, appDirPath]);
 
       // ✅ إصلاح مسارات الصور بعد الاستعادة
       await _fixImagePathsAfterRestore();
@@ -150,7 +178,8 @@ class BackupService {
         final files = dir.listSync();
         for (final entity in files) {
           if (entity is File) {
-            final fileName = entity.path.split('/').last;
+            // استخدام p.basename لتوحيد استخراج اسم الملف
+            final fileName = p.basename(entity.path);
             fileNameToPath[fileName] = entity.path;
           }
         }
@@ -183,7 +212,8 @@ class BackupService {
 
             for (final oldPath in oldPaths) {
               if (oldPath is String) {
-                final fileName = oldPath.split('/').last;
+                // استخدام p.basename لتوحيد استخراج اسم الملف
+                final fileName = p.basename(oldPath);
                 if (fileNameToPath.containsKey(fileName)) {
                   newPaths.add(fileNameToPath[fileName]!);
                 } else {
