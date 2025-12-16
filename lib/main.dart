@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
-import 'package:smart_sheet/globals.dart'; // ← إضافة هذا السطر
+import 'package:smart_sheet/globals.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
@@ -17,9 +17,18 @@ import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+// ✅ إضافة واردات Supabase وملف الثوابت
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smart_sheet/config/constants.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ 1. تهيئة Supabase أولاً
+  await Supabase.initialize(
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
+  );
 
   if (!kIsWeb) {
     await Hive.initFlutter();
