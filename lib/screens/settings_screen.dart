@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/camera_quality_settings_screen.dart';
 import 'package:smart_sheet/widgets/theme_toggle_button.dart';
+// 🆕 الاستيراد الجديد: افترض أن المسار هو هذا بناءً على بنية ملفك
+import 'package:smart_sheet/screens/backup_restore_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   static const String routeName = '/settings';
@@ -42,6 +44,24 @@ class SettingsScreen extends StatelessWidget {
               activeThumbColor: Colors.orange,
             ),
             onTap: () {},
+          ),
+          const Divider(),
+
+          // 💾 النسخ الاحتياطي والاستعادة (الخيار الجديد)
+          ListTile(
+            leading: const Icon(Icons.backup, color: Colors.blue),
+            title: const Text("النسخ الاحتياطي والاستعادة"),
+            subtitle: const Text("إدارة النسخ الاحتياطية المحلية والسحابية"),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              // ➡️ الانتقال المباشر (MaterialPageRoute)
+              Navigator.of(context).push(
+                // <--- استخدم MaterialPageRoute
+                MaterialPageRoute(
+                  builder: (context) => const BackupRestoreScreen(),
+                ),
+              );
+            },
           ),
           const Divider(),
 
