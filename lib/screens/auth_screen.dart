@@ -1,5 +1,3 @@
-// lib/src/screens/auth_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
@@ -53,35 +51,42 @@ class _AuthScreenState extends State<AuthScreen> {
       error = await authService.signUp(email: email, password: password);
     }
 
-    // تحديث الواجهة والتعامل مع الإغلاق
-    if (mounted) {
-      // حالة الخطأ
+    if (!mounted) return;
+
+    if (error != null) {
+      // ✅ حالة الخطأ: نعرض الرسالة القادمة من السيرفر
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error!)),
+        SnackBar(content: Text(error)),
       );
-    } else if (mounted) {
-      // حالة النجاح
+    } else {
+      // ✅ حالة النجاح: error هو null
       _emailController.clear();
       _passwordController.clear();
       _confirmPasswordController.clear();
 
       if (_isSignIn) {
-        // ✅ الإغلاق التلقائي لشاشة المصادقة بعد تسجيل الدخول الناجح
+        // العودة للشاشة السابقة عند نجاح تسجيل الدخول
         Navigator.pop(context);
       } else {
-        // حالة إنشاء الحساب
+        // رسالة نجاح عند إنشاء حساب جديد
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text(
-                  '✅ تم إنشاء الحساب بنجاح. يرجى تأكيد بريدك الإلكتروني لتسجيل الدخول.')),
+            content: Text(
+                '✅ تم إنشاء الحساب بنجاح. يرجى تأكيد بريدك الإلكتروني لتسجيل الدخول.'),
+          ),
         );
+        // التبديل التلقائي لواجهة تسجيل الدخول
+        setState(() {
+          _isSignIn = true;
+        });
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = context.watch<AuthService>().state;
+    // نراقب الحالة فقط لمعرفة هل نحن في وضع التحميل أم لا
+    final authLoading = context.watch<AuthService>().state.isLoading;
 
     return Scaffold(
       appBar: AppBar(
@@ -106,7 +111,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.email),
                   ),
-                  enabled: !authState.isLoading,
+                  enabled: !authLoading,
                   validator: (value) {
                     if (value == null ||
                         value.isEmpty ||
@@ -139,7 +144,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       },
                     ),
                   ),
-                  enabled: !authState.isLoading,
+                  enabled: !authLoading,
                   validator: (value) {
                     if (value == null || value.length < 6) {
                       return 'يجب أن تكون كلمة المرور 6 أحرف على الأقل.';
@@ -161,7 +166,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.lock),
                         ),
-                        enabled: !authState.isLoading,
+                        enabled: !authLoading,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'الرجاء تأكيد كلمة المرور.';
@@ -180,11 +185,11 @@ class _AuthScreenState extends State<AuthScreen> {
 
                 // زر الإجراء
                 ElevatedButton(
-                  onPressed: authState.isLoading ? null : _handleAuthAction,
+                  onPressed: authLoading ? null : _handleAuthAction,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: authState.isLoading
+                  child: authLoading
                       ? const SizedBox(
                           width: 20,
                           height: 20,
@@ -202,7 +207,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
                 // زر التبديل بين الحالتين
                 TextButton(
-                  onPressed: authState.isLoading
+                  onPressed: authLoading
                       ? null
                       : () {
                           setState(() {
