@@ -44,7 +44,10 @@ class _AuthScreenState extends State<AuthScreen> {
     } else {
       if (password != _confirmPasswordController.text.trim()) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('كلمة المرور وتأكيدها غير متطابقين.')),
+          const SnackBar(
+            content: Text('كلمة المرور وتأكيدها غير متطابقين.'),
+            backgroundColor: Colors.orange,
+          ),
         );
         return;
       }
@@ -53,33 +56,22 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (!mounted) return;
 
+    // ✅ التعديل: التحقق من وجود نص للخطأ قبل عرضه لتجنب خطأ الـ null
     if (error != null) {
-      // ✅ حالة الخطأ: نعرض الرسالة القادمة من السيرفر
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
+        SnackBar(
+          content: Text(error), // الآن error محقق أنه ليس null
+          backgroundColor: Colors.red,
+        ),
       );
     } else {
-      // ✅ حالة النجاح: error هو null
-      _emailController.clear();
-      _passwordController.clear();
-      _confirmPasswordController.clear();
-
-      if (_isSignIn) {
-        // العودة للشاشة السابقة عند نجاح تسجيل الدخول
-        Navigator.pop(context);
-      } else {
-        // رسالة نجاح عند إنشاء حساب جديد
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                '✅ تم إنشاء الحساب بنجاح. يرجى تأكيد بريدك الإلكتروني لتسجيل الدخول.'),
-          ),
-        );
-        // التبديل التلقائي لواجهة تسجيل الدخول
-        setState(() {
-          _isSignIn = true;
-        });
-      }
+      // اختياري: رسالة نجاح إذا لم تكن هناك إعادة توجيه تلقائية
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تمت العملية بنجاح'),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
   }
 

@@ -22,15 +22,41 @@ class MaintenanceScreen extends StatefulWidget {
 }
 
 class _MaintenanceScreenState extends State<MaintenanceScreen> {
-  late Box<MaintenanceRecord> _box;
+  // 1. جعل الصندوق nullable واستخدام متغير لحالة التحميل
+  Box<MaintenanceRecord>? _box;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _box = Hive.box<MaintenanceRecord>(widget.boxName);
+    _initMaintenanceBox();
+  }
+
+  // 2. دالة لفتح الصندوق بأمان قبل بناء الواجهة
+  Future<void> _initMaintenanceBox() async {
+    try {
+      // التحقق مما إذا كان الصندوق مفتوحاً، وإذا لم يكن، نفتحه
+      if (!Hive.isBoxOpen(widget.boxName)) {
+        await Hive.openBox<MaintenanceRecord>(widget.boxName);
+      }
+
+      if (mounted) {
+        setState(() {
+          _box = Hive.box<MaintenanceRecord>(widget.boxName);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("❌ Error opening maintenance box (${widget.boxName}): $e");
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _addOrEdit({int? index, MaintenanceRecord? existing}) {
+    if (_box == null) return; // حماية إضافية
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -38,9 +64,9 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
         existing: existing,
         onSave: (record) async {
           if (index == null) {
-            await _box.add(record);
+            await _box!.add(record);
           } else {
-            await _box.putAt(index, record);
+            await _box!.putAt(index, record);
           }
           if (mounted) setState(() {});
           Navigator.pop(context);
@@ -50,12 +76,30 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
   }
 
   void _delete(int index) async {
-    await _box.deleteAt(index);
-    if (mounted) setState(() {});
+    if (_box != null) {
+      await _box!.deleteAt(index);
+      if (mounted) setState(() {});
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // 3. عرض مؤشر تحميل حتى يتم فتح الصندوق
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.title ?? "تحميل...")),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // 4. حالة فشل فتح الصندوق
+    if (_box == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("خطأ")),
+        body: const Center(child: Text("تعذر فتح قاعدة بيانات الصيانة")),
+      );
+    }
+
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
@@ -63,14 +107,14 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
         centerTitle: true,
       ),
       body: ValueListenableBuilder(
-        valueListenable: _box.listenable(),
-        builder: (context, _, __) {
-          if (_box.isEmpty) {
+        valueListenable: _box!.listenable(),
+        builder: (context, Box<MaintenanceRecord> box, __) {
+          if (box.isEmpty) {
             return const Center(child: Text("لا توجد سجلات صيانة"));
           }
 
           return MaintenanceList(
-            box: _box,
+            box: box,
             onAdd: () => _addOrEdit(),
             onEdit: (i, r) => _addOrEdit(index: i, existing: r),
             onDelete: _delete,

@@ -64,7 +64,6 @@ class _StoreEntryFormState extends State<StoreEntryForm> {
     );
 
     // ✅ تجنب null access + تنسيق تاريخ قياسي (مع أصفار بادئة)
-
     if (picked != null) {
       dateController.text =
           "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";

@@ -9,8 +9,8 @@ import 'package:smart_sheet/models/finished_product_model.dart';
 import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/models/store_entry_model.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
+import 'package:smart_sheet/services/auth_service.dart'; // ✅ تأكد من وجود هذا المسار
 import 'package:smart_sheet/screens/auth_screen.dart';
-import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/screens/camera_quality_settings_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
@@ -32,65 +32,67 @@ class MyHttpOverrides extends HttpOverrides {
 }
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // تفعيل تجاوزات الـ HTTP للـ APK
-  HttpOverrides.global = MyHttpOverrides();
+    // تفعيل تجاوزات الـ HTTP
+    HttpOverrides.global = MyHttpOverrides();
 
-  // تهيئة Supabase
-  await Supabase.initialize(
-    url: supabaseUrl.trim(),
-    anonKey: supabaseAnonKey.trim(),
-  );
+    // تهيئة Supabase (تأكد من وجود القيم في constants.dart)
+    await Supabase.initialize(
+      url: supabaseUrl.trim(),
+      anonKey: supabaseAnonKey.trim(),
+    );
 
-  // تهيئة Hive
-  if (!kIsWeb) {
-    await Hive.initFlutter();
+    if (!kIsWeb) {
+      await Hive.initFlutter();
 
-    // تسجيل الـ Adapters
-    Hive.registerAdapter(WorkerAdapter());
-    Hive.registerAdapter(WorkerActionAdapter());
-    Hive.registerAdapter(FinishedProductAdapter());
-    Hive.registerAdapter(MaintenanceRecordAdapter());
-    Hive.registerAdapter(StoreEntryAdapter());
+      // تسجيل الـ Adapters
+      Hive.registerAdapter(WorkerAdapter());
+      Hive.registerAdapter(WorkerActionAdapter());
+      Hive.registerAdapter(FinishedProductAdapter());
+      Hive.registerAdapter(MaintenanceRecordAdapter());
+      Hive.registerAdapter(StoreEntryAdapter());
 
-    // فتح الصناديق الأساسية والمخصصة لكل قسم
-    // ملاحظة: يجب تحديد النوع <Type> لكل صندوق ليتوافق مع استدعاءاته في التطبيق
-    await Future.wait([
-      Hive.openBox('settings'),
-      Hive.openBox('measurements'),
-      Hive.openBox('serial_setup_state'),
-      Hive.openBox('savedSheetSizes'),
-      Hive.openBox('savedSheetSizes_production'),
-      Hive.openBox('inkReports'),
-      Hive.openBox('storeEntries'),
+      // ✅ فتح الصناديق الأساسية باستخدام دالة الحماية
+      await _openSafeBox('settings');
+      await _openSafeBox('measurements');
+      await _openSafeBox('serial_setup_state');
+      await _openSafeBox('savedSheetSizes');
+      await _openSafeBox('savedSheetSizes_production');
+      await _openSafeBox('inkReports');
+      await _openSafeBox('storeEntries');
 
-      // ✅ صناديق وارد المخزن لكل قسم (تم تحديد النوع StoreEntry)
-      Hive.openBox<StoreEntry>('store_flexo'),
-      Hive.openBox<StoreEntry>('store_production'),
-      Hive.openBox<StoreEntry>('store_staple'),
-      Hive.openBox<StoreEntry>('store_crushing'),
+      // صناديق الصيانة
+      await _openSafeBox<MaintenanceRecord>('maintenance_records_main');
+      await _openSafeBox<MaintenanceRecord>('maintenance_staple_v2');
+      await _openSafeBox<MaintenanceRecord>('maintenance_flexo_v2');
+      await _openSafeBox<MaintenanceRecord>('maintenance_production_v2');
+      await _openSafeBox<MaintenanceRecord>('maintenance_crushing_v2');
 
-      // ✅ صناديق الصيانة (تم تحديد النوع MaintenanceRecord)
-      Hive.openBox<MaintenanceRecord>('maintenance_records_main'),
-      Hive.openBox<MaintenanceRecord>('maintenance_staple_v2'),
-      Hive.openBox<MaintenanceRecord>('maintenance_flexo_v2'),
-      Hive.openBox<MaintenanceRecord>('maintenance_production_v2'),
-      Hive.openBox<MaintenanceRecord>('maintenance_crushing_v2'),
+      // صناديق المخازن
+      await _openSafeBox<StoreEntry>('store_flexo');
+      await _openSafeBox<StoreEntry>('store_production');
+      await _openSafeBox<StoreEntry>('store_staple');
+      await _openSafeBox<StoreEntry>('store_crushing');
 
-      // ✅ صناديق العمال لكل قسم (تم تحديد النوع Worker)
-      Hive.openBox<Worker>('workers'),
-      Hive.openBox<Worker>('workers_flexo'),
-      Hive.openBox<Worker>('workers_production'),
-      Hive.openBox<Worker>('workers_staple'),
-      Hive.openBox<Worker>('workers_crushing'),
+      // صناديق العمال
+      await _openSafeBox<WorkerAction>('worker_actions');
+      await _openSafeBox<Worker>('workers');
+      await _openSafeBox<Worker>('workers_flexo');
+      await _openSafeBox<Worker>('workers_production');
+      await _openSafeBox<Worker>('workers_staple');
+      await _openSafeBox<Worker>('workers_crushing');
 
-      Hive.openBox<WorkerAction>('worker_actions'),
-      Hive.openBox<FinishedProduct>('finished_products'),
-    ]);
+      // المنتجات
+      await _openSafeBox<FinishedProduct>('finished_products');
+    }
+  } catch (e) {
+    debugPrint("Initialization Critical Error: $e");
   }
 
   runApp(
+    // ✅ تم تغيير هذا الجزء ليشمل AuthService المطلوب للـ AppDrawer
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => ThemeProvider()),
@@ -99,6 +101,16 @@ Future<void> main() async {
       child: const SmartSheetApp(),
     ),
   );
+}
+
+// ✅ دالة حماية: تمنع الشاشة السوداء عند تعارض أنواع البيانات في النسخة الاحتياطية
+Future<void> _openSafeBox<T>(String boxName) async {
+  try {
+    await Hive.openBox<T>(boxName);
+  } catch (e) {
+    debugPrint("⚠️ Warning: Box $boxName failed to open. Error: $e");
+    await Hive.openBox(boxName); // فتحه كـ dynamic كحل أخير
+  }
 }
 
 class SmartSheetApp extends StatelessWidget {
@@ -120,13 +132,19 @@ class SmartSheetApp extends StatelessWidget {
             const CameraQualitySettingsScreen(),
         AuthScreen.routeName: (context) => const AuthScreen(),
 
-        // مسارات افتراضية
+        // المسارات الافتراضية
         '/maintenance': (context) => const MaintenanceScreen(
-            boxName: 'maintenance_records_main', title: 'سجلات الصيانة'),
+              boxName: 'maintenance_records_main',
+              title: 'سجلات الصيانة',
+            ),
         '/store_entry': (context) => const StoreEntryScreen(
-            boxName: 'store_flexo', title: 'وارد المخزن'),
+              boxName: 'store_flexo',
+              title: 'وارد المخزن',
+            ),
         '/workers': (context) => const WorkersScreen(
-            departmentBoxName: 'workers', departmentTitle: 'طاقم العمل'),
+              departmentBoxName: 'workers',
+              departmentTitle: 'طاقم العمل',
+            ),
       },
     );
   }

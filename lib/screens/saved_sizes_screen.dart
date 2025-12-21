@@ -17,12 +17,51 @@ class SavedSizesScreen extends StatefulWidget {
 }
 
 class _SavedSizesScreenState extends State<SavedSizesScreen> {
-  final Box savedSheetSizesBox = Hive.box('savedSheetSizes');
+  // 1. جعل الصندوق nullable والتحكم في حالة التحميل لمنع الخطأ
+  Box? _savedSheetSizesBox;
+  bool _isLoading = true;
   String searchQuery = "";
   bool isSearching = false;
 
   @override
+  void initState() {
+    super.initState();
+    _openBoxSafe();
+  }
+
+  // 2. ضمان فتح الصندوق قبل محاولة الوصول إليه
+  Future<void> _openBoxSafe() async {
+    try {
+      if (!Hive.isBoxOpen('savedSheetSizes')) {
+        await Hive.openBox('savedSheetSizes');
+      }
+      if (mounted) {
+        setState(() {
+          _savedSheetSizesBox = Hive.box('savedSheetSizes');
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error opening box: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // 3. منع الشاشة من العمل قبل تحميل الصندوق
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_savedSheetSizesBox == null) {
+      return const Scaffold(
+        body: Center(child: Text("❌ خطأ في تحميل البيانات")),
+      );
+    }
+
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
@@ -49,14 +88,15 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         ],
       ),
       body: ValueListenableBuilder(
-        valueListenable: savedSheetSizesBox.listenable(),
+        valueListenable: _savedSheetSizesBox!.listenable(),
         builder: (context, Box box, _) {
           if (box.isEmpty) {
             return const Center(child: Text("🚫 لا توجد مقاسات محفوظة."));
           }
 
+          // تحويل البيانات ومعالجتها بشكل آمن (Handling Nulls and Types)
           final entries = box.toMap().entries.where((entry) {
-            final record = entry.value as Map<dynamic, dynamic>;
+            final record = entry.value is Map ? entry.value as Map : {};
 
             final productCode =
                 (record['productCode']?.toString() ?? '').toLowerCase();
@@ -69,33 +109,25 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
 
             if (searchQuery.isEmpty) return true;
 
-            if (int.tryParse(searchQuery) != null) {
-              return productCode.contains(query);
-            }
-
             return clientName.contains(query) ||
                 productName.contains(query) ||
                 processType.contains(query) ||
                 productCode.contains(query);
           }).map((entry) {
-            final originalMap = entry.value as Map<dynamic, dynamic>;
+            final originalMap = entry.value is Map ? entry.value as Map : {};
             final safeMap = <String, dynamic>{};
             originalMap.forEach((key, value) {
               safeMap[key.toString()] = value;
             });
-
-            safeMap['clientName'] = safeMap['clientName'] ?? '';
-            safeMap['productName'] = safeMap['productName'] ?? '';
-            safeMap['productCode'] = safeMap['productCode']?.toString() ?? '';
-            safeMap['processType'] = safeMap['processType'] ?? 'تفصيل';
-
             return MapEntry(entry.key, safeMap);
           }).toList()
             ..sort((a, b) {
               final dateA =
-                  DateTime.tryParse(a.value['date'] ?? '') ?? DateTime(1970);
+                  DateTime.tryParse(a.value['date']?.toString() ?? '') ??
+                      DateTime(1970);
               final dateB =
-                  DateTime.tryParse(b.value['date'] ?? '') ?? DateTime(1970);
+                  DateTime.tryParse(b.value['date']?.toString() ?? '') ??
+                      DateTime(1970);
               return dateB.compareTo(dateA);
             });
 
@@ -123,32 +155,8 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
                     ),
                   );
                 },
-                onDelete: () {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text("تأكيد الحذف"),
-                      content: const Text("هل أنت متأكد من حذف هذا المقاس؟"),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text("إلغاء"),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            savedSheetSizesBox.delete(key);
-                            Navigator.pop(ctx);
-                          },
-                          child: const Text("حذف",
-                              style: TextStyle(color: Colors.red)),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-                onPrint: () {
-                  _openInkReportWithSheetData(context, record);
-                },
+                onDelete: () => _confirmDelete(key),
+                onPrint: () => _openInkReportWithSheetData(context, record),
               );
             },
           );
@@ -166,45 +174,55 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     );
   }
 
+  void _confirmDelete(dynamic key) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("تأكيد الحذف"),
+        content: const Text("هل أنت متأكد من حذف هذا المقاس؟"),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          TextButton(
+            onPressed: () {
+              _savedSheetSizesBox!.delete(key);
+              Navigator.pop(ctx);
+            },
+            child: const Text("حذف", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _openInkReportWithSheetData(
       BuildContext context, Map<String, dynamic> record) {
-    final clientName = record['clientName']?.toString() ?? '';
-    final productName = record['productName']?.toString() ?? '';
-    final productCode = record['productCode']?.toString() ?? '';
-    final processType = record['processType']?.toString() ?? 'تفصيل';
-
-    final displayClientName = clientName.isEmpty && processType == 'تكسير'
-        ? 'مقاس تكسير'
-        : clientName;
-    final displayProductName =
-        productName.isEmpty && processType == 'تكسير' ? 'تكسير' : productName;
-    final displayProductCode = productCode.isEmpty && processType == 'تكسير'
-        ? 'تك-${DateTime.now().millisecondsSinceEpoch % 10000}'
-        : productCode;
-
-    // ✅ تصفية الصور الموجودة فقط
-    final imagePaths = (record['imagePaths'] is List)
-        ? (record['imagePaths'] as List)
-            .map((e) => e.toString())
-            .where((path) => File(path).existsSync())
-            .toList()
-        : <String>[];
+    // تصفية الصور الموجودة فقط لمنع كراش الشاشة التالية
+    final rawImages = record['imagePaths'];
+    final List<String> imagePaths = [];
+    if (rawImages is List) {
+      for (var path in rawImages) {
+        if (File(path.toString()).existsSync()) {
+          imagePaths.add(path.toString());
+        }
+      }
+    }
 
     final initialData = {
       'date': DateTime.now().toIso8601String(),
-      'clientName': displayClientName,
-      'product': displayProductName,
-      'productCode': displayProductCode,
+      'clientName': record['clientName'] ?? '',
+      'product': record['productName'] ?? '',
+      'productCode': record['productCode'] ?? '',
       'dimensions': {
         'length': record['length']?.toString() ?? '',
         'width': record['width']?.toString() ?? '',
         'height': record['height']?.toString() ?? '',
       },
-      'imagePaths': imagePaths, // ← ✅ المسارات المصفاة
+      'imagePaths': imagePaths,
       'colors': [],
       'quantity': '',
       'notes': '',
-      'processType': processType,
+      'processType': record['processType'] ?? 'تفصيل',
     };
 
     Navigator.push(
