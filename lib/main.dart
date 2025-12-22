@@ -17,10 +17,11 @@ import 'package:smart_sheet/screens/settings_screen.dart';
 import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
-import 'package:smart_sheet/screens/backup_restore_screen.dart'; // ✅ إضافة الاستيراد
+import 'package:smart_sheet/screens/backup_restore_screen.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/config/constants.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -36,6 +37,15 @@ Future<void> main() async {
     WidgetsFlutterBinding.ensureInitialized();
     HttpOverrides.global = MyHttpOverrides();
 
+    // 🔔 تهيئة الإشعارات المحلية
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
     await Supabase.initialize(
       url: supabaseUrl.trim(),
       anonKey: supabaseAnonKey.trim(),
@@ -49,7 +59,6 @@ Future<void> main() async {
       Hive.registerAdapter(MaintenanceRecordAdapter());
       Hive.registerAdapter(StoreEntryAdapter());
 
-      // فتح الصناديق الأساسية بحماية
       final boxes = [
         'settings',
         'measurements',
@@ -122,8 +131,7 @@ class SmartSheetApp extends StatelessWidget {
         CameraQualitySettingsScreen.routeName: (_) =>
             const CameraQualitySettingsScreen(),
         AuthScreen.routeName: (_) => const AuthScreen(),
-        BackupRestoreScreen.routeName: (_) =>
-            const BackupRestoreScreen(), // ✅ تسجيل المسار
+        BackupRestoreScreen.routeName: (_) => const BackupRestoreScreen(),
         '/maintenance': (_) => const MaintenanceScreen(
             boxName: 'maintenance_records_main', title: 'سجلات الصيانة'),
         '/store_entry': (_) => const StoreEntryScreen(
