@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/widgets/maintenance_form.dart';
+import 'package:smart_sheet/widgets/maintenance_list.dart';
 import '../../models/maintenance_record_model.dart';
 import '../../widgets/app_drawer.dart';
-import '../../widgets/maintenance_form.dart';
-import '../../widgets/maintenance_list.dart';
 
 class MaintenanceScreen extends StatefulWidget {
   final String boxName;
@@ -22,7 +22,6 @@ class MaintenanceScreen extends StatefulWidget {
 }
 
 class _MaintenanceScreenState extends State<MaintenanceScreen> {
-  // 1. جعل الصندوق nullable واستخدام متغير لحالة التحميل
   Box<MaintenanceRecord>? _box;
   bool _isLoading = true;
 
@@ -32,10 +31,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     _initMaintenanceBox();
   }
 
-  // 2. دالة لفتح الصندوق بأمان قبل بناء الواجهة
   Future<void> _initMaintenanceBox() async {
     try {
-      // التحقق مما إذا كان الصندوق مفتوحاً، وإذا لم يكن، نفتحه
       if (!Hive.isBoxOpen(widget.boxName)) {
         await Hive.openBox<MaintenanceRecord>(widget.boxName);
       }
@@ -47,29 +44,34 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
         });
       }
     } catch (e) {
-      debugPrint("❌ Error opening maintenance box (${widget.boxName}): $e");
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      debugPrint("❌ Error opening maintenance box: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _addOrEdit({int? index, MaintenanceRecord? existing}) {
-    if (_box == null) return; // حماية إضافية
+    if (_box == null) return;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      // منع إغلاق الـ BottomSheet بسحبها لأسفل أثناء الرفع (اختياري)
+      enableDrag: true,
       builder: (_) => MaintenanceForm(
         existing: existing,
         onSave: (record) async {
+          // التعديل هنا: يتم الحفظ في Hive بعد أن يكون الرفع لـ Supabase قد تم داخل الـ Form
           if (index == null) {
             await _box!.add(record);
           } else {
             await _box!.putAt(index, record);
           }
-          if (mounted) setState(() {});
-          Navigator.pop(context);
+
+          if (mounted) {
+            setState(() {});
+            // نغلق النموذج فقط بعد نجاح عملية الحفظ
+            Navigator.pop(context);
+          }
         },
       ),
     );
@@ -84,7 +86,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 3. عرض مؤشر تحميل حتى يتم فتح الصندوق
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(title: Text(widget.title ?? "تحميل...")),
@@ -92,7 +93,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
       );
     }
 
-    // 4. حالة فشل فتح الصندوق
     if (_box == null) {
       return Scaffold(
         appBar: AppBar(title: const Text("خطأ")),

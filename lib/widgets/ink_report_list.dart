@@ -47,7 +47,6 @@ class InkReportList extends StatelessWidget {
             final key = entry.key;
             final record = entry.value;
 
-            // ✅ إصلاح تحويل imagePaths إلى List<String>
             final images = (record['imagePaths'] is List)
                 ? (record['imagePaths'] as List)
                     .map((e) => e.toString())
@@ -67,7 +66,6 @@ class InkReportList extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ✅ العنوان والتاريخ
                     Row(
                       children: [
                         const Icon(Icons.description,
@@ -86,8 +84,6 @@ class InkReportList extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-
-                    // ✅ المعلومات الأساسية
                     _buildInfoRow("👤 العميل:",
                         record['clientName']?.toString() ?? 'غير محدد'),
                     _buildInfoRow("📦 الصنف:",
@@ -95,10 +91,7 @@ class InkReportList extends StatelessWidget {
                     if (productCode != null &&
                         productCode.toString().isNotEmpty)
                       _buildInfoRow("🔢 كود الصنف:", productCode.toString()),
-
                     const SizedBox(height: 8),
-
-                    // ✅ المقاسات
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -109,30 +102,18 @@ class InkReportList extends StatelessWidget {
                             child: _buildDimensionsText(record['dimensions'])),
                       ],
                     ),
-
                     const SizedBox(height: 8),
-
-                    // ✅ عدد الشيتات
                     _buildQuantityText(quantity),
-
                     const SizedBox(height: 8),
-
-                    // ✅ الألوان
                     _buildColorsList(colors),
-
                     const SizedBox(height: 8),
-
-                    // ✅ الملاحظات
                     _buildNotesText(notes),
-
                     const SizedBox(height: 8),
 
-                    // ✅ الصور
+                    // ✅ تم تعديل دالة الصور هنا
                     _buildImagesList(images, context),
 
                     const SizedBox(height: 12),
-
-                    // ✅ أزرار التحكم
                     Container(
                       padding: const EdgeInsets.only(top: 12),
                       decoration: BoxDecoration(
@@ -141,7 +122,6 @@ class InkReportList extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          // ✅ زر تصدير PDF الجديد
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () =>
@@ -184,10 +164,8 @@ class InkReportList extends StatelessWidget {
     );
   }
 
-  // ✅ دالة لعرض المقاسات بالتنسيق المطلوب
   Widget _buildDimensionsText(dynamic dimensions) {
     if (dimensions is! Map) return const Text("غير محدد");
-
     final length = dimensions['length']?.toString() ?? '';
     final width = dimensions['width']?.toString() ?? '';
     final height = dimensions['height']?.toString() ?? '';
@@ -195,9 +173,7 @@ class InkReportList extends StatelessWidget {
     String formatNumber(String value) {
       if (value.contains('.')) {
         final parts = value.split('.');
-        if (parts.length > 1 && parts[1] == '0') {
-          return parts[0];
-        }
+        if (parts.length > 1 && parts[1] == '0') return parts[0];
         return value
             .replaceAll(RegExp(r'0*$'), '')
             .replaceAll(RegExp(r'\.$'), '');
@@ -205,17 +181,12 @@ class InkReportList extends StatelessWidget {
       return value;
     }
 
-    final formattedLength = formatNumber(length);
-    final formattedWidth = formatNumber(width);
-    final formattedHeight = formatNumber(height);
-
-    return Text("$formattedLength/$formattedWidth/$formattedHeight");
+    return Text(
+        "${formatNumber(length)}/${formatNumber(width)}/${formatNumber(height)}");
   }
 
-  // ✅ دالة لعرض الألوان والكميات
   Widget _buildColorsList(List<dynamic> colors) {
     if (colors.isEmpty) return const Text("🎨 لا توجد ألوان");
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -224,9 +195,7 @@ class InkReportList extends StatelessWidget {
         ...colors.map<Widget>((c) {
           final color = c['color'] ?? '';
           var quantity = (c['quantity'] ?? '').toString();
-          if (quantity.startsWith('.')) {
-            quantity = '0$quantity';
-          }
+          if (quantity.startsWith('.')) quantity = '0$quantity';
           return Padding(
             padding: const EdgeInsets.only(left: 8, top: 2),
             child: Text("• $color - $quantity لتر"),
@@ -236,17 +205,14 @@ class InkReportList extends StatelessWidget {
     );
   }
 
-  // ✅ دالة لعرض عدد الشيتات
   Widget _buildQuantityText(dynamic quantity) {
     final qty = quantity?.toString() ?? '0';
     return Text("🔢 عدد الشيتات: $qty");
   }
 
-  // ✅ دالة لعرض الملاحظات
   Widget _buildNotesText(dynamic notes) {
-    if (notes == null || notes.toString().isEmpty) {
+    if (notes == null || notes.toString().isEmpty)
       return const SizedBox.shrink();
-    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -260,12 +226,18 @@ class InkReportList extends StatelessWidget {
     );
   }
 
-  // ✅ دالة لعرض الصور
+  // ✅ التعديل الجوهري لعرض الصور (سحابية + محلية)
   Widget _buildImagesList(List<String> images, BuildContext context) {
-    final existingImages =
-        images.where((path) => File(path).existsSync()).toList();
+    if (images.isEmpty) return const SizedBox.shrink();
 
-    if (existingImages.isEmpty) return const SizedBox.shrink();
+    // نقوم بفلترة الروابط: إما رابط إنترنت أو ملف موجود فعلياً على الجهاز
+    final validImages = images.where((path) {
+      if (path.startsWith('http'))
+        return true; // روابط السحاب دائماً صالحة للعرض
+      return File(path).existsSync(); // الملفات المحلية يجب التأكد من وجودها
+    }).toList();
+
+    if (validImages.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,26 +246,54 @@ class InkReportList extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         SizedBox(
-          height: 60,
+          height: 70, // زيادة الارتفاع قليلاً للوضوح
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: existingImages.length,
-            itemBuilder: (context, i) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: Image.file(
-                File(existingImages[i]),
-                width: 50,
-                height: 50,
-                fit: BoxFit.cover,
-              ),
-            ),
+            itemCount: validImages.length,
+            itemBuilder: (context, i) {
+              final path = validImages[i];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: path.startsWith('http')
+                      ? Image.network(
+                          path,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          // إضافة مؤشر تحميل للصور السحابية
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return Container(
+                              width: 60,
+                              height: 60,
+                              color: Colors.grey[200],
+                              child: const Center(
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2)),
+                            );
+                          },
+                          errorBuilder: (context, error, stack) => const Icon(
+                              Icons.broken_image,
+                              size: 40,
+                              color: Colors.grey),
+                        )
+                      : Image.file(
+                          File(path),
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                        ),
+                ),
+              );
+            },
           ),
         ),
       ],
     );
   }
 
-  // ✅ دالة مساعدة لعرض صفوف المعلومات
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -312,7 +312,6 @@ class InkReportList extends StatelessWidget {
     );
   }
 
-  // دالة مساعدة لتحويل البيانات من Hive (ديناميكية) إلى Map<String, dynamic>
   Map<String, dynamic> _convertToTypedMap(dynamic data) {
     if (data is! Map) return {};
     Map<String, dynamic> result = {};
@@ -332,7 +331,6 @@ class InkReportList extends StatelessWidget {
     return result;
   }
 
-  // دالة مساعدة لتحويل الأرقام إلى سلاسل نصية لتعبئة TextFields في نموذج التعديل
   Map<String, dynamic> _convertValuesToString(Map<String, dynamic> data) {
     return data.map((k, v) {
       if (v is int || v is double) {
@@ -341,9 +339,8 @@ class InkReportList extends StatelessWidget {
         return MapEntry(
             k,
             v.map((item) {
-              if (item is Map) {
+              if (item is Map)
                 return _convertValuesToString(Map<String, dynamic>.from(item));
-              }
               if (item is int || item is double) return item.toString();
               return item;
             }).toList());

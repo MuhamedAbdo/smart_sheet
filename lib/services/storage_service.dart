@@ -5,50 +5,43 @@ import 'package:path/path.dart' as p;
 class StorageService {
   static final _supabase = Supabase.instance.client;
 
-  /// دالة لرفع صورة واحدة وإعادة الرابط المباشر لها
+  /// رفع صورة واحدة
   static Future<String?> uploadImage(
       String localPath, String bucketName) async {
     try {
       final file = File(localPath);
       if (!await file.exists()) return null;
 
-      // إنشاء اسم فريد للملف لتجنب التكرار
       final fileName =
           '${DateTime.now().millisecondsSinceEpoch}_${p.basename(localPath)}';
       final pathInBucket = 'uploads/$fileName';
 
-      // 1. رفع الملف إلى Supabase Storage
       await _supabase.storage.from(bucketName).upload(
             pathInBucket,
             file,
             fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
           );
 
-      // 2. الحصول على الرابط العام (Public URL)
-      final String publicUrl =
-          _supabase.storage.from(bucketName).getPublicUrl(pathInBucket);
-
-      return publicUrl;
+      return _supabase.storage.from(bucketName).getPublicUrl(pathInBucket);
     } catch (e) {
       print("Error uploading image: $e");
       return null;
     }
   }
 
-  /// دالة لرفع قائمة صور كاملة
+  /// ⚡ رفع قائمة صور كاملة بشكل متوازي (أسرع بكثير)
   static Future<List<String>> uploadMultipleImages(
       List<String> localPaths, String bucketName) async {
-    List<String> uploadedUrls = [];
-    for (String path in localPaths) {
-      // إذا كان الرابط يبدأ بـ http فهو مرفوع مسبقاً، لا داعي لرفعه ثانية
-      if (path.startsWith('http')) {
-        uploadedUrls.add(path);
-        continue;
-      }
+    // تشغيل جميع عمليات الرفع في وقت واحد
+    final uploadTasks = localPaths.map((path) async {
+      if (path.startsWith('http')) return path;
+      return await uploadImage(path, bucketName);
+    }).toList();
 
-      String? url = await uploadImage(path, bucketName);
-      if (url != null) uploadedUrls.add(url);
-    }
-    return uploadedUrls;
+    // انتظار انتهاء جميع العمليات معاً
+    final results = await Future.wait(uploadTasks);
+
+    // إرجاع الروابط التي نجح رفعها فقط
+    return results.whereType<String>().toList();
   }
 }

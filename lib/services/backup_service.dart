@@ -13,12 +13,19 @@ class BackupService {
   static const String BUCKET_NAME = 'backups';
   static const String _backupFileName = 'smart_sheet_backup.zip';
 
-  // ☁️ رفع النسخة للسحابة
-  Future<String?> uploadToSupabase(
-      {void Function(double progress)? onProgress}) async {
+  // ---------------------------------------------------------
+  // ☁️ العمليات السحابية (Cloud Operations)
+  // ---------------------------------------------------------
+
+  Future<String?> uploadToSupabase() async {
     try {
       if (kIsWeb) return 'غير مدعوم على الويب.';
-      final localBackupPath = await _createLocalBackupFile();
+
+      final localBackupPath = await _createLocalBackupFile().timeout(
+          const Duration(seconds: 60),
+          onTimeout: () =>
+              throw TimeoutException('عملية الضغط استغرقت وقتاً طويلاً'));
+
       if (localBackupPath == null) return '❌ فشل إنشاء ملف النسخة المحلية.';
 
       final backupFile = File(localBackupPath);
@@ -27,43 +34,37 @@ class BackupService {
 
       final uniqueFileName =
           '${DateTime.now().toIso8601String().replaceAll(':', '-')}_$_backupFileName';
-      // المسار المعتمد: manual_backups/USER_ID/FILE_NAME
       final uploadPath = 'manual_backups/${user.id}/$uniqueFileName';
 
-      if (onProgress != null) _simulateProgress(onProgress);
-
-      await _supabaseClient.storage.from(BUCKET_NAME).upload(
+      await _supabaseClient.storage
+          .from(BUCKET_NAME)
+          .upload(
             uploadPath,
             backupFile,
             fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
-          );
+          )
+          .timeout(const Duration(minutes: 3), onTimeout: () {
+        throw TimeoutException('اتصال الإنترنت ضعيف، فشل الرفع.');
+      });
 
       if (await backupFile.exists()) await backupFile.delete();
       return '✅ تم الرفع بنجاح.';
     } catch (e) {
+      if (e is TimeoutException) return '⚠️ ${e.message}';
       return '❌ فشل الرفع: ${e.toString()}';
     }
   }
 
-  // 📥 تنزيل واستعادة (الإصلاح الجوهري لمسار 404)
   Future<String?> downloadAndRestore(String fullPath) async {
     try {
       final tempDir = await getTemporaryDirectory();
       final tempZipPath = p.join(tempDir.path, 'downloaded_backup.zip');
-
-      // تنزيل باستخدام المسار الكامل المستلم من الواجهة
       final Uint8List bytes =
           await _supabaseClient.storage.from(BUCKET_NAME).download(fullPath);
-
       await File(tempZipPath).writeAsBytes(bytes);
       final result = await _restoreFromZipPath(tempZipPath);
-
       if (await File(tempZipPath).exists()) await File(tempZipPath).delete();
-      return result == 'SUCCESS_RESTORE'
-          ? '✅ تم استعادة البيانات بنجاح.'
-          : result;
-    } on StorageException catch (e) {
-      return '❌ خطأ 404: الملف غير موجود في المسار السحابي المحدد.';
+      return result;
     } catch (e) {
       return '❌ فشل الاستعادة: ${e.toString()}';
     }
@@ -81,7 +82,44 @@ class BackupService {
     }
   }
 
-  // ⚙️ العمليات الداخلية
+  // ---------------------------------------------------------
+  // 📱 العمليات المحلية (Local Operations) - المطلوبة للـ AppDrawer
+  // ---------------------------------------------------------
+
+  Future<String?> createBackup() async {
+    try {
+      final localPath = await _createLocalBackupFile();
+      if (localPath == null) return '❌ فشل إنشاء الملف';
+
+      final bytes = await File(localPath).readAsBytes();
+      final String? saved = await FilePicker.platform.saveFile(
+          fileName: _backupFileName,
+          bytes: bytes,
+          type: FileType.custom,
+          allowedExtensions: ['zip']);
+
+      if (await File(localPath).exists()) await File(localPath).delete();
+      return saved != null ? '✅ تم حفظ النسخة بنجاح' : null;
+    } catch (e) {
+      return '❌ خطأ محلي: $e';
+    }
+  }
+
+  Future<String?> restoreBackup() async {
+    try {
+      final result = await FilePicker.platform
+          .pickFiles(type: FileType.custom, allowedExtensions: ['zip']);
+      if (result?.files.single.path == null) return null;
+      return await _restoreFromZipPath(result!.files.single.path!);
+    } catch (e) {
+      return '❌ فشل اختيار الملف: $e';
+    }
+  }
+
+  // ---------------------------------------------------------
+  // ⚙️ المساعدات الداخلية (Internal Helpers)
+  // ---------------------------------------------------------
+
   Future<String?> _createLocalBackupFile() async {
     final appDir = await getApplicationDocumentsDirectory();
     final tempDir = await getTemporaryDirectory();
@@ -101,7 +139,6 @@ class BackupService {
       }
       await appDirInstance.create(recursive: true);
       await compute(_restoreBackupInternal, [zipPath, appDir.path]);
-      await _fixImagePathsAfterRestore();
       return 'SUCCESS_RESTORE';
     } catch (e) {
       return '❌ فشل فك الضغط: $e';
@@ -109,7 +146,7 @@ class BackupService {
   }
 
   @pragma('vm:entry-point')
-  static Future<void> _createBackupInternal(List<String> args) async {
+  static void _createBackupInternal(List<String> args) {
     final encoder = ZipFileEncoder();
     encoder.create(args[1]);
     final appDir = Directory(args[0]);
@@ -119,11 +156,11 @@ class BackupService {
         encoder.addFile(entity, relativePath.replaceAll('\\', '/'));
       }
     }
-    await encoder.close();
+    encoder.close();
   }
 
   @pragma('vm:entry-point')
-  static Future<void> _restoreBackupInternal(List<String> args) async {
+  static void _restoreBackupInternal(List<String> args) {
     final bytes = File(args[0]).readAsBytesSync();
     final archive = ZipDecoder().decodeBytes(bytes);
     for (final file in archive) {
@@ -137,71 +174,4 @@ class BackupService {
       }
     }
   }
-
-  Future<void> _fixImagePathsAfterRestore() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final fileNameToPath = <String, String>{};
-    for (final e in appDir.listSync(recursive: true)) {
-      if (e is File) fileNameToPath[p.basename(e.path)] = e.path;
-    }
-    final boxes = [
-      'inkReports',
-      'finished_products',
-      'savedSheetSizes',
-      'maintenance_records_main'
-    ];
-    for (final b in boxes) {
-      if (await Hive.boxExists(b)) {
-        final box = await Hive.openBox(b);
-        for (final key in box.keys) {
-          final record = box.get(key);
-          if (record is Map && record.containsKey('imagePaths')) {
-            final List<String> newPaths = (record['imagePaths'] as List)
-                .map((pOld) =>
-                    fileNameToPath[p.basename(pOld.toString())] ??
-                    pOld.toString())
-                .toList();
-            final updated = Map<String, dynamic>.from(record)
-              ..['imagePaths'] = newPaths;
-            await box.put(key, updated);
-          }
-        }
-        await box.close();
-      }
-    }
-  }
-
-  void _simulateProgress(void Function(double) onProgress) {
-    double pVal = 0.0;
-    Timer.periodic(const Duration(milliseconds: 200), (timer) {
-      pVal += 0.05;
-      if (pVal >= 0.9) {
-        onProgress(0.9);
-        timer.cancel();
-      } else {
-        onProgress(pVal);
-      }
-    });
-  }
-
-  Future<String?> createBackup() async {
-    final localPath = await _createLocalBackupFile();
-    if (localPath == null) return null;
-    final bytes = await File(localPath).readAsBytes();
-    final saved = await FilePicker.platform.saveFile(
-        fileName: _backupFileName,
-        bytes: bytes,
-        type: FileType.custom,
-        allowedExtensions: ['zip']);
-    return saved != null ? '✅ تم الحفظ محلياً' : null;
-  }
-
-  Future<String?> restoreBackup() async {
-    final result = await FilePicker.platform
-        .pickFiles(type: FileType.custom, allowedExtensions: ['zip']);
-    if (result?.files.single.path == null) return null;
-    return await _restoreFromZipPath(result!.files.single.path!);
-  }
-
-  void dispose() {}
 }

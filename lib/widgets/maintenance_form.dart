@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
-import '../../models/maintenance_record_model.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../models/maintenance_record_model.dart';
+import '../../services/storage_service.dart';
 
 class MaintenanceForm extends StatefulWidget {
   final MaintenanceRecord? existing;
@@ -24,6 +24,7 @@ class MaintenanceForm extends StatefulWidget {
 }
 
 class _MaintenanceFormState extends State<MaintenanceForm> {
+  // المتحكمات (Controllers) لجميع الحقول المطلوبة
   late TextEditingController issueDateController;
   late TextEditingController machineController;
   late TextEditingController issueDescController;
@@ -37,8 +38,9 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   bool isFixed = false;
   String repairLocation = 'في المصنع';
 
-  final ImagePicker _imagePicker = ImagePicker();
-  List<File> _capturedImages = [];
+  // إدارة الصور والكاميرا
+  List<String> _imagePaths = [];
+  bool _isUploading = false;
   bool _isProcessing = false;
 
   CameraController? _cameraController;
@@ -69,492 +71,301 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   void _initializeControllers() {
     final e = widget.existing;
 
-    issueDateController = TextEditingController(text: e?.issueDate ?? '');
+    // تهيئة الحقول بالبيانات الموجودة (في حالة التعديل) أو بقيم فارغة
+    issueDateController = TextEditingController(text: e?.issueDate ?? _today());
     machineController = TextEditingController(text: e?.machine ?? '');
     issueDescController =
         TextEditingController(text: e?.issueDescription ?? '');
-    reportDateController = TextEditingController(text: e?.reportDate ?? '');
+    reportDateController =
+        TextEditingController(text: e?.reportDate ?? _today());
     reportedToTechnicianController =
         TextEditingController(text: e?.reportedToTechnician ?? '');
     actionController = TextEditingController(text: e?.actionTaken ?? '');
-    actionDateController = TextEditingController(text: e?.actionDate ?? '');
+    actionDateController =
+        TextEditingController(text: e?.actionDate ?? _today());
     repairedByController = TextEditingController(text: e?.repairedBy ?? '');
     notesController = TextEditingController(text: e?.notes ?? '');
 
     isFixed = e?.isFixed ?? false;
     repairLocation = e?.repairLocation ?? 'في المصنع';
 
-    final existingImagePaths = e?.imagePaths;
-    _capturedImages = existingImagePaths
-            ?.map((path) => File(path))
-            .where((file) => file.existsSync())
-            .toList() ??
-        [];
+    if (e?.imagePaths != null) {
+      _imagePaths = List<String>.from(e!.imagePaths);
+    }
   }
+
+  String _today() => DateTime.now().toString().split(' ')[0];
 
   Future<void> _initializeCamera() async {
     var status = await Permission.camera.request();
-    if (!status.isGranted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("الرجاء منح صلاحية الكاميرا")),
-        );
-      }
-      return;
-    }
+    if (!status.isGranted) return;
 
     try {
       final cameras = await availableCameras();
-      final backCamera = cameras.firstWhere(
-        (cam) => cam.lensDirection == CameraLensDirection.back,
-        orElse: () => cameras.first,
-      );
+      if (cameras.isEmpty) return;
 
       _cameraController = CameraController(
-        backCamera,
+        cameras.first,
         ResolutionPreset.medium,
         enableAudio: false,
       );
 
       await _cameraController!.initialize();
-
-      if (mounted) {
-        setState(() => _isCameraReady = true);
-      }
+      if (mounted) setState(() => _isCameraReady = true);
     } catch (e) {
       debugPrint("Camera Error: $e");
-      if (mounted) setState(() => _isCameraReady = false);
     }
   }
 
   Future<void> _captureImage() async {
-    if (!_isCameraReady ||
-        _cameraController == null ||
-        !_cameraController!.value.isInitialized) {
+    if (!_isCameraReady || _cameraController == null) return;
+    setState(() => _isProcessing = true);
+    try {
+      final XFile photo = await _cameraController!.takePicture();
+      setState(() {
+        _imagePaths.add(photo.path);
+        _isProcessing = false;
+      });
+    } catch (e) {
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  // --- دالة الحفظ والرفع السحابي ---
+  Future<void> _saveRecord() async {
+    if (machineController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("يرجى إدخال اسم الماكينة")));
       return;
     }
 
-    setState(() => _isProcessing = true);
-    try {
-      final XFile image = await _cameraController!.takePicture();
-
-      // ✅ حفظ الصورة في مجلد دائم داخل التطبيق
-      final appDir = await getApplicationDocumentsDirectory();
-      final imageDir = Directory('${appDir.path}/maintenance_images');
-      await imageDir.create(recursive: true);
-
-      final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final String newPath = '${imageDir.path}/$fileName';
-
-      final File savedImage = await File(image.path).copy(newPath);
-
-      setState(() {
-        _capturedImages.add(savedImage);
-        _isProcessing = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("✅ تم حفظ الصورة بنجاح"),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() => _isProcessing = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("فشل في التقاط الصورة: $e")),
-        );
-      }
-    }
-  }
-
-  Future<void> _pickImageFromGallery() async {
-    if (_isProcessing) return;
-
-    setState(() => _isProcessing = true);
+    setState(() => _isUploading = true);
 
     try {
-      final XFile? pickedFile = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 80,
+      // 1. الرفع إلى Bucket 'images' (يتولى StorageService الضغط والرفع)
+      List<String> finalCloudUrls = await StorageService.uploadMultipleImages(
+        _imagePaths,
+        'images',
       );
 
-      if (pickedFile != null) {
-        final directory = await getApplicationDocumentsDirectory();
-        final String newPath =
-            '${directory.path}/maintenance_gallery_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      // 2. إنشاء السجل بكافة الحقول المطلوبة (Required)
+      final record = MaintenanceRecord(
+        machine: machineController.text,
+        isFixed: isFixed,
+        issueDate: issueDateController.text,
+        reportDate: reportDateController.text,
+        actionDate: actionDateController.text,
+        issueDescription: issueDescController.text,
+        actionTaken: actionController.text,
+        repairLocation: repairLocation,
+        repairedBy: repairedByController.text,
+        reportedToTechnician: reportedToTechnicianController.text,
+        notes: notesController.text.isEmpty ? null : notesController.text,
+        imagePaths: finalCloudUrls,
+      );
 
-        final File savedImage = await File(pickedFile.path).copy(newPath);
-
-        if (mounted) {
-          setState(() {
-            _capturedImages.add(savedImage);
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("✅ تم إضافة الصورة من المعرض"),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
+      widget.onSave(record);
     } catch (e) {
-      debugPrint("❌ Error in gallery pick: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("❌ فشل في اختيار الصورة: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("خطأ في الرفع: $e")));
     } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
+      if (mounted) setState(() => _isUploading = false);
     }
-  }
-
-  void _removeImage(int index) {
-    if (index >= 0 && index < _capturedImages.length) {
-      setState(() {
-        _capturedImages.removeAt(index);
-      });
-    }
-  }
-
-  Future<void> _selectDate(
-      BuildContext context, TextEditingController controller) async {
-    DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: controller.text.isNotEmpty
-          ? DateTime.tryParse(controller.text) ?? DateTime.now()
-          : DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-
-    if (picked != null) {
-      controller.text =
-          "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
-    }
-  }
-
-  void _saveRecord() {
-    final record = MaintenanceRecord(
-      machine: machineController.text,
-      isFixed: isFixed,
-      issueDate: issueDateController.text,
-      reportDate: reportDateController.text,
-      actionDate: actionDateController.text,
-      issueDescription: issueDescController.text,
-      actionTaken: actionController.text,
-      repairLocation: repairLocation,
-      repairedBy: repairedByController.text,
-      reportedToTechnician: reportedToTechnicianController.text,
-      notes: notesController.text.isEmpty ? null : notesController.text,
-      imagePaths: _capturedImages.map((file) => file.path).toList(),
-    );
-
-    widget.onSave(record);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.existing == null
-                    ? "➕ إضافة سجل صيانة"
-                    : "✏️ تعديل سجل صيانة",
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge!
-                    .copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: issueDateController,
-                readOnly: true,
-                onTap: () => _selectDate(context, issueDateController),
-                decoration: const InputDecoration(
-                    labelText: "📅 تاريخ ظهور العطل",
-                    border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: machineController,
-                decoration: const InputDecoration(
-                    labelText: "🏭 اسم الماكينة", border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: issueDescController,
-                decoration: const InputDecoration(
-                    labelText: "⚠️ وصف العطل", border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reportDateController,
-                readOnly: true,
-                onTap: () => _selectDate(context, reportDateController),
-                decoration: const InputDecoration(
-                    labelText: "🗓️ تاريخ التبليغ",
-                    border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reportedToTechnicianController,
-                decoration: const InputDecoration(
-                    labelText: "👷‍♂️ تم التبليغ إلى",
-                    border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: actionController,
-                decoration: const InputDecoration(
-                    labelText: "🔧 الإجراء المتخذ",
-                    border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: actionDateController,
-                readOnly: true,
-                onTap: () => _selectDate(context, actionDateController),
-                decoration: const InputDecoration(
-                    labelText: "📆 تاريخ التنفيذ",
-                    border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              Row(children: [
-                const Text("✅ تم الإصلاح؟"),
-                Checkbox(
-                  value: isFixed,
-                  onChanged: (v) => setState(() => isFixed = v ?? false),
-                ),
-              ]),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: repairLocation,
-                items: const [
-                  DropdownMenuItem(
-                      value: 'في المصنع', child: Text('في المصنع')),
-                  DropdownMenuItem(
-                      value: 'ورشة خارجية', child: Text('ورشة خارجية')),
-                ],
-                onChanged: (v) =>
-                    setState(() => repairLocation = v ?? 'في المصنع'),
-                decoration: const InputDecoration(
-                    labelText: "🏠 مكان الإصلاح", border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: repairedByController,
-                decoration: const InputDecoration(
-                    labelText: "🛠 تم الإصلاح بواسطة",
-                    border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: notesController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                    labelText: "📝 ملاحظات", border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 20),
-              if (_isCameraReady && _cameraController != null)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("📸 الصور",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 200,
-                      child: CameraPreview(_cameraController!),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _isProcessing ? null : _captureImage,
-                          icon: _isProcessing
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.camera_alt, size: 18),
-                          label: const Text(
-                            "التقط صورة",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_capturedImages.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      const Text("الصور الملتقطة:",
-                          style: TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 100,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _capturedImages.length,
-                          itemBuilder: (context, index) => Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 4.0),
-                            child: Stack(
-                              alignment: Alignment.topRight,
-                              children: [
-                                GestureDetector(
-                                  onTap: () => _showFullScreenImage(
-                                      context, _capturedImages, index),
-                                  child: Container(
-                                    width: 80,
-                                    height: 80,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.grey),
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.file(
-                                        _capturedImages[index],
-                                        width: 80,
-                                        height: 80,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                          return Container(
-                                            color: Colors.grey[200],
-                                            child: const Icon(Icons.error,
-                                                color: Colors.red),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(Icons.close,
-                                        size: 12, color: Colors.white),
-                                    onPressed: () => _removeImage(index),
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "عدد الصور: ${_capturedImages.length}",
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ],
-                )
-              else if (!_isCameraReady)
-                const Column(
-                  children: [
-                    SizedBox(height: 16),
-                    Text("جاري تحميل الكاميرا..."),
-                    SizedBox(height: 8),
-                    CircularProgressIndicator(),
-                  ],
-                ),
-              const SizedBox(height: 24),
-              Row(
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Stack(
+        children: [
+          Scaffold(
+            appBar: AppBar(
+              title: Text(
+                  widget.existing == null ? "إضافة سجل صيانة" : "تعديل السجل"),
+              actions: [
+                if (!_isUploading)
+                  IconButton(
+                      onPressed: _saveRecord, icon: const Icon(Icons.check))
+              ],
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("❌ إلغاء"),
-                    ),
+                  _buildTextField(
+                      machineController, "اسم الماكينة", Icons.settings),
+                  const SizedBox(height: 12),
+                  _buildDateField(issueDateController, "تاريخ ظهور العطل"),
+                  const SizedBox(height: 12),
+                  _buildTextField(
+                      issueDescController, "وصف العطل", Icons.warning_amber,
+                      maxLines: 2),
+                  const SizedBox(height: 12),
+                  _buildDateField(reportDateController, "تاريخ التبليغ"),
+                  const SizedBox(height: 12),
+                  _buildTextField(reportedToTechnicianController,
+                      "تم التبليغ إلى", Icons.person),
+                  const Divider(height: 32),
+                  _buildTextField(
+                      actionController, "الإجراء المتخذ", Icons.build),
+                  const SizedBox(height: 12),
+                  _buildDateField(actionDateController, "تاريخ التنفيذ"),
+                  const SizedBox(height: 12),
+                  _buildTextField(repairedByController, "تم الإصلاح بواسطة",
+                      Icons.engineering),
+                  const SizedBox(height: 12),
+                  _buildLocationDropdown(),
+                  CheckboxListTile(
+                    title: const Text("تم الإصلاح بالكامل؟"),
+                    value: isFixed,
+                    onChanged: (v) => setState(() => isFixed = v ?? false),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _isProcessing ? null : _saveRecord,
-                      child: const Text("💾 حفظ السجل"),
-                    ),
-                  ),
+                  const SizedBox(height: 20),
+                  _buildCameraPreview(),
+                  _buildImageGallery(),
+                  const SizedBox(height: 100),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+          if (_isUploading) _buildLoadingOverlay(),
+        ],
       ),
     );
   }
 
-  void _showFullScreenImage(
-      BuildContext context, List<File> images, int initialIndex) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: Text('الصورة (${initialIndex + 1} من ${images.length})'),
-            centerTitle: true,
-          ),
-          body: PhotoView(
-            imageProvider: FileImage(images[initialIndex]),
-            minScale: PhotoViewComputedScale.contained * 0.8,
-            maxScale: PhotoViewComputedScale.covered * 2.5,
-            loadingBuilder: (context, event) => const Center(
-              child: CircularProgressIndicator(),
-            ),
-            errorBuilder: (context, error, stackTrace) => Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error, size: 50, color: Colors.red),
-                  const SizedBox(height: 16),
-                  const Text("تعذر تحميل الصورة"),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("العودة"),
+  // --- أدوات بناء الواجهة ---
+
+  Widget _buildTextField(
+      TextEditingController controller, String label, IconData icon,
+      {int maxLines = 1}) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon),
+          border: const OutlineInputBorder()),
+    );
+  }
+
+  Widget _buildDateField(TextEditingController controller, String label) {
+    return TextFormField(
+      controller: controller,
+      readOnly: true,
+      decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: const Icon(Icons.calendar_today),
+          border: const OutlineInputBorder()),
+      onTap: () async {
+        DateTime? picked = await showDatePicker(
+            context: context,
+            initialDate: DateTime.now(),
+            firstDate: DateTime(2020),
+            lastDate: DateTime(2100));
+        if (picked != null)
+          setState(() => controller.text = picked.toString().split(' ')[0]);
+      },
+    );
+  }
+
+  Widget _buildLocationDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: repairLocation,
+      decoration: const InputDecoration(
+          labelText: "مكان الإصلاح", border: OutlineInputBorder()),
+      items: ['في المصنع', 'ورشة خارجية']
+          .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+          .toList(),
+      onChanged: (v) => setState(() => repairLocation = v!),
+    );
+  }
+
+  Widget _buildCameraPreview() {
+    if (!_isCameraReady) return const Text("الكاميرا قيد التحضير...");
+    return Column(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+              height: 200,
+              width: double.infinity,
+              child: CameraPreview(_cameraController!)),
+        ),
+        IconButton(
+            onPressed: _isProcessing ? null : _captureImage,
+            icon: const Icon(Icons.camera_alt, size: 40, color: Colors.blue)),
+      ],
+    );
+  }
+
+  Widget _buildImageGallery() {
+    return SizedBox(
+      height: 100,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _imagePaths.length,
+        itemBuilder: (context, i) {
+          final path = _imagePaths[i];
+          return Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: Stack(
+              children: [
+                GestureDetector(
+                  onTap: () => _viewFullScreen(path),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: path.startsWith('http')
+                        ? Image.network(path,
+                            width: 80, height: 80, fit: BoxFit.cover)
+                        : Image.file(File(path),
+                            width: 80, height: 80, fit: BoxFit.cover),
                   ),
-                ],
-              ),
+                ),
+                Positioned(
+                    right: 0,
+                    child: GestureDetector(
+                        onTap: () => setState(() => _imagePaths.removeAt(i)),
+                        child: const CircleAvatar(
+                            radius: 10,
+                            backgroundColor: Colors.red,
+                            child: Icon(Icons.close,
+                                size: 12, color: Colors.white)))),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _viewFullScreen(String path) {
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => Scaffold(
+                appBar: AppBar(),
+                body: PhotoView(
+                    imageProvider: path.startsWith('http')
+                        ? NetworkImage(path)
+                        : FileImage(File(path)) as ImageProvider))));
+  }
+
+  Widget _buildLoadingOverlay() {
+    return Container(
+      color: Colors.black54,
+      child: const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text("جاري رفع البيانات والصور للسحابة...")
+              ],
             ),
           ),
         ),

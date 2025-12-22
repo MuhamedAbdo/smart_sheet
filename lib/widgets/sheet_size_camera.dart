@@ -1,7 +1,6 @@
 // lib/src/widgets/sheet_size/sheet_size_camera.dart
 
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 
@@ -9,7 +8,8 @@ class SheetSizeCamera extends StatelessWidget {
   final CameraController? cameraController;
   final bool isCameraReady;
   final bool isProcessing;
-  final List<File> capturedImages;
+  final List<dynamic>
+      capturedImages; // تم تغيير النوع لـ dynamic لدعم File و String (URL)
   final VoidCallback onCaptureImage;
   final Function(int) onRemoveImage;
 
@@ -27,23 +27,43 @@ class SheetSizeCamera extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // --- معاينة الكاميرا ---
         if (isCameraReady && cameraController != null)
-          SizedBox(
+          Container(
             height: 200,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            clipBehavior: Clip.antiAlias,
             child: CameraPreview(cameraController!),
           )
         else if (cameraController == null)
           const Padding(
             padding: EdgeInsets.all(16.0),
-            child: Text("جاري تهيئة الكاميرا..."),
+            child: CircularProgressIndicator(),
           ),
-        const SizedBox(height: 10),
+
+        const SizedBox(height: 12),
+
+        // --- زر الالتقاط ---
         ElevatedButton.icon(
           onPressed: isProcessing || !isCameraReady ? null : onCaptureImage,
-          icon: const Icon(Icons.camera),
-          label: const Text("التقط صورة"),
+          icon: isProcessing
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.camera_alt),
+          label: const Text("التقط صورة للأوردر"),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 45),
+          ),
         ),
-        const SizedBox(height: 10),
+
+        const SizedBox(height: 12),
+
+        // --- قائمة الصور الملتقطة (الأرشيف الصغير) ---
         if (capturedImages.isNotEmpty)
           SizedBox(
             height: 100,
@@ -51,36 +71,29 @@ class SheetSizeCamera extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               itemCount: capturedImages.length,
               itemBuilder: (context, index) {
-                final file = capturedImages[index];
-
-                // ✅ التحقق من وجود الملف قبل العرض
-                if (!file.existsSync()) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.broken_image, color: Colors.red),
-                    ),
-                  );
-                }
+                final item = capturedImages[index];
 
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 6.0),
                   child: Stack(
                     alignment: Alignment.topRight,
                     children: [
-                      Image.file(
-                        file,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close,
-                            size: 18, color: Colors.red),
-                        onPressed: () => onRemoveImage(index),
+                      _buildImagePreview(item),
+                      // زر الحذف
+                      Positioned(
+                        top: 2,
+                        right: 2,
+                        child: GestureDetector(
+                          onTap: () => onRemoveImage(index),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.cancel,
+                                color: Colors.red, size: 22),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -90,5 +103,42 @@ class SheetSizeCamera extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  // دالة ذكية لعرض الصورة سواء كانت ملف محلي أو رابط إنترنت
+  Widget _buildImagePreview(dynamic item) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 90,
+        height: 90,
+        child: _getImageWidget(item),
+      ),
+    );
+  }
+
+  Widget _getImageWidget(dynamic item) {
+    if (item is String && item.startsWith('http')) {
+      // إذا كانت صورة من السحاب
+      return Image.network(
+        item,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            const Icon(Icons.broken_image),
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+        },
+      );
+    } else {
+      // إذا كانت ملف محلي (File أو Path)
+      final file = item is File ? item : File(item.toString());
+      if (!file.existsSync()) {
+        return Container(
+            color: Colors.grey[300],
+            child: const Icon(Icons.image_not_supported));
+      }
+      return Image.file(file, fit: BoxFit.cover);
+    }
   }
 }
