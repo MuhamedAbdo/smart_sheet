@@ -3,7 +3,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../models/maintenance_record_model.dart';
@@ -24,7 +23,6 @@ class MaintenanceForm extends StatefulWidget {
 }
 
 class _MaintenanceFormState extends State<MaintenanceForm> {
-  // المتحكمات (Controllers) لجميع الحقول المطلوبة
   late TextEditingController issueDateController;
   late TextEditingController machineController;
   late TextEditingController issueDescController;
@@ -38,7 +36,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   bool isFixed = false;
   String repairLocation = 'في المصنع';
 
-  // إدارة الصور والكاميرا
   List<String> _imagePaths = [];
   bool _isUploading = false;
   bool _isProcessing = false;
@@ -71,7 +68,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   void _initializeControllers() {
     final e = widget.existing;
 
-    // تهيئة الحقول بالبيانات الموجودة (في حالة التعديل) أو بقيم فارغة
     issueDateController = TextEditingController(text: e?.issueDate ?? _today());
     machineController = TextEditingController(text: e?.machine ?? '');
     issueDescController =
@@ -131,7 +127,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     }
   }
 
-  // --- دالة الحفظ والرفع السحابي ---
+  // --- دالة الحفظ المعدلة مع الرفع السحابي ---
   Future<void> _saveRecord() async {
     if (machineController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,32 +138,36 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     setState(() => _isUploading = true);
 
     try {
-      // 1. الرفع إلى Bucket 'images' (يتولى StorageService الضغط والرفع)
+      // 1. رفع الصور الجديدة للسحابة (الدالة تتجاهل الروابط http تلقائياً)
       List<String> finalCloudUrls = await StorageService.uploadMultipleImages(
         _imagePaths,
-        'images',
+        'maintenance_images', // اسم الـ Bucket الخاص بصور الصيانة
       );
 
-      // 2. إنشاء السجل بكافة الحقول المطلوبة (Required)
+      // 2. إنشاء السجل بروابط السحابة النهائية
       final record = MaintenanceRecord(
-        machine: machineController.text,
+        id: widget.existing?.id, // الحفاظ على الـ ID في حالة التعديل
+        machine: machineController.text.trim(),
         isFixed: isFixed,
         issueDate: issueDateController.text,
         reportDate: reportDateController.text,
         actionDate: actionDateController.text,
-        issueDescription: issueDescController.text,
-        actionTaken: actionController.text,
+        issueDescription: issueDescController.text.trim(),
+        actionTaken: actionController.text.trim(),
         repairLocation: repairLocation,
-        repairedBy: repairedByController.text,
-        reportedToTechnician: reportedToTechnicianController.text,
-        notes: notesController.text.isEmpty ? null : notesController.text,
-        imagePaths: finalCloudUrls,
+        repairedBy: repairedByController.text.trim(),
+        reportedToTechnician: reportedToTechnicianController.text.trim(),
+        notes:
+            notesController.text.isEmpty ? null : notesController.text.trim(),
+        imagePaths: finalCloudUrls, // الروابط النهائية
       );
 
       widget.onSave(record);
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("خطأ في الرفع: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("حدث خطأ أثناء الرفع: $e")));
+      }
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -223,6 +223,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                   ),
                   const SizedBox(height: 20),
                   _buildCameraPreview(),
+                  const SizedBox(height: 12),
                   _buildImageGallery(),
                   const SizedBox(height: 100),
                 ],
@@ -264,8 +265,9 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
             initialDate: DateTime.now(),
             firstDate: DateTime(2020),
             lastDate: DateTime(2100));
-        if (picked != null)
+        if (picked != null) {
           setState(() => controller.text = picked.toString().split(' ')[0]);
+        }
       },
     );
   }
@@ -283,73 +285,102 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   }
 
   Widget _buildCameraPreview() {
-    if (!_isCameraReady) return const Text("الكاميرا قيد التحضير...");
+    if (!_isCameraReady)
+      return const Center(child: Text("الكاميرا قيد التحضير..."));
     return Column(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
+          child: Container(
               height: 200,
               width: double.infinity,
+              color: Colors.black,
               child: CameraPreview(_cameraController!)),
         ),
-        IconButton(
-            onPressed: _isProcessing ? null : _captureImage,
-            icon: const Icon(Icons.camera_alt, size: 40, color: Colors.blue)),
+        const SizedBox(height: 8),
+        ElevatedButton.icon(
+          onPressed: _isProcessing ? null : _captureImage,
+          icon: const Icon(Icons.camera_alt),
+          label: const Text("التقاط صورة العطل"),
+        ),
       ],
     );
   }
 
   Widget _buildImageGallery() {
-    return SizedBox(
-      height: 100,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _imagePaths.length,
-        itemBuilder: (context, i) {
-          final path = _imagePaths[i];
-          return Padding(
-            padding: const EdgeInsets.all(4.0),
-            child: Stack(
-              children: [
-                GestureDetector(
-                  onTap: () => _viewFullScreen(path),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: path.startsWith('http')
-                        ? Image.network(path,
-                            width: 80, height: 80, fit: BoxFit.cover)
-                        : Image.file(File(path),
-                            width: 80, height: 80, fit: BoxFit.cover),
-                  ),
-                ),
-                Positioned(
-                    right: 0,
-                    child: GestureDetector(
+    if (_imagePaths.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("المرفقات:", style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 90,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _imagePaths.length,
+            itemBuilder: (context, i) {
+              final path = _imagePaths[i];
+              final isNetwork = path.startsWith('http');
+              return Padding(
+                padding: const EdgeInsets.only(left: 8.0),
+                child: Stack(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _viewFullScreen(path),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: isNetwork
+                            ? Image.network(path,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    const Icon(Icons.broken_image))
+                            : Image.file(File(path),
+                                width: 80, height: 80, fit: BoxFit.cover),
+                      ),
+                    ),
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: GestureDetector(
                         onTap: () => setState(() => _imagePaths.removeAt(i)),
                         child: const CircleAvatar(
-                            radius: 10,
-                            backgroundColor: Colors.red,
-                            child: Icon(Icons.close,
-                                size: 12, color: Colors.white)))),
-              ],
-            ),
-          );
-        },
-      ),
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child:
+                              Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
   void _viewFullScreen(String path) {
     Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => Scaffold(
-                appBar: AppBar(),
-                body: PhotoView(
-                    imageProvider: path.startsWith('http')
-                        ? NetworkImage(path)
-                        : FileImage(File(path)) as ImageProvider))));
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+          body: Center(
+            child: PhotoView(
+              imageProvider: path.startsWith('http')
+                  ? NetworkImage(path)
+                  : FileImage(File(path)) as ImageProvider,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildLoadingOverlay() {
@@ -357,14 +388,19 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
       color: Colors.black54,
       child: const Center(
         child: Card(
+          margin: EdgeInsets.symmetric(horizontal: 32),
           child: Padding(
             padding: EdgeInsets.all(24.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text("جاري رفع البيانات والصور للسحابة...")
+                SizedBox(height: 20),
+                Text("جاري رفع البيانات والصور...",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                Text("يرجى عدم إغلاق التطبيق",
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),
           ),

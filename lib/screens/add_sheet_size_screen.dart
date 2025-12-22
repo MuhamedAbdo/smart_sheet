@@ -1,9 +1,11 @@
+// lib/src/screens/add_sheet_size_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart'; // مكتبة الضغط
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/sheet_size_buttons.dart';
 import 'package:smart_sheet/widgets/sheet_size_calculations.dart';
@@ -75,147 +77,45 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
   }
 
-  Future<void> _initializeCamera() async {
-    try {
-      final cameras = await availableCameras();
-      final backCamera = cameras.firstWhere(
-        (cam) => cam.lensDirection == CameraLensDirection.back,
-        orElse: () => cameras.isNotEmpty ? cameras.first : throw Exception(),
-      );
+  bool _isDuplicateRecord(String clientName, String productCode) {
+    if (clientName.isEmpty || productCode.isEmpty) return false;
+    final String newClient = clientName.trim().toLowerCase();
+    final String newCode = productCode.trim().toLowerCase();
 
-      _cameraController = CameraController(backCamera, ResolutionPreset.medium);
-      await _cameraController!.initialize();
-      if (!mounted) return;
-      setState(() => _isCameraReady = true);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("الكاميرا غير متاحة")),
-        );
+    for (var i = 0; i < _savedSheetSizesBox.length; i++) {
+      final key = _savedSheetSizesBox.keyAt(i);
+      final record = _savedSheetSizesBox.getAt(i);
+      if (record is Map) {
+        final existingClient =
+            (record['clientName'] ?? '').toString().trim().toLowerCase();
+        final existingCode =
+            (record['productCode'] ?? '').toString().trim().toLowerCase();
+        if (widget.existingDataKey != null && key == widget.existingDataKey)
+          continue;
+        if (existingClient == newClient && existingCode == newCode) return true;
       }
     }
-  }
-
-  void _loadExistingData(Map data) {
-    _processType = data['processType'] ?? 'تفصيل';
-    _cuttingType = data['cuttingType'] ?? 'دوبل';
-    clientNameController.text = data['clientName']?.toString() ?? '';
-    productNameController.text = data['productName']?.toString() ?? '';
-    productCodeController.text = data['productCode']?.toString() ?? '';
-    lengthController.text = data['length']?.toString() ?? '';
-    widthController.text = data['width']?.toString() ?? '';
-    heightController.text = data['height']?.toString() ?? '';
-
-    if (_processType == "تكسير") {
-      sheetLengthManualController.text =
-          data['sheetLengthManual']?.toString() ?? '';
-      sheetWidthManualController.text =
-          data['sheetWidthManual']?.toString() ?? '';
-    }
-
-    if (_processType == "تفصيل") {
-      isOverFlap = data['isOverFlap'] ?? false;
-      isFlap = data['isFlap'] ?? true;
-      isOneFlap = data['isOneFlap'] ?? false;
-      isTwoFlap = data['isTwoFlap'] ?? true;
-      addTwoMm = data['addTwoMm'] ?? false;
-      isFullSize = data['isFullSize'] ?? true;
-      isQuarterSize = data['isQuarterSize'] ?? false;
-      isQuarterWidth = data['isQuarterWidth'] ?? true;
-      sheetLengthResult = data['sheetLengthResult']?.toString() ?? '';
-      sheetWidthResult = data['sheetWidthResult']?.toString() ?? '';
-      productionWidth1 = data['productionWidth1']?.toString() ?? '';
-      productionHeight = data['productionHeight']?.toString() ?? '';
-      productionWidth2 = data['productionWidth2']?.toString() ?? '';
-    }
-
-    if (data.containsKey('imagePaths') && data['imagePaths'] is List) {
-      _capturedImages = (data['imagePaths'] as List)
-          .map((p) => File(p.toString()))
-          .where((file) => file.existsSync())
-          .toList();
-    }
-  }
-
-  // --- دالة التقاط الصور مع الضغط ---
-  Future<void> _captureImage() async {
-    if (!_isCameraReady || _cameraController == null) return;
-
-    setState(() => _isProcessing = true);
-
-    try {
-      final XFile image = await _cameraController!.takePicture();
-      final appDir = await getApplicationDocumentsDirectory();
-      final imageDir = Directory('${appDir.path}/sheet_size_images');
-      if (!await imageDir.exists()) await imageDir.create(recursive: true);
-
-      final String targetPath =
-          '${imageDir.path}/img_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      // ضغط الصورة لتقليل حجم الأرشيف
-      var result = await FlutterImageCompress.compressAndGetFile(
-        image.path,
-        targetPath,
-        quality: 75,
-        minWidth: 1024,
-        minHeight: 1024,
-      );
-
-      if (result != null) {
-        setState(() {
-          _capturedImages.add(File(result.path));
-          _isProcessing = false;
-        });
-        File(image.path).delete(); // حذف الصورة الأصلية الكبيرة
-      }
-    } catch (e) {
-      setState(() => _isProcessing = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("خطأ: $e")));
-    }
-  }
-
-  void _removeImage(int index) {
-    setState(() => _capturedImages.removeAt(index));
-  }
-
-  void calculateSheet() {
-    if (_processType != "تفصيل") return;
-    double length = double.tryParse(lengthController.text) ?? 0.0;
-    double width = double.tryParse(widthController.text) ?? 0.0;
-    double height = double.tryParse(heightController.text) ?? 0.0;
-    double sheetLength = 0.0;
-    double sheetWidth = 0.0;
-
-    if (isFullSize) {
-      sheetLength = ((length + width) * 2) + 4;
-    } else if (isQuarterSize) {
-      sheetLength = (isQuarterWidth ? width : length) + 4;
-    } else {
-      sheetLength = length + width + 4;
-    }
-
-    if (isOverFlap && isTwoFlap) {
-      sheetWidth = addTwoMm ? height + (width * 2) + 0.4 : height + (width * 2);
-    } else if (isOverFlap && isOneFlap) {
-      sheetWidth = addTwoMm ? height + width + 0.2 : height + width;
-    } else if (isFlap && isTwoFlap) {
-      sheetWidth = addTwoMm ? height + width + 0.4 : height + width;
-    } else if (isFlap && isOneFlap) {
-      sheetWidth = addTwoMm ? height + (width / 2) + 0.2 : height + (width / 2);
-    }
-
-    productionHeight = height.toStringAsFixed(2);
-    // ... باقي حسابات الجدول ...
-    setState(() {
-      sheetLengthResult = "طول الشيت: ${sheetLength.toStringAsFixed(2)} سم";
-      sheetWidthResult = "عرض الشيت: ${sheetWidth.toStringAsFixed(2)} سم";
-    });
+    return false;
   }
 
   Future<void> _saveSheetSize() async {
     final clientName = clientNameController.text.trim();
     final productCode = productCodeController.text.trim();
+
+    if (_isDuplicateRecord(clientName, productCode)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              "⚠️ العميل: '$clientName' مسجل مسبقاً بالكود: '$productCode'"),
+          backgroundColor: Colors.orange.shade900,
+        ),
+      );
+      return;
+    }
+
+    // تعديل هنا: حفظ اسم الملف فقط لتجنب مشكلة تغير المسارات مستقبلاً
+    final List<String> imageNames =
+        _capturedImages.map((file) => file.path.split('/').last).toList();
 
     final newRecord = <String, dynamic>{
       'processType': _processType,
@@ -225,7 +125,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'length': lengthController.text,
       'width': widthController.text,
       'height': heightController.text,
-      'imagePaths': _capturedImages.map((file) => file.path).toList(),
+      'imagePaths': imageNames, // خزن الأسماء فقط
       'date': DateTime.now().toIso8601String(),
     };
 
@@ -258,7 +158,152 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     } else {
       await _savedSheetSizesBox.add(newRecord);
     }
-    Navigator.pop(context);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("✅ تم حفظ البيانات بنجاح")));
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _initializeCamera() async {
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) return;
+      final backCamera = cameras.firstWhere(
+          (cam) => cam.lensDirection == CameraLensDirection.back,
+          orElse: () => cameras.first);
+      _cameraController = CameraController(backCamera, ResolutionPreset.medium,
+          enableAudio: false);
+      await _cameraController!.initialize();
+      if (mounted) setState(() => _isCameraReady = true);
+    } catch (e) {
+      debugPrint("Camera Error: $e");
+    }
+  }
+
+  void _loadExistingData(Map data) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final imageDirPath = '${appDir.path}/images';
+
+    setState(() {
+      _processType = data['processType'] ?? 'تفصيل';
+      _cuttingType = data['cuttingType'] ?? 'دوبل';
+      clientNameController.text = data['clientName']?.toString() ?? '';
+      productNameController.text = data['productName']?.toString() ?? '';
+      productCodeController.text = data['productCode']?.toString() ?? '';
+      lengthController.text = data['length']?.toString() ?? '';
+      widthController.text = data['width']?.toString() ?? '';
+      heightController.text = data['height']?.toString() ?? '';
+
+      // معالجة الصور المحملة: تدعم المسار القديم (الكامل) والجديد (الاسم فقط)
+      if (data['imagePaths'] != null) {
+        _capturedImages = (data['imagePaths'] as List).map((p) {
+          String path = p.toString();
+          // إذا كان المسار لا يحتوي على فاصل مجلدات، فهو اسم ملف فقط، فنبني له المسار الصحيح
+          if (!path.contains('/')) {
+            path = '$imageDirPath/$path';
+          }
+          return File(path);
+        }).toList();
+      }
+
+      sheetLengthManualController.text =
+          data['sheetLengthManual']?.toString() ?? '';
+      sheetWidthManualController.text =
+          data['sheetWidthManual']?.toString() ?? '';
+      isOverFlap = data['isOverFlap'] ?? false;
+      isFlap = data['isFlap'] ?? true;
+      isOneFlap = data['isOneFlap'] ?? false;
+      isTwoFlap = data['isTwoFlap'] ?? true;
+      addTwoMm = data['addTwoMm'] ?? false;
+      isFullSize = data['isFullSize'] ?? true;
+      isQuarterSize = data['isQuarterSize'] ?? false;
+      isQuarterWidth = data['isQuarterWidth'] ?? true;
+      sheetLengthResult = data['sheetLengthResult'] ?? "";
+      sheetWidthResult = data['sheetWidthResult'] ?? "";
+      productionWidth1 = data['productionWidth1'] ?? "";
+      productionHeight = data['productionHeight'] ?? "";
+      productionWidth2 = data['productionWidth2'] ?? "";
+    });
+  }
+
+  Future<void> _captureImage() async {
+    if (!_isCameraReady || _cameraController == null) return;
+    setState(() => _isProcessing = true);
+    try {
+      final XFile image = await _cameraController!.takePicture();
+      final appDir = await getApplicationDocumentsDirectory();
+      final imageDir = Directory('${appDir.path}/images');
+      if (!await imageDir.exists()) await imageDir.create(recursive: true);
+
+      final String fileName =
+          'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final targetPath = '${imageDir.path}/$fileName';
+
+      var compressedFile = await FlutterImageCompress.compressAndGetFile(
+          image.path, targetPath,
+          quality: 70);
+
+      if (compressedFile != null) {
+        setState(() => _capturedImages.add(File(compressedFile.path)));
+      }
+    } finally {
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  void _calculateSheet() {
+    if (_processType != "تفصيل") return;
+    double L = double.tryParse(lengthController.text) ?? 0.0;
+    double W = double.tryParse(widthController.text) ?? 0.0;
+    double H = double.tryParse(heightController.text) ?? 0.0;
+    double sL = 0.0;
+    double sW = 0.0;
+
+    if (isFullSize)
+      sL = ((L + W) * 2) + 4;
+    else if (isQuarterSize)
+      sL = isQuarterWidth ? W + 4 : L + 4;
+    else
+      sL = L + W + 4;
+
+    if (isOverFlap && isTwoFlap)
+      sW = addTwoMm ? H + (W * 2) + 0.4 : H + (W * 2);
+    else if (isOverFlap && isOneFlap)
+      sW = addTwoMm ? H + W + 0.2 : H + W;
+    else if (isFlap && isTwoFlap)
+      sW = addTwoMm ? H + W + 0.4 : H + W;
+    else if (isFlap && isOneFlap)
+      sW = addTwoMm ? H + (W / 2) + 0.2 : H + (W / 2);
+
+    productionHeight = H.toStringAsFixed(2);
+    if (isOverFlap && isTwoFlap) {
+      productionWidth1 =
+          addTwoMm ? (W + 0.2).toStringAsFixed(2) : W.toStringAsFixed(2);
+      productionWidth2 = productionWidth1;
+    } else if (isOverFlap && isOneFlap) {
+      productionWidth1 = ".....";
+      productionWidth2 =
+          addTwoMm ? (W + 0.2).toStringAsFixed(2) : W.toStringAsFixed(2);
+    } else if (isFlap && isTwoFlap) {
+      productionWidth1 = addTwoMm
+          ? ((W / 2) + 0.2).toStringAsFixed(2)
+          : (W / 2).toStringAsFixed(2);
+      productionWidth2 = productionWidth1;
+    } else if (isFlap && isOneFlap) {
+      productionWidth1 = ".....";
+      productionWidth2 = addTwoMm
+          ? ((W / 2) + 0.2).toStringAsFixed(2)
+          : (W / 2).toStringAsFixed(2);
+    } else {
+      productionWidth1 = productionWidth2 = ".....";
+    }
+
+    setState(() {
+      sheetLengthResult = "طول الشيت: ${sL.toStringAsFixed(2)} سم";
+      sheetWidthResult = "عرض الشيت: ${sW.toStringAsFixed(2)} سم";
+    });
   }
 
   @override
@@ -280,10 +325,12 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: const Text("إضافة مقاس جديد"),
+        title: Text(
+            widget.existingDataKey != null ? "تعديل مقاس" : "إضافة مقاس جديد"),
         centerTitle: true,
         actions: [
-          IconButton(icon: const Icon(Icons.save), onPressed: _saveSheetSize)
+          IconButton(
+              icon: const Icon(Icons.check_circle), onPressed: _saveSheetSize)
         ],
       ),
       body: GestureDetector(
@@ -301,22 +348,23 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 heightController: heightController,
                 sheetLengthManualController: sheetLengthManualController,
                 sheetWidthManualController: sheetWidthManualController,
-                cuttingType: _cuttingType,
-                onCuttingTypeChanged: (v) => setState(() => _cuttingType = v!),
                 processType: _processType,
+                cuttingType: _cuttingType,
                 onProcessTypeChanged: (v) => setState(() => _processType = v),
+                onCuttingTypeChanged: (v) => setState(() => _cuttingType = v!),
               ),
-              const SizedBox(height: 20),
+              const Divider(height: 32),
               SheetSizeCamera(
                 cameraController: _cameraController,
                 isCameraReady: _isCameraReady,
                 isProcessing: _isProcessing,
                 capturedImages: _capturedImages,
                 onCaptureImage: _captureImage,
-                onRemoveImage: _removeImage,
+                onRemoveImage: (i) =>
+                    setState(() => _capturedImages.removeAt(i)),
               ),
               if (_processType == "تفصيل") ...[
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 SheetSizeCheckboxes(
                   isOverFlap: isOverFlap,
                   isFlap: isFlap,
@@ -354,19 +402,20 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                   onQuarterWidthChanged: (v) =>
                       setState(() => isQuarterWidth = v!),
                 ),
-                const SizedBox(height: 20),
-                SheetSizeButtons(onCalculate: calculateSheet, onSave: () {}),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                SheetSizeButtons(
+                    onCalculate: _calculateSheet, onSave: _saveSheetSize),
+                const SizedBox(height: 16),
                 SheetSizeCalculations(
                     sheetLengthResult: sheetLengthResult,
                     sheetWidthResult: sheetWidthResult),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 SheetSizeProductionTable(
-                  productionWidth1: productionWidth1,
-                  productionHeight: productionHeight,
-                  productionWidth2: productionWidth2,
-                ),
+                    productionWidth1: productionWidth1,
+                    productionHeight: productionHeight,
+                    productionWidth2: productionWidth2),
               ],
+              const SizedBox(height: 40),
             ],
           ),
         ),

@@ -1,5 +1,3 @@
-// lib/src/models/worker_model.dart
-
 import 'package:hive_flutter/hive_flutter.dart';
 import 'worker_action_model.dart';
 
@@ -26,16 +24,25 @@ class Worker extends HiveObject {
     required this.name,
     required this.phone,
     required this.job,
-    required List<WorkerAction> actions,
+    List<WorkerAction>? actions, // جعلناها اختيارية
     this.hasMedicalInsurance = false,
   }) {
-    this.actions =
-        HiveList(Hive.box<WorkerAction>('worker_actions'), objects: actions);
+    // تم نقل تهيئة الـ HiveList لضمان عدم استدعاء الصندوق قبل فتحه
+    final box = Hive.isBoxOpen('worker_actions')
+        ? Hive.box<WorkerAction>('worker_actions')
+        : null;
+
+    if (box != null) {
+      this.actions = HiveList(box, objects: actions ?? []);
+    }
   }
 
+  // دالة لإعادة الربط يدوياً إذا لزم الأمر
   void reconnectActionsBox() {
-    actions = HiveList(Hive.box<WorkerAction>('worker_actions'),
-        objects: actions.toList());
+    if (Hive.isBoxOpen('worker_actions')) {
+      actions = HiveList(Hive.box<WorkerAction>('worker_actions'),
+          objects: actions.toList());
+    }
   }
 
   Map<String, dynamic> toJson() {

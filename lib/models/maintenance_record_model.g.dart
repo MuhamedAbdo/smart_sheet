@@ -17,6 +17,7 @@ class MaintenanceRecordAdapter extends TypeAdapter<MaintenanceRecord> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return MaintenanceRecord(
+      id: fields[12] as String?,
       machine: fields[0] as String,
       isFixed: fields[1] as bool,
       issueDate: fields[2] as String,
@@ -35,7 +36,7 @@ class MaintenanceRecordAdapter extends TypeAdapter<MaintenanceRecord> {
   @override
   void write(BinaryWriter writer, MaintenanceRecord obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.machine)
       ..writeByte(1)
@@ -59,7 +60,9 @@ class MaintenanceRecordAdapter extends TypeAdapter<MaintenanceRecord> {
       ..writeByte(10)
       ..write(obj.notes)
       ..writeByte(11)
-      ..write(obj.imagePaths);
+      ..write(obj.imagePaths)
+      ..writeByte(12)
+      ..write(obj.id);
   }
 
   @override

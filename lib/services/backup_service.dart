@@ -1,3 +1,5 @@
+// lib/src/services/backup_service.dart
+
 import 'dart:io';
 import 'dart:async';
 import 'package:archive/archive_io.dart';
@@ -10,7 +12,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
-// --- دالة البداية المطلوبة لإصدار v9.x ---
 @pragma('vm:entry-point')
 void startCallback() {
   FlutterForegroundTask.setTaskHandler(MyBackupTaskHandler());
@@ -33,10 +34,7 @@ class BackupService {
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  // ---------------------------------------------------------
-  // ☁️ العمليات السحابية (Cloud Operations)
-  // ---------------------------------------------------------
-
+  // --- رفع النسخة للسحاب ---
   Future<String?> uploadToSupabase() async {
     try {
       if (kIsWeb) return 'غير مدعوم على الويب.';
@@ -46,7 +44,7 @@ class BackupService {
       await _startService();
 
       final localBackupPath = await _createLocalBackupFile().timeout(
-          const Duration(seconds: 60),
+          const Duration(seconds: 120),
           onTimeout: () =>
               throw TimeoutException('عملية الضغط استغرقت وقتاً طويلاً'));
 
@@ -73,7 +71,7 @@ class BackupService {
             backupFile,
             fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
           )
-          .timeout(const Duration(minutes: 5));
+          .timeout(const Duration(minutes: 20));
 
       if (await backupFile.exists()) await backupFile.delete();
 
@@ -94,6 +92,7 @@ class BackupService {
     }
   }
 
+  // --- جلب قائمة النسخ المتاحة ---
   Future<List<FileObject>> listBackups() async {
     try {
       final user = _supabaseClient.auth.currentUser;
@@ -106,6 +105,7 @@ class BackupService {
     }
   }
 
+  // --- تحميل واستعادة من السحاب ---
   Future<String?> downloadAndRestore(String fullPath) async {
     try {
       final tempDir = await getTemporaryDirectory();
@@ -115,6 +115,8 @@ class BackupService {
           await _supabaseClient.storage.from(BUCKET_NAME).download(fullPath);
 
       await File(tempZipPath).writeAsBytes(bytes);
+
+      // تنفيذ الاستعادة
       final result = await _restoreFromZipPath(tempZipPath);
 
       if (await File(tempZipPath).exists()) await File(tempZipPath).delete();
@@ -124,15 +126,11 @@ class BackupService {
     }
   }
 
-  // ---------------------------------------------------------
-  // 📱 العمليات المحلية (Local Operations)
-  // ---------------------------------------------------------
-
+  // --- إنشاء نسخة محلياً وحفظها في ملف ---
   Future<String?> createBackup() async {
     try {
       final localPath = await _createLocalBackupFile();
       if (localPath == null) return '❌ فشل إنشاء الملف';
-
       final bytes = await File(localPath).readAsBytes();
       final String? saved = await FilePicker.platform.saveFile(
         fileName: _backupFileName,
@@ -140,7 +138,6 @@ class BackupService {
         type: FileType.custom,
         allowedExtensions: ['zip'],
       );
-
       if (await File(localPath).exists()) await File(localPath).delete();
       return saved != null ? '✅ تم حفظ النسخة بنجاح' : null;
     } catch (e) {
@@ -148,6 +145,7 @@ class BackupService {
     }
   }
 
+  // --- استعادة من ملف محلي ---
   Future<String?> restoreBackup() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -161,10 +159,38 @@ class BackupService {
     }
   }
 
-  // ---------------------------------------------------------
-  // ⚙️ المساعدات الداخلية (Internal Helpers)
-  // ---------------------------------------------------------
+  // --- المنطق الجوهري للاستعادة (تم تعديله) ---
+  Future<String?> _restoreFromZipPath(String zipPath) async {
+    try {
+      // 1. إغلاق Hive تماماً لتحرير الملفات من الذاكرة (هام جداً للمحاكي)
+      await Hive.close();
 
+      final appDir = await getApplicationDocumentsDirectory();
+      final appDirInstance = Directory(appDir.path);
+
+      // 2. مسح ملفات قاعدة البيانات الحالية لفتح المجال للجديدة
+      if (appDirInstance.existsSync()) {
+        final entities = appDirInstance.listSync();
+        for (var entity in entities) {
+          try {
+            entity.deleteSync(recursive: true);
+          } catch (e) {
+            debugPrint("تعذر حذف ملف: ${entity.path}");
+          }
+        }
+      }
+
+      // 3. فك الضغط في مجلد التطبيق
+      await compute(_restoreBackupInternal, [zipPath, appDir.path]);
+
+      // نرجع رمز النجاح لكي تقوم الواجهة بعمل إغلاق للتطبيق أو إعادة تشغيل
+      return 'SUCCESS_RESTORE';
+    } catch (e) {
+      return '❌ فشل فك الضغط: $e';
+    }
+  }
+
+  // --- الدوال المساعدة والخدمات الخلفية ---
   void _initService() {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
@@ -175,9 +201,7 @@ class BackupService {
         priority: NotificationPriority.LOW,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
-        showNotification: true,
-        playSound: false,
-      ),
+          showNotification: true, playSound: false),
       foregroundTaskOptions: ForegroundTaskOptions(
         eventAction: ForegroundTaskEventAction.nothing(),
         autoRunOnBoot: false,
@@ -227,22 +251,7 @@ class BackupService {
     return tempZipPath;
   }
 
-  Future<String?> _restoreFromZipPath(String zipPath) async {
-    try {
-      await Hive.close();
-      final appDir = await getApplicationDocumentsDirectory();
-      final appDirInstance = Directory(appDir.path);
-      if (appDirInstance.existsSync()) {
-        appDirInstance.listSync().forEach((e) => e.deleteSync(recursive: true));
-      }
-      await appDirInstance.create(recursive: true);
-      await compute(_restoreBackupInternal, [zipPath, appDir.path]);
-      return 'SUCCESS_RESTORE';
-    } catch (e) {
-      return '❌ فشل فك الضغط: $e';
-    }
-  }
-
+  // --- العمليات في الخلفية (Isolates) ---
   @pragma('vm:entry-point')
   static void _createBackupInternal(List<String> args) {
     final encoder = ZipFileEncoder();

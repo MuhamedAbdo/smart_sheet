@@ -37,29 +37,23 @@ Future<void> main() async {
     WidgetsFlutterBinding.ensureInitialized();
     HttpOverrides.global = MyHttpOverrides();
 
-    // 🔔 تهيئة الإشعارات المحلية
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-    await Supabase.initialize(
-      url: supabaseUrl.trim(),
-      anonKey: supabaseAnonKey.trim(),
-    );
+    // تهيئة Supabase والإشعارات
+    await Future.wait([
+      _initializeNotifications(),
+      Supabase.initialize(
+        url: supabaseUrl.trim(),
+        anonKey: supabaseAnonKey.trim(),
+      ),
+    ]);
 
     if (!kIsWeb) {
       await Hive.initFlutter();
-      Hive.registerAdapter(WorkerAdapter());
-      Hive.registerAdapter(WorkerActionAdapter());
-      Hive.registerAdapter(FinishedProductAdapter());
-      Hive.registerAdapter(MaintenanceRecordAdapter());
-      Hive.registerAdapter(StoreEntryAdapter());
+      _registerAdapters();
 
-      final boxes = [
+      // خطوة هامة: فتح صندوق الأفعال أولاً لأنه مطلوب داخل الـ Constructor الخاص بالعمال
+      await Hive.openBox<WorkerAction>('worker_actions');
+
+      final otherBoxes = [
         'settings',
         'measurements',
         'serial_setup_state',
@@ -76,7 +70,6 @@ Future<void> main() async {
         'store_production',
         'store_staple',
         'store_crushing',
-        'worker_actions',
         'workers',
         'workers_flexo',
         'workers_production',
@@ -85,12 +78,13 @@ Future<void> main() async {
         'finished_products'
       ];
 
-      for (var box in boxes) {
-        await _openSafeBox(box);
+      // فتح باقي الصناديق
+      for (String boxName in otherBoxes) {
+        await _openSafeBox(boxName);
       }
     }
   } catch (e) {
-    debugPrint("Initialization Critical Error: $e");
+    debugPrint("❌ Initialization Critical Error: $e");
   }
 
   runApp(
@@ -104,11 +98,33 @@ Future<void> main() async {
   );
 }
 
-Future<void> _openSafeBox<T>(String boxName) async {
+Future<void> _initializeNotifications() async {
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+  const InitializationSettings initializationSettings =
+      InitializationSettings(android: initializationSettingsAndroid);
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+}
+
+void _registerAdapters() {
+  // ترتيب التسجيل لا يهم ولكن يفضل البدء بالأبسط
+  Hive.registerAdapter(WorkerActionAdapter());
+  Hive.registerAdapter(WorkerAdapter());
+  Hive.registerAdapter(FinishedProductAdapter());
+  Hive.registerAdapter(MaintenanceRecordAdapter());
+  Hive.registerAdapter(StoreEntryAdapter());
+}
+
+Future<void> _openSafeBox(String boxName) async {
   try {
-    await Hive.openBox<T>(boxName);
+    if (!Hive.isBoxOpen(boxName)) {
+      await Hive.openBox(boxName);
+    }
   } catch (e) {
-    debugPrint("⚠️ Box $boxName failed. Opening as dynamic.");
+    debugPrint("⚠️ Box $boxName failed. Re-trying... Error: $e");
+    // في حال فشل النوع المحدد، نفتحه كـ dynamic لتجنب توقف التطبيق
     await Hive.openBox(boxName);
   }
 }

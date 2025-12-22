@@ -5,7 +5,8 @@ import 'package:hive/hive.dart';
 part 'maintenance_record_model.g.dart';
 
 @HiveType(typeId: 6)
-class MaintenanceRecord {
+class MaintenanceRecord extends HiveObject {
+  // إضافة HiveObject تسهل التعامل مع الـ Key
   @HiveField(0)
   final String machine;
 
@@ -42,7 +43,11 @@ class MaintenanceRecord {
   @HiveField(11)
   final List<String> imagePaths;
 
+  @HiveField(12) // حقل جديد للـ ID
+  final String? id;
+
   MaintenanceRecord({
+    this.id, // اجعله اختيارياً
     required this.machine,
     required this.isFixed,
     required this.issueDate,

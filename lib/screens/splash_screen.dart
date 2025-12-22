@@ -1,5 +1,3 @@
-// lib/src/screens/splash/splash_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
@@ -20,19 +18,24 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _navigateToHome() async {
-    await Future.delayed(const Duration(seconds: 1, milliseconds: 500));
-    if (mounted) {
+    await Future.delayed(const Duration(milliseconds: 1800));
+
+    if (!mounted) return;
+
+    try {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const HomeScreen()),
       );
+    } catch (e) {
+      debugPrint("Navigation Error: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // ✅ استخدام context.read لتجنب إعادة البناء
-    final isDarkMode = context.read<ThemeProvider>().isDarkTheme;
+    final themeProvider = context.read<ThemeProvider>();
+    final isDarkMode = themeProvider.isDarkTheme;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -40,17 +43,22 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              isDarkMode
-                  ? 'assets/images/logo_dark.jpg'
-                  : 'assets/images/logo_light.jpg',
-              width: 120,
-              height: 120,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.factory, size: 80, color: Colors.grey);
-              },
+            SizedBox(
+              width: 150,
+              height: 150,
+              child: Image.asset(
+                isDarkMode
+                    ? 'assets/images/logo_dark.jpg'
+                    : 'assets/images/logo_light.jpg',
+                // التعديل هنا: BoxFit بدلاً من ContentType
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(Icons.factory,
+                      size: 80, color: Colors.grey);
+                },
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 30),
             Text(
               'Smart Sheet',
               style: TextStyle(
@@ -59,18 +67,19 @@ class _SplashScreenState extends State<SplashScreen> {
                 color: isDarkMode ? Colors.white : Colors.black,
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'جاري التحميل...',
-              style: TextStyle(
-                fontSize: 16,
-                color: isDarkMode ? Colors.grey[300] : Colors.grey,
+            const SizedBox(height: 20),
+            CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isDarkMode ? Colors.blue[300]! : Colors.blue[700]!,
               ),
             ),
-            const SizedBox(height: 12),
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isDarkMode ? Colors.blue[300]! : Colors.blue,
+            const SizedBox(height: 15),
+            Text(
+              'جاري تحضير البيانات...',
+              style: TextStyle(
+                fontSize: 14,
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
               ),
             ),
           ],
