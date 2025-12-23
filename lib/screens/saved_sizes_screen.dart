@@ -1,4 +1,3 @@
-// (Imports كما هي...)
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -24,22 +23,32 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
   @override
   void initState() {
     super.initState();
-    _openBoxSafe();
+    _initBox();
   }
 
-  Future<void> _openBoxSafe() async {
-    if (!Hive.isBoxOpen('savedSheetSizes'))
-      await Hive.openBox('savedSheetSizes');
-    setState(() {
-      _savedSheetSizesBox = Hive.box('savedSheetSizes');
-      _isLoading = false;
-    });
+  void _initBox() {
+    if (Hive.isBoxOpen('savedSheetSizes')) {
+      setState(() {
+        _savedSheetSizesBox = Hive.box('savedSheetSizes');
+        _isLoading = false;
+      });
+    } else {
+      Hive.openBox('savedSheetSizes').then((box) {
+        if (mounted) {
+          setState(() {
+            _savedSheetSizesBox = box;
+            _isLoading = false;
+          });
+        }
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading)
+    if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       drawer: const AppDrawer(),
@@ -50,29 +59,33 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             : const Text("📄 المقاسات المحفوظة"),
         actions: [
           IconButton(
-              icon: Icon(isSearching ? Icons.close : Icons.search),
-              onPressed: () => setState(() {
-                    isSearching = !isSearching;
-                    if (!isSearching) searchQuery = "";
-                  }))
+            icon: Icon(isSearching ? Icons.close : Icons.search),
+            onPressed: () => setState(() {
+              isSearching = !isSearching;
+              if (!isSearching) searchQuery = "";
+            }),
+          )
         ],
       ),
       body: ValueListenableBuilder(
         valueListenable: _savedSheetSizesBox!.listenable(),
         builder: (context, Box box, _) {
-          if (box.isEmpty)
-            return const Center(child: Text("🚫 لا توجد مقاسات محفوظة."));
           final entries = _getFilteredEntries(box);
+          if (entries.isEmpty) {
+            return const Center(
+                child: Text("🚫 لا توجد نتائج للبحث أو الصندوق فارغ."));
+          }
           return ListView.builder(
             itemCount: entries.length,
+            cacheExtent: 1000,
             itemBuilder: (context, index) {
               final entry = entries[index];
               return SavedSizeCard(
                 record: entry.value,
                 onEdit: () => _navigateToEdit(entry.key, entry.value),
                 onDelete: () => _confirmDelete(entry.key),
-                onPrint: (data) =>
-                    _openInkReportWithSheetData(context, data), // هنا تم الحل
+                // تم تعديل هذا السطر ليمرر البيانات للدالة
+                onPrint: (data) => _openInkReportWithSheetData(context, data),
               );
             },
           );
@@ -81,93 +94,111 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     );
   }
 
-  // (باقي الدوال _getFilteredEntries, _navigateToEdit, _confirmDelete تظل كما هي في كودك)
-
-  void _openInkReportWithSheetData(
-      BuildContext context, Map<String, dynamic> dataFromCard) async {
-    final List<String> finalImages = [];
-    final appDir = await getApplicationDocumentsDirectory();
-    final imageDir = Directory('${appDir.path}/images');
-
-    if (dataFromCard['imagePaths'] is List) {
-      for (var pathObj in dataFromCard['imagePaths']) {
-        String path = pathObj.toString();
-        if (path.startsWith('http')) {
-          finalImages.add(path);
-          continue;
-        }
-        String fileName = path.contains('/') ? path.split('/').last : path;
-        String localPath = '${imageDir.path}/$fileName';
-        if (File(localPath).existsSync()) finalImages.add(localPath);
-      }
-    }
-
-    final initialData = {
-      'date': DateTime.now().toString().split(' ')[0],
-      'clientName': dataFromCard['clientName'] ?? '',
-      'product': dataFromCard['productName'] ?? '',
-      'productCode': dataFromCard['productCode'] ?? '',
-      'dimensions': {
-        'length': dataFromCard['length']?.toString() ?? '',
-        'width': dataFromCard['width']?.toString() ?? '',
-        'height': dataFromCard['height']?.toString() ?? '',
-      },
-      'imagePaths': finalImages,
-      'notes': 'مستورد من قسم المقاسات',
-    };
-
-    if (mounted) {
-      Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => InkReportScreen(initialData: initialData)));
-    }
-  }
-
   List<MapEntry<dynamic, Map<String, dynamic>>> _getFilteredEntries(Box box) {
+    final query = searchQuery.toLowerCase().trim();
     return box
         .toMap()
         .entries
         .where((entry) {
           final record = entry.value as Map;
-          final q = searchQuery.toLowerCase().trim();
-          if (q.isEmpty) return true;
-          return (record['clientName']?.toString() ?? '')
-                  .toLowerCase()
-                  .contains(q) ||
-              (record['productName']?.toString() ?? '')
-                  .toLowerCase()
-                  .contains(q) ||
-              (record['productCode']?.toString() ?? '').toLowerCase() == q;
+          if (query.isEmpty) return true;
+          final name = (record['clientName']?.toString() ?? '').toLowerCase();
+          final product =
+              (record['productName']?.toString() ?? '').toLowerCase();
+          final code = (record['productCode']?.toString() ?? '').toLowerCase();
+          return name.contains(query) ||
+              product.contains(query) ||
+              code.contains(query); // تعديل بسيط ليدعم جزء من الكود
         })
         .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
         .toList();
   }
 
+  void _openInkReportWithSheetData(
+      BuildContext context, Map<String, dynamic> dataFromCard) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final List<String> finalImages = [];
+      final appDir = await getApplicationDocumentsDirectory();
+      final imageDir = Directory('${appDir.path}/images');
+
+      if (dataFromCard['imagePaths'] is List) {
+        for (var pathObj in dataFromCard['imagePaths']) {
+          String path = pathObj.toString();
+          if (path.startsWith('http')) {
+            finalImages.add(path);
+          } else {
+            // استخراج اسم الملف فقط لضمان بناء المسار الصحيح
+            String fileName = path.split(Platform.pathSeparator).last;
+            String localPath = '${imageDir.path}/$fileName';
+
+            if (await File(localPath).exists()) {
+              finalImages.add(localPath);
+            }
+          }
+        }
+      }
+
+      final initialData = {
+        'date': DateTime.now().toString().split(' ')[0],
+        'clientName': dataFromCard['clientName'] ?? '',
+        'product': dataFromCard['productName'] ?? '',
+        'productCode': dataFromCard['productCode'] ?? '',
+        'dimensions': {
+          'length': dataFromCard['length']?.toString() ?? '',
+          'width': dataFromCard['width']?.toString() ?? '',
+          'height': dataFromCard['height']?.toString() ?? '',
+        },
+        'imagePaths': finalImages,
+        'notes': 'مستورد من قسم المقاسات',
+      };
+
+      if (mounted) {
+        Navigator.pop(context); // إغلاق مؤشر التحميل
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => InkReportScreen(initialData: initialData)),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      debugPrint("Error preparing report: $e");
+    }
+  }
+
   void _navigateToEdit(dynamic key, Map<String, dynamic> data) {
     Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) =>
-                AddSheetSizeScreen(existingData: data, existingDataKey: key)));
+      context,
+      MaterialPageRoute(
+          builder: (_) =>
+              AddSheetSizeScreen(existingData: data, existingDataKey: key)),
+    );
   }
 
   void _confirmDelete(dynamic key) {
     showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-                title: const Text("تأكيد"),
-                content: const Text("حذف؟"),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text("لا")),
-                  TextButton(
-                      onPressed: () {
-                        _savedSheetSizesBox!.delete(key);
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text("نعم"))
-                ]));
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("تأكيد الحذف"),
+        content: const Text("هل أنت متأكد من حذف هذا المقاس؟"),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          TextButton(
+            onPressed: () {
+              _savedSheetSizesBox!.delete(key);
+              Navigator.pop(ctx);
+            },
+            child: const Text("حذف", style: TextStyle(color: Colors.red)),
+          )
+        ],
+      ),
+    );
   }
 }

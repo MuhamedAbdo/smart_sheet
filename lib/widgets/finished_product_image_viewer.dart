@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'dart:io';
-import 'package:smart_sheet/widgets/full_screen_image_page.dart'; // استيراد صفحة العرض الكامل
+import 'package:smart_sheet/widgets/full_screen_image_page.dart';
 
 class FinishedProductImageViewer extends StatelessWidget {
-  final List<String> imagePaths; // تلقي مسارات الصور كـ String
+  final List<String> imagePaths;
 
   const FinishedProductImageViewer({
     super.key,
@@ -15,7 +15,7 @@ class FinishedProductImageViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (imagePaths.isEmpty) {
-      return const SizedBox.shrink(); // لا شيء لعرضه
+      return const SizedBox.shrink();
     }
 
     return SizedBox(
@@ -23,69 +23,76 @@ class FinishedProductImageViewer extends StatelessWidget {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: imagePaths.length,
-        itemBuilder: (context, imgIndex) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0),
-          child: GestureDetector(
-            onTap: () => _showFullScreenImage(
-              context,
-              imagePaths
-                  .map((path) => File(path))
-                  .toList(), // تحويل المسارات إلى ملفات
-              imgIndex,
-            ),
-            child: FutureBuilder<bool>(
-              future:
-                  File(imagePaths[imgIndex]).exists(), // التحقق من وجود الملف
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.done) {
-                  if (snapshot.hasData && snapshot.data!) {
-                    // الملف موجود، عرض الصورة
-                    return Image.file(
-                      File(imagePaths[imgIndex]),
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                    );
-                  } else {
-                    // الملف غير موجود، عرض رمز خطأ
-                    return Container(
-                      width: 80,
-                      height: 80,
-                      color: Colors.grey[300],
-                      child: const Icon(
-                        Icons.broken_image,
-                        color: Colors.red,
+        itemBuilder: (context, imgIndex) {
+          final path = imagePaths[imgIndex];
+          final bool isNetwork = path.startsWith('http');
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: GestureDetector(
+              onTap: () => _showFullScreenImage(
+                context,
+                imagePaths, // نرسل النصوص مباشرة الآن
+                imgIndex,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: isNetwork
+                    ? Image.network(
+                        path,
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return _buildLoadingPlaceholder();
+                        },
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildErrorPlaceholder(),
+                      )
+                    : Image.file(
+                        File(path),
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildErrorPlaceholder(),
                       ),
-                    );
-                  }
-                } else {
-                  // أثناء التحقق، عرض مؤشر تقدم
-                  return Container(
-                    width: 80,
-                    height: 80,
-                    color: Colors.grey[300],
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
-                    ),
-                  );
-                }
-              },
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
+  // ويدجت التحميل
+  Widget _buildLoadingPlaceholder() {
+    return Container(
+      width: 80,
+      height: 80,
+      color: Colors.grey[200],
+      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+    );
+  }
+
+  // ويدجت الخطأ
+  Widget _buildErrorPlaceholder() {
+    return Container(
+      width: 80,
+      height: 80,
+      color: Colors.grey[300],
+      child: const Icon(Icons.broken_image, color: Colors.red),
+    );
+  }
+
   void _showFullScreenImage(
-      BuildContext context, List<File> images, int initialIndex) {
+      BuildContext context, List<String> images, int initialIndex) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FullScreenImagePage(
-          images: images,
+          imagesPaths: images, // تم تغيير المسمى ليتوافق مع التعديل الأخير
           initialIndex: initialIndex,
         ),
       ),

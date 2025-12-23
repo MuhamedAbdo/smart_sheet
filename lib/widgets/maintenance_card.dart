@@ -1,9 +1,7 @@
-// lib/src/widgets/maintenance/maintenance_card.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../models/maintenance_record_model.dart';
-import '../../widgets/full_screen_image_page.dart'; // تأكد من المسار الصحيح
+import '../../widgets/full_screen_image_page.dart';
 
 class MaintenanceCard extends StatelessWidget {
   final MaintenanceRecord record;
@@ -20,238 +18,107 @@ class MaintenanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
-    final brightness = theme.brightness;
-
     final imagePaths = record.imagePaths;
-
-    Widget buildStatusBadge() {
-      if (record.isFixed) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.green.shade100.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.green.shade400),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.check, size: 16, color: Colors.green),
-              SizedBox(width: 4),
-              Text(
-                'تم الإصلاح',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        );
-      } else {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.orange.shade100.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.orange.shade400),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.close, size: 16, color: Colors.orange),
-              SizedBox(width: 4),
-              Text(
-                'قيد الصيانة',
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-    }
-
-    // دالة مساعدة لضبط الشفافية (بدون withOpacity deprecated)
-    Color? withOpacity(Color? color, double opacity) {
-      if (color == null) return null;
-      final alpha = (opacity * 255).clamp(0, 255).toInt();
-      return color.withAlpha(alpha);
-    }
-
-    final dimmedTextColor = withOpacity(textTheme.bodyMedium?.color, 0.8);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      clipBehavior: Clip.antiAlias,
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // --- الرأس: اسم الماكينة وحالة الإصلاح ---
             Row(
               children: [
-                Icon(
-                  Icons.build,
-                  color: colorScheme.primary,
-                  size: 24,
-                ),
+                Icon(Icons.settings_suggest,
+                    color: colorScheme.primary, size: 28),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     record.machine,
                     style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
-                    ),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary),
                   ),
                 ),
-                buildStatusBadge(),
+                _buildStatusBadge(record.isFixed),
               ],
             ),
-            const SizedBox(height: 14),
-            _buildSectionTitle('📅 التواريخ', color: colorScheme.primary),
-            _buildInfoRow('تاريخ العطل:', record.issueDate,
-                labelColor: dimmedTextColor,
-                valueColor: textTheme.bodyMedium?.color),
-            _buildInfoRow('تاريخ التبليغ:', record.reportDate,
-                labelColor: dimmedTextColor,
-                valueColor: textTheme.bodyMedium?.color),
-            _buildInfoRow('تاريخ التنفيذ:', record.actionDate,
-                labelColor: dimmedTextColor,
-                valueColor: textTheme.bodyMedium?.color),
-            const SizedBox(height: 10),
-            _buildSectionTitle('🔧 المعلومات الفنية',
-                color: colorScheme.primary),
-            _buildInfoRow('وصف العطل:', record.issueDescription,
-                labelColor: dimmedTextColor,
-                valueColor: textTheme.bodyMedium?.color),
-            _buildInfoRow('الإجراء المتخذ:', record.actionTaken,
-                labelColor: dimmedTextColor,
-                valueColor: textTheme.bodyMedium?.color),
-            _buildInfoRow('مكان الإصلاح:', record.repairLocation,
-                labelColor: dimmedTextColor,
-                valueColor: textTheme.bodyMedium?.color),
-            _buildInfoRow('تم الإصلاح بواسطة:', record.repairedBy,
-                labelColor: dimmedTextColor,
-                valueColor: textTheme.bodyMedium?.color),
-            _buildInfoRow('تم التبليغ إلى:', record.reportedToTechnician,
-                labelColor: dimmedTextColor,
-                valueColor: textTheme.bodyMedium?.color),
-            const SizedBox(height: 10),
+            const Divider(height: 24),
+
+            // --- قسم التواريخ (كاملة) ---
+            _buildSectionHeader(
+                Icons.calendar_month, "التواريخ", colorScheme.primary),
+            _buildInfoRow(Icons.event_note, "تاريخ العطل", record.issueDate),
+            _buildInfoRow(Icons.notification_important, "تاريخ التبليغ",
+                record.reportDate),
+            _buildInfoRow(Icons.task_alt, "تاريخ التنفيذ", record.actionDate),
+
+            const SizedBox(height: 12),
+
+            // --- قسم التفاصيل الفنية (كاملة) ---
+            _buildSectionHeader(
+                Icons.build, "التفاصيل الفنية", colorScheme.primary),
+            _buildInfoRow(
+                Icons.report_problem, "وصف العطل", record.issueDescription),
+            _buildInfoRow(Icons.handyman, "الإجراء المتخذ", record.actionTaken),
+            _buildInfoRow(
+                Icons.location_on, "مكان الإصلاح", record.repairLocation),
+            _buildInfoRow(Icons.person, "بواسطة", record.repairedBy),
+
+            // --- قسم الملاحظات (يظهر فقط إذا وجدت) ---
             if (record.notes != null && record.notes!.isNotEmpty) ...[
-              _buildSectionTitle('📝 الملاحظات', color: colorScheme.primary),
+              const SizedBox(height: 12),
+              _buildSectionHeader(
+                  Icons.notes, "الملاحظات", colorScheme.primary),
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: brightness == Brightness.dark
-                      ? Colors.grey[800]
-                      : Colors.grey[50],
+                  color: theme.brightness == Brightness.dark
+                      ? Colors.white10
+                      : Colors.grey[100],
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: brightness == Brightness.dark
-                        ? Colors.grey[700]!
-                        : Colors.grey[300]!,
-                  ),
                 ),
-                child: Text(
-                  record.notes!,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: textTheme.bodyMedium?.color,
-                  ),
-                ),
+                child:
+                    Text(record.notes!, style: const TextStyle(fontSize: 13)),
               ),
-              const SizedBox(height: 10),
             ],
+
+            // --- قسم الصور (تصميم ListView) ---
             if (imagePaths.isNotEmpty) ...[
-              _buildSectionTitle('📸 الصور المرفقة',
-                  color: colorScheme.primary),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              _buildSectionHeader(
+                  Icons.photo_library, "الصور المرفقة", colorScheme.primary),
               SizedBox(
                 height: 80,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: imagePaths.length,
                   itemBuilder: (context, index) {
-                    final file = File(imagePaths[index]);
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 10),
-                      child: GestureDetector(
-                        onTap: () {
-                          // جلب الصور الموجودة فقط
-                          final validImages = imagePaths
-                              .map((path) => File(path))
-                              .where((f) => f.existsSync())
-                              .toList();
-
-                          if (validImages.isEmpty) return;
-
-                          final currentIndex = validImages
-                              .indexWhere((f) => f.path == file.path);
-                          if (currentIndex == -1) return;
-
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => FullScreenImagePage(
-                                images: validImages,
-                                initialIndex: currentIndex,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          width: 70,
-                          height: 70,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade400),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: file.existsSync()
-                                ? Image.file(file, fit: BoxFit.cover)
-                                : Container(
-                                    color: brightness == Brightness.dark
-                                        ? Colors.grey[800]
-                                        : Colors.grey[200],
-                                    child: const Icon(
-                                      Icons.broken_image,
-                                      color: Colors.grey,
-                                      size: 20,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                    );
+                    final path = imagePaths[index];
+                    final isNetwork = path.startsWith('http');
+                    return _buildImageThumbnail(
+                        context, path, isNetwork, index, imagePaths);
                   },
                 ),
               ),
-              const SizedBox(height: 10),
             ],
+
+            const SizedBox(height: 20),
+
+            // --- أزرار التحكم ---
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: onEdit,
-                    icon:
-                        Icon(Icons.edit, size: 18, color: colorScheme.primary),
-                    label: Text(
-                      'تعديل',
-                      style: TextStyle(color: colorScheme.primary),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text("تعديل"),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -260,68 +127,131 @@ class MaintenanceCard extends StatelessWidget {
                     onPressed: onDelete,
                     icon:
                         const Icon(Icons.delete, size: 18, color: Colors.white),
-                    label: const Text('حذف',
+                    label: const Text("حذف",
                         style: TextStyle(color: Colors.white)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                        backgroundColor: Colors.red.shade700),
                   ),
                 ),
               ],
-            ),
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title, {required Color color}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.bold,
-          color: color,
-        ),
-      ),
-    );
-  }
+  // --- دوال مساعدة للبناء (Helpers) ---
 
-  Widget _buildInfoRow(String label, String value,
-      {Color? labelColor, Color? valueColor}) {
-    if (value.isEmpty) return const SizedBox.shrink();
+  Widget _buildSectionHeader(IconData icon, String title, Color color) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: labelColor,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: valueColor,
-              ),
-            ),
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: TextStyle(
+                fontSize: 14, fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    if (value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: Colors.grey),
+          const SizedBox(width: 8),
+          Text("$label: ",
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: Colors.grey)),
+          Expanded(
+            child: Text(value,
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(bool isFixed) {
+    final color = isFixed ? Colors.green : Colors.orange;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(isFixed ? Icons.check_circle : Icons.pending,
+              size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            isFixed ? "تم الإصلاح" : "تحت الصيانة",
+            style: TextStyle(
+                color: color, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageThumbnail(BuildContext context, String path, bool isNetwork,
+      int index, List<String> allPaths) {
+    // فحص إضافي للتأكد إذا كان المسار يبدأ بـ http أو https
+    final bool startsWithHttp = path.startsWith('http');
+
+    return GestureDetector(
+        onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FullScreenImagePage(
+                    imagesPaths: allPaths, initialIndex: index),
+              ));
+        },
+        child: Container(
+          margin: const EdgeInsets.only(left: 10),
+          width: 80,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: startsWithHttp
+                ? Image.network(
+                    path,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) => progress ==
+                            null
+                        ? child
+                        : const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2)),
+                    errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.broken_image, color: Colors.red),
+                  )
+                : Image.file(
+                    File(path),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                        Icons.image_not_supported,
+                        color: Colors.grey),
+                  ),
+          ),
+        ));
   }
 }

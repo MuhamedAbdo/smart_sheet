@@ -18,7 +18,6 @@ class InkReportScreen extends StatefulWidget {
 }
 
 class _InkReportScreenState extends State<InkReportScreen> {
-  // تم تغيير النوع إلى nullable للتعامل مع مرحلة ما قبل التحميل
   Box? _inkReportBox;
   bool _isBoxLoading = true;
 
@@ -32,7 +31,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
   @override
   void initState() {
     super.initState();
-    _openBoxSafe(); // فتح الصندوق بأمان عند الدخول للشاشة
+    _openBoxSafe();
 
     _searchController.addListener(() {
       setState(() {
@@ -41,7 +40,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     });
   }
 
-  // دالة لضمان فتح الصندوق قبل أي عملية قراءة
   Future<void> _openBoxSafe() async {
     try {
       if (!Hive.isBoxOpen('inkReports')) {
@@ -53,7 +51,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
           _isBoxLoading = false;
         });
 
-        // تنفيذ إضافة التقرير إذا كان قادماً من شاشة أخرى
         if (widget.initialData != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _showAddReportDialog(widget.initialData);
@@ -98,18 +95,14 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // --- دوال المساعدة والبناء (كما هي مع إضافة التحقق من null) ---
-
   @override
   Widget build(BuildContext context) {
-    // 1. حالة التحميل: تمنع خطأ "Box not found"
     if (_isBoxLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    // 2. حالة فشل فتح الصندوق (نادرة جداً مع وجود الكود في main)
     if (_inkReportBox == null) {
       return Scaffold(
         appBar: AppBar(title: const Text("خطأ في البيانات")),
@@ -164,8 +157,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // --- أجزاء بناء الواجهة المفصلة (لجعل الكود أنظف) ---
-
   Widget _buildSearchField() {
     return SizedBox(
       height: 40,
@@ -213,7 +204,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     final key = entry.key;
     final record = entry.value;
 
-    // استخراج البيانات مع التعامل مع الأنواع
     final images = (record['imagePaths'] is List)
         ? List<String>.from(record['imagePaths'])
         : <String>[];
@@ -266,8 +256,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // --- دوال العمليات (الحذف والتعديل) ---
-
   void _editReport(dynamic key, Map<String, dynamic> record) {
     final sanitizedRecord = _convertValuesToString(record);
     showModalBottomSheet(
@@ -307,8 +295,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // --- منطق الفلترة (تم تحسينه للتعامل مع Supabase Restore) ---
-
   List<MapEntry<dynamic, Map<String, dynamic>>> _filterAndSortRecords(
       Box box, String searchQuery, bool onlyWithImages, bool sortDescending) {
     final entries = box.toMap().entries.where((entry) {
@@ -346,8 +332,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     }).toList();
   }
 
-  // --- باقي الـ Widgets المساعدة (نفس كودك السابق مع تحسينات طفيفة) ---
-
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -383,9 +367,8 @@ class _InkReportScreenState extends State<InkReportScreen> {
   }
 
   Widget _buildNotesText(dynamic notes) {
-    if (notes == null || notes.toString().isEmpty) {
+    if (notes == null || notes.toString().isEmpty)
       return const SizedBox.shrink();
-    }
     return Text("📝 ملاحظات: $notes");
   }
 
@@ -410,14 +393,18 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
+  // الدالة المصححة: نقوم بتمرير القائمة كما هي لأنها بالفعل List<String>
   void _showFullScreenImage(List<String> validPaths, int index) {
     Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => FullScreenImagePage(
-                  images: validPaths.map((p) => File(p)).toList(),
-                  initialIndex: index,
-                )));
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullScreenImagePage(
+          imagesPaths:
+              validPaths, // تم حذف .map((p) => File(p)) لأن الويدجت يريد String
+          initialIndex: index,
+        ),
+      ),
+    );
   }
 
   void _showFilterSheet() {

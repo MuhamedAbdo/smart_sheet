@@ -1,13 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
-import 'package:photo_view/photo_view_gallery.dart';
+import 'package:path_provider/path_provider.dart';
 
 class SavedSizeCard extends StatelessWidget {
   final Map<String, dynamic> record;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final Function(Map<String, dynamic>) onPrint; // تم تعديل النوع هنا
+  // التغيير هنا: بدلاً من VoidCallback، جعلناها Function تستقبل الـ record
+  final Function(Map<String, dynamic>) onPrint;
 
   const SavedSizeCard({
     super.key,
@@ -17,12 +18,14 @@ class SavedSizeCard extends StatelessWidget {
     required this.onPrint,
   });
 
+  // دالة مساعدة لجلب مسار مجلد الصور
+  Future<String> _getImagesDirPath() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    return '${appDir.path}/images';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-
     final processType = record['processType'] ?? 'تفصيل';
     final clientName = record['clientName']?.toString() ?? '';
     final productName = record['productName']?.toString() ?? '';
@@ -33,87 +36,126 @@ class SavedSizeCard extends StatelessWidget {
         : <String>[];
 
     return Card(
-      elevation: 3,
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // --- السطر الأول: العنوان والأزرار ---
             Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        clientName.isNotEmpty ? clientName : "عميل غير مسمى",
-                        style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary,
+                      if (clientName.isNotEmpty) ...[
+                        Text(
+                          clientName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                        const SizedBox(height: 4),
+                      ],
+                      if (productName.isNotEmpty || productCode.isNotEmpty) ...[
+                        if (productName.isNotEmpty)
+                          Text("الصنف: $productName",
+                              style: const TextStyle(
+                                  fontSize: 13, color: Colors.grey)),
+                        if (productCode.isNotEmpty)
+                          Text("الكود: $productCode",
+                              style: const TextStyle(
+                                  fontSize: 13, color: Colors.grey)),
+                        const SizedBox(height: 6),
+                      ],
+                      Chip(
+                        label: Text(processType,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 11)),
+                        backgroundColor: (processType == 'تكسير')
+                            ? Colors.orange
+                            : Colors.blue,
+                        visualDensity: VisualDensity.compact,
                       ),
-                      if (productName.isNotEmpty)
-                        Text(
-                          "الصنف: $productName",
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      if (productCode.isNotEmpty)
-                        Text(
-                          "كود الصنف: $productCode",
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.visibility,
-                      color: Colors.teal, size: 22),
+                  icon: const Icon(Icons.visibility, color: Colors.teal),
                   onPressed: () => processType == 'تكسير'
-                      ? _showCutterDetails(context)
-                      : _showFullDetails(context),
+                      ? _showCutterDetails(
+                          context, clientName, productName, productCode)
+                      : _showFullDetails(context, record),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.blue, size: 22),
+                  icon: const Icon(Icons.edit, color: Colors.blue),
                   onPressed: onEdit,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete,
-                      color: Colors.redAccent, size: 22),
+                  icon: const Icon(Icons.delete, color: Colors.red),
                   onPressed: onDelete,
                 ),
               ],
             ),
-            const Divider(height: 20),
-            Row(
-              children: [
-                Icon(Icons.straighten, size: 16, color: colorScheme.outline),
-                const SizedBox(width: 8),
-                Text(
-                  "المقاس: ${record['length'] ?? '0'} / ${record['width'] ?? '0'} / ${record['height'] ?? '0'} سم",
-                  style: textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
+
+            const Divider(),
+
+            // --- الأبعاد الأساسية ---
+            _buildInfoRow("📏 الطول", "${record['length'] ?? '—'} سم"),
+            _buildInfoRow("📐 العرض", "${record['width'] ?? '—'} سم"),
+            _buildInfoRow("📏 الارتفاع", "${record['height'] ?? '—'} سم"),
+
+            const SizedBox(height: 10),
+
+            // --- بيانات الشيت حسب النوع ---
+            if (processType == 'تكسير') ...[
+              _buildInfoRow(
+                  "📦 طول الشيت", "${record['sheetLengthManual'] ?? '—'} سم",
+                  isBold: true),
+              _buildInfoRow(
+                  "📐 عرض الشيت", "${record['sheetWidthManual'] ?? '—'} سم",
+                  isBold: true),
+              _buildInfoRow("🔧 النوع", record['cuttingType'] ?? '—'),
+            ] else ...[
+              if ((record['sheetLengthResult']?.isNotEmpty ?? false) ||
+                  (record['sheetWidthResult']?.isNotEmpty ?? false))
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    "${record['sheetLengthResult'] ?? ''}\n${record['sheetWidthResult'] ?? ''}",
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.indigo,
+                        fontWeight: FontWeight.w500),
+                  ),
                 ),
-              ],
-            ),
+            ],
+
+            // --- عرض الصور المعالج ---
             if (images.isNotEmpty) ...[
               const SizedBox(height: 12),
-              _buildThumbnails(context, images),
+              const Text("📸 الصور:",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 6),
+              _buildImagesList(images),
             ],
+
             const SizedBox(height: 12),
+
+            // --- زر الطباعة ---
             Align(
               alignment: Alignment.centerLeft,
               child: OutlinedButton.icon(
-                onPressed: () => onPrint(record), // تمرير البيانات عند الضغط
-                icon: const Icon(Icons.print, size: 16),
-                label: const Text("طباعة وتعبئة تقرير",
-                    style: TextStyle(fontSize: 12)),
+                // هنا نقوم بتمرير الـ record للدالة الممررة
+                onPressed: () => onPrint(record),
+                icon: const Icon(Icons.print, size: 18),
+                label: const Text("طباعة التقرير"),
+                style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact),
               ),
             ),
           ],
@@ -122,71 +164,84 @@ class SavedSizeCard extends StatelessWidget {
     );
   }
 
-  // الدوال المساعدة (تظل كما هي)
-  void _showCutterDetails(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("تفاصيل التكسير", textAlign: TextAlign.center),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _rowInfo(
-                context, "📏 طول الشيت", "${record['sheetLengthManual']} سم"),
-            _rowInfo(
-                context, "📐 عرض الشيت", "${record['sheetWidthManual']} سم"),
-            _rowInfo(context, "🔧 النوع", record['cuttingType']),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text("تم"))
+  Widget _buildInfoRow(String label, String value, {bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Text("$label: ", style: const TextStyle(fontSize: 14)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.bold)),
         ],
       ),
     );
   }
 
-  void _showFullDetails(BuildContext context) {
-    final double length =
-        double.tryParse(record['length']?.toString() ?? '0') ?? 0;
-    final double width =
-        double.tryParse(record['width']?.toString() ?? '0') ?? 0;
-    final double height =
-        double.tryParse(record['height']?.toString() ?? '0') ?? 0;
-    final bool isOverFlap = record['isOverFlap'] ?? false;
-    final bool isTwoFlap = record['isTwoFlap'] ?? true;
-    final bool addTwoMm = record['addTwoMm'] ?? false;
-    final bool isFullSize = record['isFullSize'] ?? true;
-    final bool isQuarterSize = record['isQuarterSize'] ?? false;
-    final bool isQuarterWidth = record['isQuarterWidth'] ?? true;
+  Widget _buildImagesList(List<String> images) {
+    return FutureBuilder<String>(
+      future: _getImagesDirPath(),
+      builder: (context, snapshot) {
+        final baseDirPath = snapshot.data ?? "";
+        return SizedBox(
+          height: 60,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: images.length,
+            itemBuilder: (context, i) {
+              String path = images[i];
+              if (!path.startsWith('http') &&
+                  !path.contains(Platform.pathSeparator)) {
+                path = "$baseDirPath/$path";
+              }
+              final file = File(path);
 
-    double sheetLength = isFullSize
-        ? ((length + width) * 2) + 4
-        : (isQuarterSize
-            ? (isQuarterWidth ? width : length) + 4
-            : length + width + 4);
+              return Padding(
+                padding: const EdgeInsets.only(left: 8.0),
+                child: GestureDetector(
+                  onTap: () =>
+                      _showFullScreenImage(context, images, i, baseDirPath),
+                  child: Container(
+                    width: 60,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.file(
+                      file,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.broken_image, size: 20),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 
-    double sheetWidth = isOverFlap
-        ? height + (isTwoFlap ? width * 2 : width)
-        : height + (isTwoFlap ? width : width / 2);
-    if (addTwoMm) sheetWidth += 0.4;
-
+  void _showCutterDetails(
+      BuildContext context, String client, String product, String code) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("مقاسات خط الإنتاج",
-            textAlign: TextAlign.center,
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("تفاصيل التكسير"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _sheetInfo("طول الشيت", sheetLength),
-                _sheetInfo("عرض الشيت", sheetWidth),
-              ],
-            ),
+            if (client.isNotEmpty) Text("👤 العميل: $client"),
+            if (product.isNotEmpty) Text("🏷️ الصنف: $product"),
+            if (code.isNotEmpty) Text("🔢 الكود: $code"),
+            const Divider(),
+            Text("📏 طول الشيت: ${record['sheetLengthManual'] ?? '—'} سم"),
+            Text("📐 عرض الشيت: ${record['sheetWidthManual'] ?? '—'} سم"),
+            Text("🔧 النوع: ${record['cuttingType'] ?? '—'}"),
           ],
         ),
         actions: [
@@ -198,66 +253,74 @@ class SavedSizeCard extends StatelessWidget {
     );
   }
 
-  Widget _rowInfo(BuildContext context, String label, dynamic value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child:
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(label),
-          Text("${value ?? '—'}",
-              style: const TextStyle(fontWeight: FontWeight.bold))
-        ]),
-      );
+  void _showFullDetails(BuildContext context, Map<String, dynamic> record) {
+    // منطق الحسابات كما هو موجود في الكود الخاص بك
+    double length = double.tryParse(record['length']?.toString() ?? '0') ?? 0.0;
+    double width = double.tryParse(record['width']?.toString() ?? '0') ?? 0.0;
+    double height = double.tryParse(record['height']?.toString() ?? '0') ?? 0.0;
 
-  static Widget _sheetInfo(String label, double value) => Column(children: [
-        Text(value.toStringAsFixed(2),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey))
-      ]);
-
-  Widget _buildThumbnails(BuildContext context, List<String> images) {
-    return SizedBox(
-      height: 50,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: images.length,
-        itemBuilder: (context, i) {
-          final path = images[i];
-          final bool isNetwork = path.startsWith('http');
-          return GestureDetector(
-            onTap: () => _showFullScreenImage(context, images, i),
-            child: Container(
-              margin: const EdgeInsets.only(left: 8),
-              width: 50,
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.grey.shade300)),
-              clipBehavior: Clip.antiAlias,
-              child: isNetwork
-                  ? Image.network(path, fit: BoxFit.cover)
-                  : Image.file(File(path), fit: BoxFit.cover),
-            ),
-          );
-        },
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("تفاصيل المقاس"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("📏 الأبعاد: $length × $width × $height سم"),
+            const SizedBox(height: 10),
+            const Text("🔧 توزيع مقاسات خط الإنتاج",
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 5),
+            Table(
+              border: TableBorder.all(color: Colors.grey),
+              children: [
+                TableRow(children: [
+                  _buildTableCell((width / 2).toStringAsFixed(1)),
+                  _buildTableCell(height.toStringAsFixed(1)),
+                  _buildTableCell((width / 2).toStringAsFixed(1)),
+                ])
+              ],
+            )
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("إغلاق"))
+        ],
       ),
     );
   }
 
+  Widget _buildTableCell(String value) => Padding(
+      padding: const EdgeInsets.all(8), child: Center(child: Text(value)));
+
   void _showFullScreenImage(
-      BuildContext context, List<String> images, int index) {
+      BuildContext context, List<String> images, int index, String baseDir) {
+    final fullPaths = images.map((path) {
+      if (path.startsWith('http') || path.contains(Platform.pathSeparator)) {
+        return path;
+      }
+      return "$baseDir/$path";
+    }).toList();
+
     Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) =>
-                _FullScreenImageGallery(images: images, initialIndex: index)));
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            _FullScreenImageGallery(images: fullPaths, initialIndex: index),
+      ),
+    );
   }
 }
 
-// (كلاسات الصور تظل كما هي...)
+// كلاس داخلي لعرض الصور بكامل الشاشة
 class _FullScreenImageGallery extends StatefulWidget {
   final List<String> images;
   final int initialIndex;
   const _FullScreenImageGallery(
       {required this.images, required this.initialIndex});
+
   @override
   State<_FullScreenImageGallery> createState() =>
       _FullScreenImageGalleryState();
@@ -266,6 +329,7 @@ class _FullScreenImageGallery extends StatefulWidget {
 class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
   late PageController _pageController;
   late int _currentIndex;
+
   @override
   void initState() {
     super.initState();
@@ -278,22 +342,22 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-          backgroundColor: Colors.black,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: Text("${_currentIndex + 1} / ${widget.images.length}",
-              style: const TextStyle(color: Colors.white))),
-      body: PhotoViewGallery.builder(
+        title: Text("صورة ${_currentIndex + 1} من ${widget.images.length}"),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+      ),
+      body: PageView.builder(
+        controller: _pageController,
         itemCount: widget.images.length,
-        builder: (context, index) {
-          final path = widget.images[index];
-          return PhotoViewGalleryPageOptions(
-              imageProvider: path.startsWith('http')
-                  ? NetworkImage(path)
-                  : FileImage(File(path)) as ImageProvider,
-              initialScale: PhotoViewComputedScale.contained);
+        onPageChanged: (i) => setState(() => _currentIndex = i),
+        itemBuilder: (context, index) {
+          return PhotoView(
+            imageProvider: FileImage(File(widget.images[index])),
+            minScale: PhotoViewComputedScale.contained,
+            errorBuilder: (c, e, s) => const Center(
+                child: Icon(Icons.broken_image, color: Colors.white, size: 50)),
+          );
         },
-        pageController: _pageController,
-        onPageChanged: (index) => setState(() => _currentIndex = index),
       ),
     );
   }

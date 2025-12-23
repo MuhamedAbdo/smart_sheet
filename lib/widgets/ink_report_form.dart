@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:photo_view/photo_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_sheet/utils/image_utils.dart';
 import 'package:smart_sheet/services/storage_service.dart'; // تأكد من وجود خدمة الرفع لديك
@@ -145,7 +144,9 @@ class _InkReportFormState extends State<InkReportForm> {
   Future<void> _captureImage() async {
     if (!_isCameraReady ||
         _cameraController == null ||
-        !_cameraController!.value.isInitialized) return;
+        !_cameraController!.value.isInitialized) {
+      return;
+    }
 
     setState(() => _isProcessing = true);
     try {

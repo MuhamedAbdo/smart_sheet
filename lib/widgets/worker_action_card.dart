@@ -46,29 +46,25 @@ class WorkerActionCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
+
+            // التعديل المطلوب: الأجازة والغياب فقط
             if (action.type == 'إجازة' || action.type == 'غياب') ...[
-              _buildSectionTitle('🗓️ التواريخ', color: colorScheme.primary),
+              _buildSectionTitle('🗓️ البيانات', color: colorScheme.primary),
               _buildInfoRow(
                 'تاريخ البدء:',
                 _f(action.date),
                 labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                 valueColor: textTheme.bodyMedium?.color,
               ),
-              if (action.returnDate != null)
-                _buildInfoRow(
-                  'تاريخ العودة:',
-                  _f(action.returnDate!),
-                  labelColor:
-                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: textTheme.bodyMedium?.color,
-                ),
               _buildInfoRow(
                 'عدد الأيام:',
-                action.days.toStringAsFixed(0),
+                action.days.toStringAsFixed(1), // رقم عشري واحد
                 labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                 valueColor: textTheme.bodyMedium?.color,
               ),
-            ] else if (action.type == 'مكافئة' || action.type == 'جزاء') ...[
+            ]
+            // باقي الإجراءات كما كانت في ملفك الأصلي تماماً
+            else if (action.type == 'مكافئة' || action.type == 'جزاء') ...[
               _buildSectionTitle('💰 القيمة', color: colorScheme.primary),
               if (action.amount != null)
                 _buildInfoRow(
@@ -119,10 +115,12 @@ class WorkerActionCard extends StatelessWidget {
                   valueColor: textTheme.bodyMedium?.color,
                 ),
             ],
+
             const SizedBox(height: 10),
             if (action.notes != null && action.notes!.isNotEmpty) ...[
               _buildSectionTitle('📝 الملاحظات', color: colorScheme.primary),
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: theme.brightness == Brightness.dark
@@ -130,17 +128,14 @@ class WorkerActionCard extends StatelessWidget {
                       : Colors.grey[50],
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: theme.brightness == Brightness.dark
-                        ? Colors.grey[700]!
-                        : Colors.grey[300]!,
-                  ),
+                      color: theme.brightness == Brightness.dark
+                          ? Colors.grey[700]!
+                          : Colors.grey[300]!),
                 ),
                 child: Text(
                   action.notes!,
                   style: TextStyle(
-                    fontSize: 14,
-                    color: textTheme.bodyMedium?.color,
-                  ),
+                      fontSize: 14, color: textTheme.bodyMedium?.color),
                 ),
               ),
               const SizedBox(height: 10),
@@ -155,8 +150,7 @@ class WorkerActionCard extends StatelessWidget {
                     label: Text('تعديل',
                         style: TextStyle(color: colorScheme.primary)),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                        padding: const EdgeInsets.symmetric(vertical: 12)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -181,6 +175,7 @@ class WorkerActionCard extends StatelessWidget {
     );
   }
 
+  // الدوال المساعدة كما هي
   IconData _getIcon() {
     switch (action.type) {
       case 'إجازة':
@@ -202,14 +197,9 @@ class WorkerActionCard extends StatelessWidget {
 
   Widget _buildSectionTitle(String title, {required Color color}) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          title,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
+        child: Text(title,
+            style: TextStyle(
+                fontSize: 15, fontWeight: FontWeight.bold, color: color)),
       );
 
   Widget _buildInfoRow(String label, String value,
@@ -221,25 +211,19 @@ class WorkerActionCard extends StatelessWidget {
         children: [
           SizedBox(
             width: 120,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: labelColor,
-              ),
-            ),
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: labelColor)),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: valueColor,
-              ),
-            ),
+            child: Text(value,
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: valueColor)),
           ),
         ],
       ),

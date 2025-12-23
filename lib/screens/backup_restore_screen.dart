@@ -27,9 +27,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     final Uri url = Uri.parse(
         'https://supabase.com/dashboard/project/_/storage/buckets/backups');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('تعذر فتح المتصفح')));
+      }
     }
   }
 
@@ -40,11 +41,12 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       _message = null;
     });
     final files = await _backupService.listBackups();
-    if (mounted)
+    if (mounted) {
       setState(() {
         _backupFiles = files;
         _isLoading = false;
       });
+    }
   }
 
   Future<void> _handleCloudUpload() async {
@@ -90,15 +92,17 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       });
       try {
         final result = await _backupService.downloadAndRestore(fullPath);
-        if (mounted)
+        if (mounted) {
           setState(() {
             _message = result;
           });
+        }
       } finally {
-        if (mounted)
+        if (mounted) {
           setState(() {
             _isLoading = false;
           });
+        }
       }
     }
   }
@@ -173,8 +177,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   }
 
   Widget _buildBackupList(bool isDark) {
-    if (_backupFiles.isEmpty && !_isLoading)
+    if (_backupFiles.isEmpty && !_isLoading) {
       return const Center(child: Text('لا توجد نسخ سحابية'));
+    }
     final user = Supabase.instance.client.auth.currentUser;
 
     return Column(

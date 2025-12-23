@@ -211,8 +211,9 @@ class InkReportList extends StatelessWidget {
   }
 
   Widget _buildNotesText(dynamic notes) {
-    if (notes == null || notes.toString().isEmpty)
+    if (notes == null || notes.toString().isEmpty) {
       return const SizedBox.shrink();
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -232,8 +233,9 @@ class InkReportList extends StatelessWidget {
 
     // نقوم بفلترة الروابط: إما رابط إنترنت أو ملف موجود فعلياً على الجهاز
     final validImages = images.where((path) {
-      if (path.startsWith('http'))
+      if (path.startsWith('http')) {
         return true; // روابط السحاب دائماً صالحة للعرض
+      }
       return File(path).existsSync(); // الملفات المحلية يجب التأكد من وجودها
     }).toList();
 
@@ -339,8 +341,9 @@ class InkReportList extends StatelessWidget {
         return MapEntry(
             k,
             v.map((item) {
-              if (item is Map)
+              if (item is Map) {
                 return _convertValuesToString(Map<String, dynamic>.from(item));
+              }
               if (item is int || item is double) return item.toString();
               return item;
             }).toList());

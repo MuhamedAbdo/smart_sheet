@@ -90,8 +90,9 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
             (record['clientName'] ?? '').toString().trim().toLowerCase();
         final existingCode =
             (record['productCode'] ?? '').toString().trim().toLowerCase();
-        if (widget.existingDataKey != null && key == widget.existingDataKey)
+        if (widget.existingDataKey != null && key == widget.existingDataKey) {
           continue;
+        }
         if (existingClient == newClient && existingCode == newCode) return true;
       }
     }
@@ -261,16 +262,16 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     double sL = 0.0;
     double sW = 0.0;
 
-    if (isFullSize)
+    if (isFullSize) {
       sL = ((L + W) * 2) + 4;
-    else if (isQuarterSize)
+    } else if (isQuarterSize)
       sL = isQuarterWidth ? W + 4 : L + 4;
     else
       sL = L + W + 4;
 
-    if (isOverFlap && isTwoFlap)
+    if (isOverFlap && isTwoFlap) {
       sW = addTwoMm ? H + (W * 2) + 0.4 : H + (W * 2);
-    else if (isOverFlap && isOneFlap)
+    } else if (isOverFlap && isOneFlap)
       sW = addTwoMm ? H + W + 0.2 : H + W;
     else if (isFlap && isTwoFlap)
       sW = addTwoMm ? H + W + 0.4 : H + W;

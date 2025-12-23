@@ -5,12 +5,13 @@ import 'package:photo_view/photo_view.dart';
 import 'dart:io';
 
 class FullScreenImagePage extends StatefulWidget {
-  final List<File> images;
+  // تم التغيير إلى String لدعم الروابط والمسارات معاً
+  final List<String> imagesPaths;
   final int initialIndex;
 
   const FullScreenImagePage({
     super.key,
-    required this.images,
+    required this.imagesPaths,
     required this.initialIndex,
   });
 
@@ -20,7 +21,7 @@ class FullScreenImagePage extends StatefulWidget {
 
 class _FullScreenImagePageState extends State<FullScreenImagePage> {
   late PageController _pageController;
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   @override
   void initState() {
@@ -38,71 +39,74 @@ class _FullScreenImagePageState extends State<FullScreenImagePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black, // خلفية سوداء لعرض الصور بشكل أفضل
       appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
-            'عرض الصورة (${_currentIndex + 1} من ${widget.images.length})'),
+          'عرض الصورة (${_currentIndex + 1} من ${widget.imagesPaths.length})',
+          style: const TextStyle(color: Colors.white),
+        ),
         centerTitle: true,
       ),
       body: PageView.builder(
         controller: _pageController,
-        itemCount: widget.images.length,
+        itemCount: widget.imagesPaths.length,
         onPageChanged: (index) {
           setState(() {
             _currentIndex = index;
           });
         },
         itemBuilder: (context, index) {
-          final file = widget.images[index];
+          final String path = widget.imagesPaths[index];
+          final bool isNetwork = path.startsWith('http');
 
-          // ✅ التحقق من وجود الملف
-          if (!file.existsSync()) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.broken_image, size: 80, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text(
-                    'الصورة غير متوفرة',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('العودة'),
-                  ),
-                ],
-              ),
-            );
+          // تحضير الـ Provider المناسب بناءً على نوع المسار
+          ImageProvider imageProvider;
+          if (isNetwork) {
+            imageProvider = NetworkImage(path);
+          } else {
+            imageProvider = FileImage(File(path));
+          }
+
+          // التحقق من وجود الملف في حالة كان محلياً فقط
+          if (!isNetwork && !File(path).existsSync()) {
+            return _buildErrorWidget('الصورة غير متوفرة على الجهاز');
           }
 
           return PhotoView(
-            imageProvider: FileImage(file),
-            minScale: PhotoViewComputedScale.contained * 0.8,
+            imageProvider: imageProvider,
+            minScale: PhotoViewComputedScale.contained,
             maxScale: PhotoViewComputedScale.covered * 2.5,
             loadingBuilder: (context, event) => const Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(color: Colors.white),
             ),
             errorBuilder: (context, error, stackTrace) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error, size: 80, color: Colors.red),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'فشل تحميل الصورة',
-                      style: TextStyle(fontSize: 18),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('العودة'),
-                    ),
-                  ],
-                ),
-              );
+              return _buildErrorWidget('فشل تحميل الصورة');
             },
           );
         },
+      ),
+    );
+  }
+
+  // واجهة موحدة للأخطاء
+  Widget _buildErrorWidget(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.broken_image, size: 80, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: const TextStyle(fontSize: 18, color: Colors.white),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('العودة', style: TextStyle(color: Colors.blue)),
+          ),
+        ],
       ),
     );
   }

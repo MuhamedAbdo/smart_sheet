@@ -1,5 +1,3 @@
-// lib/src/widgets/maintenance/maintenance_form.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
@@ -35,7 +33,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
 
   bool isFixed = false;
   String repairLocation = 'في المصنع';
-
   List<String> _imagePaths = [];
   bool _isUploading = false;
   bool _isProcessing = false;
@@ -53,21 +50,12 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   @override
   void dispose() {
     _cameraController?.dispose();
-    issueDateController.dispose();
-    machineController.dispose();
-    issueDescController.dispose();
-    reportDateController.dispose();
-    reportedToTechnicianController.dispose();
-    actionController.dispose();
-    actionDateController.dispose();
-    repairedByController.dispose();
-    notesController.dispose();
+    _disposeControllers();
     super.dispose();
   }
 
   void _initializeControllers() {
     final e = widget.existing;
-
     issueDateController = TextEditingController(text: e?.issueDate ?? _today());
     machineController = TextEditingController(text: e?.machine ?? '');
     issueDescController =
@@ -88,6 +76,18 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     if (e?.imagePaths != null) {
       _imagePaths = List<String>.from(e!.imagePaths);
     }
+  }
+
+  void _disposeControllers() {
+    issueDateController.dispose();
+    machineController.dispose();
+    issueDescController.dispose();
+    reportDateController.dispose();
+    reportedToTechnicianController.dispose();
+    actionController.dispose();
+    actionDateController.dispose();
+    repairedByController.dispose();
+    notesController.dispose();
   }
 
   String _today() => DateTime.now().toString().split(' ')[0];
@@ -127,9 +127,8 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     }
   }
 
-  // --- دالة الحفظ المعدلة مع الرفع السحابي ---
   Future<void> _saveRecord() async {
-    if (machineController.text.isEmpty) {
+    if (machineController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("يرجى إدخال اسم الماكينة")));
       return;
@@ -138,15 +137,14 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     setState(() => _isUploading = true);
 
     try {
-      // 1. رفع الصور الجديدة للسحابة (الدالة تتجاهل الروابط http تلقائياً)
+      // تم التعديل هنا لاستخدام الـ Bucket الموجود في حسابك وهو 'images'
       List<String> finalCloudUrls = await StorageService.uploadMultipleImages(
         _imagePaths,
-        'maintenance_images', // اسم الـ Bucket الخاص بصور الصيانة
+        'images',
       );
 
-      // 2. إنشاء السجل بروابط السحابة النهائية
       final record = MaintenanceRecord(
-        id: widget.existing?.id, // الحفاظ على الـ ID في حالة التعديل
+        id: widget.existing?.id,
         machine: machineController.text.trim(),
         isFixed: isFixed,
         issueDate: issueDateController.text,
@@ -159,14 +157,14 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
         reportedToTechnician: reportedToTechnicianController.text.trim(),
         notes:
             notesController.text.isEmpty ? null : notesController.text.trim(),
-        imagePaths: finalCloudUrls, // الروابط النهائية
+        imagePaths: finalCloudUrls,
       );
 
       widget.onSave(record);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("حدث خطأ أثناء الرفع: $e")));
+            .showSnackBar(SnackBar(content: Text("حدث خطأ أثناء الحفظ: $e")));
       }
     } finally {
       if (mounted) setState(() => _isUploading = false);
@@ -236,8 +234,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     );
   }
 
-  // --- أدوات بناء الواجهة ---
-
   Widget _buildTextField(
       TextEditingController controller, String label, IconData icon,
       {int maxLines = 1}) {
@@ -286,22 +282,22 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
 
   Widget _buildCameraPreview() {
     if (!_isCameraReady)
-      return const Center(child: Text("الكاميرا قيد التحضير..."));
+      return const SizedBox(
+          height: 200, child: Center(child: CircularProgressIndicator()));
     return Column(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Container(
+          child: SizedBox(
               height: 200,
               width: double.infinity,
-              color: Colors.black,
               child: CameraPreview(_cameraController!)),
         ),
         const SizedBox(height: 8),
         ElevatedButton.icon(
           onPressed: _isProcessing ? null : _captureImage,
           icon: const Icon(Icons.camera_alt),
-          label: const Text("التقاط صورة العطل"),
+          label: const Text("التقاط صورة عطل"),
         ),
       ],
     );
@@ -312,10 +308,11 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("المرفقات:", style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text("المرفقات الحالية:",
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         SizedBox(
-          height: 90,
+          height: 100,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: _imagePaths.length,
@@ -323,7 +320,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
               final path = _imagePaths[i];
               final isNetwork = path.startsWith('http');
               return Padding(
-                padding: const EdgeInsets.only(left: 8.0),
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: Stack(
                   children: [
                     GestureDetector(
@@ -335,7 +332,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                                 width: 80,
                                 height: 80,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
+                                errorBuilder: (c, e, s) =>
                                     const Icon(Icons.broken_image))
                             : Image.file(File(path),
                                 width: 80, height: 80, fit: BoxFit.cover),
@@ -347,11 +344,10 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                       child: GestureDetector(
                         onTap: () => setState(() => _imagePaths.removeAt(i)),
                         child: const CircleAvatar(
-                          radius: 10,
-                          backgroundColor: Colors.red,
-                          child:
-                              Icon(Icons.close, size: 12, color: Colors.white),
-                        ),
+                            radius: 10,
+                            backgroundColor: Colors.red,
+                            child: Icon(Icons.close,
+                                size: 12, color: Colors.white)),
                       ),
                     ),
                   ],
@@ -366,21 +362,18 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
 
   void _viewFullScreen(String path) {
     Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-          body: Center(
-            child: PhotoView(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+            body: PhotoView(
               imageProvider: path.startsWith('http')
                   ? NetworkImage(path)
                   : FileImage(File(path)) as ImageProvider,
             ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 
   Widget _buildLoadingOverlay() {
@@ -388,19 +381,14 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
       color: Colors.black54,
       child: const Center(
         child: Card(
-          margin: EdgeInsets.symmetric(horizontal: 32),
           child: Padding(
             padding: EdgeInsets.all(24.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 CircularProgressIndicator(),
-                SizedBox(height: 20),
-                Text("جاري رفع البيانات والصور...",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                SizedBox(height: 8),
-                Text("يرجى عدم إغلاق التطبيق",
-                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                SizedBox(height: 16),
+                Text("جاري حفظ البيانات ورفع الصور..."),
               ],
             ),
           ),

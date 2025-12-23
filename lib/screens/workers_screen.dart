@@ -17,10 +17,11 @@ class WorkersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // نستخدم FutureBuilder للتأكد من فتح الصندوق قبل عرض الواجهة
     return FutureBuilder<Box<Worker>>(
-      future: Hive.openBox<Worker>(
-          departmentBoxName), // يفتحه إذا كان مغلقاً أو يعيده إذا كان مفتوحاً
+      // الفحص يمنع حدوث "Already open with different type"
+      future: Hive.isBoxOpen(departmentBoxName)
+          ? Future.value(Hive.box<Worker>(departmentBoxName))
+          : Hive.openBox<Worker>(departmentBoxName),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -30,8 +31,17 @@ class WorkersScreen extends StatelessWidget {
 
         if (snapshot.hasError) {
           return Scaffold(
-            body:
-                Center(child: Text("خطأ في تحميل البيانات: ${snapshot.error}")),
+            appBar: AppBar(title: Text(departmentTitle)),
+            body: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: Text(
+                  "❌ خطأ: الصندوق مفتوح بنوع مختلف.\nيرجى إعادة تشغيل التطبيق.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ),
           );
         }
 

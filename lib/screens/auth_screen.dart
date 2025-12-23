@@ -4,7 +4,6 @@ import '../services/auth_service.dart';
 
 class AuthScreen extends StatefulWidget {
   static const routeName = '/auth-screen';
-
   const AuthScreen({super.key});
 
   @override
@@ -31,9 +30,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _handleAuthAction() async {
     final authService = Provider.of<AuthService>(context, listen: false);
 
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -43,12 +40,7 @@ class _AuthScreenState extends State<AuthScreen> {
       error = await authService.signIn(email: email, password: password);
     } else {
       if (password != _confirmPasswordController.text.trim()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('كلمة المرور وتأكيدها غير متطابقين.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        _showSnackBar('كلمة المرور وتأكيدها غير متطابقين.', Colors.orange);
         return;
       }
       error = await authService.signUp(email: email, password: password);
@@ -56,28 +48,30 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (!mounted) return;
 
-    // ✅ التعديل: التحقق من وجود نص للخطأ قبل عرضه لتجنب خطأ الـ null
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error), // الآن error محقق أنه ليس null
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar(error, Colors.red);
     } else {
-      // اختياري: رسالة نجاح إذا لم تكن هناك إعادة توجيه تلقائية
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تمت العملية بنجاح'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      // ✅ التحقق من نجاح المصادقة
+      if (authService.state.isAuthenticated) {
+        _showSnackBar('تمت العملية بنجاح', Colors.green);
+
+        // الانتقال الفوري: نغلق شاشة تسجيل الدخول لنعود للشاشة السابقة (الرئيسية)
+        Navigator.of(context).pop();
+      }
     }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(message),
+          backgroundColor: color,
+          duration: const Duration(seconds: 2)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // نراقب الحالة فقط لمعرفة هل نحن في وضع التحميل أم لا
     final authLoading = context.watch<AuthService>().state.isLoading;
 
     return Scaffold(
@@ -94,28 +88,19 @@ class _AuthScreenState extends State<AuthScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // حقل البريد الإلكتروني
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    labelText: 'البريد الإلكتروني',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.email),
-                  ),
+                      labelText: 'البريد الإلكتروني',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email)),
                   enabled: !authLoading,
-                  validator: (value) {
-                    if (value == null ||
-                        value.isEmpty ||
-                        !value.contains('@')) {
-                      return 'الرجاء إدخال بريد إلكتروني صالح.';
-                    }
-                    return null;
-                  },
+                  validator: (value) => (value == null || !value.contains('@'))
+                      ? 'بريد إلكتروني غير صالح'
+                      : null,
                 ),
                 const SizedBox(height: 16),
-
-                // حقل كلمة المرور (أساسي)
                 TextFormField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
@@ -124,80 +109,47 @@ class _AuthScreenState extends State<AuthScreen> {
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
-                      icon: Icon(
-                        _isPasswordVisible
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
-                      },
+                      icon: Icon(_isPasswordVisible
+                          ? Icons.visibility
+                          : Icons.visibility_off),
+                      onPressed: () => setState(
+                          () => _isPasswordVisible = !_isPasswordVisible),
                     ),
                   ),
                   enabled: !authLoading,
-                  validator: (value) {
-                    if (value == null || value.length < 6) {
-                      return 'يجب أن تكون كلمة المرور 6 أحرف على الأقل.';
-                    }
-                    return null;
-                  },
+                  validator: (value) => (value == null || value.length < 6)
+                      ? '6 أحرف على الأقل'
+                      : null,
                 ),
-                const SizedBox(height: 16),
-
-                // حقل تأكيد كلمة المرور (يظهر فقط عند التسجيل)
-                if (!_isSignIn)
-                  Column(
-                    children: [
-                      TextFormField(
-                        controller: _confirmPasswordController,
-                        obscureText: !_isPasswordVisible,
-                        decoration: const InputDecoration(
-                          labelText: 'تأكيد كلمة المرور',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.lock),
-                        ),
-                        enabled: !authLoading,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'الرجاء تأكيد كلمة المرور.';
-                          }
-                          if (value != _passwordController.text) {
-                            return 'كلمة المرور غير متطابقة.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                if (!_isSignIn) ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    obscureText: !_isPasswordVisible,
+                    decoration: const InputDecoration(
+                        labelText: 'تأكيد كلمة المرور',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.lock)),
+                    enabled: !authLoading,
+                    validator: (value) => value != _passwordController.text
+                        ? 'لا يوجد تطابق'
+                        : null,
                   ),
-
-                const SizedBox(height: 16),
-
-                // زر الإجراء
+                ],
+                const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: authLoading ? null : _handleAuthAction,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
+                      padding: const EdgeInsets.symmetric(vertical: 16)),
                   child: authLoading
                       ? const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
-                        )
-                      : Text(
-                          _isSignIn ? 'تسجيل الدخول' : 'إنشاء حساب',
-                          style: const TextStyle(fontSize: 18),
-                        ),
+                              color: Colors.white, strokeWidth: 3))
+                      : Text(_isSignIn ? 'تسجيل الدخول' : 'إنشاء حساب',
+                          style: const TextStyle(fontSize: 18)),
                 ),
-                const SizedBox(height: 16),
-
-                // زر التبديل بين الحالتين
                 TextButton(
                   onPressed: authLoading
                       ? null
@@ -207,14 +159,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             _formKey.currentState?.reset();
                             _passwordController.clear();
                             _confirmPasswordController.clear();
-                            _isPasswordVisible = false;
                           });
                         },
-                  child: Text(
-                    _isSignIn
-                        ? 'ليس لديك حساب؟ إنشاء حساب جديد'
-                        : 'لديك حساب بالفعل؟ تسجيل الدخول',
-                  ),
+                  child: Text(_isSignIn ? 'إنشاء حساب جديد' : 'تسجيل الدخول'),
                 ),
               ],
             ),

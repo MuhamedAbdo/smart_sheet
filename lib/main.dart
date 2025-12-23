@@ -3,11 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/globals.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+// استيراد الموديلات والسكاشن
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
 import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/models/store_entry_model.dart';
+import 'package:smart_sheet/models/ink_report.dart';
+
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
@@ -18,10 +25,7 @@ import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/screens/backup_restore_screen.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/config/constants.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -37,54 +41,28 @@ Future<void> main() async {
     WidgetsFlutterBinding.ensureInitialized();
     HttpOverrides.global = MyHttpOverrides();
 
-    // تهيئة Supabase والإشعارات
+    // تهيئة سريعة للخدمات الأساسية
     await Future.wait([
       _initializeNotifications(),
       Supabase.initialize(
-        url: supabaseUrl.trim(),
-        anonKey: supabaseAnonKey.trim(),
-      ),
+          url: supabaseUrl.trim(), anonKey: supabaseAnonKey.trim()),
     ]);
 
     if (!kIsWeb) {
       await Hive.initFlutter();
       _registerAdapters();
 
-      // خطوة هامة: فتح صندوق الأفعال أولاً لأنه مطلوب داخل الـ Constructor الخاص بالعمال
-      await Hive.openBox<WorkerAction>('worker_actions');
+      // فتح الصناديق "الحرجة" فقط التي يحتاجها التطبيق عند البداية
+      await Future.wait([
+        Hive.openBox('settings'),
+        Hive.openBox('savedSheetSizes'),
+      ]);
 
-      final otherBoxes = [
-        'settings',
-        'measurements',
-        'serial_setup_state',
-        'savedSheetSizes',
-        'savedSheetSizes_production',
-        'inkReports',
-        'storeEntries',
-        'maintenance_records_main',
-        'maintenance_staple_v2',
-        'maintenance_flexo_v2',
-        'maintenance_production_v2',
-        'maintenance_crushing_v2',
-        'store_flexo',
-        'store_production',
-        'store_staple',
-        'store_crushing',
-        'workers',
-        'workers_flexo',
-        'workers_production',
-        'workers_staple',
-        'workers_crushing',
-        'finished_products'
-      ];
-
-      // فتح باقي الصناديق
-      for (String boxName in otherBoxes) {
-        await _openSafeBox(boxName);
-      }
+      // فتح باقي الصناديق في الخلفية (بدون await) لمنع تجمد الشاشة
+      _openBackgroundBoxes();
     }
   } catch (e) {
-    debugPrint("❌ Initialization Critical Error: $e");
+    debugPrint("❌ Critical Initialization Error: $e");
   }
 
   runApp(
@@ -98,35 +76,51 @@ Future<void> main() async {
   );
 }
 
-Future<void> _initializeNotifications() async {
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+void _openBackgroundBoxes() {
+  // 1. صناديق العمال
+  Hive.openBox<WorkerAction>('worker_actions');
+  Hive.openBox<Worker>('workers');
+  Hive.openBox<Worker>('workers_flexo');
+  Hive.openBox<Worker>('workers_production');
+
+  // 2. صناديق المخزن والصيانة
+  Hive.openBox<StoreEntry>('store_flexo');
+  Hive.openBox<MaintenanceRecord>('maintenance_records_main');
+
+  // 3. باقي الصناديق
+  final otherBoxes = [
+    'inkReports',
+    'finished_products',
+    'measurements',
+    'serial_setup_state'
+  ];
+
+  for (var box in otherBoxes) {
+    Hive.openBox(box)
+        .catchError((e) => debugPrint("⚠️ Failed to open $box: $e"));
+  }
 }
 
 void _registerAdapters() {
-  // ترتيب التسجيل لا يهم ولكن يفضل البدء بالأبسط
-  Hive.registerAdapter(WorkerActionAdapter());
-  Hive.registerAdapter(WorkerAdapter());
-  Hive.registerAdapter(FinishedProductAdapter());
-  Hive.registerAdapter(MaintenanceRecordAdapter());
-  Hive.registerAdapter(StoreEntryAdapter());
+  if (!Hive.isAdapterRegistered(11)) {
+    Hive.registerAdapter(WorkerActionAdapter());
+  }
+  if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(WorkerAdapter());
+  if (!Hive.isAdapterRegistered(5)) {
+    Hive.registerAdapter(FinishedProductAdapter());
+  }
+  if (!Hive.isAdapterRegistered(6)) {
+    Hive.registerAdapter(MaintenanceRecordAdapter());
+  }
+  if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(StoreEntryAdapter());
+  if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(InkReportAdapter());
 }
 
-Future<void> _openSafeBox(String boxName) async {
-  try {
-    if (!Hive.isBoxOpen(boxName)) {
-      await Hive.openBox(boxName);
-    }
-  } catch (e) {
-    debugPrint("⚠️ Box $boxName failed. Re-trying... Error: $e");
-    // في حال فشل النوع المحدد، نفتحه كـ dynamic لتجنب توقف التطبيق
-    await Hive.openBox(boxName);
-  }
+Future<void> _initializeNotifications() async {
+  final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  await flutterLocalNotificationsPlugin
+      .initialize(const InitializationSettings(android: androidSettings));
 }
 
 class SmartSheetApp extends StatelessWidget {
@@ -141,6 +135,8 @@ class SmartSheetApp extends StatelessWidget {
       title: 'Smart Sheet',
       debugShowCheckedModeBanner: false,
       theme: themeProvider.theme,
+      // التطبيق يبدأ دائماً بالسلاش سكرين (التي توجه للرئيسية)
+      // ولا يشترط تسجيل الدخول هنا
       home: const SplashScreen(),
       routes: {
         SettingsScreen.routeName: (_) => const SettingsScreen(),

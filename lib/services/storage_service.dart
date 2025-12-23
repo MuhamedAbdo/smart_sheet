@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 class StorageService {
   static final _supabase = Supabase.instance.client;
 
-  /// رفع صورة واحدة
+  /// رفع صورة واحدة إلى Supabase
   static Future<String?> uploadImage(
       String localPath, String bucketName) async {
     try {
@@ -29,19 +29,20 @@ class StorageService {
     }
   }
 
-  /// ⚡ رفع قائمة صور كاملة بشكل متوازي (أسرع بكثير)
+  /// رفع الصور الجديدة فقط وتجاهل الروابط الموجودة مسبقاً
   static Future<List<String>> uploadMultipleImages(
       List<String> localPaths, String bucketName) async {
-    // تشغيل جميع عمليات الرفع في وقت واحد
     final uploadTasks = localPaths.map((path) async {
+      // إذا كان المسار يبدأ بـ http فهو مرفوع مسبقاً، نعيده كما هو
       if (path.startsWith('http')) return path;
+
+      // إذا كان مسار محلي، نقوم برفعه
       return await uploadImage(path, bucketName);
     }).toList();
 
-    // انتظار انتهاء جميع العمليات معاً
     final results = await Future.wait(uploadTasks);
 
-    // إرجاع الروابط التي نجح رفعها فقط
+    // تصفية النتائج من أي قيم فارغة (التي فشل رفعها)
     return results.whereType<String>().toList();
   }
 }
