@@ -281,9 +281,10 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   }
 
   Widget _buildCameraPreview() {
-    if (!_isCameraReady)
+    if (!_isCameraReady) {
       return const SizedBox(
           height: 200, child: Center(child: CircularProgressIndicator()));
+    }
     return Column(
       children: [
         ClipRRect(

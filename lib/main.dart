@@ -7,7 +7,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-// استيراد الموديلات والسكاشن
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
@@ -41,7 +40,7 @@ Future<void> main() async {
     WidgetsFlutterBinding.ensureInitialized();
     HttpOverrides.global = MyHttpOverrides();
 
-    // تهيئة سريعة للخدمات الأساسية
+    // تهيئة الإشعارات و Supabase
     await Future.wait([
       _initializeNotifications(),
       Supabase.initialize(
@@ -52,13 +51,20 @@ Future<void> main() async {
       await Hive.initFlutter();
       _registerAdapters();
 
-      // فتح الصناديق "الحرجة" فقط التي يحتاجها التطبيق عند البداية
+      // هـام جداً: يجب فتح صندوق worker_actions أولاً لأنه مرتبط بـ Worker عبر HiveList
+      // إذا تم فتح صناديق العمال قبل هذا الصندوق سيحدث الخطأ الذي ظهر لك
+      await Hive.openBox<WorkerAction>('worker_actions');
+
+      // الآن نفتح الصناديق الحرجة الأخرى
       await Future.wait([
         Hive.openBox('settings'),
-        Hive.openBox('savedSheetSizes'),
+        Hive.openBox<Worker>('workers'),
+        Hive.openBox<Worker>('workers_flexo'),
+        Hive.openBox<Worker>('workers_production'),
+        Hive.openBox<FinishedProduct>('finished_products'),
       ]);
 
-      // فتح باقي الصناديق في الخلفية (بدون await) لمنع تجمد الشاشة
+      // فتح الباقي في الخلفية (صناديق لا تحتوي على علاقات HiveList)
       _openBackgroundBoxes();
     }
   } catch (e) {
@@ -76,44 +82,32 @@ Future<void> main() async {
   );
 }
 
-void _openBackgroundBoxes() {
-  // 1. صناديق العمال
-  Hive.openBox<WorkerAction>('worker_actions');
-  Hive.openBox<Worker>('workers');
-  Hive.openBox<Worker>('workers_flexo');
-  Hive.openBox<Worker>('workers_production');
+void _registerAdapters() {
+  if (!Hive.isAdapterRegistered(11))
+    Hive.registerAdapter(WorkerActionAdapter());
+  if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(WorkerAdapter());
+  if (!Hive.isAdapterRegistered(5))
+    Hive.registerAdapter(FinishedProductAdapter());
+  if (!Hive.isAdapterRegistered(6))
+    Hive.registerAdapter(MaintenanceRecordAdapter());
+  if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(StoreEntryAdapter());
+  if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(InkReportAdapter());
+}
 
-  // 2. صناديق المخزن والصيانة
+void _openBackgroundBoxes() {
   Hive.openBox<StoreEntry>('store_flexo');
   Hive.openBox<MaintenanceRecord>('maintenance_records_main');
 
-  // 3. باقي الصناديق
   final otherBoxes = [
+    'savedSheetSizes',
     'inkReports',
-    'finished_products',
     'measurements',
     'serial_setup_state'
   ];
-
   for (var box in otherBoxes) {
     Hive.openBox(box)
         .catchError((e) => debugPrint("⚠️ Failed to open $box: $e"));
   }
-}
-
-void _registerAdapters() {
-  if (!Hive.isAdapterRegistered(11)) {
-    Hive.registerAdapter(WorkerActionAdapter());
-  }
-  if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(WorkerAdapter());
-  if (!Hive.isAdapterRegistered(5)) {
-    Hive.registerAdapter(FinishedProductAdapter());
-  }
-  if (!Hive.isAdapterRegistered(6)) {
-    Hive.registerAdapter(MaintenanceRecordAdapter());
-  }
-  if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(StoreEntryAdapter());
-  if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(InkReportAdapter());
 }
 
 Future<void> _initializeNotifications() async {
@@ -129,14 +123,11 @@ class SmartSheetApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
-
     return MaterialApp(
       scaffoldMessengerKey: scaffoldMessengerKey,
       title: 'Smart Sheet',
       debugShowCheckedModeBanner: false,
       theme: themeProvider.theme,
-      // التطبيق يبدأ دائماً بالسلاش سكرين (التي توجه للرئيسية)
-      // ولا يشترط تسجيل الدخول هنا
       home: const SplashScreen(),
       routes: {
         SettingsScreen.routeName: (_) => const SettingsScreen(),

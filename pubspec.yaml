@@ -60,6 +60,7 @@ dependencies:
   workmanager: ^0.9.0+3
   flutter_local_notifications: ^19.5.0
   flutter_foreground_task: ^9.1.0
+  flutter_native_contact_picker: ^0.0.11
 
 dev_dependencies:
   flutter_test:

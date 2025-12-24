@@ -1,7 +1,6 @@
-// lib/src/widgets/workers/worker_card.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart'; // تأكد من إضافة url_launcher في pubspec.yaml
 
 import '../../models/worker_model.dart';
 
@@ -26,6 +25,31 @@ class WorkerCard extends StatefulWidget {
 class _WorkerCardState extends State<WorkerCard> {
   bool _isPhoneCopied = false;
 
+  // دالة إجراء المكالمة
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        throw 'Could not launch $launchUri';
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("تعذر فتح تطبيق الاتصال"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // دالة نسخ الرقم
   Future<void> _copyPhoneToClipboard() async {
     await Clipboard.setData(ClipboardData(text: widget.worker.phone));
 
@@ -87,7 +111,17 @@ class _WorkerCardState extends State<WorkerCard> {
               ],
             ),
             const SizedBox(height: 14),
-            _buildSectionTitle('📞 التواصل', color: colorScheme.primary),
+
+            // ✅ تم نقل الـ GestureDetector إلى هنا ليحيط بكلمة "التواصل"
+            GestureDetector(
+              onTap: () => _makePhoneCall(widget.worker.phone),
+              child: _buildSectionTitle(
+                '📞 التواصل (اضغط للاتصال)',
+                color: colorScheme.primary,
+              ),
+            ),
+
+            // صف الرقم - يدعم الضغط المطول للنسخ فقط
             GestureDetector(
               onLongPress: _copyPhoneToClipboard,
               child: _buildInfoRow(
@@ -98,6 +132,7 @@ class _WorkerCardState extends State<WorkerCard> {
                 textColor: textTheme.bodyMedium?.color,
               ),
             ),
+
             _buildInfoRow(
               'الوظيفة:',
               widget.worker.job,
@@ -161,6 +196,8 @@ class _WorkerCardState extends State<WorkerCard> {
           fontSize: 15,
           fontWeight: FontWeight.bold,
           color: color,
+          decoration:
+              TextDecoration.underline, // خط تحت الكلمة لبيان أنها قابلة للضغط
         ),
       ),
     );
