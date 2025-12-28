@@ -1,3 +1,5 @@
+// lib/main.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -51,20 +53,19 @@ Future<void> main() async {
       await Hive.initFlutter();
       _registerAdapters();
 
-      // هـام جداً: يجب فتح صندوق worker_actions أولاً لأنه مرتبط بـ Worker عبر HiveList
-      // إذا تم فتح صناديق العمال قبل هذا الصندوق سيحدث الخطأ الذي ظهر لك
+      // هـام جداً: فتح صندوق worker_actions أولاً لعلاقات HiveList
       await Hive.openBox<WorkerAction>('worker_actions');
 
-      // الآن نفتح الصناديق الحرجة الأخرى
+      // فتح الصناديق الأساسية
       await Future.wait([
-        Hive.openBox('settings'),
+        Hive.openBox('settings'), // يحتوي على إعدادات الثيم وحجم الخط
         Hive.openBox<Worker>('workers'),
         Hive.openBox<Worker>('workers_flexo'),
         Hive.openBox<Worker>('workers_production'),
         Hive.openBox<FinishedProduct>('finished_products'),
       ]);
 
-      // فتح الباقي في الخلفية (صناديق لا تحتوي على علاقات HiveList)
+      // فتح الباقي في الخلفية
       _openBackgroundBoxes();
     }
   } catch (e) {
@@ -125,12 +126,26 @@ class SmartSheetApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // مراقبة الـ ThemeProvider للحصول على تحديثات الثيم وحجم الخط
     final themeProvider = context.watch<ThemeProvider>();
+
     return MaterialApp(
       scaffoldMessengerKey: scaffoldMessengerKey,
       title: 'Smart Sheet',
       debugShowCheckedModeBanner: false,
       theme: themeProvider.theme,
+
+      // ✅ تطبيق حجم الخط عالمياً عبر الـ Builder
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            // استخدام textScaler لضرب مقياس النظام في المقياس المخصص من التطبيق
+            textScaler: TextScaler.linear(themeProvider.fontScale),
+          ),
+          child: child!,
+        );
+      },
+
       home: const SplashScreen(),
       routes: {
         SettingsScreen.routeName: (_) => const SettingsScreen(),

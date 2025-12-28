@@ -5,44 +5,48 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 class ThemeProvider with ChangeNotifier {
   static const String _themeKey = 'isDarkTheme';
+  static const String _fontScaleKey = 'fontScale'; // مفتاح الحفظ في Hive
 
-  // ✅ تغيير: لا نستخدم 'late' لأن القيمة قد تُستخدم قبل اكتمال async
   bool _isDarkTheme = false;
+  double _fontScale = 1.0; // القيمة الافتراضية للخط
 
   bool get isDarkTheme => _isDarkTheme;
+  double get fontScale => _fontScale;
 
   ThemeProvider() {
-    _loadTheme();
+    _loadSettings();
   }
 
-  Future<void> _loadTheme() async {
+  Future<void> _loadSettings() async {
     try {
-      // ✅ ملاحظة: 'settings' مفتوح مسبقًا في main.dart، لذا لا نحتاج openBox
       final box = Hive.box('settings');
-      final savedTheme = box.get(_themeKey, defaultValue: false) as bool;
-      if (_isDarkTheme != savedTheme) {
-        _isDarkTheme = savedTheme;
-        notifyListeners();
-      }
+
+      // تحميل حالة الثيم
+      _isDarkTheme = box.get(_themeKey, defaultValue: false) as bool;
+
+      // تحميل حجم الخط
+      _fontScale = box.get(_fontScaleKey, defaultValue: 1.0) as double;
+
+      notifyListeners();
     } catch (e) {
-      debugPrint('Error loading theme: $e');
-      // نبقي القيمة الافتراضية false في حالة الفشل
+      debugPrint('Error loading settings: $e');
     }
   }
 
+  // التحكم في الثيم
   Future<void> toggleTheme() async {
     _isDarkTheme = !_isDarkTheme;
-    await _saveTheme();
+    final box = Hive.box('settings');
+    await box.put(_themeKey, _isDarkTheme);
     notifyListeners();
   }
 
-  Future<void> _saveTheme() async {
-    try {
-      final box = Hive.box('settings');
-      await box.put(_themeKey, _isDarkTheme);
-    } catch (e) {
-      debugPrint('Error saving theme: $e');
-    }
+  // التحكم في حجم الخط
+  Future<void> setFontScale(double scale) async {
+    _fontScale = scale;
+    final box = Hive.box('settings');
+    await box.put(_fontScaleKey, _fontScale);
+    notifyListeners();
   }
 
   ThemeData get theme => _isDarkTheme ? _darkTheme : _lightTheme;
@@ -58,7 +62,7 @@ class ThemeProvider with ChangeNotifier {
     useMaterial3: true,
     brightness: Brightness.dark,
     primarySwatch: Colors.blue,
-    scaffoldBackgroundColor: Colors.grey[900],
+    scaffoldBackgroundColor: const Color(0xFF212121), // Colors.grey[900]
     fontFamily: 'Cairo',
   );
 }
