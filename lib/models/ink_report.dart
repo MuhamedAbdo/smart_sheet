@@ -33,9 +33,6 @@ class InkReport extends HiveObject {
   @HiveField(8)
   final String? notes;
 
-  @HiveField(9)
-  final List<String> imageUrls;
-
   InkReport({
     required this.id,
     required this.date,
@@ -46,7 +43,6 @@ class InkReport extends HiveObject {
     required this.colors,
     required this.quantity,
     this.notes,
-    required this.imageUrls,
   });
 
   Map<String, dynamic> toJson() {
@@ -57,25 +53,20 @@ class InkReport extends HiveObject {
       'product': product,
       'product_code': productCode,
       'dimensions': dimensions,
-      'colors': colors.map((c) => c).toList(),
+      'colors': colors,
       'quantity': quantity,
       'notes': notes,
-      'image_urls': imageUrls,
     };
   }
 
   factory InkReport.fromJson(Map<String, dynamic> map) {
     List<dynamic> colorsList = map['colors'] ?? [];
-    List<dynamic> imagesList = map['image_urls'] ?? [];
 
     List<Map<String, double>> parsedColors = colorsList
         .map<Map<String, double>>((item) => Map<String, double>.from(
             (item as Map)
                 .map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))))
         .toList();
-
-    List<String> parsedImages =
-        imagesList.map((item) => item.toString()).toList();
 
     return InkReport(
       id: map['id'] ?? '',
@@ -91,7 +82,6 @@ class InkReport extends HiveObject {
           ? map['quantity']
           : int.tryParse(map['quantity'].toString()) ?? 0,
       notes: map['notes'],
-      imageUrls: parsedImages,
     );
   }
 }

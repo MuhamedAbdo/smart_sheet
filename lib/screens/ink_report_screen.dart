@@ -1,10 +1,8 @@
 // lib/src/widgets/flexo/ink_report_screen.dart
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
-import 'package:smart_sheet/widgets/full_screen_image_page.dart';
 import 'package:smart_sheet/widgets/ink_report_form.dart';
 import '../../../utils/pdf_export_helper.dart';
 
@@ -26,7 +24,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
   String _searchQuery = '';
 
   bool _sortDescending = true;
-  bool _onlyWithImages = false;
+  // 🗑️ تم حذف متغير _onlyWithImages
 
   @override
   void initState() {
@@ -118,8 +116,9 @@ class _InkReportScreenState extends State<InkReportScreen> {
         actions: [
           _buildExportMenu(),
           IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterSheet,
+            icon: const Icon(
+                Icons.sort), // تم تغيير الأيقونة لأنها للترتيب فقط الآن
+            onPressed: _showSortSheet,
           ),
         ],
       ),
@@ -130,14 +129,14 @@ class _InkReportScreenState extends State<InkReportScreen> {
             return const Center(child: Text("🚫 لا يوجد تقارير"));
           }
 
-          final allRecords = _filterAndSortRecords(
-              box, _searchQuery, _onlyWithImages, _sortDescending);
+          final allRecords =
+              _filterAndSortRecords(box, _searchQuery, _sortDescending);
 
           if (allRecords.isEmpty) {
             return Center(
               child: Text(_searchQuery.isNotEmpty
                   ? 'لا توجد نتائج مطابقة لـ "$_searchQuery"'
-                  : 'لا توجد تقارير تطابق الفلاتر'),
+                  : 'لا توجد تقارير حالياً'),
             );
           }
 
@@ -184,8 +183,8 @@ class _InkReportScreenState extends State<InkReportScreen> {
   }
 
   Widget _buildExportMenu() {
-    final filtered = _filterAndSortRecords(
-        _inkReportBox!, _searchQuery, _onlyWithImages, _sortDescending);
+    final filtered =
+        _filterAndSortRecords(_inkReportBox!, _searchQuery, _sortDescending);
     final recordsForExport = filtered.map((e) => e.value).toList();
 
     return PopupMenuButton<String>(
@@ -203,10 +202,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
   Widget _buildReportCard(MapEntry<dynamic, Map<String, dynamic>> entry) {
     final key = entry.key;
     final record = entry.value;
-
-    final images = (record['imagePaths'] is List)
-        ? List<String>.from(record['imagePaths'])
-        : <String>[];
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -227,7 +222,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
             _buildQuantityText(record['quantity']),
             _buildColorsList(record['colors'] ?? []),
             _buildNotesText(record['notes']),
-            _buildImagesList(images),
+            // 🗑️ تم حذف _buildImagesList(images)
             const SizedBox(height: 10),
             Row(
               children: [
@@ -296,15 +291,12 @@ class _InkReportScreenState extends State<InkReportScreen> {
   }
 
   List<MapEntry<dynamic, Map<String, dynamic>>> _filterAndSortRecords(
-      Box box, String searchQuery, bool onlyWithImages, bool sortDescending) {
+      Box box, String searchQuery, bool sortDescending) {
     final entries = box.toMap().entries.where((entry) {
       final record = entry.value;
       if (record is! Map) return false;
 
-      if (onlyWithImages) {
-        final images = record['imagePaths'];
-        if (images is! List || images.isEmpty) return false;
-      }
+      // 🗑️ تم حذف شرط onlyWithImages
 
       if (searchQuery.isNotEmpty) {
         final query = searchQuery.toLowerCase().trim();
@@ -373,42 +365,10 @@ class _InkReportScreenState extends State<InkReportScreen> {
     return Text("📝 ملاحظات: $notes");
   }
 
-  Widget _buildImagesList(List<String> images) {
-    final validImages =
-        images.where((path) => File(path).existsSync()).toList();
-    if (validImages.isEmpty) return const SizedBox.shrink();
-    return SizedBox(
-      height: 70,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: validImages.length,
-        itemBuilder: (context, i) => GestureDetector(
-          onTap: () => _showFullScreenImage(validImages, i),
-          child: Padding(
-            padding: const EdgeInsets.all(4.0),
-            child: Image.file(File(validImages[i]),
-                width: 60, height: 60, fit: BoxFit.cover),
-          ),
-        ),
-      ),
-    );
-  }
+  // 🗑️ تم حذف ويدجت _buildImagesList
+  // 🗑️ تم حذف دالة _showFullScreenImage
 
-  // الدالة المصححة: نقوم بتمرير القائمة كما هي لأنها بالفعل List<String>
-  void _showFullScreenImage(List<String> validPaths, int index) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FullScreenImagePage(
-          imagesPaths:
-              validPaths, // تم حذف .map((p) => File(p)) لأن الويدجت يريد String
-          initialIndex: index,
-        ),
-      ),
-    );
-  }
-
-  void _showFilterSheet() {
+  void _showSortSheet() {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -417,27 +377,26 @@ class _InkReportScreenState extends State<InkReportScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SwitchListTile(
-                title: const Text("صور فقط"),
-                value: _onlyWithImages,
-                onChanged: (v) =>
-                    setState(() => setST(() => _onlyWithImages = v)),
-              ),
+              // 🗑️ تم حذف الـ Switch الخاص بـ "صور فقط"
               ListTile(
-                title: const Text("الترتيب"),
+                title: const Text("ترتيب التقارير"),
                 trailing: DropdownButton<bool>(
                   value: _sortDescending,
                   items: const [
-                    DropdownMenuItem(value: true, child: Text("الأحدث")),
-                    DropdownMenuItem(value: false, child: Text("الأقدم")),
+                    DropdownMenuItem(value: true, child: Text("الأحدث أولاً")),
+                    DropdownMenuItem(value: false, child: Text("الأقدم أولاً")),
                   ],
-                  onChanged: (v) =>
-                      setState(() => setST(() => _sortDescending = v!)),
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => setST(() => _sortDescending = v));
+                    }
+                  },
                 ),
               ),
+              const SizedBox(height: 10),
               ElevatedButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text("إغلاق"))
+                  child: const Text("إتمام"))
             ],
           ),
         ),

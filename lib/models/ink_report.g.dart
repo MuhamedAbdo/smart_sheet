@@ -28,14 +28,13 @@ class InkReportAdapter extends TypeAdapter<InkReport> {
           .toList(),
       quantity: fields[7] as int,
       notes: fields[8] as String?,
-      imageUrls: (fields[9] as List).cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, InkReport obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,9 +52,7 @@ class InkReportAdapter extends TypeAdapter<InkReport> {
       ..writeByte(7)
       ..write(obj.quantity)
       ..writeByte(8)
-      ..write(obj.notes)
-      ..writeByte(9)
-      ..write(obj.imageUrls);
+      ..write(obj.notes);
   }
 
   @override

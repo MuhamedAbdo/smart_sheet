@@ -1,5 +1,3 @@
-// lib/main.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -9,6 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+// استيراد الموديلات
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
@@ -16,6 +15,7 @@ import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/models/store_entry_model.dart';
 import 'package:smart_sheet/models/ink_report.dart';
 
+// استيراد الخدمات والبروفايدر والشاشات
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
@@ -39,42 +39,49 @@ class MyHttpOverrides extends HttpOverrides {
 
 Future<void> main() async {
   try {
+    // 1. التأكد من تهيئة نظام Flutter
     WidgetsFlutterBinding.ensureInitialized();
     HttpOverrides.global = MyHttpOverrides();
 
-    // تهيئة الإشعارات و Supabase
+    // 2. تهيئة Supabase والإشعارات (أساسي قبل أي شيء)
     await Future.wait([
       _initializeNotifications(),
       Supabase.initialize(
           url: supabaseUrl.trim(), anonKey: supabaseAnonKey.trim()),
     ]);
 
+    // 3. تهيئة قواعد بيانات Hive
     if (!kIsWeb) {
       await Hive.initFlutter();
       _registerAdapters();
 
-      // هـام جداً: فتح صندوق worker_actions أولاً لعلاقات HiveList
+      // الأولوية القصوى: فتح الصناديق التي يحتاجها التطبيق فور تشغيله (الثيم والخط)
+      // نستخدم await هنا لضمان فتحها قبل بدء الـ Provider
+      await Hive.openBox('settings');
+
+      // فتح صناديق العلاقات الأساسية
       await Hive.openBox<WorkerAction>('worker_actions');
 
-      // فتح الصناديق الأساسية
+      // فتح الصناديق الأساسية المتبقية
       await Future.wait([
-        Hive.openBox('settings'), // يحتوي على إعدادات الثيم وحجم الخط
         Hive.openBox<Worker>('workers'),
         Hive.openBox<Worker>('workers_flexo'),
         Hive.openBox<Worker>('workers_production'),
         Hive.openBox<FinishedProduct>('finished_products'),
       ]);
 
-      // فتح الباقي في الخلفية
+      // فتح الصناديق الثانوية في الخلفية لتحسين سرعة التشغيل
       _openBackgroundBoxes();
     }
   } catch (e) {
     debugPrint("❌ Critical Initialization Error: $e");
   }
 
+  // 4. تشغيل التطبيق مع الـ Providers
   runApp(
     MultiProvider(
       providers: [
+        // سيقوم ThemeProvider الآن بالعثور على صندوق settings مفتوحاً وجاهزاً
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthService()),
       ],
@@ -84,16 +91,13 @@ Future<void> main() async {
 }
 
 void _registerAdapters() {
-  if (!Hive.isAdapterRegistered(11)) {
+  if (!Hive.isAdapterRegistered(11))
     Hive.registerAdapter(WorkerActionAdapter());
-  }
   if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(WorkerAdapter());
-  if (!Hive.isAdapterRegistered(5)) {
+  if (!Hive.isAdapterRegistered(5))
     Hive.registerAdapter(FinishedProductAdapter());
-  }
-  if (!Hive.isAdapterRegistered(6)) {
+  if (!Hive.isAdapterRegistered(6))
     Hive.registerAdapter(MaintenanceRecordAdapter());
-  }
   if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(StoreEntryAdapter());
   if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(InkReportAdapter());
 }
@@ -126,7 +130,7 @@ class SmartSheetApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // مراقبة الـ ThemeProvider للحصول على تحديثات الثيم وحجم الخط
+    // مراقبة ThemeProvider للتغييرات
     final themeProvider = context.watch<ThemeProvider>();
 
     return MaterialApp(
@@ -139,7 +143,6 @@ class SmartSheetApp extends StatelessWidget {
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            // استخدام textScaler لضرب مقياس النظام في المقياس المخصص من التطبيق
             textScaler: TextScaler.linear(themeProvider.fontScale),
           ),
           child: child!,

@@ -5,10 +5,11 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 class ThemeProvider with ChangeNotifier {
   static const String _themeKey = 'isDarkTheme';
-  static const String _fontScaleKey = 'fontScale'; // مفتاح الحفظ في Hive
+  static const String _fontScaleKey = 'fontScale';
+  static const String _boxName = 'settings';
 
   bool _isDarkTheme = false;
-  double _fontScale = 1.0; // القيمة الافتراضية للخط
+  double _fontScale = 1.0;
 
   bool get isDarkTheme => _isDarkTheme;
   double get fontScale => _fontScale;
@@ -17,15 +18,15 @@ class ThemeProvider with ChangeNotifier {
     _loadSettings();
   }
 
+  // استخدام فتح الصندوق بشكل آمن
   Future<void> _loadSettings() async {
     try {
-      final box = Hive.box('settings');
+      // نستخدم openBox لضمان عدم حدوث خطأ "Box not found"
+      final box = await Hive.openBox(_boxName);
 
-      // تحميل حالة الثيم
-      _isDarkTheme = box.get(_themeKey, defaultValue: false) as bool;
-
-      // تحميل حجم الخط
-      _fontScale = box.get(_fontScaleKey, defaultValue: 1.0) as double;
+      _isDarkTheme = box.get(_themeKey, defaultValue: false);
+      _fontScale =
+          (box.get(_fontScaleKey, defaultValue: 1.0) as num).toDouble();
 
       notifyListeners();
     } catch (e) {
@@ -33,20 +34,26 @@ class ThemeProvider with ChangeNotifier {
     }
   }
 
-  // التحكم في الثيم
   Future<void> toggleTheme() async {
-    _isDarkTheme = !_isDarkTheme;
-    final box = Hive.box('settings');
-    await box.put(_themeKey, _isDarkTheme);
-    notifyListeners();
+    try {
+      _isDarkTheme = !_isDarkTheme;
+      final box = await Hive.openBox(_boxName);
+      await box.put(_themeKey, _isDarkTheme);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error toggling theme: $e');
+    }
   }
 
-  // التحكم في حجم الخط
   Future<void> setFontScale(double scale) async {
-    _fontScale = scale;
-    final box = Hive.box('settings');
-    await box.put(_fontScaleKey, _fontScale);
-    notifyListeners();
+    try {
+      _fontScale = scale;
+      final box = await Hive.openBox(_boxName);
+      await box.put(_fontScaleKey, _fontScale);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error setting font scale: $e');
+    }
   }
 
   ThemeData get theme => _isDarkTheme ? _darkTheme : _lightTheme;
@@ -54,15 +61,14 @@ class ThemeProvider with ChangeNotifier {
   static final _lightTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
-    primarySwatch: Colors.blue,
+    primaryColor: Colors.blue,
     fontFamily: 'Cairo',
   );
 
   static final _darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    primarySwatch: Colors.blue,
-    scaffoldBackgroundColor: const Color(0xFF212121), // Colors.grey[900]
+    scaffoldBackgroundColor: const Color(0xFF121212),
     fontFamily: 'Cairo',
   );
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/services/backup_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart'; // إضافة المكتبة
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -20,6 +21,24 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   void initState() {
     super.initState();
     _fetchBackups();
+  }
+
+  // دالة فتح رابط لوحة تحكم Supabase للمطور
+  Future<void> _launchSupabaseDashboard() async {
+    final Uri url = Uri.parse(
+        'https://supabase.com/dashboard/project/lbvaezdeaisukxqwwrmk');
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch $url');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('❌ تعذر فتح الرابط، تأكد من وجود متصفح')),
+        );
+      }
+    }
   }
 
   Future<void> _fetchBackups() async {
@@ -102,6 +121,12 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       appBar: AppBar(
         title: const Text('النسخ الاحتياطي السحابي'),
         actions: [
+          // زر المطور لفتح Supabase
+          IconButton(
+            icon: const Icon(Icons.terminal, color: Colors.orangeAccent),
+            tooltip: 'Supabase Dashboard (Dev)',
+            onPressed: _launchSupabaseDashboard,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isLoading ? null : _fetchBackups,
@@ -133,7 +158,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      // تم تحديث الشفافية لتجنب التحذير
       color: Colors.blue.withAlpha(25),
       child: Column(
         children: [
@@ -168,7 +192,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       children: _backupFiles
           .map((file) => Card(
                 child: ListTile(
-                  // تم تغيير الأيقونة إلى folder_zip
                   leading: const Icon(Icons.folder_zip, color: Colors.orange),
                   title: Text(file.name),
                   trailing: const Icon(Icons.settings_backup_restore),

@@ -1,10 +1,6 @@
-import 'dart:io';
+// lib/src/widgets/ink_report_form.dart
+
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smart_sheet/utils/image_utils.dart';
-import 'package:smart_sheet/services/storage_service.dart'; // تأكد من وجود خدمة الرفع لديك
 
 class ColorField {
   final TextEditingController colorController;
@@ -44,19 +40,13 @@ class _InkReportFormState extends State<InkReportForm> {
   late TextEditingController notesController;
 
   List<ColorField> colors = [];
-  List<String> _imagePaths = [];
-
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  CameraController? _cameraController;
-  bool _isCameraReady = false;
-  bool _isProcessing = false;
-  bool _isUploading = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _initializeControllers();
-    _initializeCamera();
   }
 
   void _initializeControllers() {
@@ -103,84 +93,14 @@ class _InkReportFormState extends State<InkReportForm> {
         ));
       }
     }
-
-    if (data['imagePaths'] is List) {
-      _imagePaths = List<String>.from(data['imagePaths']);
-    }
-  }
-
-  Future<void> _initializeCamera() async {
-    var status = await Permission.camera.request();
-    if (!status.isGranted) return;
-
-    try {
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) return;
-
-      final backCamera = cameras.firstWhere(
-        (cam) => cam.lensDirection == CameraLensDirection.back,
-        orElse: () => cameras.first,
-      );
-
-      final prefs = await SharedPreferences.getInstance();
-      final String quality = prefs.getString('camera_quality') ?? 'medium';
-
-      ResolutionPreset preset = switch (quality) {
-        'low' => ResolutionPreset.low,
-        'high' => ResolutionPreset.high,
-        _ => ResolutionPreset.medium,
-      };
-
-      _cameraController =
-          CameraController(backCamera, preset, enableAudio: false);
-      await _cameraController!.initialize();
-
-      if (mounted) setState(() => _isCameraReady = true);
-    } catch (e) {
-      debugPrint("Camera Error: $e");
-    }
-  }
-
-  Future<void> _captureImage() async {
-    if (!_isCameraReady ||
-        _cameraController == null ||
-        !_cameraController!.value.isInitialized) {
-      return;
-    }
-
-    setState(() => _isProcessing = true);
-    try {
-      final XFile image = await _cameraController!.takePicture();
-      // حفظ محلي مؤقت لضمان عدم ضياع الصورة قبل الرفع
-      final savedPath = await saveImagePermanently(File(image.path));
-      setState(() {
-        _imagePaths.add(savedPath);
-        _isProcessing = false;
-      });
-    } catch (e) {
-      setState(() => _isProcessing = false);
-      _showSnackBar("فشل التقاط الصورة: $e");
-    }
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _saveReport() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isUploading = true);
+    setState(() => _isSaving = true);
 
     try {
-      // 1. مزامنة الصور مع السحابة (يرفع الملفات المحلية ويتجاهل الروابط الموجودة مسبقاً)
-      List<String> finalUrls = await StorageService.uploadMultipleImages(
-        _imagePaths,
-        'ink_reports',
-      );
-
-      // 2. بناء الكائن النهائي
       final report = {
         'date': dateController.text,
         'clientName': clientNameController.text.trim(),
@@ -199,20 +119,19 @@ class _InkReportFormState extends State<InkReportForm> {
             .toList(),
         'quantity': int.tryParse(quantityController.text) ?? 0,
         'notes': notesController.text.trim(),
-        'imagePaths': finalUrls,
       };
 
       widget.onSave(report);
     } catch (e) {
-      _showSnackBar("حدث خطأ أثناء المزامنة: $e");
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("خطأ: $e")));
     } finally {
-      if (mounted) setState(() => _isUploading = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
   @override
   void dispose() {
-    _cameraController?.dispose();
     dateController.dispose();
     clientNameController.dispose();
     productController.dispose();
@@ -227,18 +146,6 @@ class _InkReportFormState extends State<InkReportForm> {
       c.quantityController.dispose();
     }
     super.dispose();
-  }
-
-  // أدوات المساعدة للعرض (UI Helpers)
-  Widget _buildImageProviderWidget(String path) {
-    bool isNetwork = path.startsWith('http');
-    return isNetwork
-        ? Image.network(path,
-            width: 80,
-            height: 80,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => const Icon(Icons.broken_image))
-        : Image.file(File(path), width: 80, height: 80, fit: BoxFit.cover);
   }
 
   @override
@@ -285,8 +192,6 @@ class _InkReportFormState extends State<InkReportForm> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    _buildCameraSection(),
-                    const SizedBox(height: 20),
                     _buildColorsSection(),
                     const SizedBox(height: 12),
                     _buildTextField(quantityController, "🔢 عدد الشيتات",
@@ -300,64 +205,7 @@ class _InkReportFormState extends State<InkReportForm> {
               ),
             ),
           ),
-          if (_isUploading) _buildLoadingOverlay(),
-        ],
-      ),
-    );
-  }
-
-  // مكونات الواجهة الصغيرة (Sub-Widgets)
-  Widget _buildCameraSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("📸 صور العينة",
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        if (_isCameraReady && _cameraController != null)
-          Container(
-            height: 180,
-            decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12), color: Colors.black12),
-            clipBehavior: Clip.antiAlias,
-            child: CameraPreview(_cameraController!),
-          ),
-        IconButton(
-          onPressed: _isProcessing ? null : _captureImage,
-          icon: _isProcessing
-              ? const CircularProgressIndicator()
-              : const Icon(Icons.camera_alt, size: 30),
-        ),
-        SizedBox(
-          height: 90,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _imagePaths.length,
-            itemBuilder: (context, i) => _buildThumbnail(i),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildThumbnail(int i) {
-    return Padding(
-      padding: const EdgeInsets.all(4.0),
-      child: Stack(
-        children: [
-          ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: _buildImageProviderWidget(_imagePaths[i])),
-          Positioned(
-            right: 0,
-            child: GestureDetector(
-              onTap: () => setState(() => _imagePaths.removeAt(i)),
-              child: const CircleAvatar(
-                  radius: 10,
-                  backgroundColor: Colors.red,
-                  child: Icon(Icons.close, size: 12, color: Colors.white)),
-            ),
-          ),
+          if (_isSaving) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );
@@ -405,24 +253,6 @@ class _InkReportFormState extends State<InkReportForm> {
             child: ElevatedButton(
                 onPressed: _saveReport, child: const Text("💾 حفظ التقرير"))),
       ],
-    );
-  }
-
-  Widget _buildLoadingOverlay() {
-    return Container(
-      color: Colors.black54,
-      child: const Center(
-        child: Card(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 15),
-              Text("جاري مزامنة البيانات والحرص على جودتها...")
-            ]),
-          ),
-        ),
-      ),
     );
   }
 
