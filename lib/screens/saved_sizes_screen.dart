@@ -8,6 +8,14 @@ import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 
+// تعريف أنواع الترتيب
+enum SortType {
+  alphabeticalAsc, // أ - ي / A - Z
+  alphabeticalDesc, // ي - أ / Z - A
+  newestFirst, // الأحدث أولاً
+  oldestFirst // الأقدم أولاً
+}
+
 class SavedSizesScreen extends StatefulWidget {
   const SavedSizesScreen({super.key});
   @override
@@ -19,6 +27,9 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
   bool _isLoading = true;
   String searchQuery = "";
   bool isSearching = false;
+
+  // الحالة الافتراضية للترتيب: أبجدي (أ-ي)
+  SortType _currentSortType = SortType.alphabeticalAsc;
 
   @override
   void initState() {
@@ -58,6 +69,34 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
                 onChanged: (v) => setState(() => searchQuery = v))
             : const Text("📄 المقاسات المحفوظة"),
         actions: [
+          // زر الترتيب
+          PopupMenuButton<SortType>(
+            icon: const Icon(Icons.sort_by_alpha),
+            tooltip: "ترتيب البطاقات",
+            onSelected: (SortType result) {
+              setState(() {
+                _currentSortType = result;
+              });
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<SortType>>[
+              const PopupMenuItem<SortType>(
+                value: SortType.alphabeticalAsc,
+                child: Text('أبجدي (أ - ي)'),
+              ),
+              const PopupMenuItem<SortType>(
+                value: SortType.alphabeticalDesc,
+                child: Text('أبجدي (ي - أ)'),
+              ),
+              const PopupMenuItem<SortType>(
+                value: SortType.newestFirst,
+                child: Text('التاريخ (الأحدث أولاً)'),
+              ),
+              const PopupMenuItem<SortType>(
+                value: SortType.oldestFirst,
+                child: Text('التاريخ (الأقدم أولاً)'),
+              ),
+            ],
+          ),
           IconButton(
             icon: Icon(isSearching ? Icons.close : Icons.search),
             onPressed: () => setState(() {
@@ -70,7 +109,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
       body: ValueListenableBuilder(
         valueListenable: _savedSheetSizesBox!.listenable(),
         builder: (context, Box box, _) {
-          final entries = _getFilteredEntries(box);
+          final entries = _getSortedAndFilteredEntries(box);
           if (entries.isEmpty) {
             return const Center(
                 child: Text("🚫 لا توجد نتائج للبحث أو الصندوق فارغ."));
@@ -81,10 +120,11 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             itemBuilder: (context, index) {
               final entry = entries[index];
               return SavedSizeCard(
+                key: ValueKey(
+                    entry.key), // أضفنا مفتاح لتحسين الأداء عند إعادة الترتيب
                 record: entry.value,
                 onEdit: () => _navigateToEdit(entry.key, entry.value),
                 onDelete: () => _confirmDelete(entry.key),
-                // تم تعديل هذا السطر ليمرر البيانات للدالة
                 onPrint: (data) => _openInkReportWithSheetData(context, data),
               );
             },
@@ -94,25 +134,55 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     );
   }
 
-  List<MapEntry<dynamic, Map<String, dynamic>>> _getFilteredEntries(Box box) {
+  List<MapEntry<dynamic, Map<String, dynamic>>> _getSortedAndFilteredEntries(
+      Box box) {
     final query = searchQuery.toLowerCase().trim();
-    return box
+
+    // 1. تحويل الصندوق إلى قائمة من المداخل
+    List<MapEntry<dynamic, Map<String, dynamic>>> entries = box
         .toMap()
         .entries
-        .where((entry) {
-          final record = entry.value as Map;
-          if (query.isEmpty) return true;
-          final name = (record['clientName']?.toString() ?? '').toLowerCase();
-          final product =
-              (record['productName']?.toString() ?? '').toLowerCase();
-          final code = (record['productCode']?.toString() ?? '').toLowerCase();
-          return name.contains(query) ||
-              product.contains(query) ||
-              code.contains(query); // تعديل بسيط ليدعم جزء من الكود
-        })
         .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
         .toList();
+
+    // 2. الفلترة حسب البحث
+    if (query.isNotEmpty) {
+      entries = entries.where((entry) {
+        final record = entry.value;
+        final name = (record['clientName']?.toString() ?? '').toLowerCase();
+        final product = (record['productName']?.toString() ?? '').toLowerCase();
+        final code = (record['productCode']?.toString() ?? '').toLowerCase();
+        return name.contains(query) ||
+            product.contains(query) ||
+            code.contains(query);
+      }).toList();
+    }
+
+    // 3. الترتيب حسب النوع المختار
+    switch (_currentSortType) {
+      case SortType.alphabeticalAsc:
+        entries.sort((a, b) => (a.value['clientName'] ?? '')
+            .toString()
+            .compareTo((b.value['clientName'] ?? '').toString()));
+        break;
+      case SortType.alphabeticalDesc:
+        entries.sort((a, b) => (b.value['clientName'] ?? '')
+            .toString()
+            .compareTo((a.value['clientName'] ?? '').toString()));
+        break;
+      case SortType.newestFirst:
+        // في Hive، المفاتيح التلقائية (Auto-increment) تزيد مع كل إضافة، لذا الأكبر هو الأحدث
+        entries.sort((a, b) => b.key.compareTo(a.key));
+        break;
+      case SortType.oldestFirst:
+        entries.sort((a, b) => a.key.compareTo(b.key));
+        break;
+    }
+
+    return entries;
   }
+
+  // --- بقية الدوال كما هي دون تغيير ---
 
   void _openInkReportWithSheetData(
       BuildContext context, Map<String, dynamic> dataFromCard) async {
@@ -133,10 +203,8 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
           if (path.startsWith('http')) {
             finalImages.add(path);
           } else {
-            // استخراج اسم الملف فقط لضمان بناء المسار الصحيح
             String fileName = path.split(Platform.pathSeparator).last;
             String localPath = '${imageDir.path}/$fileName';
-
             if (await File(localPath).exists()) {
               finalImages.add(localPath);
             }
@@ -159,7 +227,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
       };
 
       if (mounted) {
-        Navigator.pop(context); // إغلاق مؤشر التحميل
+        Navigator.pop(context);
         Navigator.push(
           context,
           MaterialPageRoute(

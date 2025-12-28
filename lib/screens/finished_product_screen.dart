@@ -274,8 +274,9 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
         valueListenable: _productsBox!.listenable(),
         builder: (context, Box<FinishedProduct> box, _) {
           final prepared = _prepareRecords(box);
-          if (prepared.isEmpty)
+          if (prepared.isEmpty) {
             return const Center(child: Text("لا توجد سجلات حالياً"));
+          }
 
           return ListView.builder(
             itemCount: prepared.length,

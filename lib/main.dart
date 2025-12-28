@@ -83,13 +83,16 @@ Future<void> main() async {
 }
 
 void _registerAdapters() {
-  if (!Hive.isAdapterRegistered(11))
+  if (!Hive.isAdapterRegistered(11)) {
     Hive.registerAdapter(WorkerActionAdapter());
+  }
   if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(WorkerAdapter());
-  if (!Hive.isAdapterRegistered(5))
+  if (!Hive.isAdapterRegistered(5)) {
     Hive.registerAdapter(FinishedProductAdapter());
-  if (!Hive.isAdapterRegistered(6))
+  }
+  if (!Hive.isAdapterRegistered(6)) {
     Hive.registerAdapter(MaintenanceRecordAdapter());
+  }
   if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(StoreEntryAdapter());
   if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(InkReportAdapter());
 }

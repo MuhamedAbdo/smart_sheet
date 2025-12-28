@@ -1,10 +1,9 @@
-// lib/src/services/backup_service.dart
-
 import 'dart:io';
 import 'dart:async';
 import 'package:archive/archive_io.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart'; // ضروري للتعامل مع MethodChannel
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -31,23 +30,71 @@ class BackupService {
   static const String BUCKET_NAME = 'backups';
   static const String _backupFileName = 'smart_sheet_backup.zip';
 
+  // قناة الاتصال مع كود الاندرويد (Kotlin) لإعادة التشغيل
+  static const _platform = MethodChannel('com.smart_sheet/app_control');
+
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  // --- رفع النسخة للسحاب ---
+  Future<void> _requestPermissions() async {
+    if (Platform.isAndroid) {
+      await FlutterForegroundTask.requestNotificationPermission();
+    }
+  }
+
+  // --- 1. النسخ الاحتياطي المحلي ---
+  Future<String?> createBackup() async {
+    try {
+      final localPath = await _createLocalBackupFile();
+      if (localPath == null) return '❌ فشل إنشاء الملف المؤقت';
+      final file = File(localPath);
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'اختر مكان حفظ النسخة الاحتياطية',
+        fileName:
+            'smart_sheet_backup_${DateTime.now().millisecondsSinceEpoch}.zip',
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+      );
+      if (outputFile != null) {
+        await file.copy(outputFile);
+        await file.delete();
+        return '✅ تم حفظ النسخة الاحتياطية بنجاح';
+      }
+      return null;
+    } catch (e) {
+      return '❌ فشل الحفظ المحلي: $e';
+    }
+  }
+
+  // --- 2. الاستعادة المحلية ---
+  Future<String?> restoreBackup() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+      );
+      if (result != null && result.files.single.path != null) {
+        final res = await _restoreFromZipPath(result.files.single.path!);
+        if (res == 'SUCCESS_RESTORE') {
+          await _restartApp(); // تنفيذ إعادة التشغيل عند النجاح
+        }
+        return res;
+      }
+      return null;
+    } catch (e) {
+      return '❌ فشل الاستعادة المحلية: $e';
+    }
+  }
+
+  // --- 3. الرفع السحابي ---
   Future<String?> uploadToSupabase() async {
     try {
       if (kIsWeb) return 'غير مدعوم على الويب.';
-
       await _requestPermissions();
       _initService();
       await _startService();
 
-      final localBackupPath = await _createLocalBackupFile().timeout(
-          const Duration(seconds: 120),
-          onTimeout: () =>
-              throw TimeoutException('عملية الضغط استغرقت وقتاً طويلاً'));
-
+      final localBackupPath = await _createLocalBackupFile();
       if (localBackupPath == null) {
         await _stopService();
         return '❌ فشل إنشاء ملف النسخة المحلية.';
@@ -64,35 +111,69 @@ class BackupService {
           '${DateTime.now().toIso8601String().replaceAll(':', '-')}_$_backupFileName';
       final uploadPath = 'manual_backups/${user.id}/$uniqueFileName';
 
-      await _supabaseClient.storage
-          .from(BUCKET_NAME)
-          .upload(
+      _updateForegroundNotification(
+        title: 'جاري الرفع...',
+        content: 'يتم الآن نقل النسخة الاحتياطية إلى السحابة',
+      );
+
+      await _supabaseClient.storage.from(BUCKET_NAME).upload(
             uploadPath,
             backupFile,
             fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
-          )
-          .timeout(const Duration(minutes: 20));
+          );
 
       if (await backupFile.exists()) await backupFile.delete();
-
       await _stopService();
       await _showNotification(
-          id: 1,
-          title: 'النسخ السحابي',
-          body: '✅ اكتمل رفع النسخة الاحتياطية بنجاح.');
-
+          id: 1, title: 'النسخ السحابي', body: '✅ اكتمل الرفع بنجاح.');
       return '✅ تم الرفع بنجاح.';
     } catch (e) {
       await _stopService();
-      await _showNotification(
-          id: 2,
-          title: 'النسخ السحابي',
-          body: '❌ فشل الرفع: تحقق من استقرار الإنترنت.');
       return '❌ فشل الرفع: ${e.toString()}';
     }
   }
 
-  // --- جلب قائمة النسخ المتاحة ---
+  // --- 4. الاستعادة من السحاب ---
+  Future<String?> downloadAndRestore(String fullPath) async {
+    try {
+      _initService();
+      await _startService();
+      _updateForegroundNotification(
+          title: 'جاري الاستعادة', content: 'يتم الآن التحميل...');
+      final tempDir = await getTemporaryDirectory();
+      final tempZipPath = p.join(tempDir.path, 'downloaded_backup.zip');
+
+      final Uint8List bytes =
+          await _supabaseClient.storage.from(BUCKET_NAME).download(fullPath);
+      await File(tempZipPath).writeAsBytes(bytes);
+
+      final result = await _restoreFromZipPath(tempZipPath);
+
+      if (await File(tempZipPath).exists()) await File(tempZipPath).delete();
+      await _stopService();
+
+      if (result == 'SUCCESS_RESTORE') {
+        await _restartApp(); // تنفيذ إعادة التشغيل عند النجاح
+      }
+      return result;
+    } catch (e) {
+      await _stopService();
+      return '❌ فشل الاستعادة: $e';
+    }
+  }
+
+  // --- وظائف المساعدة ---
+
+  Future<void> _restartApp() async {
+    try {
+      // مهلة بسيطة لضمان كتابة الملفات وإغلاق قواعد البيانات
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _platform.invokeMethod('restartApp');
+    } catch (e) {
+      debugPrint("Restart failed: $e");
+    }
+  }
+
   Future<List<FileObject>> listBackups() async {
     try {
       final user = _supabaseClient.auth.currentUser;
@@ -105,131 +186,60 @@ class BackupService {
     }
   }
 
-  // --- تحميل واستعادة من السحاب ---
-  Future<String?> downloadAndRestore(String fullPath) async {
-    try {
-      final tempDir = await getTemporaryDirectory();
-      final tempZipPath = p.join(tempDir.path, 'downloaded_backup.zip');
-
-      final Uint8List bytes =
-          await _supabaseClient.storage.from(BUCKET_NAME).download(fullPath);
-
-      await File(tempZipPath).writeAsBytes(bytes);
-
-      // تنفيذ الاستعادة
-      final result = await _restoreFromZipPath(tempZipPath);
-
-      if (await File(tempZipPath).exists()) await File(tempZipPath).delete();
-      return result;
-    } catch (e) {
-      return '❌ فشل الاستعادة: $e';
-    }
-  }
-
-  // --- إنشاء نسخة محلياً وحفظها في ملف ---
-  Future<String?> createBackup() async {
-    try {
-      final localPath = await _createLocalBackupFile();
-      if (localPath == null) return '❌ فشل إنشاء الملف';
-      final bytes = await File(localPath).readAsBytes();
-      final String? saved = await FilePicker.platform.saveFile(
-        fileName: _backupFileName,
-        bytes: bytes,
-        type: FileType.custom,
-        allowedExtensions: ['zip'],
-      );
-      if (await File(localPath).exists()) await File(localPath).delete();
-      return saved != null ? '✅ تم حفظ النسخة بنجاح' : null;
-    } catch (e) {
-      return '❌ خطأ محلي: $e';
-    }
-  }
-
-  // --- استعادة من ملف محلي ---
-  Future<String?> restoreBackup() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['zip'],
-      );
-      if (result?.files.single.path == null) return null;
-      return await _restoreFromZipPath(result!.files.single.path!);
-    } catch (e) {
-      return '❌ فشل اختيار الملف: $e';
-    }
-  }
-
-  // --- المنطق الجوهري للاستعادة (تم تعديله) ---
   Future<String?> _restoreFromZipPath(String zipPath) async {
     try {
-      // 1. إغلاق Hive تماماً لتحرير الملفات من الذاكرة (هام جداً للمحاكي)
       await Hive.close();
-
       final appDir = await getApplicationDocumentsDirectory();
       final appDirInstance = Directory(appDir.path);
-
-      // 2. مسح ملفات قاعدة البيانات الحالية لفتح المجال للجديدة
       if (appDirInstance.existsSync()) {
         final entities = appDirInstance.listSync();
         for (var entity in entities) {
           try {
             entity.deleteSync(recursive: true);
-          } catch (e) {
-            debugPrint("تعذر حذف ملف: ${entity.path}");
-          }
+          } catch (e) {}
         }
       }
-
-      // 3. فك الضغط في مجلد التطبيق
       await compute(_restoreBackupInternal, [zipPath, appDir.path]);
-
-      // نرجع رمز النجاح لكي تقوم الواجهة بعمل إغلاق للتطبيق أو إعادة تشغيل
       return 'SUCCESS_RESTORE';
     } catch (e) {
       return '❌ فشل فك الضغط: $e';
     }
   }
 
-  // --- الدوال المساعدة والخدمات الخلفية ---
   void _initService() {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'backup_service',
         channelName: 'Smart Sheet Backup',
-        channelDescription: 'تأمين عملية رفع البيانات في الخلفية',
         channelImportance: NotificationChannelImportance.LOW,
         priority: NotificationPriority.LOW,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
           showNotification: true, playSound: false),
       foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.nothing(),
-        autoRunOnBoot: false,
         allowWakeLock: true,
         allowWifiLock: true,
+        eventAction: ForegroundTaskEventAction.nothing(),
       ),
     );
-  }
-
-  Future<void> _requestPermissions() async {
-    final NotificationPermission notificationPermission =
-        await FlutterForegroundTask.checkNotificationPermission();
-    if (notificationPermission != NotificationPermission.granted) {
-      await FlutterForegroundTask.requestNotificationPermission();
-    }
   }
 
   Future<void> _startService() async {
     await FlutterForegroundTask.startService(
       serviceId: 256,
-      notificationTitle: 'جاري النسخ الاحتياطي',
-      notificationText: 'يرجى عدم إغلاق التطبيق حتى ينتهي الرفع...',
+      notificationTitle: 'بدء العملية',
+      notificationText: 'يرجى الانتظار...',
       callback: startCallback,
     );
   }
 
-  Future<void> _stopService() async {
-    await FlutterForegroundTask.stopService();
+  Future<void> _stopService() async =>
+      await FlutterForegroundTask.stopService();
+
+  void _updateForegroundNotification(
+      {required String title, required String content}) {
+    FlutterForegroundTask.updateService(
+        notificationTitle: title, notificationText: content);
   }
 
   Future<void> _showNotification(
@@ -237,9 +247,8 @@ class BackupService {
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails('backup_channel', 'النسخ الاحتياطي',
             importance: Importance.max, priority: Priority.high);
-    const NotificationDetails platformDetails =
-        NotificationDetails(android: androidDetails);
-    await _notificationsPlugin.show(id, title, body, platformDetails);
+    await _notificationsPlugin.show(
+        id, title, body, const NotificationDetails(android: androidDetails));
   }
 
   Future<String?> _createLocalBackupFile() async {
@@ -251,7 +260,6 @@ class BackupService {
     return tempZipPath;
   }
 
-  // --- العمليات في الخلفية (Isolates) ---
   @pragma('vm:entry-point')
   static void _createBackupInternal(List<String> args) {
     final encoder = ZipFileEncoder();
