@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/ink_report_form.dart';
 import '../../../utils/pdf_export_helper.dart';
@@ -22,102 +24,154 @@ class _InkReportScreenState extends State<InkReportScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   String _searchQuery = '';
-
   bool _sortDescending = true;
-  // 🗑️ تم حذف متغير _onlyWithImages
 
   @override
   void initState() {
     super.initState();
     _openBoxSafe();
-
     _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.trim();
-      });
+      setState(() => _searchQuery = _searchController.text.trim());
     });
   }
 
   Future<void> _openBoxSafe() async {
     try {
-      if (!Hive.isBoxOpen('inkReports')) {
-        await Hive.openBox('inkReports');
-      }
+      if (!Hive.isBoxOpen('inkReports')) await Hive.openBox('inkReports');
       if (mounted) {
         setState(() {
           _inkReportBox = Hive.box('inkReports');
           _isBoxLoading = false;
         });
-
-        if (widget.initialData != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _showAddReportDialog(widget.initialData);
-          });
-        }
       }
     } catch (e) {
-      debugPrint("Error opening inkReports box: $e");
-      if (mounted) {
-        setState(() => _isBoxLoading = false);
-      }
+      if (mounted) setState(() => _isBoxLoading = false);
     }
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _searchFocus.dispose();
-    super.dispose();
+  // ✅ تحديد مكان الحفظ يدوياً
+  Future<void> _savePdfToDeviceLocally(
+      List<Map<String, dynamic>> records) async {
+    try {
+      if (records.isEmpty) return;
+
+      final Uint8List? pdfBytes = await generateInkReportPdfBytes(records);
+      if (pdfBytes == null) return;
+
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'اختر مكان حفظ ملف PDF',
+        fileName: 'تقرير_أحبار_${DateTime.now().millisecondsSinceEpoch}.pdf',
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        bytes: pdfBytes,
+      );
+
+      if (outputFile != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text("✅ تم حفظ الملف بنجاح"),
+              backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error saving: $e");
+    }
   }
 
-  void _showAddReportDialog([Map<String, dynamic>? prefillData]) {
-    if (_inkReportBox == null) return;
+  // ✅ مسح الكل مع رسالة تحذير وتراجع
+  void _deleteAllReports() {
+    if (_inkReportBox == null || _inkReportBox!.isEmpty) return;
 
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return InkReportForm(
-          initialData: prefillData,
-          onSave: (report) {
-            _inkReportBox!.add(report);
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("✅ تم إضافة التقرير")),
-              );
-              Navigator.pop(context);
-            }
-          },
-        );
-      },
+      builder: (ctx) => AlertDialog(
+        title: const Text("⚠️ تحذير: مسح شامل", textAlign: TextAlign.right),
+        content: const Text("هل أنت متأكد من حذف جميع التقارير نهائياً؟",
+            textAlign: TextAlign.right),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              final Map<dynamic, dynamic> backup =
+                  Map.from(_inkReportBox!.toMap());
+              _inkReportBox!.clear();
+              _showUndoSnackBar("🗑️ تم مسح الكل", () {
+                backup.forEach((k, v) => _inkReportBox!.put(k, v));
+              });
+            },
+            child: const Text("نعم، امسح الكل",
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ حذف كرت واحد مع رسالة تحذير وتراجع
+  void _deleteSingleReport(dynamic key, dynamic record) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("تأكيد الحذف", textAlign: TextAlign.right),
+        content:
+            const Text("هل تريد حذف هذا التقرير؟", textAlign: TextAlign.right),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _inkReportBox!.delete(key);
+              _showUndoSnackBar(
+                  "🗑️ تم حذف التقرير", () => _inkReportBox!.put(key, record));
+            },
+            child: const Text("حذف", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showUndoSnackBar(String message, VoidCallback onUndo) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+            label: "تراجع", onPressed: onUndo, textColor: Colors.yellow),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isBoxLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+    if (_isBoxLoading)
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
-    if (_inkReportBox == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("خطأ في البيانات")),
-        body: const Center(
-            child: Text("❌ تعذر الوصول إلى قاعدة بيانات التقارير")),
-      );
-    }
+    // تحديد الألوان بناءً على الثيم المطبق حالياً
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
 
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: _buildSearchField(),
+        // إزالة لون الخلفية الثابت ليعمل مع الثيم
+        iconTheme: IconThemeData(color: appBarIconColor),
+        title: _buildSearchField(context, isDark),
         actions: [
-          _buildExportMenu(),
           IconButton(
-            icon: const Icon(
-                Icons.sort), // تم تغيير الأيقونة لأنها للترتيب فقط الآن
+            icon: Icon(Icons.delete_sweep, color: appBarIconColor),
+            tooltip: "مسح شامل",
+            onPressed: _deleteAllReports,
+          ),
+          _buildExportMenu(appBarIconColor),
+          IconButton(
+            icon: Icon(Icons.sort, color: appBarIconColor),
             onPressed: _showSortSheet,
           ),
         ],
@@ -125,27 +179,15 @@ class _InkReportScreenState extends State<InkReportScreen> {
       body: ValueListenableBuilder(
         valueListenable: _inkReportBox!.listenable(),
         builder: (context, Box box, _) {
-          if (box.isEmpty) {
+          if (box.isEmpty)
             return const Center(child: Text("🚫 لا يوجد تقارير"));
-          }
-
           final allRecords =
               _filterAndSortRecords(box, _searchQuery, _sortDescending);
-
-          if (allRecords.isEmpty) {
-            return Center(
-              child: Text(_searchQuery.isNotEmpty
-                  ? 'لا توجد نتائج مطابقة لـ "$_searchQuery"'
-                  : 'لا توجد تقارير حالياً'),
-            );
-          }
-
           return ListView.builder(
             itemCount: allRecords.length,
-            itemBuilder: (context, index) {
-              final entry = allRecords[index];
-              return _buildReportCard(entry);
-            },
+            padding: const EdgeInsets.only(bottom: 80),
+            itemBuilder: (context, index) =>
+                _buildReportCard(allRecords[index]),
           );
         },
       ),
@@ -156,45 +198,31 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  Widget _buildSearchField() {
-    return SizedBox(
-      height: 40,
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocus,
-        decoration: InputDecoration(
-          hintText: 'ابحث بالعميل، الصنف، الكود...',
-          hintStyle: const TextStyle(color: Colors.white70, fontSize: 13),
-          prefixIcon: const Icon(Icons.search, color: Colors.white),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.white),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _searchQuery = '');
-                  },
-                )
-              : null,
-          border: InputBorder.none,
-        ),
-        style: const TextStyle(color: Colors.white),
-      ),
-    );
-  }
-
-  Widget _buildExportMenu() {
-    final filtered =
-        _filterAndSortRecords(_inkReportBox!, _searchQuery, _sortDescending);
-    final recordsForExport = filtered.map((e) => e.value).toList();
-
+  Widget _buildExportMenu(Color iconColor) {
     return PopupMenuButton<String>(
-      onSelected: (value) {
-        if (value == 'export') _exportFilteredReports(recordsForExport);
-        if (value == 'save') _saveFilteredReports(recordsForExport);
+      icon: Icon(Icons.more_vert, color: iconColor),
+      onSelected: (value) async {
+        final filtered = _filterAndSortRecords(
+            _inkReportBox!, _searchQuery, _sortDescending);
+        final records = filtered.map((e) => e.value).toList();
+        if (value == 'export') await exportReportsToPdf(context, records);
+        if (value == 'save') await _savePdfToDeviceLocally(records);
       },
       itemBuilder: (context) => [
-        const PopupMenuItem(value: 'export', child: Text('تصدير ومشاركة PDF')),
-        const PopupMenuItem(value: 'save', child: Text('حفظ في ذاكرة الهاتف')),
+        const PopupMenuItem(
+            value: 'export',
+            child: Row(children: [
+              Icon(Icons.share, size: 18),
+              SizedBox(width: 8),
+              Text('تصدير ومشاركة PDF')
+            ])),
+        const PopupMenuItem(
+            value: 'save',
+            child: Row(children: [
+              Icon(Icons.save_alt, size: 18),
+              SizedBox(width: 8),
+              Text('حفظ في الذاكرة (يدوي)')
+            ])),
       ],
     );
   }
@@ -205,44 +233,48 @@ class _InkReportScreenState extends State<InkReportScreen> {
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("📅 ${record['date'] ?? ''}",
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, color: Colors.blue)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("📅 ${record['date'] ?? ''}",
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.blue)),
+                const Icon(Icons.receipt_long, color: Colors.grey, size: 18),
+              ],
+            ),
             const Divider(),
             _buildInfoRow(
-                "👤 العميل:", record['clientName']?.toString() ?? 'غير محدد'),
-            _buildInfoRow(
-                "📦 الصنف:", record['product']?.toString() ?? 'غير محدد'),
+                "👤 العميل:", record['clientName']?.toString() ?? '---'),
+            _buildInfoRow("📦 الصنف:", record['product']?.toString() ?? '---'),
             _buildDimensionsText(record['dimensions']),
             _buildQuantityText(record['quantity']),
             _buildColorsList(record['colors'] ?? []),
             _buildNotesText(record['notes']),
-            // 🗑️ تم حذف _buildImagesList(images)
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _editReport(key, record),
-                    icon: const Icon(Icons.edit),
-                    label: const Text("تعديل"),
-                  ),
-                ),
-                const SizedBox(width: 8),
+                    child: OutlinedButton.icon(
+                        onPressed: () => _editReport(key, record),
+                        icon: const Icon(Icons.edit, size: 16),
+                        label: const Text("تعديل"))),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: ElevatedButton.icon(
-                    style:
-                        ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    onPressed: () => _confirmDelete(key),
-                    icon: const Icon(Icons.delete),
-                    label: const Text("حذف"),
-                  ),
-                ),
+                    child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade400,
+                      foregroundColor: Colors.white),
+                  onPressed: () => _deleteSingleReport(key, record),
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text("حذف"),
+                )),
               ],
             )
           ],
@@ -251,186 +283,129 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  void _editReport(dynamic key, Map<String, dynamic> record) {
-    final sanitizedRecord = _convertValuesToString(record);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => InkReportForm(
-        initialData: sanitizedRecord,
-        reportKey: key.toString(),
-        onSave: (updatedReport) {
-          _inkReportBox!.put(key, updatedReport);
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text("✅ تم التحديث")));
-        },
+  // ✅ تعديل حقل البحث ليكون متوافقاً مع الوضع النهاري والليلي
+  Widget _buildSearchField(BuildContext context, bool isDark) {
+    final Color textColor = isDark ? Colors.white : Colors.black87;
+    final Color hintColor = isDark ? Colors.white70 : Colors.black54;
+    final Color containerColor =
+        isDark ? Colors.white10 : Colors.black.withOpacity(0.05);
+
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: containerColor,
+        borderRadius: BorderRadius.circular(10),
       ),
-    );
-  }
-
-  void _confirmDelete(dynamic key) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("تأكيد الحذف"),
-        content: const Text("هل تريد حذف هذا التقرير نهائياً؟"),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
-          TextButton(
-            onPressed: () {
-              _inkReportBox!.delete(key);
-              Navigator.pop(ctx);
-            },
-            child: const Text("حذف", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<MapEntry<dynamic, Map<String, dynamic>>> _filterAndSortRecords(
-      Box box, String searchQuery, bool sortDescending) {
-    final entries = box.toMap().entries.where((entry) {
-      final record = entry.value;
-      if (record is! Map) return false;
-
-      // 🗑️ تم حذف شرط onlyWithImages
-
-      if (searchQuery.isNotEmpty) {
-        final query = searchQuery.toLowerCase().trim();
-        final client = (record['clientName']?.toString() ?? '').toLowerCase();
-        final product = (record['product']?.toString() ?? '').toLowerCase();
-        final code = (record['productCode']?.toString() ?? '').toLowerCase();
-        return client.contains(query) ||
-            product.contains(query) ||
-            code.contains(query);
-      }
-      return true;
-    }).toList();
-
-    entries.sort((a, b) {
-      final dtA = DateTime.tryParse(a.value['date']?.toString() ?? '') ??
-          DateTime(1970);
-      final dtB = DateTime.tryParse(b.value['date']?.toString() ?? '') ??
-          DateTime(1970);
-      return sortDescending ? dtB.compareTo(dtA) : dtA.compareTo(dtB);
-    });
-
-    return entries.map((e) {
-      final safeMap = Map<String, dynamic>.from(e.value as Map);
-      return MapEntry(e.key, safeMap);
-    }).toList();
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(width: 10),
-          Expanded(child: Text(value)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDimensionsText(dynamic dimensions) {
-    if (dimensions is! Map) return const Text("📏 المقاسات: غير محدد");
-    return Text(
-        "📏 المقاسات: ${dimensions['length']}/${dimensions['width']}/${dimensions['height']}");
-  }
-
-  Widget _buildQuantityText(dynamic quantity) =>
-      Text("🔢 عدد الشيتات: ${quantity ?? 0}");
-
-  Widget _buildColorsList(List<dynamic> colors) {
-    if (colors.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("🎨 الألوان:",
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        ...colors.map((c) => Text(" • ${c['color']} - ${c['quantity']} لتر")),
-      ],
-    );
-  }
-
-  Widget _buildNotesText(dynamic notes) {
-    if (notes == null || notes.toString().isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Text("📝 ملاحظات: $notes");
-  }
-
-  // 🗑️ تم حذف ويدجت _buildImagesList
-  // 🗑️ تم حذف دالة _showFullScreenImage
-
-  void _showSortSheet() {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setST) => Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 🗑️ تم حذف الـ Switch الخاص بـ "صور فقط"
-              ListTile(
-                title: const Text("ترتيب التقارير"),
-                trailing: DropdownButton<bool>(
-                  value: _sortDescending,
-                  items: const [
-                    DropdownMenuItem(value: true, child: Text("الأحدث أولاً")),
-                    DropdownMenuItem(value: false, child: Text("الأقدم أولاً")),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) {
-                      setState(() => setST(() => _sortDescending = v));
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("إتمام"))
-            ],
-          ),
+      child: TextField(
+        controller: _searchController,
+        style: TextStyle(color: textColor, fontSize: 15),
+        decoration: InputDecoration(
+          hintText: 'بحث باسم العميل أو الصنف...',
+          hintStyle: TextStyle(color: hintColor, fontSize: 13),
+          prefixIcon: Icon(Icons.search, color: hintColor, size: 20),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
         ),
       ),
     );
   }
 
-  Future<void> _exportFilteredReports(
-      List<Map<String, dynamic>> records) async {
-    if (records.isEmpty) return;
-    await exportReportsToPdf(context, records);
-  }
+  List<MapEntry<dynamic, Map<String, dynamic>>> _filterAndSortRecords(
+      Box box, String query, bool descending) {
+    final entries = box.toMap().entries.where((e) {
+      final r = e.value;
+      final q = query.toLowerCase();
+      return (r['clientName']?.toString() ?? '').toLowerCase().contains(q) ||
+          (r['product']?.toString() ?? '').toLowerCase().contains(q);
+    }).toList();
 
-  Future<void> _saveFilteredReports(List<Map<String, dynamic>> records) async {
-    if (records.isEmpty) return;
-    await savePdfToDevice(context, records);
-  }
-
-  Map<String, dynamic> _convertValuesToString(Map<String, dynamic> input) {
-    return input.map((k, v) {
-      if (v is Map) {
-        return MapEntry(
-            k, _convertValuesToString(Map<String, dynamic>.from(v)));
-      }
-      if (v is List) {
-        return MapEntry(
-            k,
-            v
-                .map((e) => e is Map
-                    ? _convertValuesToString(Map<String, dynamic>.from(e))
-                    : e.toString())
-                .toList());
-      }
-      return MapEntry(k, v?.toString() ?? '');
+    entries.sort((a, b) {
+      final da = DateTime.tryParse(a.value['date']?.toString() ?? '') ??
+          DateTime(1970);
+      final db = DateTime.tryParse(b.value['date']?.toString() ?? '') ??
+          DateTime(1970);
+      return descending ? db.compareTo(da) : da.compareTo(db);
     });
+
+    return entries
+        .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
+        .toList();
+  }
+
+  Widget _buildInfoRow(String l, String v) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(children: [
+          Text(l, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          Text(v)
+        ]),
+      );
+
+  Widget _buildDimensionsText(d) => Text(
+      "📏 المقاس: ${d?['length'] ?? 0}x${d?['width'] ?? 0}x${d?['height'] ?? 0}");
+  Widget _buildQuantityText(q) => Text("🔢 الكمية: ${q ?? 0}");
+
+  Widget _buildColorsList(List c) => c.isEmpty
+      ? const SizedBox()
+      : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text("🎨 الألوان:",
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          ...c.map((i) => Text(" • ${i['color']} (${i['quantity']} لتر)"))
+        ]);
+
+  Widget _buildNotesText(n) => (n == null || n == '')
+      ? const SizedBox()
+      : Text("📝 ملاحظة: $n",
+          style:
+              const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic));
+
+  void _showAddReportDialog([Map<String, dynamic>? data]) {
+    showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        builder: (c) => InkReportForm(
+            initialData: data,
+            onSave: (r) {
+              _inkReportBox!.add(r);
+              Navigator.pop(c);
+            }));
+  }
+
+  void _editReport(key, record) {
+    showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        builder: (c) => InkReportForm(
+            initialData: record,
+            reportKey: key.toString(),
+            onSave: (r) {
+              _inkReportBox!.put(key, r);
+              Navigator.pop(c);
+            }));
+  }
+
+  void _showSortSheet() {
+    showModalBottomSheet(
+        context: context,
+        builder: (c) => Column(mainAxisSize: MainAxisSize.min, children: [
+              ListTile(
+                  title: const Text("الأحدث أولاً"),
+                  leading: Radio(
+                      value: true,
+                      groupValue: _sortDescending,
+                      onChanged: (v) {
+                        setState(() => _sortDescending = v!);
+                        Navigator.pop(c);
+                      })),
+              ListTile(
+                  title: const Text("الأقدم أولاً"),
+                  leading: Radio(
+                      value: false,
+                      groupValue: _sortDescending,
+                      onChanged: (v) {
+                        setState(() => _sortDescending = v!);
+                        Navigator.pop(c);
+                      })),
+            ]));
   }
 }

@@ -1,3 +1,5 @@
+// lib/src/screens/auth_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
@@ -48,30 +50,33 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (!mounted) return;
 
+    // ✅ الحل: لا نستدعي الـ SnackBar إلا إذا كان هناك خطأ بالفعل (error != null)
     if (error != null) {
       _showSnackBar(error, Colors.red);
     } else {
-      // ✅ التحقق من نجاح المصادقة
-      if (authService.state.isAuthenticated) {
-        _showSnackBar('تمت العملية بنجاح', Colors.green);
-
-        // الانتقال الفوري: نغلق شاشة تسجيل الدخول لنعود للشاشة السابقة (الرئيسية)
-        Navigator.of(context).pop();
-      }
+      // إذا كان الخطأ null، فهذا يعني نجاح العملية
+      _showSnackBar(
+          _isSignIn ? 'تم تسجيل الدخول بنجاح' : 'تم إنشاء الحساب بنجاح',
+          Colors.green);
     }
   }
 
   void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context)
+        .hideCurrentSnackBar(); // إخفاء الـ SnackBar الحالي إن وجد
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-          content: Text(message),
-          backgroundColor: color,
-          duration: const Duration(seconds: 2)),
+        content: Text(message, textAlign: TextAlign.center),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating, // جعل شكل الرسالة عائم وأكثر عصرية
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // مراقبة حالة التحميل من AuthService
     final authLoading = context.watch<AuthService>().state.isLoading;
 
     return Scaffold(
@@ -132,7 +137,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         prefixIcon: Icon(Icons.lock)),
                     enabled: !authLoading,
                     validator: (value) => value != _passwordController.text
-                        ? 'لا يوجد تطابق'
+                        ? 'لا يوجد تطابق في كلمة المرور'
                         : null,
                   ),
                 ],
@@ -140,7 +145,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 ElevatedButton(
                   onPressed: authLoading ? null : _handleAuthAction,
                   style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8))),
                   child: authLoading
                       ? const SizedBox(
                           width: 20,
@@ -150,6 +157,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       : Text(_isSignIn ? 'تسجيل الدخول' : 'إنشاء حساب',
                           style: const TextStyle(fontSize: 18)),
                 ),
+                const SizedBox(height: 10),
                 TextButton(
                   onPressed: authLoading
                       ? null
@@ -159,9 +167,12 @@ class _AuthScreenState extends State<AuthScreen> {
                             _formKey.currentState?.reset();
                             _passwordController.clear();
                             _confirmPasswordController.clear();
+                            _emailController.clear();
                           });
                         },
-                  child: Text(_isSignIn ? 'إنشاء حساب جديد' : 'تسجيل الدخول'),
+                  child: Text(_isSignIn
+                      ? 'ليس لديك حساب؟ إنشاء حساب جديد'
+                      : 'لديك حساب بالفعل؟ تسجيل الدخول'),
                 ),
               ],
             ),
