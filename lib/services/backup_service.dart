@@ -73,9 +73,7 @@ class BackupService {
         await file.delete();
       }
 
-      if (outputFile != null) {
-        return '✅ تم حفظ النسخة الاحتياطية بنجاح';
-      }
+      return '✅ تم حفظ النسخة الاحتياطية بنجاح';
       return null;
     } catch (e) {
       debugPrint("Local Backup Error: $e");

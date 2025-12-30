@@ -261,9 +261,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
             initialDate: DateTime.now(),
             firstDate: DateTime(2020),
             lastDate: DateTime(2100));
-        if (picked != null) {
-          setState(() => controller.text = picked.toString().split(' ')[0]);
-        }
+        setState(() => controller.text = picked.toString().split(' ')[0]);
       },
     );
   }

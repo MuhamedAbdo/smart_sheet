@@ -43,18 +43,22 @@ class _InkReportScreenState extends State<InkReportScreen> {
           _inkReportBox = Hive.box('inkReports');
           _isBoxLoading = false;
         });
+
+        if (widget.initialData != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showAddReportDialog(widget.initialData);
+          });
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _isBoxLoading = false);
     }
   }
 
-  // ✅ تحديد مكان الحفظ يدوياً
   Future<void> _savePdfToDeviceLocally(
       List<Map<String, dynamic>> records) async {
     try {
       if (records.isEmpty) return;
-
       final Uint8List? pdfBytes = await generateInkReportPdfBytes(records);
       if (pdfBytes == null) return;
 
@@ -78,10 +82,8 @@ class _InkReportScreenState extends State<InkReportScreen> {
     }
   }
 
-  // ✅ مسح الكل مع رسالة تحذير وتراجع
   void _deleteAllReports() {
     if (_inkReportBox == null || _inkReportBox!.isEmpty) return;
-
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -110,7 +112,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // ✅ حذف كرت واحد مع رسالة تحذير وتراجع
   void _deleteSingleReport(dynamic key, dynamic record) {
     showDialog(
       context: context,
@@ -152,28 +153,23 @@ class _InkReportScreenState extends State<InkReportScreen> {
   Widget build(BuildContext context) {
     if (_isBoxLoading)
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
-
-    // تحديد الألوان بناءً على الثيم المطبق حالياً
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
 
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        // إزالة لون الخلفية الثابت ليعمل مع الثيم
         iconTheme: IconThemeData(color: appBarIconColor),
         title: _buildSearchField(context, isDark),
         actions: [
           IconButton(
-            icon: Icon(Icons.delete_sweep, color: appBarIconColor),
-            tooltip: "مسح شامل",
-            onPressed: _deleteAllReports,
-          ),
+              icon: Icon(Icons.delete_sweep, color: appBarIconColor),
+              tooltip: "مسح شامل",
+              onPressed: _deleteAllReports),
           _buildExportMenu(appBarIconColor),
           IconButton(
-            icon: Icon(Icons.sort, color: appBarIconColor),
-            onPressed: _showSortSheet,
-          ),
+              icon: Icon(Icons.sort, color: appBarIconColor),
+              onPressed: _showSortSheet),
         ],
       ),
       body: ValueListenableBuilder(
@@ -253,7 +249,8 @@ class _InkReportScreenState extends State<InkReportScreen> {
             _buildInfoRow(
                 "👤 العميل:", record['clientName']?.toString() ?? '---'),
             _buildInfoRow("📦 الصنف:", record['product']?.toString() ?? '---'),
-            _buildDimensionsText(record['dimensions']),
+            _buildDimensionsText(
+                record['dimensions']), // تم تعديل طريقة العرض هنا
             _buildQuantityText(record['quantity']),
             _buildColorsList(record['colors'] ?? []),
             _buildNotesText(record['notes']),
@@ -283,19 +280,15 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
-  // ✅ تعديل حقل البحث ليكون متوافقاً مع الوضع النهاري والليلي
   Widget _buildSearchField(BuildContext context, bool isDark) {
     final Color textColor = isDark ? Colors.white : Colors.black87;
     final Color hintColor = isDark ? Colors.white70 : Colors.black54;
     final Color containerColor =
         isDark ? Colors.white10 : Colors.black.withOpacity(0.05);
-
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: containerColor,
-        borderRadius: BorderRadius.circular(10),
-      ),
+          color: containerColor, borderRadius: BorderRadius.circular(10)),
       child: TextField(
         controller: _searchController,
         style: TextStyle(color: textColor, fontSize: 15),
@@ -310,26 +303,29 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
+  // ✅ التعديل الأول: ترتيب زمني فقط (الأحدث أولاً أو العكس) دون ترتيب أبجدي
   List<MapEntry<dynamic, Map<String, dynamic>>> _filterAndSortRecords(
       Box box, String query, bool descending) {
-    final entries = box.toMap().entries.where((e) {
-      final r = e.value;
-      final q = query.toLowerCase();
-      return (r['clientName']?.toString() ?? '').toLowerCase().contains(q) ||
-          (r['product']?.toString() ?? '').toLowerCase().contains(q);
-    }).toList();
-
-    entries.sort((a, b) {
-      final da = DateTime.tryParse(a.value['date']?.toString() ?? '') ??
-          DateTime(1970);
-      final db = DateTime.tryParse(b.value['date']?.toString() ?? '') ??
-          DateTime(1970);
-      return descending ? db.compareTo(da) : da.compareTo(db);
-    });
-
-    return entries
+    final entries = box
+        .toMap()
+        .entries
+        .where((e) {
+          final r = e.value;
+          final q = query.toLowerCase();
+          return (r['clientName']?.toString() ?? '')
+                  .toLowerCase()
+                  .contains(q) ||
+              (r['product']?.toString() ?? '').toLowerCase().contains(q);
+        })
         .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
         .toList();
+
+    entries.sort((a, b) {
+      // نعتمد على الـ key الخاص بـ Hive لأنه تزايدي تلقائياً مع كل إضافة
+      return descending ? b.key.compareTo(a.key) : a.key.compareTo(b.key);
+    });
+
+    return entries;
   }
 
   Widget _buildInfoRow(String l, String v) => Padding(
@@ -341,10 +337,29 @@ class _InkReportScreenState extends State<InkReportScreen> {
         ]),
       );
 
-  Widget _buildDimensionsText(d) => Text(
-      "📏 المقاس: ${d?['length'] ?? 0}x${d?['width'] ?? 0}x${d?['height'] ?? 0}");
-  Widget _buildQuantityText(q) => Text("🔢 الكمية: ${q ?? 0}");
+  // ✅ التعديل الثاني: عرض المقاسات بشكل صحيح (طول × عرض × ارتفاع) بجانب النص العربي
+  Widget _buildDimensionsText(Map<dynamic, dynamic>? d) {
+    final String length = d?['length']?.toString() ?? '0';
+    final String width = d?['width']?.toString() ?? '0';
+    final String height = d?['height']?.toString() ?? '0';
 
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          const Text("📏 المقاس: ",
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Text("$length / $width / $height",
+                style: const TextStyle(color: Colors.blueGrey)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuantityText(q) => Text("🔢 الكمية: ${q ?? 0}");
   Widget _buildColorsList(List c) => c.isEmpty
       ? const SizedBox()
       : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -352,7 +367,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
               style: TextStyle(fontWeight: FontWeight.bold)),
           ...c.map((i) => Text(" • ${i['color']} (${i['quantity']} لتر)"))
         ]);
-
   Widget _buildNotesText(n) => (n == null || n == '')
       ? const SizedBox()
       : Text("📝 ملاحظة: $n",

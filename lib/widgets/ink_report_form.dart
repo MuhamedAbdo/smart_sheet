@@ -197,7 +197,9 @@ class _InkReportFormState extends State<InkReportForm> {
                     _buildTextField(quantityController, "🔢 عدد الشيتات",
                         keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
-                    _buildTextField(notesController, "📝 ملاحظات", maxLines: 3),
+                    // ✅ حقل الملاحظات أصبح اختيارياً الآن
+                    _buildTextField(notesController, "📝 ملاحظات (اختياري)",
+                        maxLines: 3, isRequired: false),
                     const SizedBox(height: 30),
                     _buildActionButtons(),
                   ],
@@ -256,20 +258,33 @@ class _InkReportFormState extends State<InkReportForm> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label,
-      {bool readOnly = false,
-      VoidCallback? onTap,
-      TextInputType? keyboardType,
-      int maxLines = 1}) {
+  // ✅ تم تحديث الدالة لتدعم الحقول الاختيارية
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label, {
+    bool readOnly = false,
+    VoidCallback? onTap,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+    bool isRequired = true, // افتراضياً الحقل مطلوب
+  }) {
     return TextFormField(
       controller: controller,
       readOnly: readOnly,
       onTap: onTap,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      decoration:
-          InputDecoration(labelText: label, border: const OutlineInputBorder()),
-      validator: (v) => v == null || v.isEmpty ? "مطلوب" : null,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        alignLabelWithHint: maxLines > 1,
+      ),
+      validator: (v) {
+        if (isRequired && (v == null || v.isEmpty)) {
+          return "مطلوب";
+        }
+        return null;
+      },
     );
   }
 
