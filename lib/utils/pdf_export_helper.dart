@@ -318,18 +318,43 @@ Future<Uint8List> _generateConsolidatedPdfBytes(
           pw.Text('تقارير طباعة الأحبار',
               style: pw.TextStyle(font: arabicBoldFont, fontSize: 18)),
           pw.SizedBox(height: 10),
-          pw.Table(
-            border: pw.TableBorder.all(width: 0.5),
-            columnWidths: {
-              0: const pw.FlexColumnWidth(2),
-              1: const pw.FixedColumnWidth(60),
-              2: const pw.FixedColumnWidth(180),
-              3: const pw.FixedColumnWidth(100),
-              4: const pw.FixedColumnWidth(100),
-              5: const pw.FixedColumnWidth(80),
-              6: const pw.FixedColumnWidth(40),
-            },
-            children: tableRows,
+          pw.Expanded(
+            child: pw.Table(
+              border: pw.TableBorder.all(width: 0.5),
+              columnWidths: {
+                0: const pw.FlexColumnWidth(2),
+                1: const pw.FixedColumnWidth(60),
+                2: const pw.FixedColumnWidth(180),
+                3: const pw.FixedColumnWidth(100),
+                4: const pw.FixedColumnWidth(100),
+                5: const pw.FixedColumnWidth(80),
+                6: const pw.FixedColumnWidth(40),
+              },
+              children: tableRows,
+            ),
+          ),
+          pw.SizedBox(height: 10),
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            decoration: pw.BoxDecoration(
+              border: pw.Border(
+                  top: pw.BorderSide(width: 1, color: PdfColors.grey)),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'صفحة ${page + 1} من $totalPages',
+                  style: pw.TextStyle(font: arabicFont, fontSize: 10),
+                  textDirection: pw.TextDirection.rtl,
+                ),
+                pw.Text(
+                  'عدد التقارير: ${records.length}',
+                  style: pw.TextStyle(font: arabicFont, fontSize: 10),
+                  textDirection: pw.TextDirection.rtl,
+                ),
+              ],
+            ),
           ),
         ]),
       ),

@@ -27,7 +27,7 @@ class MyBackupTaskHandler extends TaskHandler {
 
 class BackupService {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
-  static const String BUCKET_NAME = 'backups';
+  static const String bucketName = 'backups';
   static const String _backupFileName = 'smart_sheet_backup.zip';
 
   // قناة الاتصال لإعادة تشغيل التطبيق
@@ -59,7 +59,7 @@ class BackupService {
       }
 
       // اختيار مكان الحفظ وتمرير البايتات مباشرة
-      String? outputFile = await FilePicker.platform.saveFile(
+      await FilePicker.platform.saveFile(
         dialogTitle: 'اختر مكان حفظ النسخة الاحتياطية',
         fileName:
             'smart_sheet_backup_${DateTime.now().millisecondsSinceEpoch}.zip',
@@ -74,7 +74,6 @@ class BackupService {
       }
 
       return '✅ تم حفظ النسخة الاحتياطية بنجاح';
-      return null;
     } catch (e) {
       debugPrint("Local Backup Error: $e");
       return '❌ فشل الحفظ المحلي: $e';
@@ -131,7 +130,7 @@ class BackupService {
         content: 'يتم الآن نقل النسخة الاحتياطية إلى السحابة',
       );
 
-      await _supabaseClient.storage.from(BUCKET_NAME).upload(
+      await _supabaseClient.storage.from(bucketName).upload(
             uploadPath,
             backupFile,
             fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
@@ -159,7 +158,7 @@ class BackupService {
       final tempZipPath = p.join(tempDir.path, 'downloaded_backup.zip');
 
       final Uint8List bytes =
-          await _supabaseClient.storage.from(BUCKET_NAME).download(fullPath);
+          await _supabaseClient.storage.from(bucketName).download(fullPath);
       await File(tempZipPath).writeAsBytes(bytes);
 
       final result = await _restoreFromZipPath(tempZipPath);
@@ -193,7 +192,7 @@ class BackupService {
       final user = _supabaseClient.auth.currentUser;
       if (user == null) return [];
       return await _supabaseClient.storage
-          .from(BUCKET_NAME)
+          .from(bucketName)
           .list(path: 'manual_backups/${user.id}');
     } catch (e) {
       return [];
@@ -212,7 +211,9 @@ class BackupService {
         for (var entity in entities) {
           try {
             entity.deleteSync(recursive: true);
-          } catch (e) {}
+          } catch (e) {
+            debugPrint("Delete error: $e");
+          }
         }
       }
 
@@ -304,7 +305,9 @@ class BackupService {
         if (entity is File) {
           // استثناء ملفات القفل أو الملفات المؤقتة لتجنب الأخطاء
           if (entity.path.endsWith('.lock') ||
-              entity.path.contains('temp_backup')) continue;
+              entity.path.contains('temp_backup')) {
+            continue;
+          }
 
           final relativePath = p.relative(entity.path, from: sourceDir);
           encoder.addFile(entity, relativePath.replaceAll('\\', '/'));

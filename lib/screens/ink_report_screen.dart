@@ -22,7 +22,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
   bool _isBoxLoading = true;
 
   final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
   String _searchQuery = '';
   bool _sortDescending = true;
 
@@ -151,8 +150,9 @@ class _InkReportScreenState extends State<InkReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isBoxLoading)
+    if (_isBoxLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
 
@@ -172,21 +172,24 @@ class _InkReportScreenState extends State<InkReportScreen> {
               onPressed: _showSortSheet),
         ],
       ),
-      body: ValueListenableBuilder(
-        valueListenable: _inkReportBox!.listenable(),
-        builder: (context, Box box, _) {
-          if (box.isEmpty)
-            return const Center(child: Text("🚫 لا يوجد تقارير"));
+      body: _inkReportBox == null 
+          ? const Center(child: CircularProgressIndicator())
+          : ValueListenableBuilder(
+              valueListenable: _inkReportBox!.listenable(),
+              builder: (context, Box box, _) {
+                if (box.isEmpty) {
+                  return const Center(child: Text("🚫 لا يوجد تقارير"));
+                }
           final allRecords =
-              _filterAndSortRecords(box, _searchQuery, _sortDescending);
-          return ListView.builder(
-            itemCount: allRecords.length,
-            padding: const EdgeInsets.only(bottom: 80),
-            itemBuilder: (context, index) =>
-                _buildReportCard(allRecords[index]),
-          );
-        },
-      ),
+                  _filterAndSortRecords(box, _searchQuery, _sortDescending);
+              return ListView.builder(
+                itemCount: allRecords.length,
+                padding: const EdgeInsets.only(bottom: 80),
+                itemBuilder: (context, index) =>
+                    _buildReportCard(allRecords[index]),
+              );
+            },
+          ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddReportDialog(),
         child: const Icon(Icons.add),
@@ -284,7 +287,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
     final Color textColor = isDark ? Colors.white : Colors.black87;
     final Color hintColor = isDark ? Colors.white70 : Colors.black54;
     final Color containerColor =
-        isDark ? Colors.white10 : Colors.black.withOpacity(0.05);
+        isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05);
     return Container(
       height: 40,
       decoration: BoxDecoration(

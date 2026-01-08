@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/theme/app_theme.dart';
 
 class ThemeProvider with ChangeNotifier {
   static const String _themeKey = 'isDarkTheme';
@@ -56,19 +57,5 @@ class ThemeProvider with ChangeNotifier {
     }
   }
 
-  ThemeData get theme => _isDarkTheme ? _darkTheme : _lightTheme;
-
-  static final _lightTheme = ThemeData(
-    useMaterial3: true,
-    brightness: Brightness.light,
-    primaryColor: Colors.blue,
-    fontFamily: 'Cairo',
-  );
-
-  static final _darkTheme = ThemeData(
-    useMaterial3: true,
-    brightness: Brightness.dark,
-    scaffoldBackgroundColor: const Color(0xFF121212),
-    fontFamily: 'Cairo',
-  );
+  ThemeData get theme => _isDarkTheme ? AppTheme.darkTheme : AppTheme.lightTheme;
 }

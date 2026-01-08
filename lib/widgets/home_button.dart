@@ -1,6 +1,7 @@
 // lib/src/widgets/buttons/home_button.dart
 
 import 'package:flutter/material.dart';
+import 'package:smart_sheet/theme/app_theme.dart';
 
 class HomeButton extends StatelessWidget {
   final IconData icon;
@@ -16,28 +17,59 @@ class HomeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     return Card(
-      elevation: 2,
+      elevation: AppTheme.cardElevation,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: Colors.blue),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+            gradient: LinearGradient(
+              colors: [
+                colorScheme.surface,
+                colorScheme.surface.withValues(alpha: 0.8),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppTheme.spacingM),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+                ),
+                child: Icon(
+                  icon, 
+                  size: 32, 
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: AppTheme.spacingS),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingS),
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: AppTheme.fontSizeM,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

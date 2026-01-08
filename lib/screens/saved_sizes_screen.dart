@@ -67,7 +67,30 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         title: isSearching
             ? SavedSizeSearchBar(
                 onChanged: (v) => setState(() => searchQuery = v))
-            : const Text("📄 المقاسات المحفوظة"),
+            : ValueListenableBuilder(
+                valueListenable: _savedSheetSizesBox!.listenable(),
+                builder: (context, Box box, _) {
+                  final entries = _getSortedAndFilteredEntries(box);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text("📄 المقاسات المحفوظة"),
+                      Text(
+                        "${entries.length} صنف",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.blue.shade300
+                              : Colors.blue.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textDirection: TextDirection.rtl,
+                      ),
+                    ],
+                  );
+                },
+              ),
         actions: [
           // زر الترتيب
           PopupMenuButton<SortType>(

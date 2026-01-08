@@ -9,6 +9,8 @@ import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/screens/staple_department_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
+import 'package:smart_sheet/theme/app_theme.dart';
+import 'package:smart_sheet/animations/app_transitions.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -25,59 +27,100 @@ class HomeScreen extends StatelessWidget {
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        elevation: 1,
+        elevation: 0,
       ),
       drawer: const AppDrawer(),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(AppTheme.spacingL),
         child: Column(
           children: [
+            // 🎨 Header محسن
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              color: colorScheme.primary.withOpacity(0.1),
-              child: Text(
-                'اختر القسم الذي تريد العمل فيه :',
-                textAlign: TextAlign.center,
-                textDirection: TextDirection.rtl,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w500,
+              padding: const EdgeInsets.all(AppTheme.spacingL),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    colorScheme.primary.withValues(alpha: 0.1),
+                    colorScheme.secondary.withValues(alpha: 0.05),
+                  ],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                ),
+                borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+                border: Border.all(
+                  color: colorScheme.primary.withValues(alpha: 0.2),
+                  width: 1,
                 ),
               ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.factory,
+                    size: 48,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(height: AppTheme.spacingM),
+                  Text(
+                    'مرحباً بك في Smart Sheet',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: AppTheme.fontSizeL,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.spacingS),
+                  Text(
+                    'اختر القسم الذي تريد العمل فيه:',
+                    textAlign: TextAlign.center,
+                    textDirection: TextDirection.rtl,
+                    style: TextStyle(
+                      fontSize: AppTheme.fontSizeM,
+                      color: colorScheme.onSurface.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppTheme.spacingXL),
             Expanded(
               child: GridView.count(
                 crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+                crossAxisSpacing: AppTheme.spacingM,
+                mainAxisSpacing: AppTheme.spacingM,
                 childAspectRatio: 1.1,
                 children: [
-                  HomeButton(
-                    icon: Icons.factory,
-                    label: 'خط الإنتاج',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ProductionLineScreen(),
-                        ),
-                      );
-                    },
+                  AppTransitions.staggeredAnimation(
+                    index: 0,
+                    child: HomeButton(
+                      icon: Icons.factory,
+                      label: 'خط الإنتاج',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          AppTransitions.slideRoute(
+                            page: const ProductionLineScreen(),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                  HomeButton(
-                    icon: Icons.print,
-                    label: 'الفلكسو',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const FlexoScreen(),
-                        ),
-                      );
-                    },
+                  AppTransitions.staggeredAnimation(
+                    index: 1,
+                    child: HomeButton(
+                      icon: Icons.print,
+                      label: 'الفلكسو',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          AppTransitions.slideRoute(
+                            page: const FlexoScreen(),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                   HomeButton(
                     icon: Icons.cut,
