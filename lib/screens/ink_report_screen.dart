@@ -151,8 +151,9 @@ class _InkReportScreenState extends State<InkReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isBoxLoading)
+    if (_isBoxLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
 
@@ -175,8 +176,9 @@ class _InkReportScreenState extends State<InkReportScreen> {
       body: ValueListenableBuilder(
         valueListenable: _inkReportBox!.listenable(),
         builder: (context, Box box, _) {
-          if (box.isEmpty)
+          if (box.isEmpty) {
             return const Center(child: Text("🚫 لا يوجد تقارير"));
+          }
           final allRecords =
               _filterAndSortRecords(box, _searchQuery, _sortDescending);
           return ListView.builder(

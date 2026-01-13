@@ -169,8 +169,9 @@ class InkReportList extends StatelessWidget {
   }
 
   Widget _buildNotesText(dynamic notes) {
-    if (notes == null || notes.toString().isEmpty)
+    if (notes == null || notes.toString().isEmpty) {
       return const SizedBox.shrink();
+    }
     return Text("📝 ملاحظات: $notes");
   }
 
