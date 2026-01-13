@@ -145,8 +145,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         _message = 'جاري استعادة البيانات... برجاء الانتظار';
       });
 
-      // Direct restore from user-specific path (RLS compliant)
-      final restorePath = '${user.id}/smart_sheet_backup.zip';
+      // Direct restore from user-specific path (direct in bucket)
+      final restorePath = '${user.id}.zip';
       final result = await _backupService.downloadAndRestore(restorePath);
 
       if (mounted) {

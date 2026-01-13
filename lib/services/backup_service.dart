@@ -119,18 +119,9 @@ class BackupService {
 
       debugPrint("✅ User authenticated: ${user.id}");
 
-      // Debug check: Print UID before upload
-      debugPrint("🔍 Current User ID: ${user.id}");
-
-      // RLS compliance: Path must be exactly {user_id}/smart_sheet_backup.zip
-      final uploadPath = "${user.id}/smart_sheet_backup.zip";
+      // Direct path: Just {user_id}.zip in bucket (no folders)
+      final uploadPath = "${user.id}.zip";
       debugPrint("📁 Upload path: $uploadPath");
-
-      // Verify no extra slash at beginning and correct format
-      if (!uploadPath.endsWith('/smart_sheet_backup.zip') ||
-          uploadPath.startsWith('/')) {
-        return '❌ خطأ في تكوين مسار التخزين.';
-      }
 
       await _requestPermissions();
       _initService();
@@ -154,60 +145,28 @@ class BackupService {
         return '❌ لا يوجد اتصال بالإنترنت.';
       }
 
-      _updateForegroundNotification(
-        title: 'جاري الرفع...',
-        content: 'يتم الآن نقل النسخة الاحتياطية إلى السحابة',
-      );
-
-      // Use uploadBinary with stable protocol
+      // Simple direct upload with no complexity
       final bytes = await backupFile.readAsBytes();
       debugPrint("📊 File size: ${bytes.length} bytes");
 
-      // Pre-upload log for policy verification
-      print(
-          'Target Path: ${_supabaseClient.auth.currentUser!.id}/smart_sheet_backup.zip');
-
-      // Resilient connection with 300-second timeout
       try {
-        await _supabaseClient.storage
-            .from(BUCKET_NAME)
-            .uploadBinary(
-              uploadPath,
+        await _supabaseClient.storage.from('BACKUPS').uploadBinary(
+              "${user.id}.zip",
               bytes,
-              fileOptions: const FileOptions(
-                  upsert: true // Mandatory for single-file system
-                  ),
-            )
-            .timeout(
-          const Duration(seconds: 300), // 5 minutes timeout
-          onTimeout: () {
-            throw TimeoutException(
-                'Upload timeout after 5 minutes', const Duration(seconds: 300));
-          },
-        );
+              fileOptions: const FileOptions(upsert: true),
+            );
+
+        if (await backupFile.exists()) await backupFile.delete();
+        await _stopService();
+        await _showNotification(
+            id: 1, title: 'النسخ السحابي', body: '✅ تم حفظ النسخة بنجاح');
+
+        return '✅ تم حفظ النسخة بنجاح';
       } catch (e) {
         await _stopService();
         debugPrint("❌ Upload error: $e");
-
-        // Friendly error message for slow internet
-        if (e is TimeoutException) {
-          return '❌ اتصال الإنترنت بطيء جدًا، يرجى المحاولة في مكان ذي إشارة أقوى.';
-        } else if (e.toString().contains('SocketException')) {
-          return '❌ انقطع الاتصال بالإنترنت، يرجى التحقق من الشبكة والمحاولة مرة أخرى.';
-        } else {
-          return '❌ فشل الرفع: ${e.toString()}';
-        }
+        return '❌ فشل الرفع: ${e.toString()}';
       }
-
-      if (await backupFile.exists()) await backupFile.delete();
-      await _stopService();
-      await _showNotification(
-          id: 1,
-          title: 'النسخ السحابي',
-          body: '✅ تم تحديث النسخة الاحتياطية بنجاح.');
-
-      // Clear success message indicating backup was replaced/updated
-      return '✅ تم تحديث نسختك الاحتياطية بنجاح (تم استبدال النسخة القديمة).';
     } catch (e) {
       await _stopService();
       debugPrint("❌ Upload error: $e");
@@ -259,10 +218,8 @@ class BackupService {
     try {
       final user = _supabaseClient.auth.currentUser;
       if (user == null) return [];
-      // List backups from user-specific path (no backups prefix for RLS)
-      return await _supabaseClient.storage
-          .from(BUCKET_NAME)
-          .list(path: user.id);
+      // List backups from BACKUPS bucket (direct path)
+      return await _supabaseClient.storage.from('BACKUPS').list(path: user.id);
     } catch (e) {
       return [];
     }
