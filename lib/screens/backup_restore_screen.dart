@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/services/backup_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart'; // إضافة المكتبة
+import 'package:url_launcher/url_launcher.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -13,14 +13,14 @@ class BackupRestoreScreen extends StatefulWidget {
 
 class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   final BackupService _backupService = BackupService();
-  List<FileObject> _backupFiles = [];
   bool _isLoading = false;
   String? _message;
+  bool _hasBackup = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchBackups();
+    _checkBackupExists();
   }
 
   // دالة فتح رابط لوحة تحكم Supabase للمطور
@@ -41,22 +41,26 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     }
   }
 
-  Future<void> _fetchBackups() async {
-    if (!mounted) return;
-    setState(() => _isLoading = true);
-    final files = await _backupService.listBackups();
-    if (mounted) {
-      setState(() {
-        _backupFiles = files;
-        _isLoading = false;
-      });
+  Future<void> _checkBackupExists() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      final backups = await _backupService.listBackups();
+      if (mounted) {
+        setState(() {
+          _hasBackup = backups.isNotEmpty;
+        });
+      }
+    } catch (e) {
+      // Ignore errors during check
     }
   }
 
   Future<void> _handleCloudUpload() async {
     setState(() {
       _isLoading = true;
-      _message = 'جاري الرفع في الخلفية... يمكنك مغادرة هذه الصفحة الآن.';
+      _message = 'جاري رفع النسخة الاحتياطية...';
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -65,24 +69,40 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               Text('☁️ بدأت عملية الرفع السحابي، تابع التقدم في الإشعارات')),
     );
 
-    _backupService.uploadToSupabase().then((result) {
-      if (mounted) {
-        setState(() {
-          _message = result;
-          _isLoading = false;
-        });
-        if (result?.startsWith('✅') == true) _fetchBackups();
+    final result = await _backupService.uploadToSupabase();
+
+    if (mounted) {
+      setState(() {
+        _message = result;
+        _isLoading = false;
+      });
+
+      if (result?.startsWith('✅') == true) {
+        _checkBackupExists(); // Refresh backup status
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result!)),
+        );
       }
-    });
+    }
   }
 
-  Future<void> _handleCloudRestore(String fullPath) async {
+  Future<void> _handleCloudRestore() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('❌ يجب تسجيل الدخول أولاً')),
+        );
+      }
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('⚠️ تأكيد الاستعادة'),
         content: const Text(
-            'سيتم حذف البيانات الحالية واستبدالها بالنسخة المختارة. لا تغلق التطبيق أثناء العملية.'),
+            'سيتم حذف البيانات الحالية واستبدالها بنسختك الاحتياطية المحفوظة على السحابة. لا تغلق التطبيق أثناء العملية.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -100,18 +120,21 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         _message = 'جاري استعادة البيانات... برجاء الانتظار';
       });
 
-      _backupService.downloadAndRestore(fullPath).then((result) {
-        if (mounted) {
-          setState(() {
-            _message = result;
-            _isLoading = false;
-          });
-          if (result == 'SUCCESS_RESTORE') {
-            ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('✅ تمت الاستعادة بنجاح')));
-          }
+      // Direct restore from user-specific path
+      final restorePath = 'backups/${user.id}/smart_sheet_backup.zip';
+      final result = await _backupService.downloadAndRestore(restorePath);
+
+      if (mounted) {
+        setState(() {
+          _message = result;
+          _isLoading = false;
+        });
+
+        if (result == 'SUCCESS_RESTORE') {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('✅ تمت الاستعادة بنجاح')));
         }
-      });
+      }
     }
   }
 
@@ -127,29 +150,36 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             tooltip: 'Supabase Dashboard (Dev)',
             onPressed: _launchSupabaseDashboard,
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _isLoading ? null : _fetchBackups,
-          )
         ],
       ),
-      body: Column(
-        children: [
-          if (_isLoading || _message != null) _buildStatusCard(),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildActionButtons(),
-                const SizedBox(height: 20),
-                const Text('النسخ المتوفرة على السحابة:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const Divider(),
-                _buildBackupList(),
-              ],
-            ),
-          ),
-        ],
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Status Card
+            if (_isLoading || _message != null) _buildStatusCard(),
+
+            const SizedBox(height: 20),
+
+            // Backup Status Indicator
+            _buildBackupStatusCard(),
+
+            const SizedBox(height: 30),
+
+            // Main Action Buttons
+            _buildUploadButton(),
+
+            const SizedBox(height: 16),
+
+            _buildRestoreButton(),
+
+            const Spacer(),
+
+            // Info Section
+            _buildInfoSection(),
+          ],
+        ),
       ),
     );
   }
@@ -158,50 +188,158 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      color: Colors.blue.withAlpha(25),
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: _message?.startsWith('✅') == true
+            ? Colors.green.withAlpha(25)
+            : Colors.blue.withAlpha(25),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _message?.startsWith('✅') == true ? Colors.green : Colors.blue,
+          width: 1,
+        ),
+      ),
       child: Column(
         children: [
-          Text(_message ?? 'جاري معالجة البيانات...',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: Colors.blue)),
+          Text(
+            _message ?? 'جاري معالجة البيانات...',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: _message?.startsWith('✅') == true
+                  ? Colors.green
+                  : Colors.blue,
+            ),
+          ),
           if (_isLoading)
             const Padding(
-                padding: EdgeInsets.only(top: 8),
+                padding: EdgeInsets.only(top: 12),
                 child: LinearProgressIndicator()),
         ],
       ),
     );
   }
 
-  Widget _buildActionButtons() {
-    return ElevatedButton.icon(
-      onPressed: _isLoading ? null : _handleCloudUpload,
-      icon: const Icon(Icons.cloud_upload),
-      label: const Text('بدء الرفع السحابي الآن'),
-      style: ElevatedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 50)),
+  Widget _buildBackupStatusCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color:
+            _hasBackup ? Colors.green.withAlpha(25) : Colors.grey.withAlpha(25),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _hasBackup ? Colors.green : Colors.grey,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _hasBackup ? Icons.cloud_done : Icons.cloud_off,
+            color: _hasBackup ? Colors.green : Colors.grey,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _hasBackup ? 'نسخة احتياطية متوفرة' : 'لا توجد نسخة احتياطية',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: _hasBackup ? Colors.green : Colors.grey,
+                  ),
+                ),
+                const Text(
+                  'آخر نسخة محفوظة على السحابة',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildBackupList() {
-    if (_backupFiles.isEmpty && !_isLoading) {
-      return const Center(child: Text('لا توجد نسخ متوفرة'));
-    }
-    return Column(
-      children: _backupFiles
-          .map((file) => Card(
-                child: ListTile(
-                  leading: const Icon(Icons.folder_zip, color: Colors.orange),
-                  title: Text(file.name),
-                  trailing: const Icon(Icons.settings_backup_restore),
-                  onTap: _isLoading
-                      ? null
-                      : () => _handleCloudRestore(
-                          'manual_backups/${Supabase.instance.client.auth.currentUser?.id}/${file.name}'),
-                ),
-              ))
-          .toList(),
+  Widget _buildUploadButton() {
+    return ElevatedButton.icon(
+      onPressed: _isLoading ? null : _handleCloudUpload,
+      icon: _isLoading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.cloud_upload),
+      label: Text(
+        _isLoading ? 'جاري الرفع...' : 'رفع نسخة احتياطية',
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 56),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRestoreButton() {
+    return ElevatedButton.icon(
+      onPressed: (_isLoading || !_hasBackup) ? null : _handleCloudRestore,
+      icon: const Icon(Icons.cloud_download),
+      label: const Text(
+        'استعادة البيانات',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 56),
+        backgroundColor: _hasBackup ? Colors.orange : Colors.grey,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.withAlpha(25),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.grey, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'معلومات هامة',
+                style:
+                    TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '• كل نسخة احتياطية جديدة تستبدل القديمة\n'
+            '• يمكن استعادة آخر نسخة تم رفعها فقط\n'
+            '• البيانات محفوظة بشكل آمن ومشفر',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+            textAlign: TextAlign.right,
+          ),
+        ],
+      ),
     );
   }
 }

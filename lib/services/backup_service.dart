@@ -112,7 +112,7 @@ class BackupService {
       final localBackupPath = await _createLocalBackupFile();
       if (localBackupPath == null) {
         await _stopService();
-        return '❌ فشل إنشاء ملف النسخة المحلية.';
+        return '❌ فشل إنشاء ملف النسخ المحلية.';
       }
 
       final backupFile = File(localBackupPath);
@@ -122,9 +122,8 @@ class BackupService {
         return '❌ يجب تسجيل الدخول للرفع السحابي.';
       }
 
-      final uniqueFileName =
-          '${DateTime.now().toIso8601String().replaceAll(':', '-')}_$_backupFileName';
-      final uploadPath = 'manual_backups/${user.id}/$uniqueFileName';
+      // Use fixed filename with user ID path for single copy per user
+      final uploadPath = 'backups/${user.id}/$_backupFileName';
 
       _updateForegroundNotification(
         title: 'جاري الرفع...',
@@ -192,9 +191,10 @@ class BackupService {
     try {
       final user = _supabaseClient.auth.currentUser;
       if (user == null) return [];
+      // List backups from user-specific path
       return await _supabaseClient.storage
           .from(BUCKET_NAME)
-          .list(path: 'manual_backups/${user.id}');
+          .list(path: 'backups/${user.id}');
     } catch (e) {
       return [];
     }
