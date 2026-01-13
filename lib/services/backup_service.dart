@@ -27,7 +27,7 @@ class MyBackupTaskHandler extends TaskHandler {
 
 class BackupService {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
-  static const String BUCKET_NAME = 'backups';
+  static const String BUCKET_NAME = 'BACKUPS';
 
   // قناة الاتصال لإعادة تشغيل التطبيق
   static const _platform = MethodChannel('com.smart_sheet/app_control');
