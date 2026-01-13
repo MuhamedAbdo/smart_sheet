@@ -159,26 +159,51 @@ class BackupService {
         content: 'يتم الآن نقل النسخة الاحتياطية إلى السحابة',
       );
 
-      // Use uploadBinary with timeout to avoid "Broken pipe" issues
+      // Use uploadBinary with retry mechanism to handle network issues
       final fileBytes = await backupFile.readAsBytesSync();
+      debugPrint("📊 File size: ${fileBytes.length} bytes");
 
-      await _supabaseClient.storage
-          .from(BUCKET_NAME)
-          .uploadBinary(
-            uploadPath,
-            fileBytes,
-            fileOptions: const FileOptions(
-                cacheControl: '3600',
-                upsert: true // Critical for overwrite logic
-                ),
-          )
-          .timeout(
-        const Duration(seconds: 60),
-        onTimeout: () {
-          throw TimeoutException(
-              'Upload timeout after 60 seconds', const Duration(seconds: 60));
-        },
-      );
+      // Retry mechanism (up to 3 times)
+      int retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount < maxRetries) {
+        try {
+          debugPrint("🔄 Upload attempt ${retryCount + 1}/$maxRetries");
+
+          await _supabaseClient.storage
+              .from(BUCKET_NAME)
+              .uploadBinary(
+                uploadPath,
+                fileBytes,
+                fileOptions: const FileOptions(
+                    cacheControl: '3600',
+                    upsert: true // Critical for overwrite logic
+                    ),
+              )
+              .timeout(
+            const Duration(seconds: 300), // 5 minutes timeout
+            onTimeout: () {
+              throw TimeoutException('Upload timeout after 5 minutes',
+                  const Duration(seconds: 300));
+            },
+          );
+
+          // Success - break retry loop
+          break;
+        } catch (e) {
+          retryCount++;
+          debugPrint("❌ Upload attempt $retryCount failed: $e");
+
+          if (retryCount >= maxRetries) {
+            await _stopService();
+            return '❌ فشل الرفع بعد $maxRetries محاولات: ${e.toString()}';
+          }
+
+          // Wait before retry (exponential backoff)
+          await Future.delayed(Duration(seconds: 2 * retryCount));
+        }
+      }
 
       if (await backupFile.exists()) await backupFile.delete();
       await _stopService();
