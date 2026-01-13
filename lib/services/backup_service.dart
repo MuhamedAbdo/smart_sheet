@@ -28,7 +28,6 @@ class MyBackupTaskHandler extends TaskHandler {
 class BackupService {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
   static const String BUCKET_NAME = 'backups';
-  static const String _backupFileName = 'smart_sheet_backup.zip';
 
   // قناة الاتصال لإعادة تشغيل التطبيق
   static const _platform = MethodChannel('com.smart_sheet/app_control');
@@ -120,13 +119,16 @@ class BackupService {
 
       debugPrint("✅ User authenticated: ${user.id}");
 
-      // Verify path consistency: exactly {user_id}/smart_sheet_backup.zip
-      final uploadPath = 'backups/${user.id}/$_backupFileName';
+      // Debug check: Print UID before upload
+      debugPrint("🔍 Current User ID: ${user.id}");
+
+      // RLS compliance: Path must be exactly {user_id}/smart_sheet_backup.zip
+      final uploadPath = "${user.id}/smart_sheet_backup.zip";
       debugPrint("📁 Upload path: $uploadPath");
 
-      // Double-check path format
-      if (!uploadPath.startsWith('backups/${user.id}/') ||
-          !uploadPath.endsWith('smart_sheet_backup.zip')) {
+      // Verify no extra slash at beginning and correct format
+      if (!uploadPath.endsWith('/smart_sheet_backup.zip') ||
+          uploadPath.startsWith('/')) {
         return '❌ خطأ في تكوين مسار التخزين.';
       }
 
@@ -217,10 +219,10 @@ class BackupService {
     try {
       final user = _supabaseClient.auth.currentUser;
       if (user == null) return [];
-      // List backups from user-specific path
+      // List backups from user-specific path (no backups prefix for RLS)
       return await _supabaseClient.storage
           .from(BUCKET_NAME)
-          .list(path: 'backups/${user.id}');
+          .list(path: user.id);
     } catch (e) {
       return [];
     }
