@@ -106,18 +106,29 @@ class BackupService {
     try {
       if (kIsWeb) return 'غير مدعوم على الويب.';
 
-      // Enhanced authentication check with retry
+      // Session heartbeat - ensure session is still active
       User? user = _supabaseClient.auth.currentUser;
       if (user == null) {
-        // Wait a moment for auth to initialize on real devices
-        await Future.delayed(const Duration(seconds: 2));
+        debugPrint("🔄 Session expired, attempting refresh...");
+        // Attempt to refresh session
+        await _supabaseClient.auth.refreshSession();
         user = _supabaseClient.auth.currentUser;
         if (user == null) {
-          return '❌ يجب تسجيل الدخول للرفع السحابي.';
+          return '❌ جلسة منتهية، يرجى تسجيل الدخول مرة أخرى.';
         }
       }
 
       debugPrint("✅ User authenticated: ${user.id}");
+
+      // Verify path consistency: exactly {user_id}/smart_sheet_backup.zip
+      final uploadPath = 'backups/${user.id}/$_backupFileName';
+      debugPrint("📁 Upload path: $uploadPath");
+
+      // Double-check path format
+      if (!uploadPath.startsWith('backups/${user.id}/') ||
+          !uploadPath.endsWith('smart_sheet_backup.zip')) {
+        return '❌ خطأ في تكوين مسار التخزين.';
+      }
 
       await _requestPermissions();
       _initService();
@@ -131,27 +142,30 @@ class BackupService {
 
       final backupFile = File(localBackupPath);
 
-      // Use fixed filename with user ID path for single copy per user
-      final uploadPath = 'backups/${user.id}/$_backupFileName';
-      debugPrint("📁 Upload path: $uploadPath");
-
       _updateForegroundNotification(
         title: 'جاري الرفع...',
         content: 'يتم الآن نقل النسخة الاحتياطية إلى السحابة',
       );
 
-      // Ensure upsert is properly set
+      // Apply upsert flag for overwrite logic
       await _supabaseClient.storage.from(BUCKET_NAME).upload(
             uploadPath,
             backupFile,
-            fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+            fileOptions: const FileOptions(
+                cacheControl: '3600',
+                upsert: true // Critical for overwrite logic
+                ),
           );
 
       if (await backupFile.exists()) await backupFile.delete();
       await _stopService();
       await _showNotification(
-          id: 1, title: 'النسخ السحابي', body: '✅ اكتمل الرفع بنجاح.');
-      return '✅ تم الرفع بنجاح.';
+          id: 1,
+          title: 'النسخ السحابي',
+          body: '✅ تم تحديث النسخة الاحتياطية بنجاح.');
+
+      // Clear success message indicating backup was replaced/updated
+      return '✅ تم تحديث نسختك الاحتياطية بنجاح (تم استبدال النسخة القديمة).';
     } catch (e) {
       await _stopService();
       debugPrint("❌ Upload error: $e");
