@@ -159,49 +159,39 @@ class BackupService {
         content: 'يتم الآن نقل النسخة الاحتياطية إلى السحابة',
       );
 
-      // Use uploadBinary with retry mechanism to handle network issues
-      final fileBytes = await backupFile.readAsBytesSync();
-      debugPrint("📊 File size: ${fileBytes.length} bytes");
+      // Use uploadBinary with stable protocol
+      final bytes = await backupFile.readAsBytes();
+      debugPrint("📊 File size: ${bytes.length} bytes");
 
-      // Retry mechanism (up to 3 times)
-      int retryCount = 0;
-      const maxRetries = 3;
+      // Resilient connection with 180-second timeout
+      try {
+        await _supabaseClient.storage
+            .from(BUCKET_NAME)
+            .uploadBinary(
+              uploadPath,
+              bytes,
+              fileOptions: const FileOptions(
+                  upsert: true // Mandatory for single-file system
+                  ),
+            )
+            .timeout(
+          const Duration(seconds: 180), // 3 minutes timeout
+          onTimeout: () {
+            throw TimeoutException(
+                'Upload timeout after 3 minutes', const Duration(seconds: 180));
+          },
+        );
+      } catch (e) {
+        await _stopService();
+        debugPrint("❌ Upload error: $e");
 
-      while (retryCount < maxRetries) {
-        try {
-          debugPrint("🔄 Upload attempt ${retryCount + 1}/$maxRetries");
-
-          await _supabaseClient.storage
-              .from(BUCKET_NAME)
-              .uploadBinary(
-                uploadPath,
-                fileBytes,
-                fileOptions: const FileOptions(
-                    cacheControl: '3600',
-                    upsert: true // Critical for overwrite logic
-                    ),
-              )
-              .timeout(
-            const Duration(seconds: 300), // 5 minutes timeout
-            onTimeout: () {
-              throw TimeoutException('Upload timeout after 5 minutes',
-                  const Duration(seconds: 300));
-            },
-          );
-
-          // Success - break retry loop
-          break;
-        } catch (e) {
-          retryCount++;
-          debugPrint("❌ Upload attempt $retryCount failed: $e");
-
-          if (retryCount >= maxRetries) {
-            await _stopService();
-            return '❌ فشل الرفع بعد $maxRetries محاولات: ${e.toString()}';
-          }
-
-          // Wait before retry (exponential backoff)
-          await Future.delayed(Duration(seconds: 2 * retryCount));
+        // Friendly error message for slow internet
+        if (e is TimeoutException) {
+          return '❌ اتصال الإنترنت بطيء جدًا، يرجى المحاولة في مكان ذي إشارة أقوى.';
+        } else if (e.toString().contains('SocketException')) {
+          return '❌ انقطع الاتصال بالإنترنت، يرجى التحقق من الشبكة والمحاولة مرة أخرى.';
+        } else {
+          return '❌ فشل الرفع: ${e.toString()}';
         }
       }
 
