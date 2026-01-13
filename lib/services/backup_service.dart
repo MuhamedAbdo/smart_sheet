@@ -149,6 +149,9 @@ class BackupService {
       final bytes = await backupFile.readAsBytes();
       debugPrint("📊 File size: ${bytes.length} bytes");
 
+      // Auth check: Refresh session before upload to avoid 403 errors
+      await _supabaseClient.auth.refreshSession();
+
       try {
         await _supabaseClient.storage.from('BACKUPS').uploadBinary(
               "${user.id}.zip",
@@ -159,9 +162,11 @@ class BackupService {
         if (await backupFile.exists()) await backupFile.delete();
         await _stopService();
         await _showNotification(
-            id: 1, title: 'النسخ السحابي', body: '✅ تم حفظ النسخة بنجاح');
+            id: 1,
+            title: 'النسخ السحابي',
+            body: '✅ تم حفظ النسخة الاحتياطية بنجاح');
 
-        return '✅ تم حفظ النسخة بنجاح';
+        return '✅ تم حفظ النسخة الاحتياطية بنجاح';
       } catch (e) {
         await _stopService();
         debugPrint("❌ Upload error: $e");
