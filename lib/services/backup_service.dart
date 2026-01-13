@@ -163,7 +163,11 @@ class BackupService {
       final bytes = await backupFile.readAsBytes();
       debugPrint("📊 File size: ${bytes.length} bytes");
 
-      // Resilient connection with 180-second timeout
+      // Pre-upload log for policy verification
+      print(
+          'Target Path: ${_supabaseClient.auth.currentUser!.id}/smart_sheet_backup.zip');
+
+      // Resilient connection with 300-second timeout
       try {
         await _supabaseClient.storage
             .from(BUCKET_NAME)
@@ -175,10 +179,10 @@ class BackupService {
                   ),
             )
             .timeout(
-          const Duration(seconds: 180), // 3 minutes timeout
+          const Duration(seconds: 300), // 5 minutes timeout
           onTimeout: () {
             throw TimeoutException(
-                'Upload timeout after 3 minutes', const Duration(seconds: 180));
+                'Upload timeout after 5 minutes', const Duration(seconds: 300));
           },
         );
       } catch (e) {
