@@ -190,7 +190,7 @@ class BackupService {
       final tempZipPath = p.join(tempDir.path, 'downloaded_backup.zip');
 
       final Uint8List bytes =
-          await _supabaseClient.storage.from(BUCKET_NAME).download(fullPath);
+          await _supabaseClient.storage.from('BACKUPS').download(fullPath);
       await File(tempZipPath).writeAsBytes(bytes);
 
       final result = await _restoreFromZipPath(tempZipPath);
