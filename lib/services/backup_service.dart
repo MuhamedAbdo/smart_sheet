@@ -144,20 +144,41 @@ class BackupService {
 
       final backupFile = File(localBackupPath);
 
+      // Basic internet connection check using socket
+      try {
+        final socket = await Socket.connect('supabase.com', 443)
+            .timeout(const Duration(seconds: 5));
+        socket.destroy();
+      } catch (e) {
+        await _stopService();
+        return '❌ لا يوجد اتصال بالإنترنت.';
+      }
+
       _updateForegroundNotification(
         title: 'جاري الرفع...',
         content: 'يتم الآن نقل النسخة الاحتياطية إلى السحابة',
       );
 
-      // Apply upsert flag for overwrite logic
-      await _supabaseClient.storage.from(BUCKET_NAME).upload(
+      // Use uploadBinary with timeout to avoid "Broken pipe" issues
+      final fileBytes = await backupFile.readAsBytesSync();
+
+      await _supabaseClient.storage
+          .from(BUCKET_NAME)
+          .uploadBinary(
             uploadPath,
-            backupFile,
+            fileBytes,
             fileOptions: const FileOptions(
                 cacheControl: '3600',
                 upsert: true // Critical for overwrite logic
                 ),
-          );
+          )
+          .timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          throw TimeoutException(
+              'Upload timeout after 60 seconds', const Duration(seconds: 60));
+        },
+      );
 
       if (await backupFile.exists()) await backupFile.delete();
       await _stopService();
