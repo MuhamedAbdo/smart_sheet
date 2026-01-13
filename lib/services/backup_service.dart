@@ -27,7 +27,7 @@ class MyBackupTaskHandler extends TaskHandler {
 
 class BackupService {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
-  static const String BUCKET_NAME = 'BACKUPS';
+  static const String BUCKET_NAME = 'backups';
 
   // قناة الاتصال لإعادة تشغيل التطبيق
   static const _platform = MethodChannel('com.smart_sheet/app_control');
@@ -153,7 +153,7 @@ class BackupService {
       await _supabaseClient.auth.refreshSession();
 
       try {
-        await _supabaseClient.storage.from('BACKUPS').uploadBinary(
+        await _supabaseClient.storage.from('backups').uploadBinary(
               "${user.id}.zip",
               bytes,
               fileOptions: const FileOptions(upsert: true),
@@ -190,7 +190,7 @@ class BackupService {
       final tempZipPath = p.join(tempDir.path, 'downloaded_backup.zip');
 
       final Uint8List bytes =
-          await _supabaseClient.storage.from('BACKUPS').download(fullPath);
+          await _supabaseClient.storage.from('backups').download(fullPath);
       await File(tempZipPath).writeAsBytes(bytes);
 
       final result = await _restoreFromZipPath(tempZipPath);
@@ -223,8 +223,8 @@ class BackupService {
     try {
       final user = _supabaseClient.auth.currentUser;
       if (user == null) return [];
-      // List backups from BACKUPS bucket (direct path)
-      return await _supabaseClient.storage.from('BACKUPS').list(path: user.id);
+      // List backups from backups bucket (direct path)
+      return await _supabaseClient.storage.from('backups').list(path: user.id);
     } catch (e) {
       return [];
     }
