@@ -116,8 +116,10 @@ void _openBackgroundBoxes() {
     'serial_setup_state'
   ];
   for (var box in otherBoxes) {
-    Hive.openBox(box)
-        .catchError((e) => debugPrint("⚠️ Failed to open $box: $e"));
+    Hive.openBox(box).then(
+      (_) => {}, // Success case - do nothing
+      onError: (e) => debugPrint("⚠️ Failed to open $box: $e"),
+    );
   }
 }
 
