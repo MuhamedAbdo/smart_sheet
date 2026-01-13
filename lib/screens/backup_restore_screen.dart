@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:smart_sheet/services/backup_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:smart_sheet/screens/auth_screen.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -16,11 +17,22 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   bool _isLoading = false;
   String? _message;
   bool _hasBackup = false;
+  bool _isAuthenticated = false;
 
   @override
   void initState() {
     super.initState();
+    _checkAuthenticationStatus();
     _checkBackupExists();
+  }
+
+  Future<void> _checkAuthenticationStatus() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (mounted) {
+      setState(() {
+        _isAuthenticated = user != null;
+      });
+    }
   }
 
   // دالة فتح رابط لوحة تحكم Supabase للمطور
@@ -58,6 +70,19 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   }
 
   Future<void> _handleCloudUpload() async {
+    // Double-check authentication before proceeding
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('❌ يجب تسجيل الدخول أولاً')),
+        );
+        // Redirect to auth screen
+        Navigator.pushReplacementNamed(context, AuthScreen.routeName);
+      }
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _message = 'جاري رفع النسخة الاحتياطية...';
@@ -265,6 +290,30 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   }
 
   Widget _buildUploadButton() {
+    if (!_isAuthenticated) {
+      return ElevatedButton.icon(
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❌ يجب تسجيل الدخول أولاً')),
+          );
+          Navigator.pushReplacementNamed(context, AuthScreen.routeName);
+        },
+        icon: const Icon(Icons.login),
+        label: const Text(
+          'تسجيل الدخول مطلوب',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 56),
+          backgroundColor: Colors.red,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    }
+
     return ElevatedButton.icon(
       onPressed: _isLoading ? null : _handleCloudUpload,
       icon: _isLoading

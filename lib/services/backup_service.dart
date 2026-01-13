@@ -105,6 +105,20 @@ class BackupService {
   Future<String?> uploadToSupabase() async {
     try {
       if (kIsWeb) return 'غير مدعوم على الويب.';
+
+      // Enhanced authentication check with retry
+      User? user = _supabaseClient.auth.currentUser;
+      if (user == null) {
+        // Wait a moment for auth to initialize on real devices
+        await Future.delayed(const Duration(seconds: 2));
+        user = _supabaseClient.auth.currentUser;
+        if (user == null) {
+          return '❌ يجب تسجيل الدخول للرفع السحابي.';
+        }
+      }
+
+      debugPrint("✅ User authenticated: ${user.id}");
+
       await _requestPermissions();
       _initService();
       await _startService();
@@ -116,20 +130,17 @@ class BackupService {
       }
 
       final backupFile = File(localBackupPath);
-      final user = _supabaseClient.auth.currentUser;
-      if (user == null) {
-        await _stopService();
-        return '❌ يجب تسجيل الدخول للرفع السحابي.';
-      }
 
       // Use fixed filename with user ID path for single copy per user
       final uploadPath = 'backups/${user.id}/$_backupFileName';
+      debugPrint("📁 Upload path: $uploadPath");
 
       _updateForegroundNotification(
         title: 'جاري الرفع...',
         content: 'يتم الآن نقل النسخة الاحتياطية إلى السحابة',
       );
 
+      // Ensure upsert is properly set
       await _supabaseClient.storage.from(BUCKET_NAME).upload(
             uploadPath,
             backupFile,
@@ -143,6 +154,7 @@ class BackupService {
       return '✅ تم الرفع بنجاح.';
     } catch (e) {
       await _stopService();
+      debugPrint("❌ Upload error: $e");
       return '❌ فشل الرفع: ${e.toString()}';
     }
   }
