@@ -6,13 +6,13 @@ plugins {
 
 android {
     namespace = "com.muhamed.smart_sheet"
-    compileSdk = flutter.compileSdkVersion
+    // نستخدم 35 لأنه الإصدار المستقر الذي يدعمه Gradle 8.7.3 الحالي لديك
+    compileSdk = 35 
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        // ✅ 1. تفعيل خاصية الـ Desugaring
+        // ✅ تفعيل خاصية الـ Desugaring لدعم ميزات Java الحديثة
         isCoreLibraryDesugaringEnabled = true
-        
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -23,20 +23,19 @@ android {
 
     defaultConfig {
         applicationId = "com.muhamed.smart_sheet"
-        // ✅ تأكد أن الحد الأدنى لنسخة أندرويد لا يقل عن 21 (مطلوب لخدمة الخلفية)
+        // نستخدم نسخة صريحة لضمان الاستقرار مع الهاتف الحقيقي
         minSdk = flutter.minSdkVersion 
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 35 
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        
-        // تفعيل MultiDex إذا واجهت مشكلة في عدد الدوال
         multiDexEnabled = true
     }
 
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
-            // يمكنك إضافة خيارات التحسين هنا لاحقاً
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
@@ -45,8 +44,20 @@ flutter {
     source = "../.."
 }
 
-// ✅ 2. إضافة المكتبة المطلوبة في نهاية الملف
 dependencies {
-    // قم بتحديث الرقم من 2.0.3 إلى 2.1.4
+    // المحافظة على نسخة Desugaring التي تعمل بها
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+
+// Force specific AndroidX versions to avoid SDK 36 requirements
+// Keep this outside the `dependencies` block so it applies globally
+configurations.all {
+    resolutionStrategy {
+        force("androidx.browser:browser:1.8.0")
+        force("androidx.core:core:1.13.1")
+        force("androidx.core:core-ktx:1.13.1")
+        force("androidx.activity:activity:1.9.3")
+        force("androidx.activity:activity-ktx:1.9.3")
+        force("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    }
 }
