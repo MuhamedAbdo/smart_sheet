@@ -1,5 +1,3 @@
-// lib/src/screens/add_sheet_size_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
@@ -77,8 +75,9 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
   }
 
-  bool _isDuplicateRecord(String clientName, String productCode) {
-    if (clientName.isEmpty || productCode.isEmpty) return false;
+  // دالة للبحث عن مفتاح السجل المكرر (إن وجد)
+  dynamic _getDuplicateKey(String clientName, String productCode) {
+    if (clientName.isEmpty || productCode.isEmpty) return null;
     final String newClient = clientName.trim().toLowerCase();
     final String newCode = productCode.trim().toLowerCase();
 
@@ -86,37 +85,34 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       final key = _savedSheetSizesBox.keyAt(i);
       final record = _savedSheetSizesBox.getAt(i);
       if (record is Map) {
-        final existingClient =
-            (record['clientName'] ?? '').toString().trim().toLowerCase();
-        final existingCode =
-            (record['productCode'] ?? '').toString().trim().toLowerCase();
-        if (widget.existingDataKey != null && key == widget.existingDataKey) {
-          continue;
+        final existingClient = (record['clientName'] ?? '').toString().trim().toLowerCase();
+        final existingCode = (record['productCode'] ?? '').toString().trim().toLowerCase();
+        
+        // نتخطى السجل الحالي إذا كنا في وضع التعديل
+        if (widget.existingDataKey != null && key == widget.existingDataKey) continue;
+
+        if (existingClient == newClient && existingCode == newCode) {
+          return key;
         }
-        if (existingClient == newClient && existingCode == newCode) return true;
       }
     }
-    return false;
+    return null;
   }
 
-  Future<void> _saveSheetSize() async {
+  Future<void> _saveSheetSize({dynamic duplicateKey}) async {
     final clientName = clientNameController.text.trim();
     final productCode = productCodeController.text.trim();
 
-    if (_isDuplicateRecord(clientName, productCode)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              "⚠️ العميل: '$clientName' مسجل مسبقاً بالكود: '$productCode'"),
-          backgroundColor: Colors.orange.shade900,
-        ),
-      );
-      return;
+    // إذا لم يتم تمرير duplicateKey، نتحقق من التكرار أولاً
+    if (duplicateKey == null && widget.existingDataKey == null) {
+      final foundKey = _getDuplicateKey(clientName, productCode);
+      if (foundKey != null) {
+        _showReplaceDialog(foundKey);
+        return;
+      }
     }
 
-    // تعديل هنا: حفظ اسم الملف فقط لتجنب مشكلة تغير المسارات مستقبلاً
-    final List<String> imageNames =
-        _capturedImages.map((file) => file.path.split('/').last).toList();
+    final List<String> imageNames = _capturedImages.map((file) => file.path.split('/').last).toList();
 
     final newRecord = <String, dynamic>{
       'processType': _processType,
@@ -126,7 +122,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'length': lengthController.text,
       'width': widthController.text,
       'height': heightController.text,
-      'imagePaths': imageNames, // خزن الأسماء فقط
+      'imagePaths': imageNames,
       'date': DateTime.now().toIso8601String(),
     };
 
@@ -154,8 +150,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       });
     }
 
-    if (widget.existingDataKey != null) {
-      await _savedSheetSizesBox.put(widget.existingDataKey, newRecord);
+    // الحفظ: إما تحديث السجل الحالي، أو استبدال المكرر، أو إضافة جديد
+    final keyToUpdate = widget.existingDataKey ?? duplicateKey;
+    if (keyToUpdate != null) {
+      await _savedSheetSizesBox.put(keyToUpdate, newRecord);
     } else {
       await _savedSheetSizesBox.add(newRecord);
     }
@@ -166,6 +164,40 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       Navigator.pop(context);
     }
   }
+
+  // نافذة الحوار للاستبدال أو الإلغاء
+  void _showReplaceDialog(dynamic targetKey) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text("تنبيه تكرار"),
+          ],
+        ),
+        content: Text(
+            "هذا العميل (${clientNameController.text}) مسجل مسبقاً بنفس كود الصنف (${productCodeController.text}).\n\nهل تريد استبدال المقاس القديم بالجديد؟"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("إلغاء"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _saveSheetSize(duplicateKey: targetKey);
+            },
+            child: const Text("استبدال", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- باقي الدوال (الكاميرا، الحسابات، إلخ) كما هي تماماً ---
 
   Future<void> _initializeCamera() async {
     try {
@@ -197,11 +229,9 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       widthController.text = data['width']?.toString() ?? '';
       heightController.text = data['height']?.toString() ?? '';
 
-      // معالجة الصور المحملة: تدعم المسار القديم (الكامل) والجديد (الاسم فقط)
       if (data['imagePaths'] != null) {
         _capturedImages = (data['imagePaths'] as List).map((p) {
           String path = p.toString();
-          // إذا كان المسار لا يحتوي على فاصل مجلدات، فهو اسم ملف فقط، فنبني له المسار الصحيح
           if (!path.contains('/')) {
             path = '$imageDirPath/$path';
           }
@@ -209,10 +239,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         }).toList();
       }
 
-      sheetLengthManualController.text =
-          data['sheetLengthManual']?.toString() ?? '';
-      sheetWidthManualController.text =
-          data['sheetWidthManual']?.toString() ?? '';
+      sheetLengthManualController.text = data['sheetLengthManual']?.toString() ?? '';
+      sheetWidthManualController.text = data['sheetWidthManual']?.toString() ?? '';
       isOverFlap = data['isOverFlap'] ?? false;
       isFlap = data['isFlap'] ?? true;
       isOneFlap = data['isOneFlap'] ?? false;
@@ -238,8 +266,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       final imageDir = Directory('${appDir.path}/images');
       if (!await imageDir.exists()) await imageDir.create(recursive: true);
 
-      final String fileName =
-          'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final targetPath = '${imageDir.path}/$fileName';
 
       var compressedFile = await FlutterImageCompress.compressAndGetFile(
@@ -280,23 +307,17 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
     productionHeight = H.toStringAsFixed(2);
     if (isOverFlap && isTwoFlap) {
-      productionWidth1 =
-          addTwoMm ? (W + 0.2).toStringAsFixed(2) : W.toStringAsFixed(2);
+      productionWidth1 = addTwoMm ? (W + 0.2).toStringAsFixed(2) : W.toStringAsFixed(2);
       productionWidth2 = productionWidth1;
     } else if (isOverFlap && isOneFlap) {
       productionWidth1 = ".....";
-      productionWidth2 =
-          addTwoMm ? (W + 0.2).toStringAsFixed(2) : W.toStringAsFixed(2);
+      productionWidth2 = addTwoMm ? (W + 0.2).toStringAsFixed(2) : W.toStringAsFixed(2);
     } else if (isFlap && isTwoFlap) {
-      productionWidth1 = addTwoMm
-          ? ((W / 2) + 0.2).toStringAsFixed(2)
-          : (W / 2).toStringAsFixed(2);
+      productionWidth1 = addTwoMm ? ((W / 2) + 0.2).toStringAsFixed(2) : (W / 2).toStringAsFixed(2);
       productionWidth2 = productionWidth1;
     } else if (isFlap && isOneFlap) {
       productionWidth1 = ".....";
-      productionWidth2 = addTwoMm
-          ? ((W / 2) + 0.2).toStringAsFixed(2)
-          : (W / 2).toStringAsFixed(2);
+      productionWidth2 = addTwoMm ? ((W / 2) + 0.2).toStringAsFixed(2) : (W / 2).toStringAsFixed(2);
     } else {
       productionWidth1 = productionWidth2 = ".....";
     }
@@ -326,12 +347,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text(
-            widget.existingDataKey != null ? "تعديل مقاس" : "إضافة مقاس جديد"),
+        title: Text(widget.existingDataKey != null ? "تعديل مقاس" : "إضافة مقاس جديد"),
         centerTitle: true,
         actions: [
-          IconButton(
-              icon: const Icon(Icons.check_circle), onPressed: _saveSheetSize)
+          IconButton(icon: const Icon(Icons.check_circle), onPressed: () => _saveSheetSize())
         ],
       ),
       body: GestureDetector(
@@ -361,8 +380,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 isProcessing: _isProcessing,
                 capturedImages: _capturedImages,
                 onCaptureImage: _captureImage,
-                onRemoveImage: (i) =>
-                    setState(() => _capturedImages.removeAt(i)),
+                onRemoveImage: (i) => setState(() => _capturedImages.removeAt(i)),
               ),
               if (_processType == "تفصيل") ...[
                 const SizedBox(height: 16),
@@ -375,41 +393,19 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                   isFullSize: isFullSize,
                   isQuarterSize: isQuarterSize,
                   isQuarterWidth: isQuarterWidth,
-                  onOverFlapChanged: (v) => setState(() {
-                    isOverFlap = v!;
-                    isFlap = !v;
-                  }),
-                  onFlapChanged: (v) => setState(() {
-                    isFlap = v!;
-                    isOverFlap = !v;
-                  }),
-                  onOneFlapChanged: (v) => setState(() {
-                    isOneFlap = v!;
-                    isTwoFlap = !v;
-                  }),
-                  onTwoFlapChanged: (v) => setState(() {
-                    isTwoFlap = v!;
-                    isOneFlap = !v;
-                  }),
+                  onOverFlapChanged: (v) => setState(() { isOverFlap = v!; isFlap = !v; }),
+                  onFlapChanged: (v) => setState(() { isFlap = v!; isOverFlap = !v; }),
+                  onOneFlapChanged: (v) => setState(() { isOneFlap = v!; isTwoFlap = !v; }),
+                  onTwoFlapChanged: (v) => setState(() { isTwoFlap = v!; isOneFlap = !v; }),
                   onAddTwoMmChanged: (v) => setState(() => addTwoMm = v!),
-                  onFullSizeChanged: (v) => setState(() {
-                    isFullSize = v!;
-                    isQuarterSize = false;
-                  }),
-                  onQuarterSizeChanged: (v) => setState(() {
-                    isQuarterSize = v!;
-                    isFullSize = false;
-                  }),
-                  onQuarterWidthChanged: (v) =>
-                      setState(() => isQuarterWidth = v!),
+                  onFullSizeChanged: (v) => setState(() { isFullSize = v!; isQuarterSize = false; }),
+                  onQuarterSizeChanged: (v) => setState(() { isQuarterSize = v!; isFullSize = false; }),
+                  onQuarterWidthChanged: (v) => setState(() => isQuarterWidth = v!),
                 ),
                 const SizedBox(height: 16),
-                SheetSizeButtons(
-                    onCalculate: _calculateSheet, onSave: _saveSheetSize),
+                SheetSizeButtons(onCalculate: _calculateSheet, onSave: () => _saveSheetSize()),
                 const SizedBox(height: 16),
-                SheetSizeCalculations(
-                    sheetLengthResult: sheetLengthResult,
-                    sheetWidthResult: sheetWidthResult),
+                SheetSizeCalculations(sheetLengthResult: sheetLengthResult, sheetWidthResult: sheetWidthResult),
                 const SizedBox(height: 16),
                 SheetSizeProductionTable(
                     productionWidth1: productionWidth1,

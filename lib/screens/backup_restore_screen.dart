@@ -365,10 +365,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         color: Colors.grey.withAlpha(25),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.info_outline, color: Colors.grey, size: 20),
               SizedBox(width: 8),
@@ -379,8 +379,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             '• كل نسخة احتياطية جديدة تستبدل القديمة\n'
             '• يمكن استعادة آخر نسخة تم رفعها فقط\n'
             '• البيانات محفوظة بشكل آمن ومشفر',

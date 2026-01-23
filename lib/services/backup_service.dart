@@ -334,7 +334,9 @@ class BackupService {
         if (entity is File) {
           // استثناء ملفات القفل أو الملفات المؤقتة لتجنب الأخطاء
           if (entity.path.endsWith('.lock') ||
-              entity.path.contains('temp_backup')) continue;
+              entity.path.contains('temp_backup')) {
+            continue;
+          }
 
           final relativePath = p.relative(entity.path, from: sourceDir);
           encoder.addFile(entity, relativePath.replaceAll('\\', '/'));
