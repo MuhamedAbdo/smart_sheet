@@ -106,7 +106,10 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.watch<ThemeProvider>();
+    // مراقبة الثيم الحالي لتحديد الصورة المناسبة
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDarkMode = themeProvider.isDarkTheme;
+    
     final auth = context.watch<AuthService>().state;
     final backupService = BackupService();
 
@@ -115,10 +118,16 @@ class AppDrawer extends StatelessWidget {
         children: [
           UserAccountsDrawerHeader(
             decoration: BoxDecoration(
-              color: theme.isDarkTheme ? Colors.grey[900] : Colors.blue,
+              color: isDarkMode ? Colors.grey[900] : Colors.blue,
             ),
-            currentAccountPicture: const CircleAvatar(
-              backgroundImage: AssetImage('assets/images/logo_light.jpg'),
+            currentAccountPicture: CircleAvatar(
+              backgroundColor: Colors.white,
+              // التبديل التلقائي باستخدام الأسماء الجديدة التي طلبتها
+              backgroundImage: AssetImage(
+                isDarkMode
+                    ? 'assets/images/appdrawer_dark.jpg'
+                    : 'assets/images/appdrawer_light.jpg',
+              ),
             ),
             accountName: const Text(
               'Smart Sheet',

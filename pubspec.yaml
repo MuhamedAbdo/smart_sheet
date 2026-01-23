@@ -5,46 +5,46 @@ version: 0.1.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
-  flutter: ">=3.7.0"
+  flutter: ">=3.10.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
-  # تخزين محلي سريع (للـ cache، المقاسات، الإعدادات)
+  # تخزين محلي سريع
   hive: ^2.2.0
   hive_flutter: ^1.1.0
   hive_generator: ^2.0.1
 
-  # إدارة الحالة (State Management) - نستخدم Provider كأول خيار بسيط وقوي
+  # إدارة الحالة
   provider: ^6.1.2
 
-  # اختيار الصور والتقاطها بالكاميرا
+  # اختيار الصور والكاميرا
   image_picker: ^0.8.8+7
 
-  # إنشاء ملفات PDF وتوليدها
+  # إنشاء ملفات PDF
   pdf: ^3.10.0
-  printing: ^5.14.2 # تم التأكد من أحدث نسخة موجودة في lock file
+  printing: ^5.14.2
 
-  # رسوم متحركة (مثل Lottie في Splash أو Loading)
+  # رسوم متحركة
   lottie: ^2.7.0
 
-  # تخزين الإعدادات (مثل الثيم، جودة الكاميرا)
+  # تخزين الإعدادات
   shared_preferences: ^2.2.2
 
-  # للتعامل مع المسارات والملفات
+  # للتعامل مع المسارات
   path: ^1.8.3
 
-  # لو حابب تعمل ZIP للنسخة الاحتياطية
+  # ZIP للنسخة الاحتياطية
   archive: ^3.5.1
 
-  # عمل deep link أو فتح سياسة الخصوصية في المتصفح
+  # فتح الروابط
   url_launcher: ^6.3.2
 
-  # لتحسين UI مع الحواف والزوايا (مفيد في الأزرار)
+  # تحسين UI
   flutter_screenutil: ^5.9.3
 
-  # لتغيير اسم التطبيق (في وقت البناء)
+  # إعدادات إضافية
   rename: ^3.1.0
   path_provider: ^2.1.5
   camera: ^0.11.2
@@ -66,32 +66,29 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-
-  # للتأكد من إغلاق boxes في Hive بعد الاختبارات
   mockito: ^5.4.4
   build_runner: 2.4.13
+  # إضافة حزمة الأيقونات
+  flutter_launcher_icons: ^0.13.1
 
+# إعدادات توليد الأيقونات باستخدام الاسم الجديد app_icon.jpg
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.jpg"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/app_icon.jpg"
 
-# إعدادات Flutter
 flutter:
-  # تفعيل توليد الأصول (مثل الصور والخطوط)
   generate: true
+  uses-material-design: true
 
-  # الأصول (Assets)
-  # ممكن تفعيلها لاحقًا لما نضيف الصور أو الرموز
   assets:
     - assets/images/
-  #   - assets/animations/
-  #   - assets/icons/
-  #   - assets/fonts/
 
-  # الخطوط (مثال: Cairo للعربية)
   fonts:
     - family: Cairo
       fonts:
         - asset: assets/fonts/Cairo-Regular.ttf
         - asset: assets/fonts/Cairo-Bold.ttf
           weight: 700
-
-  # دعم Material Design (يسمح باستخدام Material Icons)
-  uses-material-design: true

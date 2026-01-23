@@ -49,7 +49,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: Image.asset(
                 isDarkMode
                     ? 'assets/images/logo_dark.jpg'
-                    : 'assets/images/logo_light.jpg',
+                    : 'assets/images/logo_light.png',
                 // التعديل هنا: BoxFit بدلاً من ContentType
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
