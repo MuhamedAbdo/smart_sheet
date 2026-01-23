@@ -12,16 +12,19 @@
 .swiftpm/
 migrate_working_dir/
 
+# Windows thumbnails
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
 # IntelliJ related
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# Visual Studio Code related
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -33,13 +36,51 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Web related
+.web/
+build/web/
+
+# Android related
+/android/local.properties
+/android/key.properties
+/android/app/debug
+/android/app/profile
+/android/app/release
+*.keystore
+*.jks
+*.apk
+*.aab
+
+# iOS related
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Runner/GeneratedPluginRegistrant.h
+**/ios/Runner/GeneratedPluginRegistrant.m
+**/Frameworks/
+Podfile.lock
+
 # Symbolication related
 app.*.symbols
 
 # Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# --- إضافات مخصصة لمشروعك ---
+
+# Local Images & User Data
+# لتجنب رفع صور التجارب التي تلتقطها بالكاميرا أثناء التطوير
+**/images/
+**/captured_images/
+*.jpg
+*.jpeg
+*.png
+
+# Environment Secrets
+# لحماية بيانات Supabase الحساسة إذا قررت وضعها في ملف خارجي
+.env
+auth_keys.json
+
+# Database / Hive
+# لتجنب رفع ملفات قاعدة البيانات المحلية الخاصة بجهازك
+*.hive
+*.lock

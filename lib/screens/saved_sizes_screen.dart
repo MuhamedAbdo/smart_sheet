@@ -69,7 +69,6 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
                 onChanged: (v) => setState(() => searchQuery = v))
             : const Text("📄 المقاسات المحفوظة"),
         actions: [
-          // زر الترتيب
           PopupMenuButton<SortType>(
             icon: const Icon(Icons.sort_by_alpha),
             tooltip: "ترتيب البطاقات",
@@ -110,24 +109,48 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         valueListenable: _savedSheetSizesBox!.listenable(),
         builder: (context, Box box, _) {
           final entries = _getSortedAndFilteredEntries(box);
-          if (entries.isEmpty) {
+
+          // حساب الإحصائيات ديناميكياً بناءً على القائمة المعروضة
+          final int totalProducts = entries.length;
+          final int uniqueClients = entries
+              .map((e) => (e.value['clientName']?.toString() ?? 'بدون اسم').trim())
+              .toSet()
+              .length;
+
+          if (entries.isEmpty && searchQuery.isEmpty) {
             return const Center(
-                child: Text("🚫 لا توجد نتائج للبحث أو الصندوق فارغ."));
+                child: Text("🚫 الصندوق فارغ، ابدأ بإضافة مقاسات جديدة."));
           }
-          return ListView.builder(
-            itemCount: entries.length,
-            cacheExtent: 1000,
-            itemBuilder: (context, index) {
-              final entry = entries[index];
-              return SavedSizeCard(
-                key: ValueKey(
-                    entry.key), // أضفنا مفتاح لتحسين الأداء عند إعادة الترتيب
-                record: entry.value,
-                onEdit: () => _navigateToEdit(entry.key, entry.value),
-                onDelete: () => _confirmDelete(entry.key),
-                onPrint: (data) => _openInkReportWithSheetData(context, data),
-              );
-            },
+
+          return Column(
+            children: [
+              // كارد الإحصائيات (العداد)
+              SavedSizesStatsCard(
+                totalProducts: totalProducts,
+                uniqueClients: uniqueClients,
+              ),
+
+              // قائمة البطاقات
+              Expanded(
+                child: entries.isEmpty
+                    ? const Center(child: Text("🚫 لا توجد نتائج للبحث."))
+                    : ListView.builder(
+                        itemCount: entries.length,
+                        cacheExtent: 1000,
+                        itemBuilder: (context, index) {
+                          final entry = entries[index];
+                          return SavedSizeCard(
+                            key: ValueKey(entry.key),
+                            record: entry.value,
+                            onEdit: () => _navigateToEdit(entry.key, entry.value),
+                            onDelete: () => _confirmDelete(entry.key),
+                            onPrint: (data) =>
+                                _openInkReportWithSheetData(context, data),
+                          );
+                        },
+                      ),
+              ),
+            ],
           );
         },
       ),
@@ -138,14 +161,12 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
       Box box) {
     final query = searchQuery.toLowerCase().trim();
 
-    // 1. تحويل الصندوق إلى قائمة من المداخل
     List<MapEntry<dynamic, Map<String, dynamic>>> entries = box
         .toMap()
         .entries
         .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
         .toList();
 
-    // 2. الفلترة حسب البحث
     if (query.isNotEmpty) {
       entries = entries.where((entry) {
         final record = entry.value;
@@ -158,7 +179,6 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
       }).toList();
     }
 
-    // 3. الترتيب حسب النوع المختار
     switch (_currentSortType) {
       case SortType.alphabeticalAsc:
         entries.sort((a, b) => (a.value['clientName'] ?? '')
@@ -171,7 +191,6 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             .compareTo((a.value['clientName'] ?? '').toString()));
         break;
       case SortType.newestFirst:
-        // في Hive، المفاتيح التلقائية (Auto-increment) تزيد مع كل إضافة، لذا الأكبر هو الأحدث
         entries.sort((a, b) => b.key.compareTo(a.key));
         break;
       case SortType.oldestFirst:
@@ -181,8 +200,6 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
 
     return entries;
   }
-
-  // --- بقية الدوال كما هي دون تغيير ---
 
   void _openInkReportWithSheetData(
       BuildContext context, Map<String, dynamic> dataFromCard) async {
@@ -265,6 +282,102 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             },
             child: const Text("حذف", style: TextStyle(color: Colors.red)),
           )
+        ],
+      ),
+    );
+  }
+}
+
+/// ويدجت إحصائيات المقاسات المحفوظة
+class SavedSizesStatsCard extends StatelessWidget {
+  final int totalProducts;
+  final int uniqueClients;
+
+  const SavedSizesStatsCard({
+    super.key,
+    required this.totalProducts,
+    required this.uniqueClients,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade800, Colors.indigo.shade900],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            _buildStatItem(
+              icon: Icons.people_outline_rounded,
+              label: "العملاء",
+              value: uniqueClients.toString(),
+            ),
+            VerticalDivider(
+              color: Colors.white.withOpacity(0.3),
+              thickness: 1,
+              indent: 5,
+              endIndent: 5,
+            ),
+            _buildStatItem(
+              icon: Icons.inventory_2_outlined,
+              label: "الأصناف",
+              value: totalProducts.toString(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white70, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
         ],
       ),
     );
