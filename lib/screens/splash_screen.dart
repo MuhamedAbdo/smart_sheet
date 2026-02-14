@@ -34,55 +34,44 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.read<ThemeProvider>();
+    final themeProvider = context.watch<ThemeProvider>();
     final isDarkMode = themeProvider.isDarkTheme;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 150,
-              height: 150,
-              child: Image.asset(
-                isDarkMode
-                    ? 'assets/images/logo_dark.jpg'
-                    : 'assets/images/logo_light.png',
-                // التعديل هنا: BoxFit بدلاً من ContentType
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.factory,
-                      size: 80, color: Colors.grey);
-                },
-              ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage(
+              isDarkMode
+                  ? 'assets/images/logo_dark.jpg'
+                  : 'assets/images/logo_light.jpg',
             ),
-            const SizedBox(height: 30),
-            Text(
-              'Smart Sheet',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: isDarkMode ? Colors.white : Colors.black,
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 200),
+              CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isDarkMode ? Colors.blue[300]! : Colors.blue[700]!,
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isDarkMode ? Colors.blue[300]! : Colors.blue[700]!,
+              const SizedBox(height: 15),
+              Text(
+                'جاري تحضير البيانات...',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                ),
               ),
-            ),
-            const SizedBox(height: 15),
-            Text(
-              'جاري تحضير البيانات...',
-              style: TextStyle(
-                fontSize: 14,
-                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

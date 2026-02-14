@@ -24,7 +24,7 @@ Desktop.ini
 .idea/
 
 # Visual Studio Code related
-.vscode/
+# .vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/

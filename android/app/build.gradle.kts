@@ -6,8 +6,8 @@ plugins {
 
 android {
     namespace = "com.muhamed.smart_sheet"
-    // نستخدم 35 لأنه الإصدار المستقر الذي يدعمه Gradle 8.7.3 الحالي لديك
-    compileSdk = 35 
+    // تحديث إلى 36 لدعم البكجات الجديدة
+    compileSdk = 36 
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
