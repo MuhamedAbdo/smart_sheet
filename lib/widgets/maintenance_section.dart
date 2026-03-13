@@ -47,8 +47,10 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
             await box.putAt(index, record);
           }
 
-          if (mounted) setState(() {});
-          Navigator.pop(context);
+          if (mounted) {
+            setState(() {});
+            Navigator.pop(context);
+          }
         },
       ),
     );

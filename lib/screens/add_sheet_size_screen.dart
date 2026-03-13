@@ -291,19 +291,21 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
     if (isFullSize) {
       sL = ((L + W) * 2) + 4;
-    } else if (isQuarterSize)
+    } else if (isQuarterSize) {
       sL = isQuarterWidth ? W + 4 : L + 4;
-    else
+    } else {
       sL = L + W + 4;
+    }
 
     if (isOverFlap && isTwoFlap) {
       sW = addTwoMm ? H + (W * 2) + 0.4 : H + (W * 2);
-    } else if (isOverFlap && isOneFlap)
+    } else if (isOverFlap && isOneFlap) {
       sW = addTwoMm ? H + W + 0.2 : H + W;
-    else if (isFlap && isTwoFlap)
+    } else if (isFlap && isTwoFlap) {
       sW = addTwoMm ? H + W + 0.4 : H + W;
-    else if (isFlap && isOneFlap)
+    } else if (isFlap && isOneFlap) {
       sW = addTwoMm ? H + (W / 2) + 0.2 : H + (W / 2);
+    }
 
     productionHeight = H.toStringAsFixed(2);
     if (isOverFlap && isTwoFlap) {

@@ -130,30 +130,6 @@ class _NewSheetSizeFormState extends State<NewSheetSizeForm> {
     });
   }
 
-  void _save() {
-    final newRecord = {
-      'length': lengthController.text,
-      'width': widthController.text,
-      'height': heightController.text,
-      'sheetLengthResult': sheetLengthResult,
-      'sheetWidthResult': sheetWidthResult,
-      'productionWidth1': productionWidth1,
-      'productionWidth2': productionWidth2,
-      'productionHeight': productionHeight,
-      'isOverFlap': isOverFlap,
-      'isFlap': isFlap,
-      'isOneFlap': isOneFlap,
-      'isTwoFlap': isTwoFlap,
-      'addTwoMm': addTwoMm,
-      'isFullSize': isFullSize,
-      'isQuarterSize': isQuarterSize,
-      'isQuarterWidth': isQuarterWidth,
-      'date': DateTime.now().toIso8601String(),
-    };
-
-    widget.onSave(newRecord);
-  }
-
   void _hideKeyboard() {
     FocusScope.of(context).unfocus();
   }

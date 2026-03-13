@@ -113,7 +113,7 @@ class _CameraColorPickerScreenState extends State<CameraColorPickerScreen> {
 
       if (decodedImage == null) {
         _showError('Failed to decode image.');
-        Navigator.of(context).pop(); // إغلاق مؤشر التقدم
+        if (mounted) Navigator.of(context).pop(); // إغلاق مؤشر التقدم
         setState(() {
           _isCapturing = false;
         });
@@ -141,7 +141,7 @@ class _CameraColorPickerScreenState extends State<CameraColorPickerScreen> {
     } catch (e) {
       // ✅ إظهار سبب المشكلة
       _showError('Capture failed: ${e.runtimeType} - $e');
-      Navigator.of(context).pop(); // إغلاق مؤشر التقدم
+      if (mounted) Navigator.of(context).pop(); // إغلاق مؤشر التقدم
     } finally {
       // ✅ تأكد من أن _isCapturing ترجع false
       if (mounted) {

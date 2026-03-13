@@ -85,7 +85,7 @@ class AppDrawer extends StatelessWidget {
               'سيتم إعادة تشغيل التطبيق لتطبيق التغييرات',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
               ),
             ),
           ],
@@ -99,7 +99,8 @@ class AppDrawer extends StatelessWidget {
 
     try {
       await _platformChannel.invokeMethod('restartApp');
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Error restarting app: $e');
       _showMsg(messenger, '❌ فشل إعادة تشغيل التطبيق', isError: true);
     }
   }

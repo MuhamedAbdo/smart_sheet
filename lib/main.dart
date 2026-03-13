@@ -6,6 +6,19 @@ import 'package:smart_sheet/globals.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:smart_sheet/providers/theme_provider.dart';
+import 'package:smart_sheet/screens/home_screen.dart';
+import 'package:smart_sheet/screens/splash_screen.dart';
+import 'package:smart_sheet/screens/settings_screen.dart';
+import 'package:smart_sheet/screens/camera_quality_settings_screen.dart';
+import 'package:smart_sheet/screens/auth_screen.dart';
+import 'package:smart_sheet/screens/forgot_password_screen.dart';
+import 'package:smart_sheet/screens/update_password_screen.dart';
+import 'package:smart_sheet/screens/backup_restore_screen.dart';
+import 'package:smart_sheet/screens/maintenance_screen.dart';
+import 'package:smart_sheet/screens/store_entry_screen.dart';
+import 'package:smart_sheet/screens/workers_screen.dart';
+import 'package:smart_sheet/services/auth_service.dart';
 
 // استيراد الموديلات
 import 'package:smart_sheet/models/worker_action_model.dart';
@@ -16,16 +29,6 @@ import 'package:smart_sheet/models/store_entry_model.dart';
 import 'package:smart_sheet/models/ink_report.dart';
 
 // استيراد الخدمات والبروفايدر والشاشات
-import 'package:smart_sheet/providers/theme_provider.dart';
-import 'package:smart_sheet/services/auth_service.dart';
-import 'package:smart_sheet/screens/auth_screen.dart';
-import 'package:smart_sheet/screens/camera_quality_settings_screen.dart';
-import 'package:smart_sheet/screens/maintenance_screen.dart';
-import 'package:smart_sheet/screens/settings_screen.dart';
-import 'package:smart_sheet/screens/splash_screen.dart';
-import 'package:smart_sheet/screens/store_entry_screen.dart';
-import 'package:smart_sheet/screens/workers_screen.dart';
-import 'package:smart_sheet/screens/backup_restore_screen.dart';
 import 'package:smart_sheet/config/constants.dart';
 
 class MyHttpOverrides extends HttpOverrides {
@@ -140,6 +143,7 @@ class SmartSheetApp extends StatelessWidget {
 
     return MaterialApp(
       scaffoldMessengerKey: scaffoldMessengerKey,
+      navigatorKey: Provider.of<AuthService>(context, listen: false).navigatorKey,
       title: 'Smart Sheet',
       debugShowCheckedModeBanner: false,
       theme: themeProvider.theme,
@@ -160,6 +164,8 @@ class SmartSheetApp extends StatelessWidget {
         CameraQualitySettingsScreen.routeName: (_) =>
             const CameraQualitySettingsScreen(),
         AuthScreen.routeName: (_) => const AuthScreen(),
+        ForgotPasswordScreen.routeName: (_) => const ForgotPasswordScreen(),
+        UpdatePasswordScreen.routeName: (_) => const UpdatePasswordScreen(),
         BackupRestoreScreen.routeName: (_) => const BackupRestoreScreen(),
         '/maintenance': (_) => const MaintenanceScreen(
             boxName: 'maintenance_records_main', title: 'سجلات الصيانة'),
@@ -167,6 +173,7 @@ class SmartSheetApp extends StatelessWidget {
             boxName: 'store_flexo', title: 'وارد المخزن'),
         '/workers': (_) => const WorkersScreen(
             departmentBoxName: 'workers', departmentTitle: 'طاقم العمل'),
+        '/home': (_) => const HomeScreen(),
       },
     );
   }

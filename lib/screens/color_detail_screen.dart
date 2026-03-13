@@ -173,7 +173,7 @@ class _ColorDetailScreenState extends State<ColorDetailScreen> {
                   min: 0,
                   max: 100,
                   activeColor: Colors.white,
-                  inactiveColor: Colors.white.withOpacity(0.3),
+                  inactiveColor: Colors.white.withValues(alpha: 0.3),
                   onChanged: (value) {
                     setState(() {
                       _whitePercentage = value;

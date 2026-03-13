@@ -20,6 +20,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   bool _isSignIn = true;
   bool _isPasswordVisible = false;
+  bool _isResetPassword = false;
 
   @override
   void dispose() {
@@ -38,7 +39,9 @@ class _AuthScreenState extends State<AuthScreen> {
     final password = _passwordController.text.trim();
 
     String? error;
-    if (_isSignIn) {
+    if (_isResetPassword) {
+      error = await authService.resetPassword(email: email);
+    } else if (_isSignIn) {
       error = await authService.signIn(email: email, password: password);
     } else {
       if (password != _confirmPasswordController.text.trim()) {
@@ -55,9 +58,13 @@ class _AuthScreenState extends State<AuthScreen> {
       _showSnackBar(error, Colors.red);
     } else {
       // إذا كان الخطأ null، فهذا يعني نجاح العملية
-      _showSnackBar(
-          _isSignIn ? 'تم تسجيل الدخول بنجاح' : 'تم إنشاء الحساب بنجاح',
-          Colors.green);
+      if (_isResetPassword) {
+        _showSnackBar('تم إرسال رابط إعادة تعيين كلمة المرور', Colors.green);
+      } else {
+        _showSnackBar(
+            _isSignIn ? 'تم تسجيل الدخول بنجاح' : 'تم إنشاء الحساب بنجاح',
+            Colors.green);
+      }
     }
   }
 
@@ -81,7 +88,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isSignIn ? 'تسجيل الدخول' : 'إنشاء حساب'),
+        title: Text(_isResetPassword 
+            ? 'إعادة تعيين كلمة المرور' 
+            : _isSignIn ? 'تسجيل الدخول' : 'إنشاء حساب'),
         centerTitle: true,
       ),
       body: Center(
@@ -93,53 +102,77 @@ class _AuthScreenState extends State<AuthScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                      labelText: 'البريد الإلكتروني',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email)),
-                  enabled: !authLoading,
-                  validator: (value) => (value == null || !value.contains('@'))
-                      ? 'بريد إلكتروني غير صالح'
-                      : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: !_isPasswordVisible,
-                  decoration: InputDecoration(
-                    labelText: 'كلمة المرور',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(_isPasswordVisible
-                          ? Icons.visibility
-                          : Icons.visibility_off),
-                      onPressed: () => setState(
-                          () => _isPasswordVisible = !_isPasswordVisible),
-                    ),
-                  ),
-                  enabled: !authLoading,
-                  validator: (value) => (value == null || value.length < 6)
-                      ? '6 أحرف على الأقل'
-                      : null,
-                ),
-                if (!_isSignIn) ...[
-                  const SizedBox(height: 16),
+                if (_isResetPassword) ...[
                   TextFormField(
-                    controller: _confirmPasswordController,
-                    obscureText: !_isPasswordVisible,
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
-                        labelText: 'تأكيد كلمة المرور',
+                        labelText: 'البريد الإلكتروني',
                         border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.lock)),
+                        prefixIcon: Icon(Icons.email)),
                     enabled: !authLoading,
-                    validator: (value) => value != _passwordController.text
-                        ? 'لا يوجد تطابق في كلمة المرور'
+                    validator: (value) => (value == null || !value.contains('@'))
+                        ? 'بريد إلكتروني غير صالح'
                         : null,
                   ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'سيتم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
+                  ),
+                ] else ...[
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                        labelText: 'البريد الإلكتروني',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.email)),
+                    enabled: !authLoading,
+                    validator: (value) => (value == null || !value.contains('@'))
+                        ? 'بريد إلكتروني غير صالح'
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: !_isPasswordVisible,
+                    decoration: InputDecoration(
+                      labelText: 'كلمة المرور',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(_isPasswordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off),
+                        onPressed: () => setState(
+                            () => _isPasswordVisible = !_isPasswordVisible),
+                      ),
+                    ),
+                    enabled: !authLoading,
+                    validator: (value) => (value == null || value.length < 6)
+                        ? '6 أحرف على الأقل'
+                        : null,
+                  ),
+                  if (!_isSignIn) ...[
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: !_isPasswordVisible,
+                      decoration: const InputDecoration(
+                          labelText: 'تأكيد كلمة المرور',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.lock)),
+                      enabled: !authLoading,
+                      validator: (value) => value != _passwordController.text
+                          ? 'لا يوجد تطابق في كلمة المرور'
+                          : null,
+                    ),
+                  ],
                 ],
                 const SizedBox(height: 24),
                 ElevatedButton(
@@ -154,25 +187,38 @@ class _AuthScreenState extends State<AuthScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 3))
-                      : Text(_isSignIn ? 'تسجيل الدخول' : 'إنشاء حساب',
+                      : Text(_isResetPassword 
+                          ? 'إرسال رابط إعادة التعيين' 
+                          : _isSignIn ? 'تسجيل الدخول' : 'إنشاء حساب',
                           style: const TextStyle(fontSize: 18)),
                 ),
                 const SizedBox(height: 10),
+                if (!_isResetPassword) ...[
+                  TextButton(
+                    onPressed: authLoading
+                        ? null
+                        : () {
+                            setState(() {
+                              _isSignIn = !_isSignIn;
+                              _isResetPassword = false;
+                              _formKey.currentState?.reset();
+                              _passwordController.clear();
+                              _confirmPasswordController.clear();
+                              _emailController.clear();
+                            });
+                          },
+                    child: Text(_isSignIn
+                        ? 'ليس لديك حساب؟ إنشاء حساب جديد'
+                        : 'لديك حساب بالفعل؟ تسجيل الدخول'),
+                  ),
+                ],
                 TextButton(
                   onPressed: authLoading
                       ? null
                       : () {
-                          setState(() {
-                            _isSignIn = !_isSignIn;
-                            _formKey.currentState?.reset();
-                            _passwordController.clear();
-                            _confirmPasswordController.clear();
-                            _emailController.clear();
-                          });
+                          Navigator.of(context).pushNamed('/forgot-password');
                         },
-                  child: Text(_isSignIn
-                      ? 'ليس لديك حساب؟ إنشاء حساب جديد'
-                      : 'لديك حساب بالفعل؟ تسجيل الدخول'),
+                  child: const Text('نسيت كلمة المرور؟'),
                 ),
               ],
             ),

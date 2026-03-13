@@ -27,7 +27,7 @@ class MyBackupTaskHandler extends TaskHandler {
 
 class BackupService {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
-  static const String BUCKET_NAME = 'backups';
+  static const String bucketName = 'backups';
 
   // قناة الاتصال لإعادة تشغيل التطبيق
   static const _platform = MethodChannel('com.smart_sheet/app_control');
@@ -58,7 +58,7 @@ class BackupService {
       }
 
       // اختيار مكان الحفظ وتمرير البايتات مباشرة
-      String? outputFile = await FilePicker.platform.saveFile(
+      final String? outputFile = await FilePicker.platform.saveFile(
         dialogTitle: 'اختر مكان حفظ النسخة الاحتياطية',
         fileName:
             'smart_sheet_backup_${DateTime.now().millisecondsSinceEpoch}.zip',
@@ -72,7 +72,9 @@ class BackupService {
         await file.delete();
       }
 
-      return '✅ تم حفظ النسخة الاحتياطية بنجاح';
+      if (outputFile != null) {
+        return '✅ تم حفظ النسخة الاحتياطية بنجاح';
+      }
       return null;
     } catch (e) {
       debugPrint("Local Backup Error: $e");
@@ -242,7 +244,9 @@ class BackupService {
         for (var entity in entities) {
           try {
             entity.deleteSync(recursive: true);
-          } catch (e) {}
+          } catch (e) {
+            debugPrint('Error deleting file: $e');
+          }
         }
       }
 

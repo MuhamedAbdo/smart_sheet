@@ -30,12 +30,12 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
               .replaceAll('÷', '/')
               .replaceAll('%', '/100');
 
-          // ✅ استخدام Parser() (لا يزال شغال في ^2.5.0)
-          Parser parser = Parser();
+          // ✅ استخدام ShuntingYardParser() بدلاً من Parser() المحذوف في الإصدارات الأحدث
+          ShuntingYardParser parser = ShuntingYardParser();
           Expression exp = parser.parse(formattedExpression);
 
-          // ✅ ContextModel لتقييم التعبير
           ContextModel contextModel = ContextModel();
+          // ignore: deprecated_member_use
           double eval = exp.evaluate(EvaluationType.REAL, contextModel);
 
           // ✅ تنسيق الناتج

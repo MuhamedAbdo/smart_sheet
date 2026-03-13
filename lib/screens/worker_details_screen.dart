@@ -237,7 +237,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   widget.worker.actions.add(saved);
                   await widget.worker.save();
                 }
-                Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
                 _refresh();
               },
               child: const Text("✅ حفظ"),
@@ -406,7 +406,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   widget.worker.actions.insert(index, saved);
                   await widget.worker.save();
                 }
-                Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
                 _refresh();
               },
               child: const Text("✅ حفظ"),

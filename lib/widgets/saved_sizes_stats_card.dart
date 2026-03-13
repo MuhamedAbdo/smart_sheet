@@ -24,7 +24,7 @@ class SavedSizesStatsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -38,7 +38,7 @@ class SavedSizesStatsCard extends StatelessWidget {
             label: "عدد العملاء",
             value: uniqueClients.toString(),
           ),
-          VerticalDivider(color: Colors.white.withOpacity(0.3), thickness: 1),
+          VerticalDivider(color: Colors.white.withValues(alpha: 0.3), thickness: 1),
           _buildStatItem(
             context,
             icon: Icons.inventory_2_rounded,

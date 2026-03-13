@@ -16,6 +16,7 @@ class Worker extends HiveObject {
   late String job;
 
   @HiveField(3)
+  // ignore: experimental_member_use
   late HiveList<WorkerAction> actions;
 
   @HiveField(4)
@@ -30,6 +31,7 @@ class Worker extends HiveObject {
   }) {
     if (Hive.isBoxOpen('worker_actions')) {
       final box = Hive.box<WorkerAction>('worker_actions');
+      // ignore: experimental_member_use
       this.actions = HiveList(box, objects: actions ?? []);
     } else {
       // تجنب حدوث خطأ إذا لم يفتح الصندوق بعد
@@ -40,6 +42,7 @@ class Worker extends HiveObject {
   void reconnectActionsBox() {
     if (Hive.isBoxOpen('worker_actions')) {
       final box = Hive.box<WorkerAction>('worker_actions');
+      // ignore: experimental_member_use
       actions = HiveList(box, objects: actions.toList());
     }
   }
@@ -50,6 +53,7 @@ class Worker extends HiveObject {
       'phone': phone,
       'job': job,
       'has_medical_insurance': hasMedicalInsurance,
+      // ignore: experimental_member_use
       'actions': actions.map((action) => action.toJson()).toList(),
     };
   }

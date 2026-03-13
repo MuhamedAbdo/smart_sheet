@@ -22,7 +22,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
   bool _isBoxLoading = true;
 
   final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
   String _searchQuery = '';
   bool _sortDescending = true;
 
@@ -286,7 +285,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
     final Color textColor = isDark ? Colors.white : Colors.black87;
     final Color hintColor = isDark ? Colors.white70 : Colors.black54;
     final Color containerColor =
-        isDark ? Colors.white10 : Colors.black.withOpacity(0.05);
+        isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05);
     return Container(
       height: 40,
       decoration: BoxDecoration(
@@ -406,18 +405,24 @@ class _InkReportScreenState extends State<InkReportScreen> {
         builder: (c) => Column(mainAxisSize: MainAxisSize.min, children: [
               ListTile(
                   title: const Text("الأحدث أولاً"),
+                  // ignore: deprecated_member_use
                   leading: Radio(
                       value: true,
+                      // ignore: deprecated_member_use
                       groupValue: _sortDescending,
+                      // ignore: deprecated_member_use
                       onChanged: (v) {
                         setState(() => _sortDescending = v!);
                         Navigator.pop(c);
                       })),
               ListTile(
                   title: const Text("الأقدم أولاً"),
+                  // ignore: deprecated_member_use
                   leading: Radio(
                       value: false,
+                      // ignore: deprecated_member_use
                       groupValue: _sortDescending,
+                      // ignore: deprecated_member_use
                       onChanged: (v) {
                         setState(() => _sortDescending = v!);
                         Navigator.pop(c);

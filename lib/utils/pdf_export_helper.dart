@@ -142,7 +142,9 @@ Future<void> savePdfToDevice(
       filePath = await _saveToInternalStorage(pdfBytes);
     }
 
-    _showSuccessSnackBar(context, filePath, pdfBytes);
+    if (context.mounted) {
+      _showSuccessSnackBar(context, filePath, pdfBytes);
+    }
   } catch (e) {
     debugPrint('❌ خطأ في حفظ PDF: $e');
   }

@@ -89,23 +89,31 @@ class SheetSizeForm extends StatelessWidget {
           const Text("نوع الشريحة:",
               style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          // --- checkboxes عمودية ---
+          // ignore: deprecated_member_use
           RadioListTile<String>(
             title: const Text("دوبل"),
             value: "دوبل",
-            groupValue: _effectiveCuttingType, // ← القيمة الفعلية
+            // ignore: deprecated_member_use
+            groupValue: _effectiveCuttingType,
+            // ignore: deprecated_member_use
             onChanged: onCuttingTypeChanged,
           ),
+          // ignore: deprecated_member_use
           RadioListTile<String>(
             title: const Text("سنجل C"),
             value: "سنجل C",
-            groupValue: _effectiveCuttingType, // ← القيمة الفعلية
+            // ignore: deprecated_member_use
+            groupValue: _effectiveCuttingType,
+            // ignore: deprecated_member_use
             onChanged: onCuttingTypeChanged,
           ),
+          // ignore: deprecated_member_use
           RadioListTile<String>(
             title: const Text("سنجل E"),
             value: "سنجل E",
-            groupValue: _effectiveCuttingType, // ← القيمة الفعلية
+            // ignore: deprecated_member_use
+            groupValue: _effectiveCuttingType,
+            // ignore: deprecated_member_use
             onChanged: onCuttingTypeChanged,
           ),
         ],

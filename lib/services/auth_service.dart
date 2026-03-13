@@ -1,10 +1,11 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_state.dart';
+import 'package:flutter/material.dart';
 
 class AuthService extends ChangeNotifier {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
   UserState _state = UserState.unauthenticated();
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   UserState get state => _state;
 
@@ -19,6 +20,11 @@ class AuthService extends ChangeNotifier {
   }
 
   void _onAuthStateChange(AuthChangeEvent event, Session? session) {
+    if (event == AuthChangeEvent.passwordRecovery) {
+      // التوجه تلقائياً إلى شاشة تحديث كلمة المرور
+      navigatorKey.currentState?.pushNamed('/update-password');
+    }
+    
     if (session != null) {
       _state = UserState.authenticated(session.user);
     } else {
@@ -99,7 +105,55 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// 🚪 تسجيل الخروج
+  /// � إعادة تعيين كلمة المرور
+  Future<String?> resetPassword({required String email}) async {
+    _state = _state.copyWith(isLoading: true, errorMessage: null);
+    notifyListeners();
+
+    try {
+      await _supabaseClient.auth.resetPasswordForEmail(email);
+      _state = _state.copyWith(isLoading: false);
+      notifyListeners();
+      
+      return '✅ تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.\n\nيرجى فتح بريدك والضغط على الرابط لتعيين كلمة مرور جديدة.';
+    } on AuthException catch (e) {
+      _state = _state.copyWith(isLoading: false, errorMessage: e.message);
+      notifyListeners();
+      return e.message;
+    } catch (e) {
+      _state = _state.copyWith(
+          isLoading: false, errorMessage: 'حدث خطأ غير متوقع: $e');
+      notifyListeners();
+      return 'حدث خطأ غير متوقع: $e';
+    }
+  }
+
+  /// � تحديث كلمة المرور الجديدة
+  Future<String?> updatePassword({required String newPassword}) async {
+    _state = _state.copyWith(isLoading: true, errorMessage: null);
+    notifyListeners();
+
+    try {
+      await _supabaseClient.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+      _state = _state.copyWith(isLoading: false);
+      notifyListeners();
+      
+      return '✅ تم تحديث كلمة المرور بنجاح';
+    } on AuthException catch (e) {
+      _state = _state.copyWith(isLoading: false, errorMessage: e.message);
+      notifyListeners();
+      return e.message;
+    } catch (e) {
+      _state = _state.copyWith(
+          isLoading: false, errorMessage: 'حدث خطأ غير متوقع: $e');
+      notifyListeners();
+      return 'حدث خطأ غير متوقع: $e';
+    }
+  }
+
+  /// �🚪 تسجيل الخروج
   Future<void> signOut() async {
     _state = _state.copyWith(isLoading: true, errorMessage: null);
     notifyListeners();

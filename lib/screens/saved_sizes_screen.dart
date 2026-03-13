@@ -243,7 +243,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         'notes': 'مستورد من قسم المقاسات',
       };
 
-      if (mounted) {
+      if (context.mounted) {
         Navigator.pop(context);
         Navigator.push(
           context,
@@ -252,7 +252,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         );
       }
     } catch (e) {
-      if (mounted) Navigator.pop(context);
+      if (context.mounted) Navigator.pop(context);
       debugPrint("Error preparing report: $e");
     }
   }
@@ -313,7 +313,7 @@ class SavedSizesStatsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -328,7 +328,7 @@ class SavedSizesStatsCard extends StatelessWidget {
               value: uniqueClients.toString(),
             ),
             VerticalDivider(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               thickness: 1,
               indent: 5,
               endIndent: 5,

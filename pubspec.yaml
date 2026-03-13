@@ -21,6 +21,7 @@ dependencies:
 
   # اختيار الصور والكاميرا
   image_picker: ^0.8.8+7
+  image: ^4.1.7
 
   # إنشاء ملفات PDF
   pdf: ^3.10.0

@@ -33,7 +33,7 @@ class CrushingScreen extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12),
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
               child: Text(
                 'اختر القسم الذي تريد العمل فيه :',
                 textAlign: TextAlign.center,

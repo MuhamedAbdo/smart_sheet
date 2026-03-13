@@ -178,9 +178,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       setState(() {
         _isProcessing = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("خطأ: $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("خطأ: $e")),
+        );
+      }
     }
   }
 

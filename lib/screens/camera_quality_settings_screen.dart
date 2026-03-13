@@ -62,11 +62,14 @@ class _CameraQualitySettingsScreenState
               final quality = qualities[index];
               final description = descriptions[index];
 
+              // ignore: deprecated_member_use
               return RadioListTile<String>(
                 title: Text(quality),
                 subtitle: Text(description),
                 value: quality,
+                // ignore: deprecated_member_use
                 groupValue: _selectedQuality,
+                // ignore: deprecated_member_use
                 onChanged: (value) async {
                   if (value != null) {
                     setState(() {
@@ -74,9 +77,11 @@ class _CameraQualitySettingsScreenState
                     });
                     await _saveQuality(value);
                     // إظهار تنبيه اختياري
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('تم اختيار جودة: $value')),
-                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('تم اختيار جودة: $value')),
+                      );
+                    }
                   }
                 },
                 activeColor: Theme.of(context).colorScheme.primary,
