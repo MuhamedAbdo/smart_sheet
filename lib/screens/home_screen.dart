@@ -127,7 +127,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   HomeButton(
                     icon: Icons.add,
-                    label: 'إضافة مقاس',
+                    label: 'إضافة عميل جديد',
                     onTap: () {
                       Navigator.push(
                         context,
@@ -139,7 +139,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   HomeButton(
                     icon: Icons.save,
-                    label: 'المقاسات المحفوظة',
+                    label: 'سجل العملاء',
                     onTap: () {
                       Navigator.push(
                         context,

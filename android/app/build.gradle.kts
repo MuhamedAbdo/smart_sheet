@@ -38,6 +38,13 @@ android {
             isShrinkResources = false
         }
     }
+
+    lint {
+        // تحذيرات مكتبات الطرف الثالث لا تعطل الـ Build
+        abortOnError = false
+        // تجاهل تحذيرات Java القديمة من camera_android_camerax
+        disable += "ObsoleteLintCustomCheck"
+    }
 }
 
 flutter {

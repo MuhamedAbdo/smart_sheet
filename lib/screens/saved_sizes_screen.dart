@@ -1,19 +1,13 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:smart_sheet/screens/ink_report_screen.dart';
-import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
+import 'package:smart_sheet/screens/client_items_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
-import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 
 // تعريف أنواع الترتيب
 enum SortType {
   alphabeticalAsc, // أ - ي / A - Z
   alphabeticalDesc, // ي - أ / Z - A
-  newestFirst, // الأحدث أولاً
-  oldestFirst // الأقدم أولاً
 }
 
 class SavedSizesScreen extends StatefulWidget {
@@ -28,7 +22,6 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
   String searchQuery = "";
   bool isSearching = false;
 
-  // الحالة الافتراضية للترتيب: أبجدي (أ-ي)
   SortType _currentSortType = SortType.alphabeticalAsc;
 
   @override
@@ -67,15 +60,13 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         title: isSearching
             ? SavedSizeSearchBar(
                 onChanged: (v) => setState(() => searchQuery = v))
-            : const Text("📄 المقاسات المحفوظة"),
+            : const Text("سجل العملاء"),
         actions: [
           PopupMenuButton<SortType>(
             icon: const Icon(Icons.sort_by_alpha),
-            tooltip: "ترتيب البطاقات",
+            tooltip: "ترتيب العملاء",
             onSelected: (SortType result) {
-              setState(() {
-                _currentSortType = result;
-              });
+              setState(() => _currentSortType = result);
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<SortType>>[
               const PopupMenuItem<SortType>(
@@ -85,14 +76,6 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
               const PopupMenuItem<SortType>(
                 value: SortType.alphabeticalDesc,
                 child: Text('أبجدي (ي - أ)'),
-              ),
-              const PopupMenuItem<SortType>(
-                value: SortType.newestFirst,
-                child: Text('التاريخ (الأحدث أولاً)'),
-              ),
-              const PopupMenuItem<SortType>(
-                value: SortType.oldestFirst,
-                child: Text('التاريخ (الأقدم أولاً)'),
               ),
             ],
           ),
@@ -108,44 +91,63 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
       body: ValueListenableBuilder(
         valueListenable: _savedSheetSizesBox!.listenable(),
         builder: (context, Box box, _) {
-          final entries = _getSortedAndFilteredEntries(box);
+          final uniqueClients = _getUniqueClients(box);
 
-          // حساب الإحصائيات ديناميكياً بناءً على القائمة المعروضة
-          final int totalProducts = entries.length;
-          final int uniqueClients = entries
-              .map((e) => (e.value['clientName']?.toString() ?? 'بدون اسم').trim())
-              .toSet()
-              .length;
-
-          if (entries.isEmpty && searchQuery.isEmpty) {
+          if (uniqueClients.isEmpty && searchQuery.isEmpty) {
             return const Center(
-                child: Text("🚫 الصندوق فارغ، ابدأ بإضافة مقاسات جديدة."));
+                child: Text("🚫 لا يوجد عملاء بعد، ابدأ بإضافة عميل جديد."));
           }
+
+          // الإحصائيات مبنية على القائمة المفلترة (ليس إجمالي الكل)
+          final int totalClients = uniqueClients.length;
+          // مجموع أصناف العملاء الظاهرين فقط
+          final int totalItems = uniqueClients.fold<int>(0, (sum, clientName) {
+            return sum +
+                box
+                    .toMap()
+                    .values
+                    .whereType<Map>()
+                    .where((v) =>
+                        (v['clientName']?.toString().trim() ?? '') == clientName)
+                    .length;
+          });
 
           return Column(
             children: [
-              // كارد الإحصائيات (العداد)
+              // كارد الإحصائيات (ديناميكي مع البحث)
               SavedSizesStatsCard(
-                totalProducts: totalProducts,
-                uniqueClients: uniqueClients,
+                totalProducts: totalItems,
+                uniqueClients: totalClients,
               ),
 
-              // قائمة البطاقات
+              // قائمة العملاء
               Expanded(
-                child: entries.isEmpty
+                child: uniqueClients.isEmpty
                     ? const Center(child: Text("🚫 لا توجد نتائج للبحث."))
                     : ListView.builder(
-                        itemCount: entries.length,
-                        cacheExtent: 1000,
+                        itemCount: uniqueClients.length,
                         itemBuilder: (context, index) {
-                          final entry = entries[index];
-                          return SavedSizeCard(
-                            key: ValueKey(entry.key),
-                            record: entry.value,
-                            onEdit: () => _navigateToEdit(entry.key, entry.value),
-                            onDelete: () => _confirmDelete(entry.key),
-                            onPrint: (data) =>
-                                _openInkReportWithSheetData(context, data),
+                          final clientName = uniqueClients[index];
+                          // عدد الأصناف لهذا العميل
+                          final itemCount = box
+                              .toMap()
+                              .values
+                              .where((v) =>
+                                  v is Map &&
+                                  (v['clientName']?.toString().trim() ?? '') ==
+                                      clientName)
+                              .length;
+
+                          return _ClientCard(
+                            clientName: clientName,
+                            itemCount: itemCount,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ClientItemsScreen(
+                                    clientName: clientName),
+                              ),
+                            ),
                           );
                         },
                       ),
@@ -157,138 +159,103 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     );
   }
 
-  List<MapEntry<dynamic, Map<String, dynamic>>> _getSortedAndFilteredEntries(
-      Box box) {
+  /// إرجاع قائمة مرتبة بأسماء العملاء الفريدة مع الفلترة
+  List<String> _getUniqueClients(Box box) {
     final query = searchQuery.toLowerCase().trim();
 
-    List<MapEntry<dynamic, Map<String, dynamic>>> entries = box
+    final names = box
         .toMap()
-        .entries
-        .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
+        .values
+        .whereType<Map>()
+        .map((v) => (v['clientName']?.toString().trim() ?? 'بدون اسم'))
+        .where((name) => query.isEmpty || name.toLowerCase().contains(query))
+        .toSet()
         .toList();
-
-    if (query.isNotEmpty) {
-      entries = entries.where((entry) {
-        final record = entry.value;
-        final name = (record['clientName']?.toString() ?? '').toLowerCase();
-        final product = (record['productName']?.toString() ?? '').toLowerCase();
-        final code = (record['productCode']?.toString() ?? '').toLowerCase();
-        return name.contains(query) ||
-            product.contains(query) ||
-            code.contains(query);
-      }).toList();
-    }
 
     switch (_currentSortType) {
       case SortType.alphabeticalAsc:
-        entries.sort((a, b) => (a.value['clientName'] ?? '')
-            .toString()
-            .compareTo((b.value['clientName'] ?? '').toString()));
+        names.sort((a, b) => a.compareTo(b));
         break;
       case SortType.alphabeticalDesc:
-        entries.sort((a, b) => (b.value['clientName'] ?? '')
-            .toString()
-            .compareTo((a.value['clientName'] ?? '').toString()));
-        break;
-      case SortType.newestFirst:
-        entries.sort((a, b) => b.key.compareTo(a.key));
-        break;
-      case SortType.oldestFirst:
-        entries.sort((a, b) => a.key.compareTo(b.key));
+        names.sort((a, b) => b.compareTo(a));
         break;
     }
 
-    return entries;
+    return names;
   }
+}
 
-  void _openInkReportWithSheetData(
-      BuildContext context, Map<String, dynamic> dataFromCard) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+/// كارد العميل في قائمة سجل العملاء
+class _ClientCard extends StatelessWidget {
+  final String clientName;
+  final int itemCount;
+  final VoidCallback onTap;
 
-    try {
-      final List<String> finalImages = [];
-      final appDir = await getApplicationDocumentsDirectory();
-      final imageDir = Directory('${appDir.path}/images');
+  const _ClientCard({
+    required this.clientName,
+    required this.itemCount,
+    required this.onTap,
+  });
 
-      if (dataFromCard['imagePaths'] is List) {
-        for (var pathObj in dataFromCard['imagePaths']) {
-          String path = pathObj.toString();
-          if (path.startsWith('http')) {
-            finalImages.add(path);
-          } else {
-            String fileName = path.split(Platform.pathSeparator).last;
-            String localPath = '${imageDir.path}/$fileName';
-            if (await File(localPath).exists()) {
-              finalImages.add(localPath);
-            }
-          }
-        }
-      }
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              // أيقونة العميل
+              CircleAvatar(
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                child: Icon(Icons.person_outline,
+                    color: theme.colorScheme.primary),
+              ),
+              const SizedBox(width: 14),
 
-      final initialData = {
-        'date': DateTime.now().toString().split(' ')[0],
-        'clientName': dataFromCard['clientName'] ?? '',
-        'product': dataFromCard['productName'] ?? '',
-        'productCode': dataFromCard['productCode'] ?? '',
-        'dimensions': {
-          'length': dataFromCard['length']?.toString() ?? '',
-          'width': dataFromCard['width']?.toString() ?? '',
-          'height': dataFromCard['height']?.toString() ?? '',
-        },
-        'imagePaths': finalImages,
-        'notes': 'مستورد من قسم المقاسات',
-      };
+              // اسم العميل وعدد الأصناف
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      clientName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$itemCount ${itemCount == 1 ? 'صنف' : 'أصناف'}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-      if (context.mounted) {
-        Navigator.pop(context);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => InkReportScreen(initialData: initialData)),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) Navigator.pop(context);
-      debugPrint("Error preparing report: $e");
-    }
-  }
-
-  void _navigateToEdit(dynamic key, Map<String, dynamic> data) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-          builder: (_) =>
-              AddSheetSizeScreen(existingData: data, existingDataKey: key)),
-    );
-  }
-
-  void _confirmDelete(dynamic key) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("تأكيد الحذف"),
-        content: const Text("هل أنت متأكد من حذف هذا المقاس؟"),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
-          TextButton(
-            onPressed: () {
-              _savedSheetSizesBox!.delete(key);
-              Navigator.pop(ctx);
-            },
-            child: const Text("حذف", style: TextStyle(color: Colors.red)),
-          )
-        ],
+              // سهم التنقل
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-/// ويدجت إحصائيات المقاسات المحفوظة
+/// ويدجت إحصائيات (محتفظ به كما هو)
 class SavedSizesStatsCard extends StatelessWidget {
   final int totalProducts;
   final int uniqueClients;

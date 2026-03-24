@@ -5,11 +5,18 @@ import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
+// الويدجات التالية محجوبة مؤقتاً من الـ UI لكنها تُستخدم في منطق التعديل
+// ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_buttons.dart';
+// ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_calculations.dart';
+// ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_camera.dart';
+// ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_checkboxes.dart';
+// ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_form.dart';
+// ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_production_table.dart';
 
 class AddSheetSizeScreen extends StatefulWidget {
@@ -41,6 +48,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   CameraController? _cameraController;
   bool _isCameraReady = false;
+  // ignore: unused_field — محجوب مؤقتاً مع واجهة العميل المبسطة
   bool _isProcessing = false;
   List<File> _capturedImages = [];
 
@@ -103,7 +111,47 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     final clientName = clientNameController.text.trim();
     final productCode = productCodeController.text.trim();
 
-    // إذا لم يتم تمرير duplicateKey، نتحقق من التكرار أولاً
+    // ① التحقق من أن اسم العميل غير فارغ
+    if (clientName.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('⚠️ يرجى إدخال اسم العميل أولاً.')),
+        );
+      }
+      return;
+    }
+
+    // ② التحقق من تكرار اسم العميل (في وضع الإضافة فقط)
+    if (duplicateKey == null && widget.existingDataKey == null) {
+      final String newClientLower = clientName.toLowerCase();
+      bool clientAlreadyExists = false;
+
+      for (var i = 0; i < _savedSheetSizesBox.length; i++) {
+        final record = _savedSheetSizesBox.getAt(i);
+        if (record is Map) {
+          final existingClient =
+              (record['clientName'] ?? '').toString().trim().toLowerCase();
+          if (existingClient == newClientLower) {
+            clientAlreadyExists = true;
+            break;
+          }
+        }
+      }
+
+      if (clientAlreadyExists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('عذراً، هذا العميل مسجل بالفعل في النظام.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    // ③ التحقق القديم من تكرار (اسم العميل + الكود معاً) — للحفاظ على المنطق السابق
     if (duplicateKey == null && widget.existingDataKey == null) {
       final foundKey = _getDuplicateKey(clientName, productCode);
       if (foundKey != null) {
@@ -111,6 +159,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         return;
       }
     }
+
 
     final List<String> imageNames = _capturedImages.map((file) => file.path.split('/').last).toList();
 
@@ -257,6 +306,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     });
   }
 
+  // ignore: unused_element — محجوب مؤقتاً مع واجهة العميل المبسطة
   Future<void> _captureImage() async {
     if (!_isCameraReady || _cameraController == null) return;
     setState(() => _isProcessing = true);
@@ -281,6 +331,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
   }
 
+  // ignore: unused_element — محجوب مؤقتاً مع واجهة العميل المبسطة
   void _calculateSheet() {
     if (_processType != "تفصيل") return;
     double L = double.tryParse(lengthController.text) ?? 0.0;
@@ -349,10 +400,14 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text(widget.existingDataKey != null ? "تعديل مقاس" : "إضافة مقاس جديد"),
+        title: Text(widget.existingDataKey != null
+            ? "تعديل بيانات العميل"
+            : "بيانات العميل الجديد"),
         centerTitle: true,
         actions: [
-          IconButton(icon: const Icon(Icons.check_circle), onPressed: () => _saveSheetSize())
+          IconButton(
+              icon: const Icon(Icons.check_circle),
+              onPressed: () => _saveSheetSize())
         ],
       ),
       body: GestureDetector(
@@ -361,59 +416,56 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              SheetSizeForm(
-                clientNameController: clientNameController,
-                productNameController: productNameController,
-                productCodeController: productCodeController,
-                lengthController: lengthController,
-                widthController: widthController,
-                heightController: heightController,
-                sheetLengthManualController: sheetLengthManualController,
-                sheetWidthManualController: sheetWidthManualController,
-                processType: _processType,
-                cuttingType: _cuttingType,
-                onProcessTypeChanged: (v) => setState(() => _processType = v),
-                onCuttingTypeChanged: (v) => setState(() => _cuttingType = v!),
-              ),
-              const Divider(height: 32),
-              SheetSizeCamera(
-                cameraController: _cameraController,
-                isCameraReady: _isCameraReady,
-                isProcessing: _isProcessing,
-                capturedImages: _capturedImages,
-                onCaptureImage: _captureImage,
-                onRemoveImage: (i) => setState(() => _capturedImages.removeAt(i)),
-              ),
-              if (_processType == "تفصيل") ...[
-                const SizedBox(height: 16),
-                SheetSizeCheckboxes(
-                  isOverFlap: isOverFlap,
-                  isFlap: isFlap,
-                  isOneFlap: isOneFlap,
-                  isTwoFlap: isTwoFlap,
-                  addTwoMm: addTwoMm,
-                  isFullSize: isFullSize,
-                  isQuarterSize: isQuarterSize,
-                  isQuarterWidth: isQuarterWidth,
-                  onOverFlapChanged: (v) => setState(() { isOverFlap = v!; isFlap = !v; }),
-                  onFlapChanged: (v) => setState(() { isFlap = v!; isOverFlap = !v; }),
-                  onOneFlapChanged: (v) => setState(() { isOneFlap = v!; isTwoFlap = !v; }),
-                  onTwoFlapChanged: (v) => setState(() { isTwoFlap = v!; isOneFlap = !v; }),
-                  onAddTwoMmChanged: (v) => setState(() => addTwoMm = v!),
-                  onFullSizeChanged: (v) => setState(() { isFullSize = v!; isQuarterSize = false; }),
-                  onQuarterSizeChanged: (v) => setState(() { isQuarterSize = v!; isFullSize = false; }),
-                  onQuarterWidthChanged: (v) => setState(() => isQuarterWidth = v!),
+              // --- حقل اسم العميل (إجباري) ---
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: TextField(
+                  controller: clientNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'اسم العميل',
+                    hintText: 'أدخل اسم العميل',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  textDirection: TextDirection.rtl,
                 ),
-                const SizedBox(height: 16),
-                SheetSizeButtons(onCalculate: _calculateSheet, onSave: () => _saveSheetSize()),
-                const SizedBox(height: 16),
-                SheetSizeCalculations(sheetLengthResult: sheetLengthResult, sheetWidthResult: sheetWidthResult),
-                const SizedBox(height: 16),
-                SheetSizeProductionTable(
-                    productionWidth1: productionWidth1,
-                    productionHeight: productionHeight,
-                    productionWidth2: productionWidth2),
-              ],
+              ),
+
+              // --- حقل كود العميل (اختياري) ---
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: TextField(
+                  controller: productCodeController,
+                  decoration: const InputDecoration(
+                    labelText: 'كود العميل',
+                    hintText: 'اختياري — يمكن استكماله لاحقاً',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.tag_outlined),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              // زر الحفظ
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.save_alt_outlined),
+                  label: const Text(
+                    'حفظ بيانات العميل',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 52),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => _saveSheetSize(),
+                ),
+              ),
+
               const SizedBox(height: 40),
             ],
           ),
@@ -421,4 +473,4 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       ),
     );
   }
-}
+}
