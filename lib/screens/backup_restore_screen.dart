@@ -169,12 +169,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       appBar: AppBar(
         title: const Text('النسخ الاحتياطي السحابي'),
         actions: [
-          // زر المطور لفتح Supabase
-          IconButton(
-            icon: const Icon(Icons.terminal, color: Colors.orangeAccent),
-            tooltip: 'Supabase Dashboard (Dev)',
-            onPressed: _launchSupabaseDashboard,
-          ),
+          // زر المطور لفتح Supabase - يظهر فقط للأدمن
+          if (Supabase.instance.client.auth.currentUser?.email ==
+              'mohamedabdo9999933@gmail.com')
+            IconButton(
+              icon: const Icon(Icons.terminal, color: Colors.orangeAccent),
+              tooltip: 'Supabase Dashboard (Dev)',
+              onPressed: _launchSupabaseDashboard,
+            ),
         ],
       ),
       body: Padding(
