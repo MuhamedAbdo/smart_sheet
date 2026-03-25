@@ -2,62 +2,50 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
 
 class SheetSizeCamera extends StatelessWidget {
-  final CameraController? cameraController;
   final bool isCameraReady;
   final bool isProcessing;
-  final List<dynamic>
-      capturedImages; // تم تغيير النوع لـ dynamic لدعم File و String (URL)
+  final List<dynamic> capturedImages;
   final VoidCallback onCaptureImage;
   final Function(int) onRemoveImage;
 
   const SheetSizeCamera({
     super.key,
-    required this.cameraController,
+    // cameraController تم حذفه لأنه لم يعد مستخدما
     required this.isCameraReady,
     required this.isProcessing,
     required this.capturedImages,
     required this.onCaptureImage,
     required this.onRemoveImage,
+    dynamic cameraController, // متوافقية رجعية لتجنب كسر الكود لو وجد
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // --- معاينة الكاميرا ---
-        if (isCameraReady && cameraController != null)
-          Container(
-            height: 200,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: CameraPreview(cameraController!),
-          )
-        else if (cameraController == null)
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: CircularProgressIndicator(),
-          ),
-
-        const SizedBox(height: 12),
-
         // --- زر الالتقاط ---
         ElevatedButton.icon(
-          onPressed: isProcessing || !isCameraReady ? null : onCaptureImage,
+          onPressed: isProcessing ? null : onCaptureImage,
           icon: isProcessing
               ? const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.camera_alt),
-          label: const Text("التقط صورة للأوردر"),
+              : const Icon(Icons.add_a_photo, size: 24),
+          label: const Text(
+            "التقط صورة للأوردر",
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          ),
           style: ElevatedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 45),
+            backgroundColor: Colors.blueGrey.shade800,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         ),
 

@@ -24,6 +24,10 @@ class SheetSizeForm extends StatelessWidget {
   final String processType;
   final ValueChanged<String> onProcessTypeChanged;
 
+  // --- تحكم في حقل اسم العميل ---
+  final bool clientNameEnabled;
+  final bool clientNameLocked;
+
   const SheetSizeForm({
     super.key,
     required this.clientNameController,
@@ -38,6 +42,8 @@ class SheetSizeForm extends StatelessWidget {
     this.onCuttingTypeChanged,
     required this.processType,
     required this.onProcessTypeChanged,
+    this.clientNameEnabled = true,
+    this.clientNameLocked = false,
   });
 
   // ✅ الحصول على القيمة الفعلية لنوع الشريحة (مع افتراضي)
@@ -68,23 +74,28 @@ class SheetSizeForm extends StatelessWidget {
         const SizedBox(height: 16),
 
         // --- بيانات العميل (مشتركة) ---
-        _buildTextField("اسم العميل", clientNameController),
+        _buildTextField(
+          "اسم العميل",
+          clientNameController,
+          enabled: clientNameEnabled,
+          locked: clientNameLocked,
+        ),
         _buildTextField("اسم الصنف", productNameController),
         _buildTextField(
-            "كود الصنف", productCodeController, TextInputType.number),
+            "كود الصنف", productCodeController, type: TextInputType.number),
 
         // --- الأبعاد (مشتركة) ---
-        _buildTextField("الطول", lengthController, TextInputType.number),
-        _buildTextField("العرض", widthController, TextInputType.number),
-        _buildTextField("الارتفاع", heightController, TextInputType.number),
+        _buildTextField("الطول", lengthController, type: TextInputType.number),
+        _buildTextField("العرض", widthController, type: TextInputType.number),
+        _buildTextField("الارتفاع", heightController, type: TextInputType.number),
 
         // --- حقول التكسير ---
         if (processType == "تكسير") ...[
           const SizedBox(height: 16),
           _buildTextField(
-              "طول الشيت", sheetLengthManualController!, TextInputType.number),
+              "طول الشيت", sheetLengthManualController!, type: TextInputType.number),
           _buildTextField(
-              "عرض الشيت", sheetWidthManualController!, TextInputType.number),
+              "عرض الشيت", sheetWidthManualController!, type: TextInputType.number),
           const SizedBox(height: 12),
           const Text("نوع الشريحة:",
               style: TextStyle(fontWeight: FontWeight.bold)),
@@ -122,14 +133,20 @@ class SheetSizeForm extends StatelessWidget {
   }
 
   Widget _buildTextField(String label, TextEditingController controller,
-      [TextInputType? type]) {
+      {TextInputType? type, bool enabled = true, bool locked = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextField(
         controller: controller,
+        enabled: enabled,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
+          filled: locked,
+          fillColor: locked ? Colors.grey.withValues(alpha: 0.12) : null,
+          suffixIcon: locked
+              ? const Icon(Icons.lock_outline, color: Colors.grey, size: 20)
+              : null,
         ),
         keyboardType: type ?? TextInputType.text,
         inputFormatters: type == TextInputType.number

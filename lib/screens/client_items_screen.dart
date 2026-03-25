@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:smart_sheet/screens/ink_report_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
+import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 
 /// شاشة تعرض جميع الأصناف والمقاسات المرتبطة بعميل معين
 class ClientItemsScreen extends StatefulWidget {
@@ -19,6 +20,8 @@ class ClientItemsScreen extends StatefulWidget {
 class _ClientItemsScreenState extends State<ClientItemsScreen> {
   Box? _savedSheetSizesBox;
   bool _isLoading = true;
+  String searchQuery = "";
+  bool isSearching = false;
 
   @override
   void initState() {
@@ -52,20 +55,64 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.clientName),
-        centerTitle: true,
+        title: isSearching
+            ? SavedSizeSearchBar(
+                onChanged: (v) => setState(() => searchQuery = v))
+            : Text(widget.clientName),
+        centerTitle: !isSearching,
+        actions: [
+          IconButton(
+            icon: Icon(isSearching ? Icons.close : Icons.search),
+            onPressed: () => setState(() {
+              isSearching = !isSearching;
+              if (!isSearching) searchQuery = "";
+            }),
+          )
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddSheetSizeScreen(
+                clientName: widget.clientName,
+              ),
+            ),
+          );
+        },
+        backgroundColor: Colors.green.shade700,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'إضافة صنف',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
       body: ValueListenableBuilder(
         valueListenable: _savedSheetSizesBox!.listenable(),
         builder: (context, Box box, _) {
-          // فلترة الأصناف بحسب اسم العميل
+          final query = _normalizeString(searchQuery);
+
+          // فلترة الأصناف بحسب اسم العميل ونتيجة البحث
           final entries = box
               .toMap()
               .entries
-              .where((e) =>
-                  e.value is Map &&
-                  (e.value['clientName']?.toString().trim() ?? '') ==
-                      widget.clientName.trim())
+              .where((e) {
+                if (e.value is! Map) return false;
+                final bool isClientMatch = (e.value['clientName']?.toString().trim() ?? '') == widget.clientName.trim();
+                if (!isClientMatch) return false;
+
+                if (query.isEmpty) return true;
+
+                final String pName = _normalizeString((e.value['productName'] ?? '').toString());
+                final String pCode = _normalizeString((e.value['productCode'] ?? '').toString());
+
+                // البحث الدقيق في الكود أو البحث الجزئي في اسم الصنف
+                bool matchesName = pName.contains(query);
+                bool matchesCode = (pCode == query); // دقيق: الكود 2 لا يساوي 12 أو 22
+
+                return matchesName || matchesCode;
+              })
               .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
               .toList();
 
@@ -169,6 +216,25 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         ],
       ),
     );
+  }
+
+  // دالة مساعدة لتوحيد النصوص والأرقام لضمان تطابق البحث الدقيق
+  String _normalizeString(String input) {
+    if (input.isEmpty) return "";
+    String normalized = input.trim().toLowerCase();
+    
+    // توحيد الحروف
+    normalized = normalized.replaceAll(RegExp(r'[أإآ]'), 'ا');
+    normalized = normalized.replaceAll('ة', 'ه');
+    normalized = normalized.replaceAll('ى', 'ي');
+    
+    // تحويل الأرقام العربية إلى إنجليزية
+    const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    for (int i = 0; i < arabicNumbers.length; i++) {
+      normalized = normalized.replaceAll(arabicNumbers[i], i.toString());
+    }
+    
+    return normalized;
   }
 
   void _openInkReportWithSheetData(

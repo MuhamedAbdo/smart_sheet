@@ -1,7 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
+import 'package:smart_sheet/screens/ink_report_screen.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
+import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 
 // تعريف أنواع الترتيب
@@ -91,69 +96,113 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
       body: ValueListenableBuilder(
         valueListenable: _savedSheetSizesBox!.listenable(),
         builder: (context, Box box, _) {
-          final uniqueClients = _getUniqueClients(box);
+          if (searchQuery.trim().isEmpty) {
+            final uniqueClients = _getUniqueClients(box);
 
-          if (uniqueClients.isEmpty && searchQuery.isEmpty) {
-            return const Center(
-                child: Text("🚫 لا يوجد عملاء بعد، ابدأ بإضافة عميل جديد."));
-          }
+            if (uniqueClients.isEmpty) {
+              return const Center(
+                  child: Text("🚫 لا يوجد عملاء بعد، ابدأ بإضافة عميل جديد."));
+            }
 
-          // الإحصائيات مبنية على القائمة المفلترة (ليس إجمالي الكل)
-          final int totalClients = uniqueClients.length;
-          // مجموع أصناف العملاء الظاهرين فقط
-          final int totalItems = uniqueClients.fold<int>(0, (sum, clientName) {
-            return sum +
-                box
-                    .toMap()
-                    .values
-                    .whereType<Map>()
-                    .where((v) =>
-                        (v['clientName']?.toString().trim() ?? '') == clientName)
-                    .length;
-          });
+            final int totalClients = uniqueClients.length;
+            final int totalItems = uniqueClients.fold<int>(0, (sum, clientName) {
+              return sum +
+                  box
+                      .toMap()
+                      .values
+                      .whereType<Map>()
+                      .where((v) =>
+                          (v['clientName']?.toString().trim() ?? '') == clientName)
+                      .length;
+            });
 
-          return Column(
-            children: [
-              // كارد الإحصائيات (ديناميكي مع البحث)
-              SavedSizesStatsCard(
-                totalProducts: totalItems,
-                uniqueClients: totalClients,
-              ),
+            return Column(
+              children: [
+                SavedSizesStatsCard(
+                  totalProducts: totalItems,
+                  uniqueClients: totalClients,
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: uniqueClients.length,
+                    itemBuilder: (context, index) {
+                      final clientName = uniqueClients[index];
+                      // عدد الأصناف لهذا العميل
+                      final itemCount = box
+                          .toMap()
+                          .values
+                          .where((v) =>
+                              v is Map &&
+                              (v['clientName']?.toString().trim() ?? '') ==
+                                  clientName)
+                          .length;
 
-              // قائمة العملاء
-              Expanded(
-                child: uniqueClients.isEmpty
-                    ? const Center(child: Text("🚫 لا توجد نتائج للبحث."))
-                    : ListView.builder(
-                        itemCount: uniqueClients.length,
-                        itemBuilder: (context, index) {
-                          final clientName = uniqueClients[index];
-                          // عدد الأصناف لهذا العميل
-                          final itemCount = box
-                              .toMap()
-                              .values
-                              .where((v) =>
-                                  v is Map &&
-                                  (v['clientName']?.toString().trim() ?? '') ==
-                                      clientName)
-                              .length;
+                      return _ClientCard(
+                        clientName: clientName,
+                        itemCount: itemCount,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ClientItemsScreen(
+                                clientName: clientName),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          } else {
+            // --- حالة البحث التفصيلي (البحث الموحد عن الأصناف عبر العملاء) ---
+            final matchingItems = _getMatchingItems(box);
+            if (matchingItems.isEmpty) {
+              return const Center(child: Text("🚫 لا توجد نتائج للبحث."));
+            }
 
-                          return _ClientCard(
-                            clientName: clientName,
-                            itemCount: itemCount,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ClientItemsScreen(
-                                    clientName: clientName),
-                              ),
-                            ),
-                          );
-                        },
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  margin: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.search, color: Colors.blue, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "هذه الأصناف تطابق بحثك (${matchingItems.length})",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
                       ),
-              ),
-            ],
-          );
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: matchingItems.length,
+                    itemBuilder: (context, index) {
+                      final item = matchingItems[index];
+                      return SavedSizeCard(
+                        key: ValueKey(item.key),
+                        record: item.value,
+                        onEdit: () => _navigateToEdit(item.key, item.value),
+                        onDelete: () => _confirmDelete(item.key),
+                        onPrint: (data) => _openInkReportWithSheetData(context, data),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          }
         },
       ),
     );
@@ -182,6 +231,134 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     }
 
     return names;
+  }
+
+  // تجلب الأصناف التي تطابق البحث في اسم العميل، اسم الصنف، أو (تطابق تام) في كود الصنف
+  List<MapEntry<dynamic, Map<String, dynamic>>> _getMatchingItems(Box box) {
+    if (searchQuery.isEmpty) return [];
+    final query = _normalizeString(searchQuery);
+    
+    final allItems = box.toMap().entries.where((e) {
+      if (e.value is! Map) return false;
+      final pName = _normalizeString((e.value['productName'] ?? '').toString());
+      final pCode = _normalizeString((e.value['productCode'] ?? '').toString());
+      final cName = _normalizeString((e.value['clientName'] ?? '').toString());
+      
+      // الكود يجب أن يطابق بدقة / الاسم والعميل يمكن أن يكونا بحث جزئي
+      return cName.contains(query) || pName.contains(query) || pCode == query;
+    }).map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value))).toList();
+    
+    // ترتيب مبدئي بحسب اسم العميل
+    allItems.sort((a, b) => (a.value['clientName']?.toString() ?? '').compareTo(b.value['clientName']?.toString() ?? ''));
+    
+    return allItems;
+  }
+
+  // دالة توحيد النصوص والأرقام لضمان قوة البحث الدقيق
+  String _normalizeString(String input) {
+    if (input.isEmpty) return "";
+    String normalized = input.trim().toLowerCase();
+    
+    normalized = normalized.replaceAll(RegExp(r'[أإآ]'), 'ا');
+    normalized = normalized.replaceAll('ة', 'ه');
+    normalized = normalized.replaceAll('ى', 'ي');
+    
+    const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    for (int i = 0; i < arabicNumbers.length; i++) {
+      normalized = normalized.replaceAll(arabicNumbers[i], i.toString());
+    }
+    
+    return normalized;
+  }
+
+  void _navigateToEdit(dynamic key, Map<String, dynamic> data) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) =>
+              AddSheetSizeScreen(existingData: data, existingDataKey: key)),
+    );
+  }
+
+  void _confirmDelete(dynamic key) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("تأكيد الحذف"),
+        content: const Text("هل أنت متأكد من حذف هذا الصنف؟ لا يمكن التراجع."),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _savedSheetSizesBox!.delete(key);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('🗑️ تم الحذف بنجاح')),
+              );
+            },
+            child: const Text("حذف", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openInkReportWithSheetData(
+      BuildContext context, Map<String, dynamic> dataFromCard) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final List<String> finalImages = [];
+      final appDir = await getApplicationDocumentsDirectory();
+      final imageDir = Directory('${appDir.path}/images');
+
+      if (dataFromCard['imagePaths'] is List) {
+        for (var pathObj in dataFromCard['imagePaths']) {
+          String path = pathObj.toString();
+          if (path.startsWith('http')) {
+            finalImages.add(path);
+          } else {
+            String fileName = path.split(Platform.pathSeparator).last;
+            String localPath = '${imageDir.path}/$fileName';
+            if (await File(localPath).exists()) {
+              finalImages.add(localPath);
+            }
+          }
+        }
+      }
+
+      final initialData = {
+        'date': DateTime.now().toString().split(' ')[0],
+        'clientName': dataFromCard['clientName'] ?? '',
+        'product': dataFromCard['productName'] ?? '',
+        'productCode': dataFromCard['productCode'] ?? '',
+        'dimensions': {
+          'length': dataFromCard['length']?.toString() ?? '',
+          'width': dataFromCard['width']?.toString() ?? '',
+          'height': dataFromCard['height']?.toString() ?? '',
+        },
+        'imagePaths': finalImages,
+        'notes': 'مستورد من قسم المقاسات',
+      };
+
+      if (context.mounted) {
+        Navigator.pop(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => InkReportScreen(initialData: initialData)),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      debugPrint("Error preparing report: $e");
+    }
   }
 }
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -22,11 +22,14 @@ import 'package:smart_sheet/widgets/sheet_size_production_table.dart';
 class AddSheetSizeScreen extends StatefulWidget {
   final Map? existingData;
   final dynamic existingDataKey;
+  /// إذا مُرِّر هذا المتغير، يُعبَأ حقل اسم العميل ويُغلق تلقائياً
+  final String? clientName;
 
   const AddSheetSizeScreen({
     super.key,
     this.existingData,
     this.existingDataKey,
+    this.clientName,
   });
 
   @override
@@ -46,11 +49,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   final sheetLengthManualController = TextEditingController();
   final sheetWidthManualController = TextEditingController();
 
-  CameraController? _cameraController;
-  bool _isCameraReady = false;
+  final ImagePicker _imagePicker = ImagePicker();
   // ignore: unused_field — محجوب مؤقتاً مع واجهة العميل المبسطة
   bool _isProcessing = false;
-  List<File> _capturedImages = [];
+  List<dynamic> _capturedImages = []; // يدعم File محلي و String لرابط Supabase
 
   bool isOverFlap = false;
   bool isFlap = true;
@@ -77,24 +79,46 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   Future<void> _init() async {
     _savedSheetSizesBox = await Hive.openBox('savedSheetSizes');
-    _initializeCamera();
     if (widget.existingData != null) {
       _loadExistingData(widget.existingData!);
+    } else if (widget.clientName != null && widget.clientName!.isNotEmpty) {
+      // تعبئة اسم العميل تلقائياً عند الإضافة من شاشة تفاصيل العميل
+      clientNameController.text = widget.clientName!;
     }
+  }
+
+  // دالة لتوحيد النصوص والأرقام العربية/الإنجليزية لمنع التكرار نهائياً
+  String _normalizeString(String input) {
+    if (input.isEmpty) return "";
+    String normalized = input.trim().toLowerCase();
+    
+    // توحيد الحروف العربية (أ إ آ -> ا)، (ة -> ه)، (ى -> ي)
+    normalized = normalized.replaceAll(RegExp(r'[أإآ]'), 'ا');
+    normalized = normalized.replaceAll('ة', 'ه');
+    normalized = normalized.replaceAll('ى', 'ي');
+    
+    // تحويل الأرقام العربية إلى إنجليزية لتجنب خداع النظام
+    const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    for (int i = 0; i < arabicNumbers.length; i++) {
+      normalized = normalized.replaceAll(arabicNumbers[i], i.toString());
+    }
+    
+    return normalized;
   }
 
   // دالة للبحث عن مفتاح السجل المكرر (إن وجد)
   dynamic _getDuplicateKey(String clientName, String productCode) {
-    if (clientName.isEmpty || productCode.isEmpty) return null;
-    final String newClient = clientName.trim().toLowerCase();
-    final String newCode = productCode.trim().toLowerCase();
+    if (clientName.trim().isEmpty) return null;
+    
+    final String newClient = _normalizeString(clientName);
+    final String newCode = _normalizeString(productCode);
 
     for (var i = 0; i < _savedSheetSizesBox.length; i++) {
       final key = _savedSheetSizesBox.keyAt(i);
       final record = _savedSheetSizesBox.getAt(i);
       if (record is Map) {
-        final existingClient = (record['clientName'] ?? '').toString().trim().toLowerCase();
-        final existingCode = (record['productCode'] ?? '').toString().trim().toLowerCase();
+        final existingClient = _normalizeString((record['clientName'] ?? '').toString());
+        final existingCode = _normalizeString((record['productCode'] ?? '').toString());
         
         // نتخطى السجل الحالي إذا كنا في وضع التعديل
         if (widget.existingDataKey != null && key == widget.existingDataKey) continue;
@@ -122,7 +146,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
 
     // ② التحقق من تكرار اسم العميل (في وضع الإضافة فقط)
-    if (duplicateKey == null && widget.existingDataKey == null) {
+    // يُتخطى هذا التحقق إذا كنا نُضيف صنفاً لعميل موجود مسبقاً
+    if (duplicateKey == null &&
+        widget.existingDataKey == null &&
+        widget.clientName == null) {
       final String newClientLower = clientName.toLowerCase();
       bool clientAlreadyExists = false;
 
@@ -161,7 +188,15 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
 
 
-    final List<String> imageNames = _capturedImages.map((file) => file.path.split('/').last).toList();
+
+    final List<String> imageNames = _capturedImages.map((item) {
+      if (item is File) {
+        return item.path.split('/').last; // إذا كانت صورة محلية جديدة احفظ اسمها فقط
+      } else if (item is String) {
+        return item; // إذا كان رابط Supabase أو مسار كامل، اتركه كما هو
+      }
+      return item.toString();
+    }).toList();
 
     final newRecord = <String, dynamic>{
       'processType': _processType,
@@ -248,22 +283,6 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   // --- باقي الدوال (الكاميرا، الحسابات، إلخ) كما هي تماماً ---
 
-  Future<void> _initializeCamera() async {
-    try {
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) return;
-      final backCamera = cameras.firstWhere(
-          (cam) => cam.lensDirection == CameraLensDirection.back,
-          orElse: () => cameras.first);
-      _cameraController = CameraController(backCamera, ResolutionPreset.medium,
-          enableAudio: false);
-      await _cameraController!.initialize();
-      if (mounted) setState(() => _isCameraReady = true);
-    } catch (e) {
-      debugPrint("Camera Error: $e");
-    }
-  }
-
   void _loadExistingData(Map data) async {
     final appDir = await getApplicationDocumentsDirectory();
     final imageDirPath = '${appDir.path}/images';
@@ -281,10 +300,12 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       if (data['imagePaths'] != null) {
         _capturedImages = (data['imagePaths'] as List).map((p) {
           String path = p.toString();
-          if (!path.contains('/')) {
-            path = '$imageDirPath/$path';
+          if (path.startsWith('http')) {
+            return path; // الاحتفاظ برابط الإنترنت كنص (String)
+          } else if (!path.contains('/')) {
+            return File('$imageDirPath/$path'); // استعادة الملف المحلي
           }
-          return File(path);
+          return File(path); // مسار محلي كامل
         }).toList();
       }
 
@@ -308,26 +329,78 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   // ignore: unused_element — محجوب مؤقتاً مع واجهة العميل المبسطة
   Future<void> _captureImage() async {
-    if (!_isCameraReady || _cameraController == null) return;
+    debugPrint("========== START CAPTURE IMAGE ==========");
+    
     setState(() => _isProcessing = true);
+    debugPrint("Processing state set to true");
+    
     try {
-      final XFile image = await _cameraController!.takePicture();
+      debugPrint("Taking picture using ImagePicker...");
+      
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 100, // نأخذها بجودة عالية ثم نضغطها في الكود أدناه
+      );
+      
+      if (image == null) {
+        debugPrint("User cancelled image capture");
+        return;
+      }
+      
+      debugPrint("Picture taken: ${image.path}");
+
       final appDir = await getApplicationDocumentsDirectory();
+      debugPrint("App Dir: ${appDir.path}");
+      
       final imageDir = Directory('${appDir.path}/images');
-      if (!await imageDir.exists()) await imageDir.create(recursive: true);
+      if (!await imageDir.exists()) {
+        debugPrint("Creating images directory...");
+        await imageDir.create(recursive: true);
+      }
 
       final String fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final targetPath = '${imageDir.path}/$fileName';
+      debugPrint("Target Path: $targetPath");
 
-      var compressedFile = await FlutterImageCompress.compressAndGetFile(
-          image.path, targetPath,
-          quality: 70);
-
-      if (compressedFile != null) {
-        setState(() => _capturedImages.add(File(compressedFile.path)));
+      // محاولة ضغط الصورة
+      XFile? compressedFile;
+      try {
+        debugPrint("Attempting image compression...");
+        compressedFile = await FlutterImageCompress.compressAndGetFile(
+          image.path, 
+          targetPath,
+          quality: 70
+        );
+        debugPrint("Compression finished. Result: ${compressedFile?.path ?? 'NULL'}");
+      } catch (e, stackTrace) {
+        debugPrint("========== COMPRESSION ERROR ==========");
+        debugPrint(e.toString());
+        debugPrint(stackTrace.toString());
       }
+
+      if (mounted) {
+        if (compressedFile != null) {
+          debugPrint("Adding compressed image to list...");
+          setState(() => _capturedImages.add(File(compressedFile!.path)));
+        } else {
+          debugPrint("Compression failed or returned null. Using fallback copy...");
+          final uncompressedFile = File(image.path);
+          final finalFile = await uncompressedFile.copy(targetPath);
+          debugPrint("Fallback copy successful: ${finalFile.path}");
+          setState(() => _capturedImages.add(finalFile));
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint("========== CAPTURE IMAGE FATAL ERROR ==========");
+      debugPrint(e.toString());
+      debugPrint(stackTrace.toString());
     } finally {
-      setState(() => _isProcessing = false);
+      debugPrint("Capture Image Finally Block");
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        debugPrint("Processing state set to false");
+      }
+      debugPrint("========== END CAPTURE IMAGE ==========");
     }
   }
 
@@ -383,7 +456,6 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   @override
   void dispose() {
-    _cameraController?.dispose();
     clientNameController.dispose();
     productNameController.dispose();
     productCodeController.dispose();
@@ -397,12 +469,16 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isLockedMode = widget.clientName != null && widget.existingDataKey == null;
+
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
         title: Text(widget.existingDataKey != null
             ? "تعديل بيانات العميل"
-            : "بيانات العميل الجديد"),
+            : isLockedMode
+                ? "إضافة صنف"
+                : "بيانات العميل الجديد"),
         centerTitle: true,
         actions: [
           IconButton(
@@ -415,56 +491,98 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // --- حقل اسم العميل (إجباري) ---
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: TextField(
-                  controller: clientNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم العميل',
-                    hintText: 'أدخل اسم العميل',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                  textDirection: TextDirection.rtl,
-                ),
+              // --- نموذج الحقول الأساسية (نوع العملية + بيانات العميل + الأبعاد) ---
+              SheetSizeForm(
+                clientNameController: clientNameController,
+                productNameController: productNameController,
+                productCodeController: productCodeController,
+                lengthController: lengthController,
+                widthController: widthController,
+                heightController: heightController,
+                sheetLengthManualController: sheetLengthManualController,
+                sheetWidthManualController: sheetWidthManualController,
+                cuttingType: _cuttingType,
+                onCuttingTypeChanged: (v) =>
+                    setState(() => _cuttingType = v ?? 'دوبل'),
+                processType: _processType,
+                onProcessTypeChanged: (v) => setState(() => _processType = v),
+                clientNameEnabled: !isLockedMode,
+                clientNameLocked: isLockedMode,
               ),
 
-              // --- حقل كود العميل (اختياري) ---
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: TextField(
-                  controller: productCodeController,
-                  decoration: const InputDecoration(
-                    labelText: 'كود العميل',
-                    hintText: 'اختياري — يمكن استكماله لاحقاً',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.tag_outlined),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
+              const SizedBox(height: 16),
+
+              // --- الكاميرا وصور الأوردر ---
+              SheetSizeCamera(
+                cameraController: null, // تم الاستغناء عنه
+                isCameraReady: true, // دائماً جاهزة مع ImagePicker
+                isProcessing: _isProcessing,
+                capturedImages: _capturedImages,
+                onCaptureImage: _captureImage,
+                onRemoveImage: (i) =>
+                    setState(() => _capturedImages.removeAt(i)),
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
 
-              // زر الحفظ
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.save_alt_outlined),
-                  label: const Text(
-                    'حفظ بيانات العميل',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 52),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () => _saveSheetSize(),
+              // --- خيارات التفصيل (مرئية فقط عند نوع "تفصيل") ---
+              if (_processType == 'تفصيل') ...[
+                SheetSizeCheckboxes(
+                  isOverFlap: isOverFlap,
+                  isFlap: isFlap,
+                  isOneFlap: isOneFlap,
+                  isTwoFlap: isTwoFlap,
+                  addTwoMm: addTwoMm,
+                  isFullSize: isFullSize,
+                  isQuarterSize: isQuarterSize,
+                  isQuarterWidth: isQuarterWidth,
+                  onOverFlapChanged: (v) =>
+                      setState(() { isOverFlap = v!; isFlap = !v; }),
+                  onFlapChanged: (v) =>
+                      setState(() { isFlap = v!; isOverFlap = !v; }),
+                  onOneFlapChanged: (v) =>
+                      setState(() { isOneFlap = v!; isTwoFlap = !v; }),
+                  onTwoFlapChanged: (v) =>
+                      setState(() { isTwoFlap = v!; isOneFlap = !v; }),
+                  onAddTwoMmChanged: (v) =>
+                      setState(() => addTwoMm = v ?? false),
+                  onFullSizeChanged: (v) =>
+                      setState(() { isFullSize = v!; isQuarterSize = false; }),
+                  onQuarterSizeChanged: (v) =>
+                      setState(() { isQuarterSize = v ?? false; isFullSize = false; }),
+                  onQuarterWidthChanged: (v) =>
+                      setState(() => isQuarterWidth = v!),
                 ),
-              ),
+
+                const SizedBox(height: 12),
+
+                // --- زر الحساب ---
+                SheetSizeButtons(
+                  onCalculate: _calculateSheet,
+                  onSave: _saveSheetSize,
+                ),
+
+                const SizedBox(height: 12),
+
+                // --- نتائج الحساب ---
+                if (sheetLengthResult.isNotEmpty)
+                  SheetSizeCalculations(
+                    sheetLengthResult: sheetLengthResult,
+                    sheetWidthResult: sheetWidthResult,
+                  ),
+
+                const SizedBox(height: 12),
+
+                // --- جدول مقاسات الإنتاج ---
+                if (productionWidth1.isNotEmpty)
+                  SheetSizeProductionTable(
+                    productionWidth1: productionWidth1,
+                    productionHeight: productionHeight,
+                    productionWidth2: productionWidth2,
+                  ),
+              ],
 
               const SizedBox(height: 40),
             ],
