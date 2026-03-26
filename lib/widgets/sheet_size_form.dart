@@ -28,6 +28,9 @@ class SheetSizeForm extends StatelessWidget {
   final bool clientNameEnabled;
   final bool clientNameLocked;
 
+  // --- وضع الإضافة المبسط (عميل فقط) ---
+  final bool isAddingClientOnly;
+
   const SheetSizeForm({
     super.key,
     required this.clientNameController,
@@ -44,6 +47,7 @@ class SheetSizeForm extends StatelessWidget {
     required this.onProcessTypeChanged,
     this.clientNameEnabled = true,
     this.clientNameLocked = false,
+    this.isAddingClientOnly = false,
   });
 
   // ✅ الحصول على القيمة الفعلية لنوع الشريحة (مع افتراضي)
@@ -54,24 +58,26 @@ class SheetSizeForm extends StatelessWidget {
     return Column(
       children: [
         // --- اختيار نوع العملية ---
-        Row(
-          children: [
-            const Text("نوع العملية:"),
-            const SizedBox(width: 12),
-            ChoiceChip(
-              label: const Text("تفصيل"),
-              selected: processType == "تفصيل",
-              onSelected: (v) => onProcessTypeChanged("تفصيل"),
-            ),
-            const SizedBox(width: 8),
-            ChoiceChip(
-              label: const Text("تكسير"),
-              selected: processType == "تكسير",
-              onSelected: (v) => onProcessTypeChanged("تكسير"),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
+        if (!isAddingClientOnly) ...[
+          Row(
+            children: [
+              const Text("نوع العملية:"),
+              const SizedBox(width: 12),
+              ChoiceChip(
+                label: const Text("تفصيل"),
+                selected: processType == "تفصيل",
+                onSelected: (v) => onProcessTypeChanged("تفصيل"),
+              ),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: const Text("تكسير"),
+                selected: processType == "تكسير",
+                onSelected: (v) => onProcessTypeChanged("تكسير"),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
 
         // --- بيانات العميل (مشتركة) ---
         _buildTextField(
@@ -79,61 +85,73 @@ class SheetSizeForm extends StatelessWidget {
           clientNameController,
           enabled: clientNameEnabled,
           locked: clientNameLocked,
+          hint: isAddingClientOnly ? "أدخل اسم العميل (إجباري)" : null,
         ),
-        _buildTextField("اسم الصنف", productNameController),
-        _buildTextField(
-            "كود الصنف", productCodeController, type: TextInputType.number),
 
-        // --- الأبعاد (مشتركة) ---
-        _buildTextField("الطول", lengthController, type: TextInputType.number),
-        _buildTextField("العرض", widthController, type: TextInputType.number),
-        _buildTextField("الارتفاع", heightController, type: TextInputType.number),
+        // في وضع إضافة العميل فقط، نخفي "اسم الصنف" و "الأبعاد" ونغير مسمى "الكود"
+        if (isAddingClientOnly)
+          _buildTextField(
+            "كود العميل (اختياري)",
+            productCodeController,
+            type: TextInputType.number,
+            hint: "يمكن استكماله لاحقاً",
+          )
+        else ...[
+          _buildTextField("اسم الصنف", productNameController),
+          _buildTextField(
+              "كود الصنف", productCodeController, type: TextInputType.number),
 
-        // --- حقول التكسير ---
-        if (processType == "تكسير") ...[
-          const SizedBox(height: 16),
-          _buildTextField(
-              "طول الشيت", sheetLengthManualController!, type: TextInputType.number),
-          _buildTextField(
-              "عرض الشيت", sheetWidthManualController!, type: TextInputType.number),
-          const SizedBox(height: 12),
-          const Text("نوع الشريحة:",
-              style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          // ignore: deprecated_member_use
-          RadioListTile<String>(
-            title: const Text("دوبل"),
-            value: "دوبل",
+          // --- الأبعاد (مشتركة) ---
+          _buildTextField("الطول", lengthController, type: TextInputType.number),
+          _buildTextField("العرض", widthController, type: TextInputType.number),
+          _buildTextField("الارتفاع", heightController, type: TextInputType.number),
+
+          // --- حقول التكسير ---
+          if (processType == "تكسير") ...[
+            const SizedBox(height: 16),
+            _buildTextField(
+                "طول الشيت", sheetLengthManualController!, type: TextInputType.number),
+            _buildTextField(
+                "عرض الشيت", sheetWidthManualController!, type: TextInputType.number),
+            const SizedBox(height: 12),
+            const Text("نوع الشريحة:",
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
             // ignore: deprecated_member_use
-            groupValue: _effectiveCuttingType,
+            RadioListTile<String>(
+              title: const Text("دوبل"),
+              value: "دوبل",
+              // ignore: deprecated_member_use
+              groupValue: _effectiveCuttingType,
+              // ignore: deprecated_member_use
+              onChanged: onCuttingTypeChanged,
+            ),
             // ignore: deprecated_member_use
-            onChanged: onCuttingTypeChanged,
-          ),
-          // ignore: deprecated_member_use
-          RadioListTile<String>(
-            title: const Text("سنجل C"),
-            value: "سنجل C",
+            RadioListTile<String>(
+              title: const Text("سنجل C"),
+              value: "سنجل C",
+              // ignore: deprecated_member_use
+              groupValue: _effectiveCuttingType,
+              // ignore: deprecated_member_use
+              onChanged: onCuttingTypeChanged,
+            ),
             // ignore: deprecated_member_use
-            groupValue: _effectiveCuttingType,
-            // ignore: deprecated_member_use
-            onChanged: onCuttingTypeChanged,
-          ),
-          // ignore: deprecated_member_use
-          RadioListTile<String>(
-            title: const Text("سنجل E"),
-            value: "سنجل E",
-            // ignore: deprecated_member_use
-            groupValue: _effectiveCuttingType,
-            // ignore: deprecated_member_use
-            onChanged: onCuttingTypeChanged,
-          ),
+            RadioListTile<String>(
+              title: const Text("سنجل E"),
+              value: "سنجل E",
+              // ignore: deprecated_member_use
+              groupValue: _effectiveCuttingType,
+              // ignore: deprecated_member_use
+              onChanged: onCuttingTypeChanged,
+            ),
+          ],
         ],
       ],
     );
   }
 
   Widget _buildTextField(String label, TextEditingController controller,
-      {TextInputType? type, bool enabled = true, bool locked = false}) {
+      {TextInputType? type, bool enabled = true, bool locked = false, String? hint}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextField(
@@ -141,6 +159,7 @@ class SheetSizeForm extends StatelessWidget {
         enabled: enabled,
         decoration: InputDecoration(
           labelText: label,
+          hintText: hint,
           border: const OutlineInputBorder(),
           filled: locked,
           fillColor: locked ? Colors.grey.withValues(alpha: 0.12) : null,
@@ -156,3 +175,4 @@ class SheetSizeForm extends StatelessWidget {
     );
   }
 }
+

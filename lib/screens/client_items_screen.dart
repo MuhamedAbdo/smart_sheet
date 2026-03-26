@@ -53,139 +53,313 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: isSearching
-            ? SavedSizeSearchBar(
-                onChanged: (v) => setState(() => searchQuery = v))
-            : Text(widget.clientName),
-        centerTitle: !isSearching,
-        actions: [
-          IconButton(
-            icon: Icon(isSearching ? Icons.close : Icons.search),
-            onPressed: () => setState(() {
-              isSearching = !isSearching;
-              if (!isSearching) searchQuery = "";
-            }),
-          )
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AddSheetSizeScreen(
-                clientName: widget.clientName,
+    return ValueListenableBuilder(
+      valueListenable: _savedSheetSizesBox!.listenable(),
+      builder: (context, Box box, _) {
+        final query = _normalizeString(searchQuery);
+
+        // جلب كافة السجلات المرتبطة بهذا العميل
+        final allClientRecords = box.toMap().entries.where((e) {
+          if (e.value is! Map) return false;
+          return (e.value['clientName']?.toString().trim() ?? '') ==
+              widget.clientName.trim();
+        }).toList();
+
+        // السجلات التي تمثل "أصناف" فقط (ليست سجل العميل الأساسي)
+        final itemEntries = allClientRecords.where((e) {
+          return e.value['isClientRecord'] != true;
+        }).toList();
+
+        final filteredEntries = itemEntries
+            .where((e) {
+              if (query.isEmpty) return true;
+              final String pName =
+                  _normalizeString((e.value['productName'] ?? '').toString());
+              final String pCode =
+                  _normalizeString((e.value['productCode'] ?? '').toString());
+              return pName.contains(query) || pCode == query;
+            })
+            .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
+            .toList();
+
+        // ترتيب أبجدي بحسب اسم الصنف
+        filteredEntries.sort((a, b) => (a.value['productName'] ?? '')
+            .toString()
+            .compareTo((b.value['productName'] ?? '').toString()));
+
+        // جلب كود العميل حصرياً من سجل العميل الأساسي (isClientRecord)
+        String clientCode = "غير مسجل";
+        for (var entry in allClientRecords) {
+          if (entry.value['isClientRecord'] == true) {
+            final code = entry.value['productCode']?.toString().trim() ?? '';
+            if (code.isNotEmpty) {
+              clientCode = code;
+            }
+            break;
+          }
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: isSearching
+                ? SavedSizeSearchBar(
+                    onChanged: (v) => setState(() => searchQuery = v))
+                : Text(widget.clientName),
+            centerTitle: !isSearching,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.blue),
+                tooltip: "تعديل بيانات العميل",
+                onPressed: () => _navigateToEditClient(allClientRecords),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_forever, color: Colors.red),
+                tooltip: "حذف العميل نهائياً",
+                onPressed: () => _confirmDeleteClient(),
+              ),
+              IconButton(
+                icon: Icon(isSearching ? Icons.close : Icons.search),
+                onPressed: () => setState(() {
+                  isSearching = !isSearching;
+                  if (!isSearching) searchQuery = "";
+                }),
+              )
+            ],
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AddSheetSizeScreen(
+                    clientName: widget.clientName,
+                  ),
+                ),
+              );
+            },
+            backgroundColor: Colors.green.shade700,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              'إضافة صنف',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+          body: _buildBody(allClientRecords, itemEntries.length, filteredEntries, clientCode),
+        );
+      },
+    );
+  }
+
+  Widget _buildBody(List<MapEntry<dynamic, dynamic>> allClientRecords,
+      int totalItemsCount, List<MapEntry<dynamic, Map<String, dynamic>>> filteredEntries, String clientCode) {
+    
+    // إذا لم يكن هناك أي سجل (حتى السجل الأساسي) - هذا لا يحدث إلا إذا تم الحذف
+    if (allClientRecords.isEmpty && searchQuery.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inventory_2_outlined,
+                size: 60, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            const Text(
+              "لم يتم إضافة أي صنف لهذا العميل حتى الآن",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 16, color: Colors.grey, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // إذا كان هناك سجل أساسي ولكن لا توجد أصناف حقيقية
+    if (totalItemsCount == 0 && searchQuery.isEmpty) {
+      return Column(
+        children: [
+          _buildInfoBar(totalItemsCount, clientCode),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.inventory_2_outlined,
+                      size: 60, color: Colors.grey.shade400),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "لم يتم إضافة أي صنف لهذا العميل حتى الآن",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 16, color: Colors.grey, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
             ),
-          );
-        },
-        backgroundColor: Colors.green.shade700,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'إضافة صنف',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        ],
+      );
+    }
+
+    if (filteredEntries.isEmpty && searchQuery.isNotEmpty) {
+      return Center(
+        child: Text(
+          'لا توجد نتائج لبحثك عن "$searchQuery"',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16, color: Colors.grey),
         ),
+      );
+    }
+
+    return Column(
+      children: [
+        _buildInfoBar(totalItemsCount, clientCode),
+
+        // قائمة الأصناف
+        Expanded(
+          child: ListView.builder(
+            itemCount: filteredEntries.length,
+            itemBuilder: (context, index) {
+              final entry = filteredEntries[index];
+              return SavedSizeCard(
+                key: ValueKey(entry.key),
+                record: entry.value,
+                onEdit: () => _navigateToEdit(entry.key, entry.value),
+                onDelete: () => _confirmDelete(entry.key),
+                onPrint: (data) => _openInkReportWithSheetData(context, data),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoBar(int totalItemsCount, String clientCode) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade800, Colors.indigo.shade900],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2)),
+        ],
       ),
-      body: ValueListenableBuilder(
-        valueListenable: _savedSheetSizesBox!.listenable(),
-        builder: (context, Box box, _) {
-          final query = _normalizeString(searchQuery);
-
-          // فلترة الأصناف بحسب اسم العميل ونتيجة البحث
-          final entries = box
-              .toMap()
-              .entries
-              .where((e) {
-                if (e.value is! Map) return false;
-                final bool isClientMatch = (e.value['clientName']?.toString().trim() ?? '') == widget.clientName.trim();
-                if (!isClientMatch) return false;
-
-                if (query.isEmpty) return true;
-
-                final String pName = _normalizeString((e.value['productName'] ?? '').toString());
-                final String pCode = _normalizeString((e.value['productCode'] ?? '').toString());
-
-                // البحث الدقيق في الكود أو البحث الجزئي في اسم الصنف
-                bool matchesName = pName.contains(query);
-                bool matchesCode = (pCode == query); // دقيق: الكود 2 لا يساوي 12 أو 22
-
-                return matchesName || matchesCode;
-              })
-              .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
-              .toList();
-
-          // ترتيب أبجدي بحسب اسم الصنف
-          entries.sort((a, b) => (a.value['productName'] ?? '')
-              .toString()
-              .compareTo((b.value['productName'] ?? '').toString()));
-
-          if (entries.isEmpty) {
-            return Center(
-              child: Text(
-                'لا توجد أصناف لـ "${widget.clientName}" بعد.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            );
-          }
-
-          return Column(
-            children: [
-              // شريط معلومات عدد الأصناف
-              Container(
-                margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue.shade800, Colors.indigo.shade900],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                const Icon(Icons.inventory_2_outlined,
+                    color: Colors.white70, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '$totalItemsCount صنف مسجل',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.inventory_2_outlined,
-                        color: Colors.white70, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${entries.length} صنف مسجل',
-                      style: const TextStyle(
+              ],
+            ),
+          ),
+          Container(
+              height: 24,
+              width: 1,
+              color: Colors.white24,
+              margin: const EdgeInsets.symmetric(horizontal: 12)),
+          Expanded(
+            child: Row(
+              children: [
+                const Icon(Icons.qr_code, color: Colors.white70, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'كود العميل: $clientCode',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500),
+                  ),
                 ),
-              ),
-
-              // قائمة الأصناف
-              Expanded(
-                child: ListView.builder(
-                  itemCount: entries.length,
-                  itemBuilder: (context, index) {
-                    final entry = entries[index];
-                    return SavedSizeCard(
-                      key: ValueKey(entry.key),
-                      record: entry.value,
-                      onEdit: () => _navigateToEdit(entry.key, entry.value),
-                      onDelete: () => _confirmDelete(entry.key),
-                      onPrint: (data) =>
-                          _openInkReportWithSheetData(context, data),
-                    );
-                  },
-                ),
-              ),
-            ],
-          );
-        },
+              ],
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  void _navigateToEditClient(List<MapEntry<dynamic, dynamic>> allEntries) {
+    if (allEntries.isEmpty) return;
+
+    // نختار سجل العميل الأساسي إن وجد، وإلا فأي سجل
+    final clientRecord = allEntries.firstWhere(
+      (e) => e.value['isClientRecord'] == true,
+      orElse: () => allEntries.first,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddSheetSizeScreen(
+          existingData: Map<String, dynamic>.from(clientRecord.value),
+          existingDataKey: clientRecord.key,
+          isClientOnlyMode: true,
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteClient() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("حذف العميل نهائياً"),
+        content: Text(
+            "هل أنت متأكد من حذف العميل \"${widget.clientName}\" وجميع الأصناف المرتبطة به؟\nلا يمكن التراجع عن هذا الإجراء."),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              _deleteClientData();
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
+            child: const Text("حذف كلي", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteClientData() async {
+    final box = _savedSheetSizesBox!;
+    final keysToDelete = [];
+
+    for (var i = 0; i < box.length; i++) {
+      final key = box.keyAt(i);
+      final record = box.getAt(i);
+      if (record is Map &&
+          (record['clientName']?.toString().trim() ?? '') ==
+              widget.clientName.trim()) {
+        keysToDelete.add(key);
+      }
+    }
+
+    if (keysToDelete.isNotEmpty) {
+      await box.deleteAll(keysToDelete);
+    }
   }
 
   void _navigateToEdit(dynamic key, Map<String, dynamic> data) {
@@ -218,22 +392,16 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     );
   }
 
-  // دالة مساعدة لتوحيد النصوص والأرقام لضمان تطابق البحث الدقيق
   String _normalizeString(String input) {
     if (input.isEmpty) return "";
     String normalized = input.trim().toLowerCase();
-    
-    // توحيد الحروف
     normalized = normalized.replaceAll(RegExp(r'[أإآ]'), 'ا');
     normalized = normalized.replaceAll('ة', 'ه');
     normalized = normalized.replaceAll('ى', 'ي');
-    
-    // تحويل الأرقام العربية إلى إنجليزية
     const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     for (int i = 0; i < arabicNumbers.length; i++) {
       normalized = normalized.replaceAll(arabicNumbers[i], i.toString());
     }
-    
     return normalized;
   }
 

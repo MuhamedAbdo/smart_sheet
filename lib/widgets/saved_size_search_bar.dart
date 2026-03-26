@@ -11,7 +11,7 @@ class SavedSizeSearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       decoration: InputDecoration(
-        hintText: "بحث باستخدام كود الصنف أو اسم العميل...",
+        hintText: "البحث باسم أو كود العميل...",
         hintStyle: TextStyle(
           color: Theme.of(context).brightness == Brightness.dark
               ? Colors.white70

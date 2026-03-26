@@ -24,12 +24,15 @@ class AddSheetSizeScreen extends StatefulWidget {
   final dynamic existingDataKey;
   /// إذا مُرِّر هذا المتغير، يُعبَأ حقل اسم العميل ويُغلق تلقائياً
   final String? clientName;
+  /// وضع "إدارة العميل" (تعديل اسم أو كود العميل فقط)
+  final bool isClientOnlyMode;
 
   const AddSheetSizeScreen({
     super.key,
     this.existingData,
     this.existingDataKey,
     this.clientName,
+    this.isClientOnlyMode = false,
   });
 
   @override
@@ -68,6 +71,9 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   String productionWidth1 = "";
   String productionHeight = "";
   String productionWidth2 = "";
+  
+  String? _originalClientName;
+  String? _originalClientCode;
 
   late Box _savedSheetSizesBox;
 
@@ -81,9 +87,12 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     _savedSheetSizesBox = await Hive.openBox('savedSheetSizes');
     if (widget.existingData != null) {
       _loadExistingData(widget.existingData!);
+      _originalClientName = widget.existingData!['clientName']?.toString().trim();
+      _originalClientCode = widget.existingData!['productCode']?.toString().trim();
     } else if (widget.clientName != null && widget.clientName!.isNotEmpty) {
       // تعبئة اسم العميل تلقائياً عند الإضافة من شاشة تفاصيل العميل
       clientNameController.text = widget.clientName!;
+      _originalClientName = widget.clientName!.trim();
     }
   }
 
@@ -208,6 +217,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'height': heightController.text,
       'imagePaths': imageNames,
       'date': DateTime.now().toIso8601String(),
+      'isClientRecord': isAddingClientOnly,
     };
 
     if (_processType == "تفصيل") {
@@ -242,9 +252,34 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       await _savedSheetSizesBox.add(newRecord);
     }
 
+    // ④ المرحلة 3: تحديث متتالي (Cascading Update) إذا تغير اسم العميل أو كوده
+    // يتم هذا فقط إذا كنا في وضع "تعديل بيانات العميل" (isClientOnlyMode)
+    if (widget.isClientOnlyMode && _originalClientName != null) {
+      final newName = clientName;
+      final newCode = productCode;
+      
+      if (newName != _originalClientName || newCode != _originalClientCode) {
+        final box = _savedSheetSizesBox;
+        for (var i = 0; i < box.length; i++) {
+          final key = box.keyAt(i);
+          final record = box.getAt(i);
+          if (record is Map && 
+              (record['clientName']?.toString().trim() ?? '') == _originalClientName) {
+            
+            final updatedRecord = Map<String, dynamic>.from(record);
+            updatedRecord['clientName'] = newName;
+            // تحديث الكود أيضاً لضمان الاتساق (اختياري بحسب التصميم ولكن يفضل هنا)
+            updatedRecord['productCode'] = newCode;
+            
+            await box.put(key, updatedRecord);
+          }
+        }
+      }
+    }
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ تم حفظ البيانات بنجاح")));
+          const SnackBar(content: Text("✅ تم حفظ البيانات وتحديث كافة السجلات")));
       Navigator.pop(context);
     }
   }
@@ -406,7 +441,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   // ignore: unused_element — محجوب مؤقتاً مع واجهة العميل المبسطة
   void _calculateSheet() {
-    if (_processType != "تفصيل") return;
+    if (_processType != "تفصيل" || isAddingClientOnly) return;
     double L = double.tryParse(lengthController.text) ?? 0.0;
     double W = double.tryParse(widthController.text) ?? 0.0;
     double H = double.tryParse(heightController.text) ?? 0.0;
@@ -454,6 +489,13 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     });
   }
 
+  // خاصية لتحديد ما إذا كنا في وضع "إضافة/تعديل عميل" فقط (حقلين فقط)
+  bool get isAddingClientOnly => 
+      widget.isClientOnlyMode ||
+      (widget.clientName == null && 
+       widget.existingData == null && 
+       widget.existingDataKey == null);
+
   @override
   void dispose() {
     clientNameController.dispose();
@@ -474,11 +516,13 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text(widget.existingDataKey != null
+        title: Text(widget.isClientOnlyMode 
             ? "تعديل بيانات العميل"
-            : isLockedMode
-                ? "إضافة صنف"
-                : "بيانات العميل الجديد"),
+            : widget.existingDataKey != null
+                ? "تعديل الصنف"
+                : isAddingClientOnly
+                    ? "إضافة عميل جديد"
+                    : "إضافة صنف"),
         centerTitle: true,
         actions: [
           IconButton(
@@ -493,7 +537,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // --- نموذج الحقول الأساسية (نوع العملية + بيانات العميل + الأبعاد) ---
+              // --- نموذج الحقول الأساسية ---
               SheetSizeForm(
                 clientNameController: clientNameController,
                 productNameController: productNameController,
@@ -510,78 +554,82 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 onProcessTypeChanged: (v) => setState(() => _processType = v),
                 clientNameEnabled: !isLockedMode,
                 clientNameLocked: isLockedMode,
+                isAddingClientOnly: isAddingClientOnly,
               ),
 
               const SizedBox(height: 16),
 
-              // --- الكاميرا وصور الأوردر ---
-              SheetSizeCamera(
-                cameraController: null, // تم الاستغناء عنه
-                isCameraReady: true, // دائماً جاهزة مع ImagePicker
-                isProcessing: _isProcessing,
-                capturedImages: _capturedImages,
-                onCaptureImage: _captureImage,
-                onRemoveImage: (i) =>
-                    setState(() => _capturedImages.removeAt(i)),
-              ),
-
-              const SizedBox(height: 16),
-
-              // --- خيارات التفصيل (مرئية فقط عند نوع "تفصيل") ---
-              if (_processType == 'تفصيل') ...[
-                SheetSizeCheckboxes(
-                  isOverFlap: isOverFlap,
-                  isFlap: isFlap,
-                  isOneFlap: isOneFlap,
-                  isTwoFlap: isTwoFlap,
-                  addTwoMm: addTwoMm,
-                  isFullSize: isFullSize,
-                  isQuarterSize: isQuarterSize,
-                  isQuarterWidth: isQuarterWidth,
-                  onOverFlapChanged: (v) =>
-                      setState(() { isOverFlap = v!; isFlap = !v; }),
-                  onFlapChanged: (v) =>
-                      setState(() { isFlap = v!; isOverFlap = !v; }),
-                  onOneFlapChanged: (v) =>
-                      setState(() { isOneFlap = v!; isTwoFlap = !v; }),
-                  onTwoFlapChanged: (v) =>
-                      setState(() { isTwoFlap = v!; isOneFlap = !v; }),
-                  onAddTwoMmChanged: (v) =>
-                      setState(() => addTwoMm = v ?? false),
-                  onFullSizeChanged: (v) =>
-                      setState(() { isFullSize = v!; isQuarterSize = false; }),
-                  onQuarterSizeChanged: (v) =>
-                      setState(() { isQuarterSize = v ?? false; isFullSize = false; }),
-                  onQuarterWidthChanged: (v) =>
-                      setState(() => isQuarterWidth = v!),
+              // في وضع إضافة عميل فقط، لا نعرض بقية الأقسام (كاميرا، خيارات، إلخ)
+              if (!isAddingClientOnly) ...[
+                // --- الكاميرا وصور الأوردر ---
+                SheetSizeCamera(
+                  cameraController: null, // تم الاستغناء عنه
+                  isCameraReady: true, // دائماً جاهزة مع ImagePicker
+                  isProcessing: _isProcessing,
+                  capturedImages: _capturedImages,
+                  onCaptureImage: _captureImage,
+                  onRemoveImage: (i) =>
+                      setState(() => _capturedImages.removeAt(i)),
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
 
-                // --- زر الحساب ---
-                SheetSizeButtons(
-                  onCalculate: _calculateSheet,
-                  onSave: _saveSheetSize,
-                ),
-
-                const SizedBox(height: 12),
-
-                // --- نتائج الحساب ---
-                if (sheetLengthResult.isNotEmpty)
-                  SheetSizeCalculations(
-                    sheetLengthResult: sheetLengthResult,
-                    sheetWidthResult: sheetWidthResult,
+                // --- خيارات التفصيل (مرئية فقط عند نوع "تفصيل") ---
+                if (_processType == 'تفصيل') ...[
+                  SheetSizeCheckboxes(
+                    isOverFlap: isOverFlap,
+                    isFlap: isFlap,
+                    isOneFlap: isOneFlap,
+                    isTwoFlap: isTwoFlap,
+                    addTwoMm: addTwoMm,
+                    isFullSize: isFullSize,
+                    isQuarterSize: isQuarterSize,
+                    isQuarterWidth: isQuarterWidth,
+                    onOverFlapChanged: (v) =>
+                        setState(() { isOverFlap = v!; isFlap = !v; }),
+                    onFlapChanged: (v) =>
+                        setState(() { isFlap = v!; isOverFlap = !v; }),
+                    onOneFlapChanged: (v) =>
+                        setState(() { isOneFlap = v!; isTwoFlap = !v; }),
+                    onTwoFlapChanged: (v) =>
+                        setState(() { isTwoFlap = v!; isOneFlap = !v; }),
+                    onAddTwoMmChanged: (v) =>
+                        setState(() => addTwoMm = v ?? false),
+                    onFullSizeChanged: (v) =>
+                        setState(() { isFullSize = v!; isQuarterSize = false; }),
+                    onQuarterSizeChanged: (v) =>
+                        setState(() { isQuarterSize = v ?? false; isFullSize = false; }),
+                    onQuarterWidthChanged: (v) =>
+                        setState(() => isQuarterWidth = v!),
                   ),
 
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-                // --- جدول مقاسات الإنتاج ---
-                if (productionWidth1.isNotEmpty)
-                  SheetSizeProductionTable(
-                    productionWidth1: productionWidth1,
-                    productionHeight: productionHeight,
-                    productionWidth2: productionWidth2,
+                  // --- زر الحساب (يأتي من ويدجت منفصل) ---
+                  SheetSizeButtons(
+                    onCalculate: _calculateSheet,
+                    onSave: _saveSheetSize,
                   ),
+
+                  const SizedBox(height: 12),
+
+                  // --- نتائج الحساب ---
+                  if (sheetLengthResult.isNotEmpty)
+                    SheetSizeCalculations(
+                      sheetLengthResult: sheetLengthResult,
+                      sheetWidthResult: sheetWidthResult,
+                    ),
+
+                  const SizedBox(height: 12),
+
+                  // --- جدول مقاسات الإنتاج ---
+                  if (productionWidth1.isNotEmpty)
+                    SheetSizeProductionTable(
+                      productionWidth1: productionWidth1,
+                      productionHeight: productionHeight,
+                      productionWidth2: productionWidth2,
+                    ),
+                ],
               ],
 
               const SizedBox(height: 40),
@@ -591,4 +639,5 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       ),
     );
   }
+
 }
