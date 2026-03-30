@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/widgets/maintenance_form.dart';
 import 'package:smart_sheet/widgets/maintenance_list.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 import '../../models/maintenance_record_model.dart';
 import '../../widgets/app_drawer.dart';
 
@@ -79,8 +80,27 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
 
   void _delete(int index) async {
     if (_box != null) {
-      await _box!.deleteAt(index);
-      if (mounted) setState(() {});
+      final recordToRemove = _box!.getAt(index);
+      if (recordToRemove == null) return;
+
+      UIUtils.showDeleteConfirmation(
+        context: context,
+        title: "حذف سجل الصيانة",
+        content: "هل أنت متأكد من حذف هذا السجل؟",
+        onConfirm: () async {
+          await _box!.deleteAt(index);
+          if (mounted) {
+            UIUtils.showUndoSnackBar(
+              message: "تم حذف السجل",
+              onUndo: () async {
+                await _box!.putAt(index, recordToRemove);
+                if (mounted) setState(() {});
+              },
+            );
+            setState(() {});
+          }
+        },
+      );
     }
   }
 

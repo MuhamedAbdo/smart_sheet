@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../utils/ui_utils.dart';
 
 class AuthScreen extends StatefulWidget {
   static const routeName = '/auth-screen';
@@ -69,15 +70,10 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context)
-        .hideCurrentSnackBar(); // إخفاء الـ SnackBar الحالي إن وجد
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, textAlign: TextAlign.center),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating, // جعل شكل الرسالة عائم وأكثر عصرية
-        duration: const Duration(seconds: 3),
-      ),
+    UIUtils.showInfoSnackBar(
+      message: message,
+      backgroundColor: color,
+      icon: color == Colors.red ? Icons.error_outline : Icons.check_circle_outline,
     );
   }
 

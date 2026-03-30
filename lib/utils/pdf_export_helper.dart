@@ -10,11 +10,18 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart'
     show
         SnackBar,
-        ScaffoldMessenger,
         BuildContext,
         Colors,
         Text,
-        SnackBarAction;
+        SnackBarAction,
+        Row,
+        Icon,
+        Icons,
+        SizedBox,
+        TextStyle,
+        Expanded;
+import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/globals.dart';
 import 'package:printing/printing.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:open_file/open_file.dart';
@@ -102,12 +109,13 @@ String _formatDate(String dateStr) {
   return dateStr;
 }
 
-/// ✅ حفظ PDF في الذاكرة الداخلية للهاتف (تلقائي)
 Future<void> savePdfToDevice(
     BuildContext context, List<Map<String, dynamic>> records) async {
   if (records.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("⚠️ لا توجد تقارير لحفظها")),
+    UIUtils.showInfoSnackBar(
+      message: "لا توجد تقارير لحفظها",
+      backgroundColor: Colors.orange,
+      icon: Icons.warning_amber_rounded,
     );
     return;
   }
@@ -163,13 +171,32 @@ Future<String> _saveToInternalStorage(Uint8List pdfBytes) async {
 void _showSuccessSnackBar(
     BuildContext context, String filePath, Uint8List bytes) {
   final fileName = filePath.split('/').last;
-  ScaffoldMessenger.of(context).showSnackBar(
+  final messenger = scaffoldMessengerKey.currentState;
+  if (messenger == null) return;
+
+  messenger.removeCurrentSnackBar();
+  messenger.showSnackBar(
     SnackBar(
-      content: Text('✅ تم حفظ PDF بنجاح\n$fileName'),
+      content: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'تم حفظ PDF بنجاح\n$fileName',
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
       backgroundColor: Colors.green,
+      duration: const Duration(seconds: 5),
       action: SnackBarAction(
         label: 'فتح',
-        textColor: Colors.white,
+        textColor: Colors.yellowAccent,
         onPressed: () => OpenFile.open(filePath),
       ),
     ),

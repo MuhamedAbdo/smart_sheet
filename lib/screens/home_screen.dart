@@ -9,6 +9,7 @@ import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/screens/staple_department_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -107,10 +108,9 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.science,
                     label: 'السليكات',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('سيتم تطويره قريبًا'),
-                        ),
+                      UIUtils.showInfoSnackBar(
+                        message: 'سيتم تطويره قريبًا',
+                        backgroundColor: Colors.blueGrey,
                       );
                     },
                   ),
@@ -118,10 +118,9 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.warehouse,
                     label: 'المخازن',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('سيتم تطويره قريبًا'),
-                        ),
+                      UIUtils.showInfoSnackBar(
+                        message: 'سيتم تطويره قريبًا',
+                        backgroundColor: Colors.blueGrey,
                       );
                     },
                   ),

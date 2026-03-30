@@ -7,6 +7,7 @@ import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/widgets/worker_card.dart';
 import 'package:smart_sheet/screens/worker_details_screen.dart';
 import 'package:smart_sheet/widgets/worker_form.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class WorkerList extends StatelessWidget {
   final Box<Worker> box; // ✅ إضافة الحقل
@@ -31,7 +32,23 @@ class WorkerList extends StatelessWidget {
               worker: worker,
               onEdit: () => WorkerForm.show(context,
                   existingWorker: worker, box: box), // ✅ تمرير الصندوق
-              onDelete: () => box.deleteAt(index), // ✅ استخدام الصندوق المُمرر
+              onDelete: () {
+                final workerToRemove = box.getAt(index);
+                if (workerToRemove == null) return;
+                
+                UIUtils.showDeleteConfirmation(
+                  context: context,
+                  title: "حذف العامل",
+                  content: "هل أنت متأكد من حذف العامل \"${workerToRemove.name}\"؟",
+                      onConfirm: () async {
+                        await box.deleteAt(index);
+                        UIUtils.showUndoSnackBar(
+                          message: "تم حذف العامل",
+                          onUndo: () => box.putAt(index, workerToRemove),
+                        );
+                      },
+                );
+              },
               onTap: () {
                 Navigator.push(
                   context,

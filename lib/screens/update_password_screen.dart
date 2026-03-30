@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../utils/ui_utils.dart';
 
 class UpdatePasswordScreen extends StatefulWidget {
   static const routeName = '/update-password';
@@ -47,14 +48,10 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
   }
 
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, textAlign: TextAlign.center),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-      ),
+    UIUtils.showInfoSnackBar(
+      message: message,
+      backgroundColor: color,
+      icon: color == Colors.red ? Icons.error_outline : Icons.check_circle_outline,
     );
   }
 

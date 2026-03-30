@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/new_sheet_size_form.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class NewSheetSizeScreen extends StatelessWidget {
   final String? existingDataKey;
@@ -19,11 +20,10 @@ class NewSheetSizeScreen extends StatelessWidget {
 
     Navigator.pop(context);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("✅ تمت العملية الحسابية بنجاح"),
-        backgroundColor: Colors.green,
-      ),
+    UIUtils.showInfoSnackBar(
+      message: "تمت العملية الحسابية بنجاح",
+      backgroundColor: Colors.green,
+      icon: Icons.check_circle_outline,
     );
   }
 

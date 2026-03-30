@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../models/store_entry_model.dart';
 import 'store_entry_card.dart';
 import 'store_entry_form.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class StoreEntryList extends StatelessWidget {
   final String boxName;
@@ -43,7 +44,23 @@ class StoreEntryList extends StatelessWidget {
                     index: index,
                     existing: entry,
                   ),
-                  onDelete: () => box.deleteAt(index),
+                  onDelete: () {
+                    final entryToRemove = box.getAt(index);
+                    if (entryToRemove == null) return;
+                    
+                    UIUtils.showDeleteConfirmation(
+                      context: context,
+                      title: "حذف السجل",
+                      content: "هل أنت متأكد من حذف هذا السجل من وارد المخزن؟",
+                      onConfirm: () async {
+                        await box.deleteAt(index);
+                        UIUtils.showUndoSnackBar(
+                          message: "تم حذف السجل",
+                          onUndo: () => box.putAt(index, entryToRemove),
+                        );
+                      },
+                    );
+                  },
                 );
               },
             );

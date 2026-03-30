@@ -6,6 +6,7 @@ import '../../models/worker_action_model.dart';
 import '../../models/worker_model.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/worker_action_card.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class WorkerDetailsScreen extends StatefulWidget {
   final Worker worker;
@@ -61,9 +62,25 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                             _refresh();
                           },
                           onDelete: () {
-                            widget.worker.actions.removeAt(index);
-                            widget.worker.save();
-                            _refresh();
+                            final actionToRemove = widget.worker.actions[index];
+                            UIUtils.showDeleteConfirmation(
+                              context: context,
+                              title: "حذف الإجراء",
+                              content: "هل أنت متأكد من حذف هذا الإجراء؟",
+                              onConfirm: () async {
+                                widget.worker.actions.removeAt(index);
+                                await widget.worker.save();
+                                    UIUtils.showUndoSnackBar(
+                                      message: "تم حذف الإجراء",
+                                      onUndo: () async {
+                                        widget.worker.actions.insert(index, actionToRemove);
+                                        await widget.worker.save();
+                                        _refresh();
+                                      },
+                                    );
+                                _refresh();
+                              },
+                            );
                           },
                         );
                       },

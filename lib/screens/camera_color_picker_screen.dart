@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:image/image.dart' as img;
 // ✅ حذف استيراد go_router
 // import 'package:go_router/go_router.dart';
@@ -58,8 +59,11 @@ class _CameraColorPickerScreenState extends State<CameraColorPickerScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    UIUtils.showInfoSnackBar(
+      message: message,
+      backgroundColor: Colors.redAccent,
+      icon: Icons.error_outline,
+    );
   }
 
   CMYK rgbToCmyk(int r, int g, int b) {

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_native_contact_picker/model/contact.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
-import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart'; // ✅ الاستيراد الصحيح للمكتبة الموجودة في مشروعك
+import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart'; 
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class WorkerForm extends StatefulWidget {
   final Worker? existingWorker;
@@ -71,8 +72,10 @@ class _WorkerFormState extends State<WorkerForm> {
     } catch (e) {
       debugPrint("Error picking contact: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("تعذر الوصول لجهات الاتصال")),
+        UIUtils.showInfoSnackBar(
+          message: "تعذر الوصول لجهات الاتصال",
+          backgroundColor: Colors.redAccent,
+          icon: Icons.contact_phone,
         );
       }
     }

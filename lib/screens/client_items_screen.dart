@@ -6,6 +6,7 @@ import 'package:smart_sheet/screens/ink_report_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 /// شاشة تعرض جميع الأصناف والمقاسات المرتبطة بعميل معين
 class ClientItemsScreen extends StatefulWidget {
@@ -301,51 +302,48 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
   void _navigateToEditClient(List<MapEntry<dynamic, dynamic>> allEntries) {
     if (allEntries.isEmpty) return;
 
-    // نختار سجل العميل الأساسي إن وجد، وإلا فأي سجل
-    final clientRecord = allEntries.firstWhere(
-      (e) => e.value['isClientRecord'] == true,
-      orElse: () => allEntries.first,
-    );
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddSheetSizeScreen(
-          existingData: Map<String, dynamic>.from(clientRecord.value),
-          existingDataKey: clientRecord.key,
-          isClientOnlyMode: true,
+    // نبحث عن سجل العميل الأساسي
+    final clientRecordIndex = allEntries.indexWhere((e) => e.value['isClientRecord'] == true);
+    
+    if (clientRecordIndex != -1) {
+      final clientRecord = allEntries[clientRecordIndex];
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddSheetSizeScreen(
+            existingData: Map<String, dynamic>.from(clientRecord.value),
+            existingDataKey: clientRecord.key,
+            isClientOnlyMode: true,
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      // إذا لم يكن هناك سجل عميل أساسي، نفتح نموذج جديد بالاسم فقط لإنشاء "سجل عميل"
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddSheetSizeScreen(
+            clientName: widget.clientName,
+            isClientOnlyMode: true,
+          ),
+        ),
+      );
+    }
   }
 
   void _confirmDeleteClient() {
-    showDialog(
+    UIUtils.showDeleteConfirmation(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("حذف العميل نهائياً"),
-        content: Text(
-            "هل أنت متأكد من حذف العميل \"${widget.clientName}\" وجميع الأصناف المرتبطة به؟\nلا يمكن التراجع عن هذا الإجراء."),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              _deleteClientData();
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: const Text("حذف كلي", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+      title: "حذف العميل نهائياً",
+      content: "هل أنت متأكد من حذف العميل \"${widget.clientName}\" وجميع الأصناف المرتبطة به؟\nسيتم حذف كافة البيانات المتعلقة بهذا العميل.",
+      onConfirm: _deleteClientWithUndo,
     );
   }
 
-  void _deleteClientData() async {
+  void _deleteClientWithUndo() async {
     final box = _savedSheetSizesBox!;
-    final keysToDelete = [];
+    final List<MapEntry<dynamic, dynamic>> backup = [];
+    final keysToRemove = [];
 
     for (var i = 0; i < box.length; i++) {
       final key = box.keyAt(i);
@@ -353,14 +351,33 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       if (record is Map &&
           (record['clientName']?.toString().trim() ?? '') ==
               widget.clientName.trim()) {
-        keysToDelete.add(key);
+        backup.add(MapEntry(key, record));
+        keysToRemove.add(key);
       }
     }
 
-    if (keysToDelete.isNotEmpty) {
-      await box.deleteAll(keysToDelete);
+    if (keysToRemove.isEmpty) return;
+
+    // الحذف الفعلي
+    await box.deleteAll(keysToRemove);
+
+    if (mounted) {
+      UIUtils.showUndoSnackBar(
+        message: 'تم حذف العميل "${widget.clientName}"',
+        onUndo: () async {
+          for (var entry in backup) {
+            await box.put(entry.key, entry.value);
+          }
+        },
+        onDismissed: () {
+          if (mounted) Navigator.of(context).pop();
+        },
+      );
     }
   }
+
+
+
 
   void _navigateToEdit(dynamic key, Map<String, dynamic> data) {
     Navigator.push(
@@ -372,24 +389,27 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
   }
 
   void _confirmDelete(dynamic key) {
-    showDialog(
+    UIUtils.showDeleteConfirmation(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("تأكيد الحذف"),
-        content: const Text("هل أنت متأكد من حذف هذا الصنف؟"),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
-          TextButton(
-            onPressed: () {
-              _savedSheetSizesBox!.delete(key);
-              Navigator.pop(ctx);
-            },
-            child: const Text("حذف", style: TextStyle(color: Colors.red)),
-          )
-        ],
-      ),
+      title: "تأكيد الحذف",
+      content: "هل أنت متأكد من حذف هذا الصنف؟",
+      onConfirm: () => _deleteItemWithUndo(key),
     );
+  }
+
+  void _deleteItemWithUndo(dynamic key) async {
+    final box = _savedSheetSizesBox!;
+    final backupRecord = box.get(key);
+    if (backupRecord == null) return;
+
+    await box.delete(key);
+
+    if (mounted) {
+      UIUtils.showUndoSnackBar(
+        message: 'تم حذف الصنف بنجاح',
+        onUndo: () async => await box.put(key, backupRecord),
+      );
+    }
   }
 
   String _normalizeString(String input) {

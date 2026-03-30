@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class CameraQualitySettingsScreen extends StatefulWidget {
   static const String routeName = '/camera-quality';
@@ -77,11 +78,11 @@ class _CameraQualitySettingsScreenState
                     });
                     await _saveQuality(value);
                     // إظهار تنبيه اختياري
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('تم اختيار جودة: $value')),
-                      );
-                    }
+                    UIUtils.showInfoSnackBar(
+                      message: "تم اختيار جودة: $value",
+                      backgroundColor: Colors.green,
+                      icon: Icons.check_circle_outline,
+                    );
                   }
                 },
                 activeColor: Theme.of(context).colorScheme.primary,

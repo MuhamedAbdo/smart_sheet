@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 // الويدجات التالية محجوبة مؤقتاً من الـ UI لكنها تُستخدم في منطق التعديل
 // ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_buttons.dart';
@@ -146,11 +147,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
     // ① التحقق من أن اسم العميل غير فارغ
     if (clientName.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('⚠️ يرجى إدخال اسم العميل أولاً.')),
-        );
-      }
+      UIUtils.showInfoSnackBar(
+        message: 'يرجى إدخال اسم العميل أولاً.',
+        backgroundColor: Colors.redAccent,
+        icon: Icons.warning_amber_rounded,
+      );
       return;
     }
 
@@ -175,14 +176,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       }
 
       if (clientAlreadyExists) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('عذراً، هذا العميل مسجل بالفعل في النظام.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
+        UIUtils.showInfoSnackBar(
+          message: 'عذراً، هذا العميل مسجل بالفعل في النظام.',
+          backgroundColor: Colors.orange,
+          icon: Icons.error_outline,
+        );
         return;
       }
     }
@@ -268,8 +266,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
             
             final updatedRecord = Map<String, dynamic>.from(record);
             updatedRecord['clientName'] = newName;
-            // تحديث الكود أيضاً لضمان الاتساق (اختياري بحسب التصميم ولكن يفضل هنا)
-            updatedRecord['productCode'] = newCode;
+            // لا نحدث الكود هنا للحفاظ على استقلالية أكواد الأصناف كما طلب المستخدم
             
             await box.put(key, updatedRecord);
           }
@@ -278,8 +275,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ تم حفظ البيانات وتحديث كافة السجلات")));
+      UIUtils.showInfoSnackBar(
+        message: "تم حفظ البيانات وتحديث كافة السجلات",
+        backgroundColor: Colors.green,
+        icon: Icons.check_circle_outline,
+      );
       Navigator.pop(context);
     }
   }
@@ -568,8 +568,21 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                   isProcessing: _isProcessing,
                   capturedImages: _capturedImages,
                   onCaptureImage: _captureImage,
-                  onRemoveImage: (i) =>
-                      setState(() => _capturedImages.removeAt(i)),
+                  onRemoveImage: (index) {
+                    final removedImage = _capturedImages[index];
+                    UIUtils.showDeleteConfirmation(
+                      context: context,
+                      title: "حذف الصورة",
+                      content: "هل أنت متأكد من حذف هذه الصورة؟",
+                      onConfirm: () {
+                        setState(() => _capturedImages.removeAt(index));
+                        UIUtils.showUndoSnackBar(
+                          message: "تم حذف الصورة",
+                          onUndo: () => setState(() => _capturedImages.insert(index, removedImage)),
+                        );
+                      },
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 16),

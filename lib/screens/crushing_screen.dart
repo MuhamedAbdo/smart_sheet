@@ -7,6 +7,7 @@ import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class CrushingScreen extends StatelessWidget {
   const CrushingScreen({super.key});
@@ -123,11 +124,10 @@ class CrushingScreen extends StatelessWidget {
                     icon: Icons.dvr,
                     label: 'قوالب التكسير',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('سيتم تطويره قريبًا'),
-                          backgroundColor: Colors.orange,
-                        ),
+                      UIUtils.showInfoSnackBar(
+                        message: 'سيتم تطويره قريبًا',
+                        backgroundColor: Colors.orange,
+                        icon: Icons.info_outline,
                       );
                     },
                   ),
@@ -137,11 +137,10 @@ class CrushingScreen extends StatelessWidget {
                     icon: Icons.checklist,
                     label: 'تقرير الجودة',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('سيتم تطويره قريبًا'),
-                          backgroundColor: Colors.orange,
-                        ),
+                      UIUtils.showInfoSnackBar(
+                        message: 'سيتم تطويره قريبًا',
+                        backgroundColor: Colors.orange,
+                        icon: Icons.construction,
                       );
                     },
                   ),
@@ -151,11 +150,10 @@ class CrushingScreen extends StatelessWidget {
                     icon: Icons.widgets,
                     label: 'أدوات التكسير',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('سيتم تطويره قريبًا'),
-                          backgroundColor: Colors.orange,
-                        ),
+                      UIUtils.showInfoSnackBar(
+                        message: 'سيتم تطويره قريبًا',
+                        backgroundColor: Colors.orange,
+                        icon: Icons.build_circle_outlined,
                       );
                     },
                   ),

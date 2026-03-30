@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/ink_report_form.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 import '../../../utils/pdf_export_helper.dart';
 
 class InkReportScreen extends StatefulWidget {
@@ -70,10 +71,10 @@ class _InkReportScreenState extends State<InkReportScreen> {
       );
 
       if (outputFile != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("✅ تم حفظ الملف بنجاح"),
-              backgroundColor: Colors.green),
+        UIUtils.showInfoSnackBar(
+          message: "تم حفظ الملف بنجاح",
+          backgroundColor: Colors.green,
+          icon: Icons.check_circle_outline,
         );
       }
     } catch (e) {
@@ -83,70 +84,44 @@ class _InkReportScreenState extends State<InkReportScreen> {
 
   void _deleteAllReports() {
     if (_inkReportBox == null || _inkReportBox!.isEmpty) return;
-    showDialog(
+    UIUtils.showDeleteConfirmation(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("⚠️ تحذير: مسح شامل", textAlign: TextAlign.right),
-        content: const Text("هل أنت متأكد من حذف جميع التقارير نهائياً؟",
-            textAlign: TextAlign.right),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              Navigator.pop(ctx);
-              final Map<dynamic, dynamic> backup =
-                  Map.from(_inkReportBox!.toMap());
-              _inkReportBox!.clear();
-              _showUndoSnackBar("🗑️ تم مسح الكل", () {
-                backup.forEach((k, v) => _inkReportBox!.put(k, v));
-              });
+      title: "⚠️ تحذير: مسح شامل",
+      content: "هل أنت متأكد من حذف جميع التقارير نهائياً؟",
+      onConfirm: () async {
+        final Map<dynamic, dynamic> backup = Map.from(_inkReportBox!.toMap());
+        await _inkReportBox!.clear();
+        if (mounted) {
+          UIUtils.showUndoSnackBar(
+            message: "تم مسح جميع التقارير",
+            onUndo: () async {
+              for (var entry in backup.entries) {
+                await _inkReportBox!.put(entry.key, entry.value);
+              }
             },
-            child: const Text("نعم، امسح الكل",
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+          );
+        }
+      },
     );
   }
 
   void _deleteSingleReport(dynamic key, dynamic record) {
-    showDialog(
+    UIUtils.showDeleteConfirmation(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("تأكيد الحذف", textAlign: TextAlign.right),
-        content:
-            const Text("هل تريد حذف هذا التقرير؟", textAlign: TextAlign.right),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _inkReportBox!.delete(key);
-              _showUndoSnackBar(
-                  "🗑️ تم حذف التقرير", () => _inkReportBox!.put(key, record));
-            },
-            child: const Text("حذف", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+      title: "تأكيد الحذف",
+      content: "هل تريد حذف هذا التقرير؟",
+      onConfirm: () async {
+        await _inkReportBox!.delete(key);
+        if (mounted) {
+          UIUtils.showUndoSnackBar(
+            message: "تم حذف التقرير",
+            onUndo: () async => await _inkReportBox!.put(key, record),
+          );
+        }
+      },
     );
   }
 
-  void _showUndoSnackBar(String message, VoidCallback onUndo) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 5),
-        action: SnackBarAction(
-            label: "تراجع", onPressed: onUndo, textColor: Colors.yellow),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {

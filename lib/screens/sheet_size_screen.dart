@@ -12,6 +12,7 @@ import 'package:smart_sheet/widgets/sheet_size_camera.dart';
 import 'package:smart_sheet/widgets/sheet_size_checkboxes.dart';
 import 'package:smart_sheet/widgets/sheet_size_form.dart';
 import 'package:smart_sheet/widgets/sheet_size_production_table.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class AddSheetSizeScreen extends StatefulWidget {
   final Map? existingData;
@@ -95,11 +96,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         _isCameraReady = true;
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("الكاميرا غير متاحة على هذا الجهاز")),
-        );
-      }
+      UIUtils.showInfoSnackBar(
+        message: "الكاميرا غير متاحة على هذا الجهاز",
+        backgroundColor: Colors.redAccent,
+        icon: Icons.camera_enhance_outlined,
+      );
     }
   }
 
@@ -147,8 +148,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     if (!_isCameraReady ||
         _cameraController == null ||
         !_cameraController!.value.isInitialized) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("الكاميرا غير جاهزة")),
+      UIUtils.showInfoSnackBar(
+        message: "الكاميرا غير جاهزة",
+        backgroundColor: Colors.orange,
+        icon: Icons.camera_alt_outlined,
       );
       return;
     }
@@ -179,8 +182,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         _isProcessing = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("خطأ: $e")),
+        UIUtils.showInfoSnackBar(
+          message: "خطأ في التقاط الصورة",
+          backgroundColor: Colors.redAccent,
+          icon: Icons.error_outline,
         );
       }
     }
@@ -293,8 +298,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
 
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("تم الحفظ")));
+      UIUtils.showInfoSnackBar(
+        message: "تم الحفظ بنجاح",
+        backgroundColor: Colors.green,
+        icon: Icons.check_circle_outline,
+      );
       Navigator.pop(context);
     }
   }

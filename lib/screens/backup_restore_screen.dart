@@ -3,6 +3,7 @@ import 'package:smart_sheet/services/backup_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -44,12 +45,11 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         throw Exception('Could not launch $url');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('❌ تعذر فتح الرابط، تأكد من وجود متصفح')),
-        );
-      }
+      UIUtils.showInfoSnackBar(
+        message: "تعذر فتح الرابط، تأكد من وجود متصفح",
+        backgroundColor: Colors.redAccent,
+        icon: Icons.browser_not_supported,
+      );
     }
   }
 
@@ -74,8 +74,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ يجب تسجيل الدخول أولاً')),
+        UIUtils.showInfoSnackBar(
+          message: "يجب تسجيل الدخول أولاً",
+          backgroundColor: Colors.redAccent,
+          icon: Icons.login_outlined,
         );
         // Redirect to auth screen
         Navigator.pushReplacementNamed(context, AuthScreen.routeName);
@@ -88,10 +90,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       _message = 'جاري رفع النسخة الاحتياطية...';
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content:
-              Text('☁️ بدأت عملية الرفع السحابي، تابع التقدم في الإشعارات')),
+    UIUtils.showInfoSnackBar(
+      message: "بدأت عملية الرفع السحابي، تابع التقدم في الإشعارات",
+      backgroundColor: Colors.blueAccent,
+      icon: Icons.cloud_upload_outlined,
     );
 
     final result = await _backupService.uploadToSupabase();
@@ -104,8 +106,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
       if (result?.startsWith('✅') == true) {
         _checkBackupExists(); // Refresh backup status
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result!)),
+        UIUtils.showInfoSnackBar(
+          message: result!,
+          backgroundColor: Colors.green,
+          icon: Icons.check_circle_outline,
         );
       }
     }
@@ -115,8 +119,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ يجب تسجيل الدخول أولاً')),
+        UIUtils.showInfoSnackBar(
+          message: "يجب تسجيل الدخول أولاً",
+          backgroundColor: Colors.redAccent,
+          icon: Icons.login_outlined,
         );
       }
       return;
@@ -156,8 +162,11 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         });
 
         if (result == 'SUCCESS_RESTORE') {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('✅ تمت الاستعادة بنجاح')));
+          UIUtils.showInfoSnackBar(
+            message: "تمت الاستعادة بنجاح",
+            backgroundColor: Colors.green,
+            icon: Icons.cloud_done_outlined,
+          );
         }
       }
     }
@@ -295,8 +304,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     if (!_isAuthenticated) {
       return ElevatedButton.icon(
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('❌ يجب تسجيل الدخول أولاً')),
+          UIUtils.showInfoSnackBar(
+            message: "يجب تسجيل الدخول أولاً",
+            backgroundColor: Colors.redAccent,
+            icon: Icons.login_outlined,
           );
           Navigator.pushReplacementNamed(context, AuthScreen.routeName);
         },

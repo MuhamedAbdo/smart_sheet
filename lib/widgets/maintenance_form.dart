@@ -5,6 +5,7 @@ import 'package:photo_view/photo_view.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../models/maintenance_record_model.dart';
 import '../../services/storage_service.dart';
+import '../../utils/ui_utils.dart';
 
 class MaintenanceForm extends StatefulWidget {
   final MaintenanceRecord? existing;
@@ -129,8 +130,11 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
 
   Future<void> _saveRecord() async {
     if (machineController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("يرجى إدخال اسم الماكينة")));
+      UIUtils.showInfoSnackBar(
+        message: "يرجى إدخال اسم الماكينة",
+        backgroundColor: Colors.orange,
+        icon: Icons.warning_amber_rounded,
+      );
       return;
     }
 
@@ -162,10 +166,11 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
 
       widget.onSave(record);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("حدث خطأ أثناء الحفظ: $e")));
-      }
+      UIUtils.showInfoSnackBar(
+        message: "حدث خطأ أثناء الحفظ",
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline,
+      );
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }

@@ -6,6 +6,8 @@ import 'package:smart_sheet/screens/auth_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/services/backup_service.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/globals.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -14,85 +16,32 @@ class AppDrawer extends StatelessWidget {
       MethodChannel('com.smart_sheet/app_control');
 
   void _showMsg(
-    ScaffoldMessengerState messenger,
     String msg, {
     bool isError = false,
   }) {
-    if (!messenger.mounted) return;
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 8),
-            Expanded(child: Text(msg)),
-          ],
-        ),
-        backgroundColor: isError ? Colors.red : Colors.green,
-        duration: const Duration(seconds: 4),
-      ),
+    UIUtils.showInfoSnackBar(
+      message: msg,
+      backgroundColor: isError ? Colors.red : Colors.green,
+      icon: isError ? Icons.error_outline : Icons.check_circle_outline,
     );
   }
 
-  void _showProgress(ScaffoldMessengerState messenger, String message) {
-    if (!messenger.mounted) return;
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Colors.blue,
-        duration: const Duration(seconds: 30),
-      ),
-    );
+  void _showProgress(String message) {
+    UIUtils.showProgressSnackBar(message: message);
   }
 
-  void _hideSnack(ScaffoldMessengerState messenger) {
-    if (messenger.mounted) {
-      messenger.hideCurrentSnackBar();
-    }
+  void _hideSnack() {
+    scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
   }
 
   /// 🔄 رسالة نجاح ثم إعادة تشغيل التطبيق
-  Future<void> _restartApp(ScaffoldMessengerState messenger) async {
-    if (!messenger.mounted) return;
+  Future<void> _restartApp() async {
+    final messenger = scaffoldMessengerKey.currentState;
+    if (messenger == null) return;
 
-    messenger.hideCurrentSnackBar();
-
-    messenger.showSnackBar(
-      SnackBar(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('✅ تم استعادة البيانات بنجاح'),
-            const SizedBox(height: 4),
-            Text(
-              'سيتم إعادة تشغيل التطبيق لتطبيق التغييرات',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white.withValues(alpha: 0.9),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 3),
-      ),
+    UIUtils.showRestartSnackBar(
+      message: 'تم استعادة البيانات بنجاح',
+      subMessage: 'سيتم إعادة تشغيل التطبيق لتطبيق التغييرات',
     );
 
     await Future.delayed(const Duration(seconds: 3));
@@ -101,7 +50,7 @@ class AppDrawer extends StatelessWidget {
       await _platformChannel.invokeMethod('restartApp');
     } catch (e) {
       debugPrint('Error restarting app: $e');
-      _showMsg(messenger, '❌ فشل إعادة تشغيل التطبيق', isError: true);
+      _showMsg('❌ فشل إعادة تشغيل التطبيق', isError: true);
     }
   }
 
@@ -155,18 +104,17 @@ class AppDrawer extends StatelessWidget {
                   title: const Text('إنشاء نسخة احتياطية محلية'),
                   subtitle: const Text('حفظ ملف Zip على الهاتف'),
                   onTap: () async {
-                    final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(context);
-                    _showProgress(messenger, 'جاري إنشاء النسخة...');
+                    _showProgress('جاري إنشاء النسخة...');
                     try {
                       final result = await backupService.createBackup();
-                      _hideSnack(messenger);
+                      _hideSnack();
                       if (result != null) {
-                        _showMsg(messenger, result);
+                        _showMsg(result);
                       }
                     } catch (e) {
-                      _hideSnack(messenger);
-                      _showMsg(messenger, '❌ فشل النسخ: $e', isError: true);
+                      _hideSnack();
+                      _showMsg('❌ فشل النسخ: $e', isError: true);
                     }
                   },
                 ),
@@ -175,27 +123,25 @@ class AppDrawer extends StatelessWidget {
                   title: const Text('استعادة نسخة محلية'),
                   subtitle: const Text('اختيار ملف Zip من الهاتف'),
                   onTap: () async {
-                    final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(context);
                     try {
                       final result = await backupService.restoreBackup();
-                      _hideSnack(messenger);
+                      _hideSnack();
 
                       if (result != null &&
                           result.contains('SUCCESS_RESTORE')) {
-                        await _restartApp(messenger);
+                        await _restartApp();
                       } else if (result != null && result.isNotEmpty) {
-                        _showMsg(messenger, result, isError: true);
+                        _showMsg(result, isError: true);
                       } else {
                         _showMsg(
-                          messenger,
                           'تم إلغاء الاستعادة أو لم يتم اختيار ملف',
                           isError: true,
                         );
                       }
                     } catch (e) {
-                      _hideSnack(messenger);
-                      _showMsg(messenger, '❌ فشل الاستعادة: $e', isError: true);
+                      _hideSnack();
+                      _showMsg('❌ فشل الاستعادة: $e', isError: true);
                     }
                   },
                 ),

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart'; // تأكد من إضافة url_launcher في pubspec.yaml
 
 import '../../models/worker_model.dart';
+import '../../utils/ui_utils.dart';
 
 class WorkerCard extends StatefulWidget {
   final Worker worker;
@@ -38,14 +39,11 @@ class _WorkerCardState extends State<WorkerCard> {
         throw 'Could not launch $launchUri';
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("تعذر فتح تطبيق الاتصال"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      UIUtils.showInfoSnackBar(
+        message: "تعذر فتح تطبيق الاتصال",
+        backgroundColor: Colors.red,
+        icon: Icons.phone_disabled_outlined,
+      );
     }
   }
 
@@ -59,12 +57,10 @@ class _WorkerCardState extends State<WorkerCard> {
       _isPhoneCopied = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("تم نسخ الرقم"),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
-      ),
+    UIUtils.showInfoSnackBar(
+      message: "تم نسخ الرقم بنجاح",
+      backgroundColor: Colors.green,
+      icon: Icons.content_copy_outlined,
     );
 
     Future.delayed(const Duration(seconds: 3), () {

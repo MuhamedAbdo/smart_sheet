@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class CameraScreen extends StatefulWidget {
   final CameraDescription camera;
@@ -80,14 +81,11 @@ class _CameraScreenState extends State<CameraScreen>
       }
     } catch (e) {
       debugPrint('Camera capture error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في التقاط الصورة: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      UIUtils.showInfoSnackBar(
+        message: "خطأ في التقاط الصورة",
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline,
+      );
     } finally {
       if (mounted) setState(() => _isCapturing = false);
     }

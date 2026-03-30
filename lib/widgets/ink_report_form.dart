@@ -1,6 +1,7 @@
 // lib/src/widgets/ink_report_form.dart
 
 import 'package:flutter/material.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class ColorField {
   final TextEditingController colorController;
@@ -123,8 +124,11 @@ class _InkReportFormState extends State<InkReportForm> {
 
       widget.onSave(report);
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("خطأ: $e")));
+      UIUtils.showInfoSnackBar(
+        message: "حدث خطأ أثناء الحفظ",
+        backgroundColor: Colors.redAccent,
+        icon: Icons.error_outline,
+      );
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
