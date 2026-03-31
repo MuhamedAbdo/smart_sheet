@@ -89,17 +89,25 @@ class _InkReportScreenState extends State<InkReportScreen> {
       title: "⚠️ تحذير: مسح شامل",
       content: "هل أنت متأكد من حذف جميع التقارير نهائياً؟",
       onConfirm: () async {
+        final messenger = ScaffoldMessenger.of(context);
         final Map<dynamic, dynamic> backup = Map.from(_inkReportBox!.toMap());
         await _inkReportBox!.clear();
         if (mounted) {
+          messenger.clearSnackBars();
           UIUtils.showUndoSnackBar(
             message: "تم مسح جميع التقارير",
             onUndo: () async {
+              messenger.clearSnackBars();
               for (var entry in backup.entries) {
                 await _inkReportBox!.put(entry.key, entry.value);
               }
             },
           );
+          Future.delayed(const Duration(milliseconds: 5500), () {
+            try {
+              messenger.clearSnackBars();
+            } catch (_) {}
+          });
         }
       },
     );
@@ -111,12 +119,22 @@ class _InkReportScreenState extends State<InkReportScreen> {
       title: "تأكيد الحذف",
       content: "هل تريد حذف هذا التقرير؟",
       onConfirm: () async {
+        final messenger = ScaffoldMessenger.of(context);
         await _inkReportBox!.delete(key);
         if (mounted) {
+          messenger.clearSnackBars();
           UIUtils.showUndoSnackBar(
             message: "تم حذف التقرير",
-            onUndo: () async => await _inkReportBox!.put(key, record),
+            onUndo: () async {
+              messenger.clearSnackBars();
+              await _inkReportBox!.put(key, record);
+            },
           );
+          Future.delayed(const Duration(milliseconds: 5500), () {
+            try {
+              messenger.clearSnackBars();
+            } catch (_) {}
+          });
         }
       },
     );

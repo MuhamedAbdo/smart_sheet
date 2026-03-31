@@ -88,15 +88,25 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
         title: "حذف سجل الصيانة",
         content: "هل أنت متأكد من حذف هذا السجل؟",
         onConfirm: () async {
+          final messenger = ScaffoldMessenger.of(context);
           await _box!.deleteAt(index);
           if (mounted) {
+            messenger.clearSnackBars();
             UIUtils.showUndoSnackBar(
               message: "تم حذف السجل",
               onUndo: () async {
+                messenger.clearSnackBars();
                 await _box!.putAt(index, recordToRemove);
                 if (mounted) setState(() {});
               },
             );
+
+            Future.delayed(const Duration(milliseconds: 5500), () {
+              try {
+                messenger.clearSnackBars();
+              } catch (_) {}
+            });
+
             setState(() {});
           }
         },

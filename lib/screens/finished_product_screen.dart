@@ -333,11 +333,23 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                                     title: "حذف المنتج",
                                     content: "هل أنت متأكد من حذف المنتج \"${productToRemove.productName}\"؟",
                                     onConfirm: () async {
+                                      final messenger = ScaffoldMessenger.of(context);
                                       await box.delete(key);
+                                      
+                                      messenger.clearSnackBars();
                                       UIUtils.showUndoSnackBar(
                                         message: "تم حذف المنتج",
-                                        onUndo: () => box.put(key, productToRemove),
+                                        onUndo: () async {
+                                          messenger.clearSnackBars();
+                                          await box.put(key, productToRemove);
+                                        },
                                       );
+
+                                      Future.delayed(const Duration(milliseconds: 5500), () {
+                                        try {
+                                          messenger.clearSnackBars();
+                                        } catch (_) {}
+                                      });
                                     },
                                   );
                                 }),

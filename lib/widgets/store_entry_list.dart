@@ -53,11 +53,23 @@ class StoreEntryList extends StatelessWidget {
                       title: "حذف السجل",
                       content: "هل أنت متأكد من حذف هذا السجل من وارد المخزن؟",
                       onConfirm: () async {
+                        final messenger = ScaffoldMessenger.of(context);
                         await box.deleteAt(index);
+                        
+                        messenger.clearSnackBars();
                         UIUtils.showUndoSnackBar(
                           message: "تم حذف السجل",
-                          onUndo: () => box.putAt(index, entryToRemove),
+                          onUndo: () async {
+                            messenger.clearSnackBars();
+                            await box.putAt(index, entryToRemove);
+                          },
                         );
+
+                        Future.delayed(const Duration(milliseconds: 5500), () {
+                          try {
+                            messenger.clearSnackBars();
+                          } catch (_) {}
+                        });
                       },
                     );
                   },

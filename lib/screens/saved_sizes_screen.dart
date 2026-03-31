@@ -181,18 +181,32 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
 
     if (keysToRemove.isEmpty) return;
 
-    // الحذف الفعلي
+    // Capture messenger before async gaps
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Actual Deletion triggers UI rebuild
     await box.deleteAll(keysToRemove);
 
     if (mounted) {
+      messenger.clearSnackBars(); // إزالة أي عرض سابق
+
       UIUtils.showUndoSnackBar(
         message: 'تم حذف العميل "$clientName"',
         onUndo: () async {
+          messenger.clearSnackBars(); // المسح الفوري عند التراجع
           for (var entry in backup) {
             await box.put(entry.key, entry.value);
           }
         },
       );
+
+      // شبكة أمان قاطعة (Safety Net) 🚨
+      // لإجبار الشريط على الاختفاء في حال حدوث تعليق بسبب إعادة بناء واجهة المستخدم.
+      Future.delayed(const Duration(milliseconds: 5500), () {
+        try {
+          messenger.clearSnackBars();
+        } catch (_) {}
+      });
     }
   }
 

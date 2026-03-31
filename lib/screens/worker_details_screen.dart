@@ -68,16 +68,27 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                               title: "حذف الإجراء",
                               content: "هل أنت متأكد من حذف هذا الإجراء؟",
                               onConfirm: () async {
+                                final messenger = ScaffoldMessenger.of(context);
                                 widget.worker.actions.removeAt(index);
                                 await widget.worker.save();
-                                    UIUtils.showUndoSnackBar(
-                                      message: "تم حذف الإجراء",
-                                      onUndo: () async {
-                                        widget.worker.actions.insert(index, actionToRemove);
-                                        await widget.worker.save();
-                                        _refresh();
-                                      },
-                                    );
+
+                                messenger.clearSnackBars();
+                                UIUtils.showUndoSnackBar(
+                                  message: "تم حذف الإجراء",
+                                  onUndo: () async {
+                                    messenger.clearSnackBars();
+                                    widget.worker.actions.insert(index, actionToRemove);
+                                    await widget.worker.save();
+                                    _refresh();
+                                  },
+                                );
+
+                                Future.delayed(const Duration(milliseconds: 5500), () {
+                                  try {
+                                    messenger.clearSnackBars();
+                                  } catch (_) {}
+                                });
+
                                 _refresh();
                               },
                             );

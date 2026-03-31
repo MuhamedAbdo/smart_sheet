@@ -41,11 +41,23 @@ class WorkerList extends StatelessWidget {
                   title: "حذف العامل",
                   content: "هل أنت متأكد من حذف العامل \"${workerToRemove.name}\"؟",
                       onConfirm: () async {
+                        final messenger = ScaffoldMessenger.of(context);
                         await box.deleteAt(index);
+                        
+                        messenger.clearSnackBars();
                         UIUtils.showUndoSnackBar(
                           message: "تم حذف العامل",
-                          onUndo: () => box.putAt(index, workerToRemove),
+                          onUndo: () async {
+                            messenger.clearSnackBars();
+                            await box.putAt(index, workerToRemove);
+                          },
                         );
+
+                        Future.delayed(const Duration(milliseconds: 5500), () {
+                          try {
+                            messenger.clearSnackBars();
+                          } catch (_) {}
+                        });
                       },
                 );
               },

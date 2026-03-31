@@ -312,13 +312,24 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     final backupRecord = box.get(key);
     if (backupRecord == null) return;
 
+    final messenger = ScaffoldMessenger.of(context);
     await box.delete(key);
 
     if (mounted) {
+      messenger.clearSnackBars();
       UIUtils.showUndoSnackBar(
         message: 'تم حذف الصنف بنجاح',
-        onUndo: () async => await box.put(key, backupRecord),
+        onUndo: () async {
+          messenger.clearSnackBars();
+          await box.put(key, backupRecord);
+        },
       );
+
+      Future.delayed(const Duration(milliseconds: 5500), () {
+        try {
+          messenger.clearSnackBars();
+        } catch (_) {}
+      });
     }
   }
 

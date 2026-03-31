@@ -575,11 +575,23 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                       title: "حذف الصورة",
                       content: "هل أنت متأكد من حذف هذه الصورة؟",
                       onConfirm: () {
+                        final messenger = ScaffoldMessenger.of(context);
                         setState(() => _capturedImages.removeAt(index));
+
+                        messenger.clearSnackBars();
                         UIUtils.showUndoSnackBar(
                           message: "تم حذف الصورة",
-                          onUndo: () => setState(() => _capturedImages.insert(index, removedImage)),
+                          onUndo: () {
+                             messenger.clearSnackBars();
+                             setState(() => _capturedImages.insert(index, removedImage));
+                          },
                         );
+
+                        Future.delayed(const Duration(milliseconds: 5500), () {
+                          try {
+                            messenger.clearSnackBars();
+                          } catch (_) {}
+                        });
                       },
                     );
                   },
