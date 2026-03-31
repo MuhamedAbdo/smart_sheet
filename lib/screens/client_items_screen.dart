@@ -109,16 +109,6 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
             centerTitle: !isSearching,
             actions: [
               IconButton(
-                icon: const Icon(Icons.edit, color: Colors.blue),
-                tooltip: "تعديل بيانات العميل",
-                onPressed: () => _navigateToEditClient(allClientRecords),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_forever, color: Colors.red),
-                tooltip: "حذف العميل نهائياً",
-                onPressed: () => _confirmDeleteClient(),
-              ),
-              IconButton(
                 icon: Icon(isSearching ? Icons.close : Icons.search),
                 onPressed: () => setState(() {
                   isSearching = !isSearching;
@@ -298,86 +288,6 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       ),
     );
   }
-
-  void _navigateToEditClient(List<MapEntry<dynamic, dynamic>> allEntries) {
-    if (allEntries.isEmpty) return;
-
-    // نبحث عن سجل العميل الأساسي
-    final clientRecordIndex = allEntries.indexWhere((e) => e.value['isClientRecord'] == true);
-    
-    if (clientRecordIndex != -1) {
-      final clientRecord = allEntries[clientRecordIndex];
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AddSheetSizeScreen(
-            existingData: Map<String, dynamic>.from(clientRecord.value),
-            existingDataKey: clientRecord.key,
-            isClientOnlyMode: true,
-          ),
-        ),
-      );
-    } else {
-      // إذا لم يكن هناك سجل عميل أساسي، نفتح نموذج جديد بالاسم فقط لإنشاء "سجل عميل"
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AddSheetSizeScreen(
-            clientName: widget.clientName,
-            isClientOnlyMode: true,
-          ),
-        ),
-      );
-    }
-  }
-
-  void _confirmDeleteClient() {
-    UIUtils.showDeleteConfirmation(
-      context: context,
-      title: "حذف العميل نهائياً",
-      content: "هل أنت متأكد من حذف العميل \"${widget.clientName}\" وجميع الأصناف المرتبطة به؟\nسيتم حذف كافة البيانات المتعلقة بهذا العميل.",
-      onConfirm: _deleteClientWithUndo,
-    );
-  }
-
-  void _deleteClientWithUndo() async {
-    final box = _savedSheetSizesBox!;
-    final List<MapEntry<dynamic, dynamic>> backup = [];
-    final keysToRemove = [];
-
-    for (var i = 0; i < box.length; i++) {
-      final key = box.keyAt(i);
-      final record = box.getAt(i);
-      if (record is Map &&
-          (record['clientName']?.toString().trim() ?? '') ==
-              widget.clientName.trim()) {
-        backup.add(MapEntry(key, record));
-        keysToRemove.add(key);
-      }
-    }
-
-    if (keysToRemove.isEmpty) return;
-
-    // الحذف الفعلي
-    await box.deleteAll(keysToRemove);
-
-    if (mounted) {
-      UIUtils.showUndoSnackBar(
-        message: 'تم حذف العميل "${widget.clientName}"',
-        onUndo: () async {
-          for (var entry in backup) {
-            await box.put(entry.key, entry.value);
-          }
-        },
-        onDismissed: () {
-          if (mounted) Navigator.of(context).pop();
-        },
-      );
-    }
-  }
-
-
-
 
   void _navigateToEdit(dynamic key, Map<String, dynamic> data) {
     Navigator.push(

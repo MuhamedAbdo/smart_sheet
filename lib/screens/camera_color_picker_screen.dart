@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:image/image.dart' as img;
 // ✅ حذف استيراد go_router
@@ -94,30 +95,34 @@ class _CameraColorPickerScreenState extends State<CameraColorPickerScreen> {
       return;
     }
 
-    // ✅ منع الضغط المتكرر
-    if (_isCapturing) return;
+    if (_isCapturing || _controller.value.isTakingPicture) return;
 
     setState(() {
       _isCapturing = true;
     });
 
-    // ✅ إضافة مؤشر تقدم
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
-
     try {
-      final image = await _controller.takePicture();
+      // ✅ التأكد من اكتمال التهيئة
+      await _initializeControllerFuture.timeout(const Duration(seconds: 5),
+          onTimeout: () {
+        throw TimeoutException('Camera initialization timed out.');
+      });
+
+      // ✅ التقاط الصورة مع مهلة زمنية
+      final image = await _controller.takePicture().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Camera capture timed out.');
+        },
+      );
+
       final bytes = await image.readAsBytes();
-      final decodedImage = img.decodeImage(bytes);
+
+      // ✅ استخدام compute لنقل المعالجة الثقيلة إلى Isolate منعاً لتجمد الواجهة
+      final decodedImage = await compute(img.decodeImage, bytes);
 
       if (decodedImage == null) {
         _showError('Failed to decode image.');
-        if (mounted) Navigator.of(context).pop(); // إغلاق مؤشر التقدم
         setState(() {
           _isCapturing = false;
         });
@@ -127,27 +132,25 @@ class _CameraColorPickerScreenState extends State<CameraColorPickerScreen> {
       int centerX = decodedImage.width ~/ 2;
       int centerY = decodedImage.height ~/ 2;
       final pixel = decodedImage.getPixel(centerX, centerY);
+
+      // ✅ استخراج القيم بأمان
       int r = pixel.r.toInt().clamp(0, 255);
       int g = pixel.g.toInt().clamp(0, 255);
       int b = pixel.b.toInt().clamp(0, 255);
 
       CMYK cmyk = rgbToCmyk(r, g, b);
       if (!mounted) return;
-      Navigator.of(context).pop(); // إغلاق مؤشر التقدم
-      // ✅ Navigate to Color Detail Screen using standard Navigator
+
+      // ✅ التوجه لشاشة التفاصيل
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => ColorDetailScreen(originalCmyk: cmyk),
-          // ✅ تمرير الكائن مباشرة كـ argument
         ),
       );
     } catch (e) {
-      // ✅ إظهار سبب المشكلة
-      _showError('Capture failed: ${e.runtimeType} - $e');
-      if (mounted) Navigator.of(context).pop(); // إغلاق مؤشر التقدم
+      _showError('Capture failed: $e');
     } finally {
-      // ✅ تأكد من أن _isCapturing ترجع false
       if (mounted) {
         setState(() {
           _isCapturing = false;
@@ -265,6 +268,17 @@ class _CameraColorPickerScreenState extends State<CameraColorPickerScreen> {
               ],
             ),
           ),
+
+          // ✅ مؤشر تحميل عام يظهر عند الالتقاط
+          if (_isCapturing)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black26,
+                child: const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              ),
+            ),
         ],
       ),
     );

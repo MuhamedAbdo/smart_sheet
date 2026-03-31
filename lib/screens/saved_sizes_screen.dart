@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
+import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 // تعريف أنواع الترتيب
 enum SortType {
@@ -104,12 +106,94 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
                     builder: (ctx) => ClientItemsScreen(clientName: clientName),
                   ),
                 ),
+                onEdit: () => _navigateToEditClient(clientName),
+                onDelete: () => _confirmDeleteClient(clientName),
               );
             },
           );
         },
       ),
     );
+  }
+
+  void _navigateToEditClient(String clientName) {
+    // جلب كافة السجلات المرتبطة بهذا العميل
+    final allClientRecords = _savedSheetSizesBox.toMap().entries.where((e) {
+      if (e.value is! Map) return false;
+      return (e.value['clientName']?.toString().trim() ?? '') == clientName.trim();
+    }).toList();
+
+    if (allClientRecords.isEmpty) return;
+
+    // نبحث عن سجل العميل الأساسي
+    final clientRecordIndex = allClientRecords.indexWhere((e) => e.value['isClientRecord'] == true);
+    
+    if (clientRecordIndex != -1) {
+      final clientRecord = allClientRecords[clientRecordIndex];
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddSheetSizeScreen(
+            existingData: Map<String, dynamic>.from(clientRecord.value),
+            existingDataKey: clientRecord.key,
+            isClientOnlyMode: true,
+          ),
+        ),
+      );
+    } else {
+      // إذا لم يكن هناك سجل عميل أساسي، نفتح نموذج جديد بالاسم فقط لإنشاء "سجل عميل"
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddSheetSizeScreen(
+            clientName: clientName,
+            isClientOnlyMode: true,
+          ),
+        ),
+      );
+    }
+  }
+
+  void _confirmDeleteClient(String clientName) {
+    UIUtils.showDeleteConfirmation(
+      context: context,
+      title: "حذف العميل نهائياً",
+      content: "هل أنت متأكد من حذف العميل \"$clientName\" وجميع الأصناف المرتبطة به؟\nسيتم حذف كافة البيانات المتعلقة بهذا العميل.",
+      onConfirm: () => _deleteClientWithUndo(clientName),
+    );
+  }
+
+  void _deleteClientWithUndo(String clientName) async {
+    final box = _savedSheetSizesBox;
+    final List<MapEntry<dynamic, dynamic>> backup = [];
+    final keysToRemove = [];
+
+    for (var i = 0; i < box.length; i++) {
+      final key = box.keyAt(i);
+      final record = box.getAt(i);
+      if (record is Map &&
+          (record['clientName']?.toString().trim() ?? '') ==
+              clientName.trim()) {
+        backup.add(MapEntry(key, record));
+        keysToRemove.add(key);
+      }
+    }
+
+    if (keysToRemove.isEmpty) return;
+
+    // الحذف الفعلي
+    await box.deleteAll(keysToRemove);
+
+    if (mounted) {
+      UIUtils.showUndoSnackBar(
+        message: 'تم حذف العميل "$clientName"',
+        onUndo: () async {
+          for (var entry in backup) {
+            await box.put(entry.key, entry.value);
+          }
+        },
+      );
+    }
   }
 
   List<String> _getUniqueClients(Box box) {
@@ -175,11 +259,15 @@ class _ClientCard extends StatelessWidget {
   final String clientName;
   final int itemCount;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   const _ClientCard({
     required this.clientName,
     required this.itemCount,
     required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   @override
@@ -199,7 +287,22 @@ class _ClientCard extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         subtitle: Text('$itemCount صنف مسجل'),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+              onPressed: onEdit,
+              tooltip: "تعديل بيانات العميل",
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+              onPressed: onDelete,
+              tooltip: "حذف العميل",
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16),
+          ],
+        ),
       ),
     );
   }
