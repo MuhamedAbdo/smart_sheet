@@ -185,8 +185,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       }
     }
 
-    // ③ التحقق القديم من تكرار (اسم العميل + الكود معاً) — للحفاظ على المنطق السابق
-    if (duplicateKey == null && widget.existingDataKey == null) {
+    // ③ التحقق من تكرار (اسم العميل + الكود معاً) - ليشمل التعديل أيضاً
+    if (duplicateKey == null) {
       final foundKey = _getDuplicateKey(clientName, productCode);
       if (foundKey != null) {
         _showReplaceDialog(foundKey);
@@ -243,10 +243,19 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
 
     // الحفظ: إما تحديث السجل الحالي، أو استبدال المكرر، أو إضافة جديد
-    final keyToUpdate = widget.existingDataKey ?? duplicateKey;
-    if (keyToUpdate != null) {
-      await _savedSheetSizesBox.put(keyToUpdate, newRecord);
+    if (duplicateKey != null) {
+      // حالة الاستبدال: نحدث السجل المستهدف (المكرر) أولاً لضمان سلامة البيانات
+      await _savedSheetSizesBox.put(duplicateKey, newRecord);
+      
+      // وإذا كنا نقوم بتعديل صنف موجود أصلاً، نحذف السجل القديم بعد نجاح التحديث لضمان الفردية
+      if (widget.existingDataKey != null && widget.existingDataKey != duplicateKey) {
+        await _savedSheetSizesBox.delete(widget.existingDataKey);
+      }
+    } else if (widget.existingDataKey != null) {
+      // تحديث السجل الحالي في وضع التعديل العادي
+      await _savedSheetSizesBox.put(widget.existingDataKey, newRecord);
     } else {
+      // إضافة سجل جديد تماماً
       await _savedSheetSizesBox.add(newRecord);
     }
 
