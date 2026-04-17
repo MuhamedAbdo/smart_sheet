@@ -23,8 +23,10 @@ import 'package:smart_sheet/widgets/sheet_size_production_table.dart';
 class AddSheetSizeScreen extends StatefulWidget {
   final Map? existingData;
   final dynamic existingDataKey;
+
   /// إذا مُرِّر هذا المتغير، يُعبَأ حقل اسم العميل ويُغلق تلقائياً
   final String? clientName;
+
   /// وضع "إدارة العميل" (تعديل اسم أو كود العميل فقط)
   final bool isClientOnlyMode;
 
@@ -72,7 +74,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   String productionWidth1 = "";
   String productionHeight = "";
   String productionWidth2 = "";
-  
+
   String? _originalClientName;
   String? _originalClientCode;
 
@@ -88,8 +90,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     _savedSheetSizesBox = await Hive.openBox('savedSheetSizes');
     if (widget.existingData != null) {
       _loadExistingData(widget.existingData!);
-      _originalClientName = widget.existingData!['clientName']?.toString().trim();
-      _originalClientCode = widget.existingData!['productCode']?.toString().trim();
+      _originalClientName =
+          widget.existingData!['clientName']?.toString().trim();
+      _originalClientCode =
+          widget.existingData!['productCode']?.toString().trim();
     } else if (widget.clientName != null && widget.clientName!.isNotEmpty) {
       // تعبئة اسم العميل تلقائياً عند الإضافة من شاشة تفاصيل العميل
       clientNameController.text = widget.clientName!;
@@ -97,29 +101,29 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
   }
 
-  // دالة لتوحيد النصوص والأرقام العربية/الإنجليزية لمنع التكرار نهائياً
+  // دالة لتوحيد النصوص والأرقام العربية/الإنجليزية لتجنب التكرار
   String _normalizeString(String input) {
     if (input.isEmpty) return "";
     String normalized = input.trim().toLowerCase();
-    
+
     // توحيد الحروف العربية (أ إ آ -> ا)، (ة -> ه)، (ى -> ي)
     normalized = normalized.replaceAll(RegExp(r'[أإآ]'), 'ا');
     normalized = normalized.replaceAll('ة', 'ه');
     normalized = normalized.replaceAll('ى', 'ي');
-    
-    // تحويل الأرقام العربية إلى إنجليزية لتجنب خداع النظام
+
+    // تحويل الأرقام العربية إلى إنجليزية
     const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     for (int i = 0; i < arabicNumbers.length; i++) {
       normalized = normalized.replaceAll(arabicNumbers[i], i.toString());
     }
-    
+
     return normalized;
   }
 
-  // دالة للبحث عن مفتاح السجل المكرر (إن وجد)
+  // دالة للبحث عن مفتاح السجل المكرر (نفس العميل + نفس الكود)
   dynamic _getDuplicateKey(String clientName, String productCode) {
     if (clientName.trim().isEmpty) return null;
-    
+
     final String newClient = _normalizeString(clientName);
     final String newCode = _normalizeString(productCode);
 
@@ -127,11 +131,15 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       final key = _savedSheetSizesBox.keyAt(i);
       final record = _savedSheetSizesBox.getAt(i);
       if (record is Map) {
-        final existingClient = _normalizeString((record['clientName'] ?? '').toString());
-        final existingCode = _normalizeString((record['productCode'] ?? '').toString());
-        
-        // نتخطى السجل الحالي إذا كنا في وضع التعديل
-        if (widget.existingDataKey != null && key == widget.existingDataKey) continue;
+        final existingClient =
+            _normalizeString((record['clientName'] ?? '').toString());
+        final existingCode =
+            _normalizeString((record['productCode'] ?? '').toString());
+
+        // نتخطى السجل الحالي إذا كنا في وضع التعديل لمنع التصادم مع النفس
+        if (widget.existingDataKey != null && key == widget.existingDataKey) {
+          continue;
+        }
 
         if (existingClient == newClient && existingCode == newCode) {
           return key;
@@ -141,7 +149,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     return null;
   }
 
-  Future<void> _saveSheetSize({dynamic duplicateKey}) async {
+  Future<void> _saveSheetSize(
+      {dynamic duplicateKey, bool shouldDeleteOriginal = true}) async {
     final clientName = clientNameController.text.trim();
     final productCode = productCodeController.text.trim();
 
@@ -156,10 +165,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
 
     // ② التحقق من تكرار اسم العميل (في وضع الإضافة فقط)
-    // يُتخطى هذا التحقق إذا كنا نُضيف صنفاً لعميل موجود مسبقاً
-    if (duplicateKey == null &&
-        widget.existingDataKey == null &&
-        widget.clientName == null) {
+    if (widget.existingDataKey == null && widget.clientName == null) {
       final String newClientLower = clientName.toLowerCase();
       bool clientAlreadyExists = false;
 
@@ -185,20 +191,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       }
     }
 
-    // ③ التحقق من تكرار (اسم العميل + الكود معاً) - ليشمل التعديل أيضاً
-    if (duplicateKey == null) {
-      final foundKey = _getDuplicateKey(clientName, productCode);
-      if (foundKey != null) {
-        _showReplaceDialog(foundKey);
-        return;
-      }
-    }
-
-
-
     final List<String> imageNames = _capturedImages.map((item) {
       if (item is File) {
-        return item.path.split('/').last; // إذا كانت صورة محلية جديدة احفظ اسمها فقط
+        return item.path
+            .split('/')
+            .last; // إذا كانت صورة محلية جديدة احفظ اسمها فقط
       } else if (item is String) {
         return item; // إذا كان رابط Supabase أو مسار كامل، اتركه كما هو
       }
@@ -242,21 +239,43 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       });
     }
 
-    // الحفظ: إما تحديث السجل الحالي، أو استبدال المكرر، أو إضافة جديد
+    // --- المنطق المطور للطلب (Hybrid Logic) ---
     if (duplicateKey != null) {
-      // حالة الاستبدال: نحدث السجل المستهدف (المكرر) أولاً لضمان سلامة البيانات
+      // 1. حالة الإستبدال: نحدث السجل الذي كان مكرراً بالبيانات الجديدة
       await _savedSheetSizesBox.put(duplicateKey, newRecord);
-      
-      // وإذا كنا نقوم بتعديل صنف موجود أصلاً، نحذف السجل القديم بعد نجاح التحديث لضمان الفردية
-      if (widget.existingDataKey != null && widget.existingDataKey != duplicateKey) {
+      // وحذف السجل الأصلي (القديم) إذا لزم الأمر لضمان نظافة البيانات
+      if (shouldDeleteOriginal &&
+          widget.existingDataKey != null &&
+          widget.existingDataKey != duplicateKey) {
         await _savedSheetSizesBox.delete(widget.existingDataKey);
       }
-    } else if (widget.existingDataKey != null) {
-      // تحديث السجل الحالي في وضع التعديل العادي
-      await _savedSheetSizesBox.put(widget.existingDataKey, newRecord);
     } else {
-      // إضافة سجل جديد تماماً
-      await _savedSheetSizesBox.add(newRecord);
+      // 2. الفحص الأولي قبل الحفظ
+      if (widget.existingDataKey != null) {
+        // وضع التعديل (Edit Mode)
+        if (productCode == _originalClientCode) {
+          // لم يتغير الكود: تحديث السجل الحالي مباشرة
+          await _savedSheetSizesBox.put(widget.existingDataKey, newRecord);
+        } else {
+          // تغير الكود: نفحص هل الكود الجديد مكرر عند نفس العميل؟
+          final foundKey = _getDuplicateKey(clientName, productCode);
+          if (foundKey != null) {
+            // كود مكرر: نظهر ديالوج الاستبدال
+            _showReplaceDialog(foundKey);
+            return;
+          }
+          // كود فريد: نحفظ كـ صنف جديد (Template) ونبقي على القديم
+          await _savedSheetSizesBox.add(newRecord);
+        }
+      } else {
+        // وضع الإضافة (Add Mode) - نفحص التكرار أولاً
+        final foundKey = _getDuplicateKey(clientName, productCode);
+        if (foundKey != null) {
+          _showReplaceDialog(foundKey);
+          return;
+        }
+        await _savedSheetSizesBox.add(newRecord);
+      }
     }
 
     // ④ المرحلة 3: تحديث متتالي (Cascading Update) إذا تغير اسم العميل أو كوده
@@ -264,19 +283,19 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     if (widget.isClientOnlyMode && _originalClientName != null) {
       final newName = clientName;
       final newCode = productCode;
-      
+
       if (newName != _originalClientName || newCode != _originalClientCode) {
         final box = _savedSheetSizesBox;
         for (var i = 0; i < box.length; i++) {
           final key = box.keyAt(i);
           final record = box.getAt(i);
-          if (record is Map && 
-              (record['clientName']?.toString().trim() ?? '') == _originalClientName) {
-            
+          if (record is Map &&
+              (record['clientName']?.toString().trim() ?? '') ==
+                  _originalClientName) {
             final updatedRecord = Map<String, dynamic>.from(record);
             updatedRecord['clientName'] = newName;
             // لا نحدث الكود هنا للحفاظ على استقلالية أكواد الأصناف كما طلب المستخدم
-            
+
             await box.put(key, updatedRecord);
           }
         }
@@ -285,7 +304,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
     if (mounted) {
       UIUtils.showInfoSnackBar(
-        message: "تم حفظ البيانات وتحديث كافة السجلات",
+        message: "تم حفظ البيانات وتحديث السجلات",
         backgroundColor: Colors.green,
         icon: Icons.check_circle_outline,
       );
@@ -293,32 +312,48 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
   }
 
-  // نافذة الحوار للاستبدال أو الإلغاء
+  // ديالوج التعارض (إستبدال أو إلغاء)
   void _showReplaceDialog(dynamic targetKey) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.orange),
             SizedBox(width: 8),
-            Text("تنبيه تكرار"),
+            Flexible(
+              child: Text(
+                "هذا الكود مسجل بالفعل",
+                softWrap: true,
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
           ],
         ),
-        content: Text(
-            "هذا العميل (${clientNameController.text}) مسجل مسبقاً بنفس كود الصنف (${productCodeController.text}).\n\nهل تريد استبدال المقاس القديم بالجديد؟"),
+        content: SingleChildScrollView(
+          child: Text(
+            "هذا العميل (${clientNameController.text.trim()}) لديه صنف آخر بنفس الكود (${productCodeController.text.trim()}).\n\nهل تريد استبدال الصنف الموجود بالجديد؟",
+            style: const TextStyle(height: 1.4),
+          ),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text("إلغاء"),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              elevation: 0,
+            ),
             onPressed: () {
               Navigator.pop(ctx);
-              _saveSheetSize(duplicateKey: targetKey);
+              _saveSheetSize(
+                  duplicateKey: targetKey, shouldDeleteOriginal: true);
             },
-            child: const Text("استبدال", style: TextStyle(color: Colors.white)),
+            child: const Text("إستبدال", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -353,8 +388,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         }).toList();
       }
 
-      sheetLengthManualController.text = data['sheetLengthManual']?.toString() ?? '';
-      sheetWidthManualController.text = data['sheetWidthManual']?.toString() ?? '';
+      sheetLengthManualController.text =
+          data['sheetLengthManual']?.toString() ?? '';
+      sheetWidthManualController.text =
+          data['sheetWidthManual']?.toString() ?? '';
       isOverFlap = data['isOverFlap'] ?? false;
       isFlap = data['isFlap'] ?? true;
       isOneFlap = data['isOneFlap'] ?? false;
@@ -374,35 +411,36 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   // ignore: unused_element — محجوب مؤقتاً مع واجهة العميل المبسطة
   Future<void> _captureImage() async {
     debugPrint("========== START CAPTURE IMAGE ==========");
-    
+
     setState(() => _isProcessing = true);
     debugPrint("Processing state set to true");
-    
+
     try {
       debugPrint("Taking picture using ImagePicker...");
-      
+
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.camera,
         imageQuality: 100, // نأخذها بجودة عالية ثم نضغطها في الكود أدناه
       );
-      
+
       if (image == null) {
         debugPrint("User cancelled image capture");
         return;
       }
-      
+
       debugPrint("Picture taken: ${image.path}");
 
       final appDir = await getApplicationDocumentsDirectory();
       debugPrint("App Dir: ${appDir.path}");
-      
+
       final imageDir = Directory('${appDir.path}/images');
       if (!await imageDir.exists()) {
         debugPrint("Creating images directory...");
         await imageDir.create(recursive: true);
       }
 
-      final String fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String fileName =
+          'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final targetPath = '${imageDir.path}/$fileName';
       debugPrint("Target Path: $targetPath");
 
@@ -411,11 +449,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       try {
         debugPrint("Attempting image compression...");
         compressedFile = await FlutterImageCompress.compressAndGetFile(
-          image.path, 
-          targetPath,
-          quality: 70
-        );
-        debugPrint("Compression finished. Result: ${compressedFile?.path ?? 'NULL'}");
+            image.path, targetPath,
+            quality: 70);
+        debugPrint(
+            "Compression finished. Result: ${compressedFile?.path ?? 'NULL'}");
       } catch (e, stackTrace) {
         debugPrint("========== COMPRESSION ERROR ==========");
         debugPrint(e.toString());
@@ -427,7 +464,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
           debugPrint("Adding compressed image to list...");
           setState(() => _capturedImages.add(File(compressedFile!.path)));
         } else {
-          debugPrint("Compression failed or returned null. Using fallback copy...");
+          debugPrint(
+              "Compression failed or returned null. Using fallback copy...");
           final uncompressedFile = File(image.path);
           final finalFile = await uncompressedFile.copy(targetPath);
           debugPrint("Fallback copy successful: ${finalFile.path}");
@@ -477,17 +515,23 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
     productionHeight = H.toStringAsFixed(2);
     if (isOverFlap && isTwoFlap) {
-      productionWidth1 = addTwoMm ? (W + 0.2).toStringAsFixed(2) : W.toStringAsFixed(2);
+      productionWidth1 =
+          addTwoMm ? (W + 0.2).toStringAsFixed(2) : W.toStringAsFixed(2);
       productionWidth2 = productionWidth1;
     } else if (isOverFlap && isOneFlap) {
       productionWidth1 = ".....";
-      productionWidth2 = addTwoMm ? (W + 0.2).toStringAsFixed(2) : W.toStringAsFixed(2);
+      productionWidth2 =
+          addTwoMm ? (W + 0.2).toStringAsFixed(2) : W.toStringAsFixed(2);
     } else if (isFlap && isTwoFlap) {
-      productionWidth1 = addTwoMm ? ((W / 2) + 0.2).toStringAsFixed(2) : (W / 2).toStringAsFixed(2);
+      productionWidth1 = addTwoMm
+          ? ((W / 2) + 0.2).toStringAsFixed(2)
+          : (W / 2).toStringAsFixed(2);
       productionWidth2 = productionWidth1;
     } else if (isFlap && isOneFlap) {
       productionWidth1 = ".....";
-      productionWidth2 = addTwoMm ? ((W / 2) + 0.2).toStringAsFixed(2) : (W / 2).toStringAsFixed(2);
+      productionWidth2 = addTwoMm
+          ? ((W / 2) + 0.2).toStringAsFixed(2)
+          : (W / 2).toStringAsFixed(2);
     } else {
       productionWidth1 = productionWidth2 = ".....";
     }
@@ -499,11 +543,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   }
 
   // خاصية لتحديد ما إذا كنا في وضع "إضافة/تعديل عميل" فقط (حقلين فقط)
-  bool get isAddingClientOnly => 
+  bool get isAddingClientOnly =>
       widget.isClientOnlyMode ||
-      (widget.clientName == null && 
-       widget.existingData == null && 
-       widget.existingDataKey == null);
+      (widget.clientName == null &&
+          widget.existingData == null &&
+          widget.existingDataKey == null);
 
   @override
   void dispose() {
@@ -520,12 +564,13 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isLockedMode = widget.clientName != null && widget.existingDataKey == null;
+    final bool isLockedMode =
+        widget.clientName != null && widget.existingDataKey == null;
 
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text(widget.isClientOnlyMode 
+        title: Text(widget.isClientOnlyMode
             ? "تعديل بيانات العميل"
             : widget.existingDataKey != null
                 ? "تعديل الصنف"
@@ -591,8 +636,9 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                         UIUtils.showUndoSnackBar(
                           message: "تم حذف الصورة",
                           onUndo: () {
-                             messenger.clearSnackBars();
-                             setState(() => _capturedImages.insert(index, removedImage));
+                            messenger.clearSnackBars();
+                            setState(() =>
+                                _capturedImages.insert(index, removedImage));
                           },
                         );
 
@@ -619,20 +665,32 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                     isFullSize: isFullSize,
                     isQuarterSize: isQuarterSize,
                     isQuarterWidth: isQuarterWidth,
-                    onOverFlapChanged: (v) =>
-                        setState(() { isOverFlap = v!; isFlap = !v; }),
-                    onFlapChanged: (v) =>
-                        setState(() { isFlap = v!; isOverFlap = !v; }),
-                    onOneFlapChanged: (v) =>
-                        setState(() { isOneFlap = v!; isTwoFlap = !v; }),
-                    onTwoFlapChanged: (v) =>
-                        setState(() { isTwoFlap = v!; isOneFlap = !v; }),
+                    onOverFlapChanged: (v) => setState(() {
+                      isOverFlap = v!;
+                      isFlap = !v;
+                    }),
+                    onFlapChanged: (v) => setState(() {
+                      isFlap = v!;
+                      isOverFlap = !v;
+                    }),
+                    onOneFlapChanged: (v) => setState(() {
+                      isOneFlap = v!;
+                      isTwoFlap = !v;
+                    }),
+                    onTwoFlapChanged: (v) => setState(() {
+                      isTwoFlap = v!;
+                      isOneFlap = !v;
+                    }),
                     onAddTwoMmChanged: (v) =>
                         setState(() => addTwoMm = v ?? false),
-                    onFullSizeChanged: (v) =>
-                        setState(() { isFullSize = v!; isQuarterSize = false; }),
-                    onQuarterSizeChanged: (v) =>
-                        setState(() { isQuarterSize = v ?? false; isFullSize = false; }),
+                    onFullSizeChanged: (v) => setState(() {
+                      isFullSize = v!;
+                      isQuarterSize = false;
+                    }),
+                    onQuarterSizeChanged: (v) => setState(() {
+                      isQuarterSize = v ?? false;
+                      isFullSize = false;
+                    }),
                     onQuarterWidthChanged: (v) =>
                         setState(() => isQuarterWidth = v!),
                   ),
@@ -673,5 +731,4 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       ),
     );
   }
-
-}
+}
