@@ -8,17 +8,18 @@ class SheetSizeCamera extends StatelessWidget {
   final bool isProcessing;
   final List<dynamic> capturedImages;
   final VoidCallback onCaptureImage;
+  final VoidCallback onPickFromGallery;
   final Function(int) onRemoveImage;
 
   const SheetSizeCamera({
     super.key,
-    // cameraController تم حذفه لأنه لم يعد مستخدما
     required this.isCameraReady,
     required this.isProcessing,
     required this.capturedImages,
     required this.onCaptureImage,
+    required this.onPickFromGallery,
     required this.onRemoveImage,
-    dynamic cameraController, // متوافقية رجعية لتجنب كسر الكود لو وجد
+    dynamic cameraController,
   });
 
   @override
@@ -26,27 +27,45 @@ class SheetSizeCamera extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // --- زر الالتقاط ---
-        ElevatedButton.icon(
-          onPressed: isProcessing ? null : onCaptureImage,
-          icon: isProcessing
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.add_a_photo, size: 24),
-          label: const Text(
-            "التقط صورة للأوردر",
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blueGrey.shade800,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+        // --- أزرار إرفاق الصور ---
+        Row(
+          children: [
+            // زر الكاميرا
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: isProcessing ? null : onCaptureImage,
+                icon: isProcessing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.add_a_photo, size: 20),
+                label: const Text(
+                  "الكاميرا",
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                style: _buttonStyle(),
+              ),
             ),
-          ),
+            const SizedBox(width: 10),
+            // زر الاستوديو
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: isProcessing ? null : onPickFromGallery,
+                icon: isProcessing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.photo_library, size: 20),
+                label: const Text(
+                  "الاستوديو",
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                style: _buttonStyle(),
+              ),
+            ),
+          ],
         ),
 
         const SizedBox(height: 12),
@@ -128,5 +147,17 @@ class SheetSizeCamera extends StatelessWidget {
       }
       return Image.file(file, fit: BoxFit.cover);
     }
+  }
+
+  ButtonStyle _buttonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: Colors.blueGrey.shade800,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+    );
   }
 }

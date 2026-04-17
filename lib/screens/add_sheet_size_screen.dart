@@ -408,46 +408,43 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     });
   }
 
-  // ignore: unused_element — محجوب مؤقتاً مع واجهة العميل المبسطة
-  Future<void> _captureImage() async {
-    debugPrint("========== START CAPTURE IMAGE ==========");
+  // دالة موحدة لإرفاق الصور (كاميرا أو استوديو) مع الضغط لتقليل المساحة
+  Future<void> _pickImage(ImageSource source) async {
+    debugPrint("========== START PICK IMAGE (Source: $source) ==========");
 
     setState(() => _isProcessing = true);
     debugPrint("Processing state set to true");
 
     try {
-      debugPrint("Taking picture using ImagePicker...");
+      debugPrint("Picking picture using ImagePicker from $source...");
 
       final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 100, // نأخذها بجودة عالية ثم نضغطها في الكود أدناه
+        source: source,
+        imageQuality: 100, // نأخذها بجودة عالية كمرجع ثم نضغطها لضمان الجودة
       );
 
       if (image == null) {
-        debugPrint("User cancelled image capture");
+        debugPrint("User cancelled image picking");
         return;
       }
 
-      debugPrint("Picture taken: ${image.path}");
+      debugPrint("Image picked: ${image.path}");
 
       final appDir = await getApplicationDocumentsDirectory();
-      debugPrint("App Dir: ${appDir.path}");
-
       final imageDir = Directory('${appDir.path}/images');
       if (!await imageDir.exists()) {
-        debugPrint("Creating images directory...");
         await imageDir.create(recursive: true);
       }
 
+      // توحيد اسم الملف ليكون فريداً
       final String fileName =
           'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final targetPath = '${imageDir.path}/$fileName';
-      debugPrint("Target Path: $targetPath");
 
-      // محاولة ضغط الصورة
+      // دقة الضغط (Quality 70) لضمان مساحة تخزين مثالية مع جودة ممتازة
       XFile? compressedFile;
       try {
-        debugPrint("Attempting image compression...");
+        debugPrint("Attempting image compression (Quality 70)...");
         compressedFile = await FlutterImageCompress.compressAndGetFile(
             image.path, targetPath,
             quality: 70);
@@ -464,25 +461,21 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
           debugPrint("Adding compressed image to list...");
           setState(() => _capturedImages.add(File(compressedFile!.path)));
         } else {
-          debugPrint(
-              "Compression failed or returned null. Using fallback copy...");
+          debugPrint("Compression failed. Copying fallback...");
           final uncompressedFile = File(image.path);
           final finalFile = await uncompressedFile.copy(targetPath);
-          debugPrint("Fallback copy successful: ${finalFile.path}");
           setState(() => _capturedImages.add(finalFile));
         }
       }
     } catch (e, stackTrace) {
-      debugPrint("========== CAPTURE IMAGE FATAL ERROR ==========");
+      debugPrint("========== PICK IMAGE FATAL ERROR ==========");
       debugPrint(e.toString());
       debugPrint(stackTrace.toString());
     } finally {
-      debugPrint("Capture Image Finally Block");
       if (mounted) {
         setState(() => _isProcessing = false);
-        debugPrint("Processing state set to false");
       }
-      debugPrint("========== END CAPTURE IMAGE ==========");
+      debugPrint("========== END PICK IMAGE ==========");
     }
   }
 
@@ -617,11 +610,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
               if (!isAddingClientOnly) ...[
                 // --- الكاميرا وصور الأوردر ---
                 SheetSizeCamera(
-                  cameraController: null, // تم الاستغناء عنه
-                  isCameraReady: true, // دائماً جاهزة مع ImagePicker
+                  isCameraReady: true,
                   isProcessing: _isProcessing,
                   capturedImages: _capturedImages,
-                  onCaptureImage: _captureImage,
+                  onCaptureImage: () => _pickImage(ImageSource.camera),
+                  onPickFromGallery: () => _pickImage(ImageSource.gallery),
                   onRemoveImage: (index) {
                     final removedImage = _capturedImages[index];
                     UIUtils.showDeleteConfirmation(

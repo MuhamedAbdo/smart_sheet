@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -47,6 +48,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   bool _isCameraReady = false;
   bool _isProcessing = false;
   List<File> _capturedImages = [];
+  final ImagePicker _imagePicker = ImagePicker();
 
   // --- خيارات الفلاب (للتفصيل فقط) ---
   bool isOverFlap = false;
@@ -184,6 +186,39 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       if (mounted) {
         UIUtils.showInfoSnackBar(
           message: "خطأ في التقاط الصورة",
+          backgroundColor: Colors.redAccent,
+          icon: Icons.error_outline,
+        );
+      }
+    }
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    try {
+      final XFile? image =
+          await _imagePicker.pickImage(source: ImageSource.gallery);
+      if (image == null) return;
+
+      setState(() => _isProcessing = true);
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final imageDir = Directory('${appDir.path}/sheet_size_images');
+      await imageDir.create(recursive: true);
+
+      final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String imagePath = '${imageDir.path}/$fileName';
+
+      final File savedImage = await File(image.path).copy(imagePath);
+
+      setState(() {
+        _capturedImages.add(savedImage);
+        _isProcessing = false;
+      });
+    } catch (e) {
+      setState(() => _isProcessing = false);
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "خطأ في اختيار الصورة",
           backgroundColor: Colors.redAccent,
           icon: Icons.error_outline,
         );
@@ -356,6 +391,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 isProcessing: _isProcessing,
                 capturedImages: _capturedImages,
                 onCaptureImage: _captureImage,
+                onPickFromGallery: _pickImageFromGallery,
                 onRemoveImage: _removeImage,
               ),
               const SizedBox(height: 20),
