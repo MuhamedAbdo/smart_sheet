@@ -18,14 +18,14 @@ class ArchiveDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionHeader(Icons.event_note, "معلومات أساسية"),
-            _buildDetailRow("📅 التاريخ:", record['date'] ?? '---'),
-            _buildDetailRow("👤 العميل:", record['clientName']?.toString() ?? '---'),
-            _buildDetailRow("📦 الصنف:", record['product']?.toString() ?? '---'),
+            _buildDetailRow(context, "📅 التاريخ:", record['date'] ?? '---'),
+            _buildDetailRow(context, "👤 العميل:", record['clientName']?.toString() ?? '---'),
+            _buildDetailRow(context, "📦 الصنف:", record['product']?.toString() ?? '---'),
             const SizedBox(height: 20),
             
             _buildSectionHeader(Icons.straighten, "المقاسات"),
-            _buildDimensionsDetails(record['dimensions']),
-            _buildDetailRow("🔢 الكمية:", "${record['quantity'] ?? 0}"),
+            _buildDimensionsDetails(context, record['dimensions']),
+            _buildDetailRow(context, "🔢 الكمية:", "${record['quantity'] ?? 0}"),
             const SizedBox(height: 20),
             
             _buildSectionHeader(Icons.palette, "الألوان والأحبار"),
@@ -43,7 +43,12 @@ class ArchiveDetailScreen extends StatelessWidget {
                 ),
                 child: Text(
                   record['notes'].toString(),
-                  style: const TextStyle(fontStyle: FontStyle.italic),
+                  style: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white70
+                        : Colors.black87,
+                  ),
                 ),
               ),
             ],
@@ -81,20 +86,37 @@ class ArchiveDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
+            ),
+          ),
           const SizedBox(width: 10),
-          Expanded(child: Text(value)),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white70
+                    : Colors.black87,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDimensionsDetails(Map? d) {
+  Widget _buildDimensionsDetails(BuildContext context, Map? d) {
     final String length = d?['length']?.toString() ?? '0';
     final String width = d?['width']?.toString() ?? '0';
     final String height = d?['height']?.toString() ?? '0';
@@ -109,19 +131,28 @@ class ArchiveDetailScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildDimItem("طول", length),
-          _buildDimItem("عرض", width),
-          _buildDimItem("ارتفاع", height),
+          _buildDimItem(context, "طول", length),
+          _buildDimItem(context, "عرض", width),
+          _buildDimItem(context, "ارتفاع", height),
         ],
       ),
     );
   }
 
-  Widget _buildDimItem(String label, String val) {
+  Widget _buildDimItem(BuildContext context, String label, String val) {
     return Column(
       children: [
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        Text(val, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(
+          val,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : Colors.black,
+          ),
+        ),
       ],
     );
   }

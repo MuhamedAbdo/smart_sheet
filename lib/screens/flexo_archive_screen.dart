@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/screens/archive_detail_screen.dart';
+import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 
 class FlexoArchiveScreen extends StatefulWidget {
   const FlexoArchiveScreen({super.key});
@@ -12,6 +13,9 @@ class FlexoArchiveScreen extends StatefulWidget {
 
 class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
   Box? _archiveBox;
+  bool _isSearching = false;
+  String _searchQuery = "";
+
 
   @override
   void initState() {
@@ -42,17 +46,44 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     );
   }
 
+  String _normalizeString(String input) {
+    if (input.isEmpty) return "";
+    String normalized = input.trim().toLowerCase();
+    normalized = normalized.replaceAll(RegExp(r'[أإآ]'), 'ا');
+    normalized = normalized.replaceAll('ة', 'ه');
+    normalized = normalized.replaceAll('ى', 'ي');
+    const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    for (int i = 0; i < arabicNumbers.length; i++) {
+      normalized = normalized.replaceAll(arabicNumbers[i], i.toString());
+    }
+    return normalized;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("أرشيف الفلكسو التاريخي"),
+        title: _isSearching
+            ? SavedSizeSearchBar(
+                onChanged: (v) => setState(() => _searchQuery = v),
+              )
+            : const Text("أرشيف الفلكسو التاريخي"),
+        centerTitle: !_isSearching,
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_sweep_outlined),
-            onPressed: _clearArchive,
-            tooltip: "مسح الكل",
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () => setState(() {
+              _isSearching = !_isSearching;
+              if (!_isSearching) _searchQuery = "";
+            }),
+            tooltip: _isSearching ? "إغلاق البحث" : "بحث باسم العميل",
           ),
+          if (!_isSearching)
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_outlined),
+              onPressed: _clearArchive,
+              tooltip: "مسح الكل",
+            ),
         ],
       ),
       body: ValueListenableBuilder(
@@ -62,7 +93,38 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
             return const Center(child: Text("📂 الأرشيف فارغ"));
           }
 
-          final entries = box.toMap().entries.toList();
+          final query = _normalizeString(_searchQuery);
+          var entries = box.toMap().entries.toList();
+
+          // ✅ الفلترة الذكية بناءً على اسم العميل
+          if (query.isNotEmpty) {
+            entries = entries.where((e) {
+              final data = e.value as Map;
+              final report = data['data'] ?? data;
+              final clientName = _normalizeString(report['clientName']?.toString() ?? '');
+              return clientName.contains(query);
+            }).toList();
+          }
+
+          if (entries.isEmpty && _isSearching) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_off, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    "لا توجد تقارير مؤرشفة لهذا العميل",
+                    style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (entries.isEmpty) {
+            return const Center(child: Text("📂 لا توجد بيانات"));
+          }
 
           // ✅ الفرز النهائي: التاريخ (تنازلي) ثم اسم العميل (تصاعدي)
           entries.sort((a, b) {
@@ -126,7 +188,10 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
             context,
             MaterialPageRoute(
               builder: (_) => ArchiveDetailScreen(
-                record: Map<String, dynamic>.from(report),
+                record: {
+                  ...Map<String, dynamic>.from(report),
+                  'archiveDate': data['archiveDate'] ?? '---',
+                },
               ),
             ),
           );
@@ -169,7 +234,12 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                   Expanded(
                     child: RichText(
                       text: TextSpan(
-                        style: const TextStyle(color: Colors.black87, fontSize: 15),
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white70
+                              : Colors.black87,
+                          fontSize: 15,
+                        ),
                         children: [
                           TextSpan(
                             text: product.replaceAll("\n", " "),
@@ -211,7 +281,13 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                         Expanded(
                           child: Text(
                             report['notes'],
-                            style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontStyle: FontStyle.italic,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.orange.shade100
+                                  : Colors.black87,
+                            ),
                           ),
                         ),
                       ],
