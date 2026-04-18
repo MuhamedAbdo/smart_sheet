@@ -38,20 +38,22 @@ class UIUtils {
     );
   }
 
-  /// يعرض شريط تنفيذ (SnackBar) مع خيار التراجع مدته 5 ثوانٍ بالضبط
-  /// يستخدم scaffoldMessengerKey العالمي لضمان الموثوقية
+  /// يعرض شريط تنفيذ (SnackBar) مع خيار التراجع مدته 4 ثوانٍ بالضبط
+  /// يستخدم BuildContext لضمان الارتباط الموثوق بالشاشة الحالية
   static void showUndoSnackBar({
+    required BuildContext context,
     required String message,
     required VoidCallback onUndo,
     VoidCallback? onDismissed,
   }) {
-    final messenger = scaffoldMessengerKey.currentState;
-    if (messenger == null) return;
+    final messenger = ScaffoldMessenger.of(context);
 
-    // إزالة أي شريط حالي فوراً لمنع التراكم
-    messenger.removeCurrentSnackBar();
+    // 1️⃣ تنظيف مضاعف (Double Cleaning): إخفاء أي شريط حالي فوراً ومسح الطابور
+    messenger.hideCurrentSnackBar();
+    messenger.clearSnackBars();
 
-    messenger.showSnackBar(
+    // 2️⃣ عرض الشريط الجديد
+    final snackBar = messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -61,25 +63,43 @@ class UIUtils {
               child: Text(
                 message,
                 style: const TextStyle(
-                  fontFamily: 'Cairo', // فرض الخط يدوياً
+                  fontFamily: 'Cairo',
                   color: Colors.white,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
           ],
         ),
-        duration: const Duration(seconds: 5), // مدة ثابتة 5 ثوانٍ
-        behavior: SnackBarBehavior.fixed,
-        backgroundColor: const Color(0xFF323232), // لون خلفية داكن احترافي
+        duration: const Duration(seconds: 4), // المدة الأساسية: 4 ثوانٍ
+        behavior: SnackBarBehavior.floating, // سلوك عائم لتجنب تغطية الأزرار
+        elevation: 6,
+        margin: const EdgeInsets.all(12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        backgroundColor: const Color(0xFF2C2C2C), // لون داكن بتباين ممتاز في كل الأوضاع
         action: SnackBarAction(
           label: 'تراجع',
           textColor: Colors.yellowAccent,
           onPressed: () {
+            // مسح فوري عند الضغط على تراجع لضمان اختفاء الرسالة
+            messenger.clearSnackBars();
             onUndo();
           },
         ),
       ),
-    ).closed.then((reason) {
+    );
+
+    // 3️⃣ صمام أمان (Safety Timer): التأكد من الإزالة بعد 4.5 ثوانٍ مهما كانت الظروف
+    // نستخدم 4.5 ثوانٍ لإعطاء فرصة لمؤقت Flutter الأصلي أولاً لمنع الوميض
+    Future.delayed(const Duration(milliseconds: 4500), () {
+      try {
+        messenger.clearSnackBars();
+      } catch (_) {
+        // تجاهل الأخطاء إذا كانت الشاشة قد أغلقت بالفعل
+      }
+    });
+
+    snackBar.closed.then((reason) {
       if (reason != SnackBarClosedReason.action) {
         if (onDismissed != null) onDismissed();
       }

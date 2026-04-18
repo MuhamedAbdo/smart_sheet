@@ -93,6 +93,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
           if (mounted) {
             messenger.clearSnackBars();
             UIUtils.showUndoSnackBar(
+              context: context,
               message: "تم حذف السجل",
               onUndo: () async {
                 messenger.clearSnackBars();
@@ -100,12 +101,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
                 if (mounted) setState(() {});
               },
             );
-
-            Future.delayed(const Duration(milliseconds: 5500), () {
-              try {
-                messenger.clearSnackBars();
-              } catch (_) {}
-            });
 
             setState(() {});
           }

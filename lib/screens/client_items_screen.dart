@@ -209,6 +209,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         Expanded(
           child: ListView.builder(
             itemCount: filteredEntries.length,
+            padding: const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 4),
             itemBuilder: (context, index) {
               final entry = filteredEntries[index];
               return SavedSizeCard(
@@ -318,18 +319,13 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     if (mounted) {
       messenger.clearSnackBars();
       UIUtils.showUndoSnackBar(
+        context: context,
         message: 'تم حذف الصنف بنجاح',
         onUndo: () async {
           messenger.clearSnackBars();
           await box.put(key, backupRecord);
         },
       );
-
-      Future.delayed(const Duration(milliseconds: 5500), () {
-        try {
-          messenger.clearSnackBars();
-        } catch (_) {}
-      });
     }
   }
 

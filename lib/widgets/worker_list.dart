@@ -43,21 +43,17 @@ class WorkerList extends StatelessWidget {
                       onConfirm: () async {
                         final messenger = ScaffoldMessenger.of(context);
                         await box.deleteAt(index);
+                        if (!context.mounted) return;
                         
                         messenger.clearSnackBars();
                         UIUtils.showUndoSnackBar(
+                          context: context,
                           message: "تم حذف العامل",
                           onUndo: () async {
                             messenger.clearSnackBars();
                             await box.putAt(index, workerToRemove);
                           },
                         );
-
-                        Future.delayed(const Duration(milliseconds: 5500), () {
-                          try {
-                            messenger.clearSnackBars();
-                          } catch (_) {}
-                        });
                       },
                 );
               },

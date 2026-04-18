@@ -86,7 +86,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 8),
             itemCount: clients.length,
             itemBuilder: (context, index) {
               final String clientName = clients[index];
@@ -191,6 +191,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
       messenger.clearSnackBars(); // إزالة أي عرض سابق
 
       UIUtils.showUndoSnackBar(
+        context: context,
         message: 'تم حذف العميل "$clientName"',
         onUndo: () async {
           messenger.clearSnackBars(); // المسح الفوري عند التراجع
@@ -199,14 +200,6 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
           }
         },
       );
-
-      // شبكة أمان قاطعة (Safety Net) 🚨
-      // لإجبار الشريط على الاختفاء في حال حدوث تعليق بسبب إعادة بناء واجهة المستخدم.
-      Future.delayed(const Duration(milliseconds: 5500), () {
-        try {
-          messenger.clearSnackBars();
-        } catch (_) {}
-      });
     }
   }
 

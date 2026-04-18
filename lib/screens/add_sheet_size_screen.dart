@@ -627,6 +627,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
                         messenger.clearSnackBars();
                         UIUtils.showUndoSnackBar(
+                          context: context,
                           message: "تم حذف الصورة",
                           onUndo: () {
                             messenger.clearSnackBars();
@@ -634,12 +635,6 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                                 _capturedImages.insert(index, removedImage));
                           },
                         );
-
-                        Future.delayed(const Duration(milliseconds: 5500), () {
-                          try {
-                            messenger.clearSnackBars();
-                          } catch (_) {}
-                        });
                       },
                     );
                   },

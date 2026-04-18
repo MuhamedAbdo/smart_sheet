@@ -337,19 +337,15 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                                       await box.delete(key);
                                       
                                       messenger.clearSnackBars();
+                                      if (!context.mounted) return;
                                       UIUtils.showUndoSnackBar(
+                                        context: context,
                                         message: "تم حذف المنتج",
                                         onUndo: () async {
                                           messenger.clearSnackBars();
                                           await box.put(key, productToRemove);
                                         },
                                       );
-
-                                      Future.delayed(const Duration(milliseconds: 5500), () {
-                                        try {
-                                          messenger.clearSnackBars();
-                                        } catch (_) {}
-                                      });
                                     },
                                   );
                                 }),

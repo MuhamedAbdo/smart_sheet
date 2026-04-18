@@ -95,17 +95,13 @@ class _InkReportScreenState extends State<InkReportScreen> {
         if (mounted) {
           messenger.clearSnackBars();
           UIUtils.showUndoSnackBar(
+            context: context,
             message: "تم حذف التقرير",
             onUndo: () async {
               messenger.clearSnackBars();
               await _inkReportBox!.put(key, record);
             },
           );
-          Future.delayed(const Duration(milliseconds: 5500), () {
-            try {
-              messenger.clearSnackBars();
-            } catch (_) {}
-          });
         }
       },
     );
@@ -124,6 +120,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
         if (mounted) {
           messenger.clearSnackBars();
           UIUtils.showUndoSnackBar(
+            context: context,
             message: "تم مسح جميع التقارير",
             onUndo: () async {
               messenger.clearSnackBars();

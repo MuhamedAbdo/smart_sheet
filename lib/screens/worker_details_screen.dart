@@ -71,9 +71,11 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                 final messenger = ScaffoldMessenger.of(context);
                                 widget.worker.actions.removeAt(index);
                                 await widget.worker.save();
+                                if (!context.mounted) return;
 
                                 messenger.clearSnackBars();
                                 UIUtils.showUndoSnackBar(
+                                  context: context,
                                   message: "تم حذف الإجراء",
                                   onUndo: () async {
                                     messenger.clearSnackBars();
@@ -83,11 +85,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                   },
                                 );
 
-                                Future.delayed(const Duration(milliseconds: 5500), () {
-                                  try {
-                                    messenger.clearSnackBars();
-                                  } catch (_) {}
-                                });
+
 
                                 _refresh();
                               },
