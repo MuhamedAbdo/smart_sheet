@@ -59,6 +59,22 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     return normalized;
   }
 
+  List<MapEntry<dynamic, dynamic>> _getFilteredEntries(Box box) {
+    final query = _normalizeString(_searchQuery);
+    var entries = box.toMap().entries.toList();
+
+    if (query.isNotEmpty) {
+      entries = entries.where((e) {
+        final data = e.value as Map;
+        final report = data['data'] ?? data;
+        final clientName =
+            _normalizeString(report['clientName']?.toString() ?? '');
+        return clientName.contains(query);
+      }).toList();
+    }
+    return entries;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -85,6 +101,50 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               tooltip: "مسح الكل",
             ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(40.0),
+          child: ValueListenableBuilder(
+            valueListenable: _archiveBox!.listenable(),
+            builder: (context, Box box, _) {
+              final filteredCount = _getFilteredEntries(box).length;
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+
+              return Container(
+                height: 40,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[900] : Colors.blueGrey[50],
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDark ? Colors.black54 : Colors.blueGrey[100]!,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.inventory_2,
+                      size: 16,
+                      color: isDark ? Colors.blueAccent[100] : Colors.blueAccent,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'إجمالي التقارير: $filteredCount',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Cairo',
+                        color: isDark ? Colors.grey[300] : Colors.blueGrey[800],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
       ),
       body: ValueListenableBuilder(
         valueListenable: _archiveBox!.listenable(),
@@ -93,18 +153,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
             return const Center(child: Text("📂 الأرشيف فارغ"));
           }
 
-          final query = _normalizeString(_searchQuery);
-          var entries = box.toMap().entries.toList();
-
-          // ✅ الفلترة الذكية بناءً على اسم العميل
-          if (query.isNotEmpty) {
-            entries = entries.where((e) {
-              final data = e.value as Map;
-              final report = data['data'] ?? data;
-              final clientName = _normalizeString(report['clientName']?.toString() ?? '');
-              return clientName.contains(query);
-            }).toList();
-          }
+          var entries = _getFilteredEntries(box);
 
           if (entries.isEmpty && _isSearching) {
             return const Center(
