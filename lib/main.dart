@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/globals.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -115,6 +116,7 @@ void _openBackgroundBoxes() {
   final otherBoxes = [
     'savedSheetSizes',
     'inkReports',
+    'flexoArchive',
     'measurements',
     'serial_setup_state'
   ];
@@ -147,6 +149,18 @@ class SmartSheetApp extends StatelessWidget {
       title: 'Smart Sheet',
       debugShowCheckedModeBanner: false,
       theme: themeProvider.theme,
+
+      // ✅ دعم اللغات والتقويم (DatePicker) لضمان عدم حدوث خطأ No MaterialLocalizations
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ar', 'SA'), // العربية
+        Locale('en', 'US'), // الإنجليزية
+      ],
+      locale: const Locale('ar', 'SA'), // اللغة الافتراضية للتطبيق
 
       // ✅ تطبيق حجم الخط عالمياً عبر الـ Builder
       builder: (context, child) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
+import 'package:smart_sheet/screens/flexo_archive_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/ink_report_form.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
@@ -82,36 +83,6 @@ class _InkReportScreenState extends State<InkReportScreen> {
     }
   }
 
-  void _deleteAllReports() {
-    if (_inkReportBox == null || _inkReportBox!.isEmpty) return;
-    UIUtils.showDeleteConfirmation(
-      context: context,
-      title: "⚠️ تحذير: مسح شامل",
-      content: "هل أنت متأكد من حذف جميع التقارير نهائياً؟",
-      onConfirm: () async {
-        final messenger = ScaffoldMessenger.of(context);
-        final Map<dynamic, dynamic> backup = Map.from(_inkReportBox!.toMap());
-        await _inkReportBox!.clear();
-        if (mounted) {
-          messenger.clearSnackBars();
-          UIUtils.showUndoSnackBar(
-            message: "تم مسح جميع التقارير",
-            onUndo: () async {
-              messenger.clearSnackBars();
-              for (var entry in backup.entries) {
-                await _inkReportBox!.put(entry.key, entry.value);
-              }
-            },
-          );
-          Future.delayed(const Duration(milliseconds: 5500), () {
-            try {
-              messenger.clearSnackBars();
-            } catch (_) {}
-          });
-        }
-      },
-    );
-  }
 
   void _deleteSingleReport(dynamic key, dynamic record) {
     UIUtils.showDeleteConfirmation(
@@ -140,6 +111,77 @@ class _InkReportScreenState extends State<InkReportScreen> {
     );
   }
 
+  void _deleteAllReports() {
+    if (_inkReportBox == null || _inkReportBox!.isEmpty) return;
+    UIUtils.showDeleteConfirmation(
+      context: context,
+      title: "⚠️ تحذير: مسح شامل",
+      content: "هل أنت متأكد من حذف جميع التقارير نهائياً؟",
+      onConfirm: () async {
+        final messenger = ScaffoldMessenger.of(context);
+        final Map<dynamic, dynamic> backup = Map.from(_inkReportBox!.toMap());
+        await _inkReportBox!.clear();
+        if (mounted) {
+          messenger.clearSnackBars();
+          UIUtils.showUndoSnackBar(
+            message: "تم مسح جميع التقارير",
+            onUndo: () async {
+              messenger.clearSnackBars();
+              for (var entry in backup.entries) {
+                await _inkReportBox!.put(entry.key, entry.value);
+              }
+            },
+          );
+        }
+      },
+    );
+  }
+
+  // ✅ ميزة الأرشفة الشاملة (نسخ فقط مع بقاء الأصل)
+  void _moveToArchive() {
+    if (_inkReportBox == null || _inkReportBox!.isEmpty) return;
+    
+    UIUtils.showDeleteConfirmation(
+      context: context,
+      title: "نسخ التقارير للأرشيف",
+      content:
+          "سيتم عمل نسخة من التقارير الحالية في الأرشيف مع بقائها هنا. هل تريد الاستمرار؟",
+      confirmLabel: "نسخ للأرشيف",
+      confirmColor: Colors.blueAccent,
+      onConfirm: () async {
+        try {
+          final archiveBox = await Hive.openBox('flexoArchive');
+          final allReports = _inkReportBox!.toMap();
+          
+          for (var entry in allReports.entries) {
+            final archiveEntry = {
+              'type': 'REPORT',
+              'data': Map<String, dynamic>.from(entry.value),
+              'archiveDate': DateTime.now().toString().split('.')[0],
+            };
+            await archiveBox.add(archiveEntry);
+          }
+          
+          if (mounted) {
+            UIUtils.showInfoSnackBar(
+              message: "تم نسخ التقارير للأرشيف بنجاح. يمكنك الآن مسحها يدوياً من هذه الصفحة إذا أردت.",
+              backgroundColor: Colors.blueAccent,
+              icon: Icons.copy_all,
+            );
+          }
+        } catch (e) {
+          debugPrint("Archive Error: $e");
+          if (mounted) {
+            UIUtils.showInfoSnackBar(
+              message: "فشل نسخ البيانات للأرشيف",
+              backgroundColor: Colors.red,
+            );
+          }
+        }
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -156,9 +198,22 @@ class _InkReportScreenState extends State<InkReportScreen> {
         title: _buildSearchField(context, isDark),
         actions: [
           IconButton(
+              icon: Icon(Icons.copy_all, color: appBarIconColor),
+              tooltip: "نسخ للأرشيف",
+              onPressed: _moveToArchive),
+          IconButton(
               icon: Icon(Icons.delete_sweep, color: appBarIconColor),
-              tooltip: "مسح شامل",
+              tooltip: "مسح الكل محلياً",
               onPressed: _deleteAllReports),
+          IconButton(
+              icon: Icon(Icons.inventory_2_outlined, color: appBarIconColor),
+              tooltip: "فتح الأرشيف",
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FlexoArchiveScreen()),
+                );
+              }),
           _buildExportMenu(appBarIconColor),
           IconButton(
               icon: Icon(Icons.sort, color: appBarIconColor),

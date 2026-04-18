@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
+import 'package:smart_sheet/screens/flexo_archive_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/services/backup_service.dart';
@@ -143,6 +144,21 @@ class AppDrawer extends StatelessWidget {
                       _hideSnack();
                       _showMsg('❌ فشل الاستعادة: $e', isError: true);
                     }
+                  },
+                ),
+                const Divider(),
+                ListTile(
+                  leading:
+                      const Icon(Icons.inventory_2_outlined, color: Colors.blueGrey),
+                  title: const Text('أرشيف الفلكسو (تقارير سابقة)'),
+                  subtitle: const Text('عرض التقارير والملفات المؤرشفة'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const FlexoArchiveScreen()),
+                    );
                   },
                 ),
                 const Divider(),

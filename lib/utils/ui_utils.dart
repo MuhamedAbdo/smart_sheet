@@ -8,6 +8,8 @@ class UIUtils {
     required String title,
     required String content,
     required VoidCallback onConfirm,
+    String confirmLabel = "حذف",
+    Color confirmColor = Colors.red,
   }) {
     showDialog(
       context: context,
@@ -21,14 +23,15 @@ class UIUtils {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              backgroundColor: confirmColor,
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
               Navigator.pop(ctx);
               onConfirm();
             },
-            child: const Text("حذف", style: TextStyle(color: Colors.white)),
+            child: Text(confirmLabel, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
