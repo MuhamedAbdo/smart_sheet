@@ -140,10 +140,10 @@ class _InkReportScreenState extends State<InkReportScreen> {
     
     UIUtils.showDeleteConfirmation(
       context: context,
-      title: "نسخ التقارير للأرشيف",
+      title: "نقل التقارير للأرشيف",
       content:
           "سيتم عمل نسخة من التقارير الحالية في الأرشيف مع بقائها هنا. هل تريد الاستمرار؟",
-      confirmLabel: "نسخ للأرشيف",
+      confirmLabel: "نقل للأرشيف",
       confirmColor: Colors.blueAccent,
       onConfirm: () async {
         try {
@@ -161,9 +161,9 @@ class _InkReportScreenState extends State<InkReportScreen> {
           
           if (mounted) {
             UIUtils.showInfoSnackBar(
-              message: "تم نسخ التقارير للأرشيف بنجاح. يمكنك الآن مسحها يدوياً من هذه الصفحة إذا أردت.",
+              message: "تم نقل التقارير للأرشيف بنجاح. يمكنك الآن مسحها يدوياً من هذه الصفحة إذا أردت.",
               backgroundColor: Colors.blueAccent,
-              icon: Icons.copy_all,
+              icon: Icons.inventory_2,
             );
           }
         } catch (e) {
@@ -195,8 +195,8 @@ class _InkReportScreenState extends State<InkReportScreen> {
         title: _buildSearchField(context, isDark),
         actions: [
           IconButton(
-              icon: Icon(Icons.copy_all, color: appBarIconColor),
-              tooltip: "نسخ للأرشيف",
+              icon: Icon(Icons.inventory_2, color: appBarIconColor),
+              tooltip: "نقل للأرشيف",
               onPressed: _moveToArchive),
           IconButton(
               icon: Icon(Icons.delete_sweep, color: appBarIconColor),
@@ -294,7 +294,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
             const Divider(),
             _buildInfoRow(
                 "👤 العميل:", record['clientName']?.toString() ?? '---'),
-            _buildInfoRow("📦 الصنف:", record['product']?.toString() ?? '---'),
+            _buildInfoRow("📦 الصنف:", "${record['product']?.toString() ?? '---'} [ ${record['productCode']?.toString() ?? '---'} ]"),
             _buildDimensionsText(record['dimensions'],
                 isSheet: record['isSheet'] ?? false), // تم تعديل طريقة العرض هنا
 

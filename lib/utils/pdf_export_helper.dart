@@ -25,6 +25,7 @@ import 'package:smart_sheet/globals.dart';
 import 'package:printing/printing.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:open_file/open_file.dart';
+import 'package:smart_sheet/utils/arabic_pdf_helper.dart';
 
 /// ✅ الدالة الجديدة: توليد بيانات PDF وإرجاعها كـ Bytes لاستخدامها في FilePicker
 /// هذه الدالة تحل مشكلة الخطأ "method not defined" في ملف الشاشة
@@ -239,45 +240,31 @@ Future<void> exportReportToPdf(BuildContext context,
 // دوال المساعدة و Isolate (تنسيق الجدول)
 // ---------------------------------
 
-String _buildProductWithDimensions(Map<String, dynamic> record) {
-  final product = record['product']?.toString() ?? '---';
+String _getDimensionsOnly(Map<String, dynamic> record) {
   final dimensions = record['dimensions'];
-  String dimensionsStr = '';
+  if (dimensions is! Map) return '---';
 
-  if (dimensions is Map) {
-    final length = dimensions['length']?.toString() ?? '';
-    final width = dimensions['width']?.toString() ?? '';
-    final height = dimensions['height']?.toString() ?? '';
-
-    String formatNumber(String value) {
-      if (value.isEmpty) return '';
-      if (value.contains('.')) {
-        final parts = value.split('.');
-        if (parts.length > 1 && parts[1] == '0') return parts[0];
-        return value
-            .replaceAll(RegExp(r'0*$'), '')
-            .replaceAll(RegExp(r'\.$'), '');
-      }
-      return value;
+  String formatNumber(String value) {
+    if (value.isEmpty) return '';
+    if (value.contains('.')) {
+      final parts = value.split('.');
+      if (parts.length > 1 && parts[1] == '0') return parts[0];
+      return value.replaceAll(RegExp(r'0*$'), '').replaceAll(RegExp(r'\.$'), '');
     }
-
-    final fL = formatNumber(length);
-    final fW = formatNumber(width);
-    final fH = formatNumber(height);
-
-    final bool isSheet = record['isSheet'] == true;
-
-    if (fL.isNotEmpty && fW.isNotEmpty) {
-      if (isSheet) {
-        dimensionsStr = '$fL x $fW';
-      } else if (fH.isNotEmpty) {
-        dimensionsStr = '$fL/$fW/$fH';
-      }
-    }
+    return value;
   }
 
+  final fL = formatNumber(dimensions['length']?.toString() ?? '');
+  final fW = formatNumber(dimensions['width']?.toString() ?? '');
+  final fH = formatNumber(dimensions['height']?.toString() ?? '');
 
-  return dimensionsStr.isEmpty ? product : '$product\n$dimensionsStr';
+  if (fL.isEmpty || fW.isEmpty) return '---';
+
+  if (record['isSheet'] == true) {
+    return '$fL x $fW';
+  } else {
+    return (fH.isEmpty || fH == '0') ? '$fL x $fW' : '$fL/$fW/$fH';
+  }
 }
 
 Future<Uint8List> _generateConsolidatedPdfBytes(
@@ -306,7 +293,9 @@ Future<Uint8List> _generateConsolidatedPdfBytes(
         _buildHeaderCell('الملاحظات', arabicBoldFont),
         _buildHeaderCell('العدد', arabicBoldFont),
         _buildHeaderCell('كمية الحبر بالليتر', arabicBoldFont),
-        _buildHeaderCell('الصنف', arabicBoldFont),
+        _buildHeaderCell('المقاس', arabicBoldFont),
+        _buildHeaderCell('اسم الصنف', arabicBoldFont),
+        _buildHeaderCell('كود الصنف', arabicBoldFont),
         _buildHeaderCell('العميل', arabicBoldFont),
         _buildHeaderCell('التاريخ', arabicBoldFont),
         _buildHeaderCell('م', arabicBoldFont),
@@ -334,12 +323,13 @@ Future<Uint8List> _generateConsolidatedPdfBytes(
           _buildDataCell(record['notes']?.toString() ?? '---', arabicFont),
           _buildDataCell(record['quantity']?.toString() ?? '---', arabicFont),
           pw.Container(
-              alignment: pw.Alignment.center,
+              alignment: pw.Alignment.centerRight,
               child: _buildInkMiniTable(colorEntries, arabicFont)),
-          _buildDataCell(_buildProductWithDimensions(record), arabicFont),
+          _buildDataCell(_getDimensionsOnly(record), arabicFont),
+          _buildDataCell(record['product']?.toString() ?? '---', arabicFont),
+          _buildDataCell(record['productCode']?.toString() ?? '---', arabicFont),
           _buildDataCell(record['clientName']?.toString() ?? '---', arabicFont),
-          _buildDataCell(
-              _formatDate(record['date']?.toString() ?? '---'), arabicFont),
+          _buildDataCell(_formatDate(record['date']?.toString() ?? '---'), arabicFont),
           _buildDataCell('${startIndex + i + 1}', arabicFont),
         ],
       ));
@@ -351,19 +341,21 @@ Future<Uint8List> _generateConsolidatedPdfBytes(
       build: (context) => pw.Directionality(
         textDirection: pw.TextDirection.rtl,
         child: pw.Column(children: [
-          pw.Text('تقارير طباعة الأحبار',
+          pw.Text(ArabicPDFHelper.fixArabic('تقارير طباعة الأحبار'),
               style: pw.TextStyle(font: arabicBoldFont, fontSize: 18)),
           pw.SizedBox(height: 10),
           pw.Table(
             border: pw.TableBorder.all(width: 0.5),
             columnWidths: {
-              0: const pw.FlexColumnWidth(2),
-              1: const pw.FixedColumnWidth(60),
-              2: const pw.FixedColumnWidth(180),
-              3: const pw.FixedColumnWidth(100),
-              4: const pw.FixedColumnWidth(100),
-              5: const pw.FixedColumnWidth(80),
-              6: const pw.FixedColumnWidth(40),
+              0: const pw.FlexColumnWidth(2), // الملاحظات
+              1: const pw.FixedColumnWidth(40), // العدد
+              2: const pw.FixedColumnWidth(160), // كمية الحبر بالليتر
+              3: const pw.FixedColumnWidth(80), // المقاس
+              4: const pw.FixedColumnWidth(110), // اسم الصنف
+              5: const pw.FixedColumnWidth(80), // كود الصنف
+              6: const pw.FixedColumnWidth(110), // العميل
+              7: const pw.FixedColumnWidth(80), // التاريخ
+              8: const pw.FixedColumnWidth(30), // م
             },
             children: tableRows,
           ),
@@ -376,15 +368,16 @@ Future<Uint8List> _generateConsolidatedPdfBytes(
 
 // الدوال المساعدة للبناء (Header, Data, MiniTable)
 pw.Widget _buildHeaderCell(String text, pw.Font font) => pw.Container(
-    alignment: pw.Alignment.center,
-    padding: const pw.EdgeInsets.all(8),
-    child: pw.Text(text,
+    alignment: pw.Alignment.centerRight,
+    padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+    child: pw.Text(ArabicPDFHelper.fixArabic(text),
         style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.white)));
 
 pw.Widget _buildDataCell(String text, pw.Font font) => pw.Container(
-    alignment: pw.Alignment.center,
-    padding: const pw.EdgeInsets.all(6),
-    child: pw.Text(text, style: pw.TextStyle(font: font, fontSize: 9)));
+    alignment: pw.Alignment.centerRight,
+    padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+    child: pw.Text(ArabicPDFHelper.fixArabic(text),
+        style: pw.TextStyle(font: font, fontSize: 9)));
 
 pw.Widget _buildInkMiniTable(List<Map<String, String>> entries, pw.Font font) {
   return pw.Table(
@@ -408,7 +401,8 @@ pw.Widget _miniCell(String text, pw.Font font) => pw.Container(
     width: 60,
     height: 18,
     alignment: pw.Alignment.center,
-    child: pw.Text(text, style: pw.TextStyle(font: font, fontSize: 7)));
+    child: pw.Text(ArabicPDFHelper.fixArabic(text),
+        style: pw.TextStyle(font: font, fontSize: 7)));
 
 // دالة توليد تقرير فردي لـ Isolate
 Future<Uint8List> _generateSingleReportPdfBytes(
