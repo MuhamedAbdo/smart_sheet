@@ -50,7 +50,9 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   List<File> _capturedImages = [];
   final ImagePicker _imagePicker = ImagePicker();
 
+  bool isSheet = false;
   // --- خيارات الفلاب (للتفصيل فقط) ---
+
   bool isOverFlap = false;
   bool isFlap = true;
   bool isOneFlap = false;
@@ -118,6 +120,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     lengthController.text = data['length']?.toString() ?? '';
     widthController.text = data['width']?.toString() ?? '';
     heightController.text = data['height']?.toString() ?? '';
+    isSheet = data['isSheet'] ?? false;
+
 
     if (_processType == "تفصيل") {
       isOverFlap = data['isOverFlap'] ?? false;
@@ -302,8 +306,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'width': widthController.text,
       'height': heightController.text,
       'imagePaths': _capturedImages.map((file) => file.path).toList(),
+      'isSheet': isSheet,
       'date': DateTime.now().toIso8601String(),
     };
+
 
     if (_processType == "تفصيل") {
       newRecord.addAll({
@@ -381,7 +387,17 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 processType: _processType,
                 onProcessTypeChanged: (value) =>
                     setState(() => _processType = value),
+                isSheet: isSheet,
+                onSheetChanged: (value) {
+                  setState(() {
+                    isSheet = value ?? false;
+                    if (isSheet) {
+                      heightController.text = "0";
+                    }
+                  });
+                },
               ),
+
               const SizedBox(height: 20),
 
               // --- الكاميرا (مشتركة) ---
