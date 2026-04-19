@@ -43,6 +43,8 @@ class _InkReportFormState extends State<InkReportForm> {
   List<ColorField> colors = [];
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isSaving = false;
+  bool isSheet = false;
+
 
   @override
   void initState() {
@@ -75,6 +77,8 @@ class _InkReportFormState extends State<InkReportForm> {
     clientNameController.text = data['clientName']?.toString() ?? '';
     productController.text = data['product']?.toString() ?? '';
     productCodeController.text = data['productCode']?.toString() ?? '';
+    isSheet = data['isSheet'] ?? false;
+
 
     final dimensions = Map<String, dynamic>.from(data['dimensions'] ?? {});
     lengthController.text = dimensions['length']?.toString() ?? '';
@@ -110,8 +114,10 @@ class _InkReportFormState extends State<InkReportForm> {
         'dimensions': {
           'length': lengthController.text.trim(),
           'width': widthController.text.trim(),
-          'height': heightController.text.trim(),
+          'height': isSheet ? "0" : heightController.text.trim(),
         },
+        'isSheet': isSheet,
+
         'colors': colors
             .map((c) => {
                   'color': c.colorController.text.trim(),
@@ -188,13 +194,16 @@ class _InkReportFormState extends State<InkReportForm> {
                         Expanded(
                             child: _buildTextField(widthController, "📏 عرض",
                                 keyboardType: TextInputType.number)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _buildTextField(
-                                heightController, "📏 ارتفاع",
-                                keyboardType: TextInputType.number)),
+                        if (!isSheet) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: _buildTextField(
+                                  heightController, "📏 ارتفاع",
+                                  keyboardType: TextInputType.number)),
+                        ],
                       ],
                     ),
+
                     const SizedBox(height: 20),
                     _buildColorsSection(),
                     const SizedBox(height: 12),

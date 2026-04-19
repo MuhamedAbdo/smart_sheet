@@ -381,8 +381,10 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           'height': dataFromCard['height']?.toString() ?? '',
         },
         'imagePaths': finalImages,
+        'isSheet': dataFromCard['isSheet'] ?? false,
         'notes': 'مستورد من قسم المقاسات',
       };
+
 
       if (context.mounted) {
         Navigator.pop(context);

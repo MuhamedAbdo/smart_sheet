@@ -265,10 +265,17 @@ String _buildProductWithDimensions(Map<String, dynamic> record) {
     final fW = formatNumber(width);
     final fH = formatNumber(height);
 
-    if (fL.isNotEmpty && fW.isNotEmpty && fH.isNotEmpty) {
-      dimensionsStr = '$fL/$fW/$fH';
+    final bool isSheet = record['isSheet'] == true;
+
+    if (fL.isNotEmpty && fW.isNotEmpty) {
+      if (isSheet) {
+        dimensionsStr = '$fL x $fW';
+      } else if (fH.isNotEmpty) {
+        dimensionsStr = '$fL/$fW/$fH';
+      }
     }
   }
+
 
   return dimensionsStr.isEmpty ? product : '$product\n$dimensionsStr';
 }

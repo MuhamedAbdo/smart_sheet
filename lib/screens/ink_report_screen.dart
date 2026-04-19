@@ -295,8 +295,9 @@ class _InkReportScreenState extends State<InkReportScreen> {
             _buildInfoRow(
                 "👤 العميل:", record['clientName']?.toString() ?? '---'),
             _buildInfoRow("📦 الصنف:", record['product']?.toString() ?? '---'),
-            _buildDimensionsText(
-                record['dimensions']), // تم تعديل طريقة العرض هنا
+            _buildDimensionsText(record['dimensions'],
+                isSheet: record['isSheet'] ?? false), // تم تعديل طريقة العرض هنا
+
             _buildQuantityText(record['quantity']),
             _buildColorsList(record['colors'] ?? []),
             _buildNotesText(record['notes']),
@@ -384,10 +385,13 @@ class _InkReportScreenState extends State<InkReportScreen> {
       );
 
   // ✅ التعديل الثاني: عرض المقاسات بشكل صحيح (طول × عرض × ارتفاع) بجانب النص العربي
-  Widget _buildDimensionsText(Map<dynamic, dynamic>? d) {
+  Widget _buildDimensionsText(Map<dynamic, dynamic>? d, {bool isSheet = false}) {
     final String length = d?['length']?.toString() ?? '0';
     final String width = d?['width']?.toString() ?? '0';
     final String height = d?['height']?.toString() ?? '0';
+
+    final String displayText =
+        isSheet ? "$length / $width" : "$length / $width / $height";
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -397,13 +401,14 @@ class _InkReportScreenState extends State<InkReportScreen> {
               style: TextStyle(fontWeight: FontWeight.bold)),
           Directionality(
             textDirection: TextDirection.ltr,
-            child: Text("$length / $width / $height",
+            child: Text(displayText,
                 style: const TextStyle(color: Colors.blueGrey)),
           ),
         ],
       ),
     );
   }
+
 
   Widget _buildQuantityText(q) => Text("🔢 الكمية: ${q ?? 0}");
   Widget _buildColorsList(List c) => c.isEmpty
