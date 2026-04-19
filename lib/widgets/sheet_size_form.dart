@@ -110,21 +110,24 @@ class SheetSizeForm extends StatelessWidget {
               "كود الصنف", productCodeController, type: TextInputType.number),
 
           // --- خيار الشيت ---
-          CheckboxListTile(
-            title: const Text("شيت",
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            value: isSheet,
-            onChanged: onSheetChanged,
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-          ),
+          if (processType == "تكسير")
+            CheckboxListTile(
+              title: const Text("شيت",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              value: isSheet,
+              onChanged: onSheetChanged,
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+
 
           // --- الأبعاد (مشتركة) ---
           _buildTextField("الطول", lengthController, type: TextInputType.number),
           _buildTextField("العرض", widthController, type: TextInputType.number),
-          if (!isSheet)
+          if (!(isSheet && processType == "تكسير"))
             _buildTextField("الارتفاع", heightController, type: TextInputType.number),
+
 
 
           // --- حقول التكسير ---
