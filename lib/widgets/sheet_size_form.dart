@@ -24,7 +24,12 @@ class SheetSizeForm extends StatelessWidget {
   final String processType;
   final ValueChanged<String> onProcessTypeChanged;
 
+  // --- خيار الشيت (جديد) ---
+  final bool isSheet;
+  final ValueChanged<bool?> onSheetChanged;
+
   // --- تحكم في حقل اسم العميل ---
+
   final bool clientNameEnabled;
   final bool clientNameLocked;
 
@@ -45,10 +50,13 @@ class SheetSizeForm extends StatelessWidget {
     this.onCuttingTypeChanged,
     required this.processType,
     required this.onProcessTypeChanged,
+    required this.isSheet,
+    required this.onSheetChanged,
     this.clientNameEnabled = true,
     this.clientNameLocked = false,
     this.isAddingClientOnly = false,
   });
+
 
   // ✅ الحصول على القيمة الفعلية لنوع الشريحة (مع افتراضي)
   String get _effectiveCuttingType => cuttingType ?? 'دوبل';
@@ -101,10 +109,23 @@ class SheetSizeForm extends StatelessWidget {
           _buildTextField(
               "كود الصنف", productCodeController, type: TextInputType.number),
 
+          // --- خيار الشيت ---
+          CheckboxListTile(
+            title: const Text("شيت",
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            value: isSheet,
+            onChanged: onSheetChanged,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+          ),
+
           // --- الأبعاد (مشتركة) ---
           _buildTextField("الطول", lengthController, type: TextInputType.number),
           _buildTextField("العرض", widthController, type: TextInputType.number),
-          _buildTextField("الارتفاع", heightController, type: TextInputType.number),
+          if (!isSheet)
+            _buildTextField("الارتفاع", heightController, type: TextInputType.number),
+
 
           // --- حقول التكسير ---
           if (processType == "تكسير") ...[

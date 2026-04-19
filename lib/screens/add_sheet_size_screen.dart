@@ -60,8 +60,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   bool _isProcessing = false;
   List<dynamic> _capturedImages = []; // يدعم File محلي و String لرابط Supabase
 
+
+  bool isSheet = false;
   bool isOverFlap = false;
   bool isFlap = true;
+
   bool isOneFlap = false;
   bool isTwoFlap = true;
   bool addTwoMm = false;
@@ -212,8 +215,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'height': heightController.text,
       'imagePaths': imageNames,
       'date': DateTime.now().toIso8601String(),
+      'isSheet': isSheet,
       'isClientRecord': isAddingClientOnly,
     };
+
 
     if (_processType == "تفصيل") {
       newRecord.addAll({
@@ -375,8 +380,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       lengthController.text = data['length']?.toString() ?? '';
       widthController.text = data['width']?.toString() ?? '';
       heightController.text = data['height']?.toString() ?? '';
+      isSheet = data['isSheet'] ?? false;
 
       if (data['imagePaths'] != null) {
+
         _capturedImages = (data['imagePaths'] as List).map((p) {
           String path = p.toString();
           if (path.startsWith('http')) {
@@ -599,10 +606,20 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                     setState(() => _cuttingType = v ?? 'دوبل'),
                 processType: _processType,
                 onProcessTypeChanged: (v) => setState(() => _processType = v),
+                isSheet: isSheet,
+                onSheetChanged: (v) {
+                  setState(() {
+                    isSheet = v ?? false;
+                    if (isSheet) {
+                      heightController.text = "0";
+                    }
+                  });
+                },
                 clientNameEnabled: !isLockedMode,
                 clientNameLocked: isLockedMode,
                 isAddingClientOnly: isAddingClientOnly,
               ),
+
 
               const SizedBox(height: 16),
 
