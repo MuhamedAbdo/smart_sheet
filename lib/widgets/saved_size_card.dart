@@ -107,7 +107,9 @@ class SavedSizeCard extends StatelessWidget {
             // --- الأبعاد الأساسية ---
             _buildInfoRow("📏 الطول", "${record['length'] ?? '—'} سم"),
             _buildInfoRow("📐 العرض", "${record['width'] ?? '—'} سم"),
-            _buildInfoRow("📏 الارتفاع", "${record['height'] ?? '—'} سم"),
+            if (record['isSheet'] != true)
+              _buildInfoRow("📏 الارتفاع", "${record['height'] ?? '—'} سم"),
+
 
             const SizedBox(height: 10),
 
@@ -173,7 +175,8 @@ class SavedSizeCard extends StatelessWidget {
           Text(value,
               style: TextStyle(
                   fontSize: 14,
-                  fontWeight: isBold ? FontWeight.bold : FontWeight.bold)),
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+
         ],
       ),
     );
