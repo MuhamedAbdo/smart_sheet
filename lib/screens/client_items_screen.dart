@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:smart_sheet/screens/ink_report_screen.dart';
+import 'package:smart_sheet/screens/production_report_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
@@ -217,7 +217,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                 record: entry.value,
                 onEdit: () => _navigateToEdit(entry.key, entry.value),
                 onDelete: () => _confirmDelete(entry.key),
-                onPrint: (data) => _openInkReportWithSheetData(context, data),
+                onPrint: (data) => _openProductionReportWithSheetData(context, data),
               );
             },
           ),
@@ -342,7 +342,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     return normalized;
   }
 
-  void _openInkReportWithSheetData(
+  void _openProductionReportWithSheetData(
       BuildContext context, Map<String, dynamic> dataFromCard) async {
     showDialog(
       context: context,
@@ -391,7 +391,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (context) => InkReportScreen(initialData: initialData)),
+              builder: (context) => ProductionReportScreen(initialData: initialData)),
         );
       }
     } catch (e) {

@@ -1,4 +1,4 @@
-// lib/src/widgets/ink_report_form.dart
+// lib/widgets/production_report_form.dart
 
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
@@ -13,12 +13,12 @@ class ColorField {
   });
 }
 
-class InkReportForm extends StatefulWidget {
+class ProductionReportForm extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final String? reportKey;
   final void Function(Map<String, dynamic>) onSave;
 
-  const InkReportForm({
+  const ProductionReportForm({
     super.key,
     this.initialData,
     this.reportKey,
@@ -26,10 +26,10 @@ class InkReportForm extends StatefulWidget {
   });
 
   @override
-  State<InkReportForm> createState() => _InkReportFormState();
+  State<ProductionReportForm> createState() => _ProductionReportFormState();
 }
 
-class _InkReportFormState extends State<InkReportForm> {
+class _ProductionReportFormState extends State<ProductionReportForm> {
   late TextEditingController dateController;
   late TextEditingController clientNameController;
   late TextEditingController productController;
@@ -39,6 +39,15 @@ class _InkReportFormState extends State<InkReportForm> {
   late TextEditingController heightController;
   late TextEditingController quantityController;
   late TextEditingController notesController;
+
+  // New Fields
+  late TextEditingController orderNumberController;
+  late TextEditingController startTimeController;
+  late TextEditingController endTimeController;
+  late TextEditingController lineWasteController;
+  late TextEditingController printWasteController;
+  late TextEditingController downtimeStartController;
+  late TextEditingController downtimeEndController;
 
   List<ColorField> colors = [];
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -62,6 +71,14 @@ class _InkReportFormState extends State<InkReportForm> {
     heightController = TextEditingController();
     quantityController = TextEditingController();
     notesController = TextEditingController();
+
+    orderNumberController = TextEditingController();
+    startTimeController = TextEditingController();
+    endTimeController = TextEditingController();
+    lineWasteController = TextEditingController();
+    printWasteController = TextEditingController();
+    downtimeStartController = TextEditingController();
+    downtimeEndController = TextEditingController();
 
     if (widget.initialData != null) {
       _loadInitialData(widget.initialData!);
@@ -87,6 +104,14 @@ class _InkReportFormState extends State<InkReportForm> {
 
     quantityController.text = data['quantity']?.toString() ?? '';
     notesController.text = data['notes']?.toString() ?? '';
+
+    orderNumberController.text = data['orderNumber']?.toString() ?? data['order_number']?.toString() ?? '';
+    startTimeController.text = data['startTime']?.toString() ?? data['start_time']?.toString() ?? '';
+    endTimeController.text = data['endTime']?.toString() ?? data['end_time']?.toString() ?? '';
+    lineWasteController.text = data['lineWaste']?.toString() ?? data['line_waste']?.toString() ?? '';
+    printWasteController.text = data['printWaste']?.toString() ?? data['print_waste']?.toString() ?? '';
+    downtimeStartController.text = data['downtimeStart']?.toString() ?? data['downtime_start']?.toString() ?? '';
+    downtimeEndController.text = data['downtimeEnd']?.toString() ?? data['downtime_end']?.toString() ?? '';
 
     colors.clear();
     if (data['colors'] is List) {
@@ -126,6 +151,13 @@ class _InkReportFormState extends State<InkReportForm> {
             .toList(),
         'quantity': int.tryParse(quantityController.text) ?? 0,
         'notes': notesController.text.trim(),
+        'orderNumber': orderNumberController.text.trim(),
+        'startTime': startTimeController.text.trim(),
+        'endTime': endTimeController.text.trim(),
+        'lineWaste': int.tryParse(lineWasteController.text),
+        'printWaste': int.tryParse(printWasteController.text),
+        'downtimeStart': downtimeStartController.text.trim(),
+        'downtimeEnd': downtimeEndController.text.trim(),
       };
 
       widget.onSave(report);
@@ -151,6 +183,13 @@ class _InkReportFormState extends State<InkReportForm> {
     heightController.dispose();
     quantityController.dispose();
     notesController.dispose();
+    orderNumberController.dispose();
+    startTimeController.dispose();
+    endTimeController.dispose();
+    lineWasteController.dispose();
+    printWasteController.dispose();
+    downtimeStartController.dispose();
+    downtimeEndController.dispose();
     for (var c in colors) {
       c.colorController.dispose();
       c.quantityController.dispose();
@@ -167,8 +206,8 @@ class _InkReportFormState extends State<InkReportForm> {
           Scaffold(
             appBar: AppBar(
                 title: Text(widget.reportKey == null
-                    ? "🆕 إضافة تقرير"
-                    : "✏️ تعديل تقرير")),
+                    ? "🆕 إضافة تقرير إنتاج"
+                    : "✏️ تعديل تقرير إنتاج")),
             body: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Form(
@@ -177,6 +216,29 @@ class _InkReportFormState extends State<InkReportForm> {
                   children: [
                     _buildTextField(dateController, "📅 التاريخ",
                         readOnly: true, onTap: _selectDate),
+                    const SizedBox(height: 12),
+                    _buildTextField(orderNumberController, "🔢 رقم أمر التشغيل",
+                        icon: Icons.numbers, isRequired: false),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(startTimeController, "🕒 وقت البداية",
+                              icon: Icons.access_time,
+                              readOnly: true,
+                              onTap: () => _selectTime(startTimeController),
+                              isRequired: false),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildTextField(endTimeController, "🕒 وقت النهاية",
+                              icon: Icons.access_time,
+                              readOnly: true,
+                              onTap: () => _selectTime(endTimeController),
+                              isRequired: false),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
                     _buildTextField(clientNameController, "👤 اسم العميل"),
                     const SizedBox(height: 12),
@@ -210,7 +272,40 @@ class _InkReportFormState extends State<InkReportForm> {
                     _buildTextField(quantityController, "🔢 عدد الشيتات",
                         keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
-                    // ✅ حقل الملاحظات أصبح اختيارياً الآن
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(lineWasteController, "📉 هالك الإنتاج",
+                              keyboardType: TextInputType.number, isRequired: false),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildTextField(printWasteController, "📉 هالك الطباعة",
+                              keyboardType: TextInputType.number, isRequired: false),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(downtimeStartController, "⏱️ بداية العطل",
+                              icon: Icons.access_time,
+                              readOnly: true,
+                              onTap: () => _selectTime(downtimeStartController),
+                              isRequired: false),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildTextField(downtimeEndController, "⏱️ نهاية العطل",
+                              icon: Icons.access_time,
+                              readOnly: true,
+                              onTap: () => _selectTime(downtimeEndController),
+                              isRequired: false),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     _buildTextField(notesController, "📝 ملاحظات (اختياري)",
                         maxLines: 3, isRequired: false),
                     const SizedBox(height: 30),
@@ -271,7 +366,6 @@ class _InkReportFormState extends State<InkReportForm> {
     );
   }
 
-  // ✅ تم تحديث الدالة لتدعم الحقول الاختيارية
   Widget _buildTextField(
     TextEditingController controller,
     String label, {
@@ -279,7 +373,8 @@ class _InkReportFormState extends State<InkReportForm> {
     VoidCallback? onTap,
     TextInputType? keyboardType,
     int maxLines = 1,
-    bool isRequired = true, // افتراضياً الحقل مطلوب
+    bool isRequired = true,
+    IconData? icon,
   }) {
     return TextFormField(
       controller: controller,
@@ -289,6 +384,7 @@ class _InkReportFormState extends State<InkReportForm> {
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
+        prefixIcon: icon != null ? Icon(icon) : null,
         border: const OutlineInputBorder(),
         alignLabelWithHint: maxLines > 1,
       ),
@@ -310,6 +406,24 @@ class _InkReportFormState extends State<InkReportForm> {
     if (picked != null) {
       setState(() => dateController.text =
           "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}");
+    }
+  }
+
+  Future<void> _selectTime(TextEditingController controller) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      builder: (BuildContext context, Widget? child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        controller.text = picked.format(context);
+      });
     }
   }
 }

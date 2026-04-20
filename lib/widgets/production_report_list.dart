@@ -1,15 +1,15 @@
-// lib/src/widgets/flexo/ink_report_list.dart
+// lib/widgets/production_report_list.dart
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/pdf_export_helper.dart';
 
-class InkReportList extends StatelessWidget {
+class ProductionReportList extends StatelessWidget {
   final Box box;
   final void Function(dynamic, Map<String, dynamic>) onEdit;
   final void Function(dynamic) onDelete;
 
-  const InkReportList({
+  const ProductionReportList({
     super.key,
     required this.box,
     required this.onEdit,
@@ -75,10 +75,20 @@ class InkReportList extends StatelessWidget {
                         record['clientName']?.toString() ?? 'غير محدد'),
                     _buildInfoRow("📦 الصنف:",
                         record['product']?.toString() ?? 'غير محدد'),
+                    
                     if (record['productCode'] != null &&
                         record['productCode'].toString().isNotEmpty)
                       _buildInfoRow(
                           "🔢 كود الصنف:", record['productCode'].toString()),
+                    
+                    if (record['orderNumber'] != null &&
+                        record['orderNumber'].toString().isNotEmpty)
+                      _buildInfoRow("🔢 رقم أمر التشغيل:", record['orderNumber'].toString()),
+                    
+                    if ((record['startTime'] != null && record['startTime'].toString().isNotEmpty) || 
+                        (record['endTime'] != null && record['endTime'].toString().isNotEmpty))
+                      _buildInfoRow("🕒 وقت التشغيل:", "${record['startTime'] ?? '--:--'} إلى ${record['endTime'] ?? '--:--'}"),
+
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -91,6 +101,22 @@ class InkReportList extends StatelessWidget {
                     Text("🔢 عدد الشيتات: ${record['quantity'] ?? 0}"),
                     const SizedBox(height: 8),
                     _buildColorsList(record['colors'] ?? []),
+                    
+                    if (record['lineWaste'] != null || record['printWaste'] != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            const Text("📉 الهالك: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text("إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
+                          ],
+                        ),
+                      ),
+                    
+                    if ((record['downtimeStart'] != null && record['downtimeStart'].toString().isNotEmpty) || 
+                        (record['downtimeEnd'] != null && record['downtimeEnd'].toString().isNotEmpty))
+                      _buildInfoRow("⏱️ وقت الأعطال:", "${record['downtimeStart'] ?? '--:--'} إلى ${record['downtimeEnd'] ?? '--:--'}"),
+
                     const SizedBox(height: 8),
                     _buildNotesText(record['notes']),
                     const SizedBox(height: 12),

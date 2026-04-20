@@ -58,7 +58,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       
       if (mounted) {
         UIUtils.showInfoSnackBar(
-          message: "تم استعادة نسخة من التقرير للقسم النشط بنجاح",
+          message: "تم استعادة نسخة من تقرير الإنتاج للقسم النشط بنجاح",
           backgroundColor: Colors.green,
           icon: Icons.check_circle_outline,
         );
@@ -92,7 +92,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
           
           if (mounted) {
             UIUtils.showInfoSnackBar(
-              message: "تم إستعادة نسخة من كافة التقارير للقسم النشط بنجاح",
+              message: "تم إستعادة نسخة من كافة تقارير الإنتاج للقسم النشط بنجاح",
               backgroundColor: Colors.green,
               icon: Icons.settings_backup_restore,
             );
@@ -273,7 +273,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                   ),
                 ],
               )
-            : const Text("أرشيف الفلكسو التاريخي"),
+            : const Text("أرشيف تقارير الإنتاج"),
         centerTitle: !_isSearching,
         actions: [
           IconButton(

@@ -1,4 +1,4 @@
-// lib/src/widgets/flexo/ink_report_screen.dart
+// lib/screens/production_report_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -6,21 +6,21 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
 import 'package:smart_sheet/screens/flexo_archive_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
-import 'package:smart_sheet/widgets/ink_report_form.dart';
+import 'package:smart_sheet/widgets/production_report_form.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import '../../../utils/pdf_export_helper.dart';
 
-class InkReportScreen extends StatefulWidget {
+class ProductionReportScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
 
-  const InkReportScreen({super.key, this.initialData});
+  const ProductionReportScreen({super.key, this.initialData});
 
   @override
-  State<InkReportScreen> createState() => _InkReportScreenState();
+  State<ProductionReportScreen> createState() => _ProductionReportScreenState();
 }
 
-class _InkReportScreenState extends State<InkReportScreen> {
-  Box? _inkReportBox;
+class _ProductionReportScreenState extends State<ProductionReportScreen> {
+  Box? _productionReportBox;
   bool _isBoxLoading = true;
 
   final TextEditingController _searchController = TextEditingController();
@@ -41,7 +41,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
       if (!Hive.isBoxOpen('inkReports')) await Hive.openBox('inkReports');
       if (mounted) {
         setState(() {
-          _inkReportBox = Hive.box('inkReports');
+          _productionReportBox = Hive.box('inkReports');
           _isBoxLoading = false;
         });
 
@@ -60,12 +60,12 @@ class _InkReportScreenState extends State<InkReportScreen> {
       List<Map<String, dynamic>> records) async {
     try {
       if (records.isEmpty) return;
-      final Uint8List? pdfBytes = await generateInkReportPdfBytes(records);
+      final Uint8List? pdfBytes = await generateProductionReportPdfBytes(records);
       if (pdfBytes == null) return;
 
       String? outputFile = await FilePicker.platform.saveFile(
         dialogTitle: 'اختر مكان حفظ ملف PDF',
-        fileName: 'تقرير_أحبار_${DateTime.now().millisecondsSinceEpoch}.pdf',
+        fileName: 'تقرير_إنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf',
         type: FileType.custom,
         allowedExtensions: ['pdf'],
         bytes: pdfBytes,
@@ -91,7 +91,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
       content: "هل تريد حذف هذا التقرير؟",
       onConfirm: () async {
         final messenger = ScaffoldMessenger.of(context);
-        await _inkReportBox!.delete(key);
+        await _productionReportBox!.delete(key);
         if (mounted) {
           messenger.clearSnackBars();
           UIUtils.showUndoSnackBar(
@@ -99,7 +99,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
             message: "تم حذف التقرير",
             onUndo: () async {
               messenger.clearSnackBars();
-              await _inkReportBox!.put(key, record);
+              await _productionReportBox!.put(key, record);
             },
           );
         }
@@ -108,15 +108,15 @@ class _InkReportScreenState extends State<InkReportScreen> {
   }
 
   void _deleteAllReports() {
-    if (_inkReportBox == null || _inkReportBox!.isEmpty) return;
+    if (_productionReportBox == null || _productionReportBox!.isEmpty) return;
     UIUtils.showDeleteConfirmation(
       context: context,
       title: "⚠️ تحذير: مسح شامل",
       content: "هل أنت متأكد من حذف جميع التقارير نهائياً؟",
       onConfirm: () async {
         final messenger = ScaffoldMessenger.of(context);
-        final Map<dynamic, dynamic> backup = Map.from(_inkReportBox!.toMap());
-        await _inkReportBox!.clear();
+        final Map<dynamic, dynamic> backup = Map.from(_productionReportBox!.toMap());
+        await _productionReportBox!.clear();
         if (mounted) {
           messenger.clearSnackBars();
           UIUtils.showUndoSnackBar(
@@ -125,7 +125,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
             onUndo: () async {
               messenger.clearSnackBars();
               for (var entry in backup.entries) {
-                await _inkReportBox!.put(entry.key, entry.value);
+                await _productionReportBox!.put(entry.key, entry.value);
               }
             },
           );
@@ -136,7 +136,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
 
   // ✅ ميزة الأرشفة الشاملة (نسخ فقط مع بقاء الأصل)
   void _moveToArchive() {
-    if (_inkReportBox == null || _inkReportBox!.isEmpty) return;
+    if (_productionReportBox == null || _productionReportBox!.isEmpty) return;
     
     UIUtils.showDeleteConfirmation(
       context: context,
@@ -148,7 +148,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
       onConfirm: () async {
         try {
           final archiveBox = await Hive.openBox('flexoArchive');
-          final allReports = _inkReportBox!.toMap();
+          final allReports = _productionReportBox!.toMap();
           
           for (var entry in allReports.entries) {
             final archiveEntry = {
@@ -218,7 +218,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
         ],
       ),
       body: ValueListenableBuilder(
-        valueListenable: _inkReportBox!.listenable(),
+        valueListenable: _productionReportBox!.listenable(),
         builder: (context, Box box, _) {
           if (box.isEmpty) {
             return const Center(child: Text("🚫 لا يوجد تقارير"));
@@ -245,7 +245,7 @@ class _InkReportScreenState extends State<InkReportScreen> {
       icon: Icon(Icons.more_vert, color: iconColor),
       onSelected: (value) async {
         final filtered = _filterAndSortRecords(
-            _inkReportBox!, _searchQuery, _sortDescending);
+            _productionReportBox!, _searchQuery, _sortDescending);
         final records = filtered.map((e) => e.value).toList();
         if (value == 'export') await exportReportsToPdf(context, records);
         if (value == 'save') await _savePdfToDeviceLocally(records);
@@ -295,11 +295,35 @@ class _InkReportScreenState extends State<InkReportScreen> {
             _buildInfoRow(
                 "👤 العميل:", record['clientName']?.toString() ?? '---'),
             _buildInfoRow("📦 الصنف:", "${record['product']?.toString() ?? '---'} [ ${record['productCode']?.toString() ?? '---'} ]"),
+            
+            if (record['orderNumber'] != null && record['orderNumber'].toString().isNotEmpty)
+              _buildInfoRow("🔢 أمر التشغيل:", record['orderNumber'].toString()),
+            
+            if ((record['startTime'] != null && record['startTime'].toString().isNotEmpty) || 
+                (record['endTime'] != null && record['endTime'].toString().isNotEmpty))
+              _buildInfoRow("🕒 وقت التشغيل:", "${record['startTime'] ?? '--:--'} إلى ${record['endTime'] ?? '--:--'}"),
+
             _buildDimensionsText(record['dimensions'],
-                isSheet: record['isSheet'] ?? false), // تم تعديل طريقة العرض هنا
+                isSheet: record['isSheet'] ?? false),
 
             _buildQuantityText(record['quantity']),
             _buildColorsList(record['colors'] ?? []),
+            
+            if (record['lineWaste'] != null || record['printWaste'] != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    const Text("📉 الهالك: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text("إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
+                  ],
+                ),
+              ),
+
+            if ((record['downtimeStart'] != null && record['downtimeStart'].toString().isNotEmpty) || 
+                (record['downtimeEnd'] != null && record['downtimeEnd'].toString().isNotEmpty))
+               _buildInfoRow("⏱️ وقت الأعطال:", "${record['downtimeStart'] ?? '--:--'} إلى ${record['downtimeEnd'] ?? '--:--'}"),
+
             _buildNotesText(record['notes']),
             const SizedBox(height: 12),
             Row(
@@ -439,10 +463,10 @@ class _InkReportScreenState extends State<InkReportScreen> {
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        builder: (c) => InkReportForm(
+        builder: (c) => ProductionReportForm(
             initialData: data,
             onSave: (r) {
-              _inkReportBox!.add(r);
+              _productionReportBox!.add(r);
               Navigator.pop(c);
             }));
   }
@@ -451,11 +475,11 @@ class _InkReportScreenState extends State<InkReportScreen> {
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        builder: (c) => InkReportForm(
+        builder: (c) => ProductionReportForm(
             initialData: record,
             reportKey: key.toString(),
             onSave: (r) {
-              _inkReportBox!.put(key, r);
+              _productionReportBox!.put(key, r);
               Navigator.pop(c);
             }));
   }

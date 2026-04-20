@@ -1,22 +1,22 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'ink_report.dart';
+part of 'production_report.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class InkReportAdapter extends TypeAdapter<InkReport> {
+class ProductionReportAdapter extends TypeAdapter<ProductionReport> {
   @override
   final int typeId = 3;
 
   @override
-  InkReport read(BinaryReader reader) {
+  ProductionReport read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return InkReport(
+    return ProductionReport(
       id: fields[0] as String,
       date: fields[1] as String,
       clientName: fields[2] as String,
@@ -28,13 +28,20 @@ class InkReportAdapter extends TypeAdapter<InkReport> {
           .toList(),
       quantity: fields[7] as int,
       notes: fields[8] as String?,
+      orderNumber: fields[9] as String?,
+      startTime: fields[10] as String?,
+      endTime: fields[11] as String?,
+      lineWaste: fields[12] as int?,
+      printWaste: fields[13] as int?,
+      downtimeStart: fields[14] as String?,
+      downtimeEnd: fields[15] as String?,
     );
   }
 
   @override
-  void write(BinaryWriter writer, InkReport obj) {
+  void write(BinaryWriter writer, ProductionReport obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -52,7 +59,21 @@ class InkReportAdapter extends TypeAdapter<InkReport> {
       ..writeByte(7)
       ..write(obj.quantity)
       ..writeByte(8)
-      ..write(obj.notes);
+      ..write(obj.notes)
+      ..writeByte(9)
+      ..write(obj.orderNumber)
+      ..writeByte(10)
+      ..write(obj.startTime)
+      ..writeByte(11)
+      ..write(obj.endTime)
+      ..writeByte(12)
+      ..write(obj.lineWaste)
+      ..writeByte(13)
+      ..write(obj.printWaste)
+      ..writeByte(14)
+      ..write(obj.downtimeStart)
+      ..writeByte(15)
+      ..write(obj.downtimeEnd);
   }
 
   @override
@@ -61,7 +82,7 @@ class InkReportAdapter extends TypeAdapter<InkReport> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is InkReportAdapter &&
+      other is ProductionReportAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

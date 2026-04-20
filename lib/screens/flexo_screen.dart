@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/calculator_screen.dart';
 import 'package:smart_sheet/screens/color_palette_screen.dart';
-import 'package:smart_sheet/screens/ink_report_screen.dart';
+import 'package:smart_sheet/screens/production_report_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/serial_setup_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
@@ -75,12 +75,12 @@ class FlexoScreen extends StatelessWidget {
                   ),
                   HomeButton(
                     icon: Icons.receipt,
-                    label: 'تقرير الأحبار',
+                    label: 'تقرير الإنتاج',
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const InkReportScreen(),
+                          builder: (context) => const ProductionReportScreen(),
                         ),
                       );
                     },

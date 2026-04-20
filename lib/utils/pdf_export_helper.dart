@@ -29,7 +29,7 @@ import 'package:smart_sheet/utils/arabic_pdf_helper.dart';
 
 /// ✅ الدالة الجديدة: توليد بيانات PDF وإرجاعها كـ Bytes لاستخدامها في FilePicker
 /// هذه الدالة تحل مشكلة الخطأ "method not defined" في ملف الشاشة
-Future<Uint8List?> generateInkReportPdfBytes(
+Future<Uint8List?> generateProductionReportPdfBytes(
     List<Map<String, dynamic>> records) async {
   if (records.isEmpty) return null;
 
@@ -55,7 +55,7 @@ Future<Uint8List?> generateInkReportPdfBytes(
 
     return pdfBytes;
   } catch (e) {
-    debugPrint('❌ خطأ في generateInkReportPdfBytes: $e');
+    debugPrint('❌ خطأ في generateProductionReportPdfBytes: $e');
     return null;
   }
 }
@@ -129,7 +129,7 @@ Future<void> savePdfToDevice(
   final hasPermission = status.isGranted;
 
   // إذا لم يتوفر إذن التخزين الخارجي سنحفظ داخلياً
-  final Uint8List? pdfBytes = await generateInkReportPdfBytes(records);
+  final Uint8List? pdfBytes = await generateProductionReportPdfBytes(records);
   if (pdfBytes == null) return;
 
   try {
@@ -140,7 +140,7 @@ Future<void> savePdfToDevice(
         final appDir = Directory('${directory.path}/SmartSheet/Reports');
         if (!await appDir.exists()) await appDir.create(recursive: true);
         final fileName =
-            'تقارير_الحبر_${DateTime.now().millisecondsSinceEpoch}.pdf';
+            'تقارير_الإنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
         final file = File('${appDir.path}/$fileName');
         await file.writeAsBytes(pdfBytes);
         filePath = file.path;
@@ -163,7 +163,7 @@ Future<String> _saveToInternalStorage(Uint8List pdfBytes) async {
   final directory = await getApplicationDocumentsDirectory();
   final appDir = Directory('${directory.path}/SmartSheet/Reports');
   if (!await appDir.exists()) await appDir.create(recursive: true);
-  final fileName = 'تقارير_الحبر_${DateTime.now().millisecondsSinceEpoch}.pdf';
+  final fileName = 'تقارير_الإنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
   final file = File('${appDir.path}/$fileName');
   await file.writeAsBytes(pdfBytes);
   return file.path;
@@ -207,10 +207,10 @@ void _showSuccessSnackBar(
 /// تصدير ومشاركة PDF
 Future<void> exportReportsToPdf(
     BuildContext context, List<Map<String, dynamic>> records) async {
-  final pdfBytes = await generateInkReportPdfBytes(records);
+  final pdfBytes = await generateProductionReportPdfBytes(records);
   if (pdfBytes != null) {
     final fileName =
-        'تقارير_الحبر_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        'تقارير_الإنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
   }
 }
@@ -342,7 +342,7 @@ Future<Uint8List> _generateConsolidatedPdfBytes(
       build: (context) => pw.Directionality(
         textDirection: pw.TextDirection.rtl,
         child: pw.Column(children: [
-          pw.Text(ArabicPDFHelper.fixArabic('تقارير طباعة الأحبار'),
+          pw.Text(ArabicPDFHelper.fixArabic('تقارير الإنتاج'),
               style: pw.TextStyle(font: arabicBoldFont, fontSize: 18)),
           pw.SizedBox(height: 10),
           pw.Table(

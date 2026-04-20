@@ -27,7 +27,7 @@ import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
 import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/models/store_entry_model.dart';
-import 'package:smart_sheet/models/ink_report.dart';
+import 'package:smart_sheet/models/production_report.dart';
 
 // استيراد الخدمات والبروفايدر والشاشات
 import 'package:smart_sheet/config/constants.dart';
@@ -106,7 +106,7 @@ void _registerAdapters() {
     Hive.registerAdapter(MaintenanceRecordAdapter());
   }
   if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(StoreEntryAdapter());
-  if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(InkReportAdapter());
+  if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(ProductionReportAdapter());
 }
 
 void _openBackgroundBoxes() {
