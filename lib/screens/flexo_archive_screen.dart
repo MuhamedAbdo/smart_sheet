@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/screens/archive_detail_screen.dart';
+import 'package:smart_sheet/utils/pdf_export_helper.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 
 class FlexoArchiveScreen extends StatefulWidget {
@@ -253,54 +254,70 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
+
     return Scaffold(
       appBar: AppBar(
+        iconTheme: IconThemeData(color: appBarIconColor),
+        leading: PopupMenuButton<String>(
+          icon: Icon(Icons.menu, color: appBarIconColor),
+          onSelected: (value) async {
+            if (value == 'search') {
+              setState(() => _isSearching = true);
+            } else if (value == 'filter') {
+              _showDateFilterDialog();
+            } else if (value == 'restore') {
+              _restoreAllEntries();
+            } else if (value == 'pdf_view' || value == 'pdf_save') {
+              final filtered = _getFilteredEntries(_archiveBox!);
+              final records = filtered.map((e) {
+                final data = e.value as Map;
+                return Map<String, dynamic>.from(data['data'] ?? data);
+              }).toList();
+              
+              if (value == 'pdf_view') {
+                await exportReportsToPdf(context, records);
+              } else {
+                await savePdfToDevice(context, records);
+              }
+            } else if (value == 'clear') {
+              _clearArchive();
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: 'search', child: ListTile(leading: Icon(Icons.search), title: Text('بحث'))),
+            const PopupMenuItem(value: 'filter', child: ListTile(leading: Icon(Icons.calendar_month), title: Text('تصفية بالتاريخ'))),
+            const PopupMenuItem(value: 'restore', child: ListTile(leading: Icon(Icons.settings_backup_restore), title: Text('استعادة الكل'))),
+            const PopupMenuItem(value: 'pdf_view', child: ListTile(leading: Icon(Icons.picture_as_pdf), title: Text('عرض/طباعة PDF'))),
+            const PopupMenuItem(value: 'pdf_save', child: ListTile(leading: Icon(Icons.save_alt), title: Text('حفظ نسخة PDF'))),
+            const PopupMenuItem(value: 'clear', child: ListTile(leading: Icon(Icons.delete_sweep_outlined, color: Colors.red), title: Text('مسح الأرشيف', style: TextStyle(color: Colors.red)))),
+          ],
+        ),
         title: _isSearching
-            ? Row(
-                children: [
-                  Expanded(
-                    child: SavedSizeSearchBar(
-                      onChanged: (v) => setState(() => _searchQuery = v),
-                    ),
+            ? Container(
+                height: 40,
+                decoration: BoxDecoration(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
+                child: TextField(
+                  autofocus: true,
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  decoration: InputDecoration(
+                    hintText: 'بحث باسم العميل...',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => setState(() {
+                      _isSearching = false;
+                      _searchQuery = '';
+                      _selectedDate = null;
+                    })),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.calendar_month,
-                      color: _selectedDate != null ? Colors.orangeAccent : null,
-                    ),
-                    onPressed: _showDateFilterDialog,
-                    tooltip: "بحث بتاريخ الإنتاج",
-                  ),
-                ],
+                ),
               )
             : const Text("أرشيف تقارير الإنتاج"),
         centerTitle: !_isSearching,
-        actions: [
-          IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search),
-            onPressed: () => setState(() {
-              _isSearching = !_isSearching;
-              if (!_isSearching) {
-                _searchQuery = "";
-                _selectedDate = null;
-              }
-            }),
-            tooltip: _isSearching ? "إغلاق البحث" : "بحث باسم العميل",
-          ),
-          if (!_isSearching) ...[
-            IconButton(
-              icon: const Icon(Icons.settings_backup_restore),
-              onPressed: _restoreAllEntries,
-              tooltip: "إستعادة الكل للرئيسية",
-              color: Colors.greenAccent,
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined),
-              onPressed: _clearArchive,
-              tooltip: "مسح الكل",
-            ),
-          ],
-        ],
+        actions: const [],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(40.0),
           child: ValueListenableBuilder(
