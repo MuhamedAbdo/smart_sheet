@@ -46,6 +46,63 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     );
   }
 
+  // ✅ ميزة استعادة سجل واحد للأرشيف
+  void _restoreEntry(dynamic key, Map data) async {
+    try {
+      final reportsBox = Hive.box('inkReports');
+      final reportData = data['data'] ?? data;
+      
+      // نقوم بإضافة نسخة للتقارير النشطة دون حذفها من الأرشيف
+      await reportsBox.add(reportData);
+      
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "تم استعادة نسخة من التقرير للقسم النشط بنجاح",
+          backgroundColor: Colors.green,
+          icon: Icons.check_circle_outline,
+        );
+      }
+    } catch (e) {
+      debugPrint("Restore Error: $e");
+    }
+  }
+
+  // ✅ ميزة استعادة الكل
+  void _restoreAllEntries() {
+    if (_archiveBox == null || _archiveBox!.isEmpty) return;
+    
+    UIUtils.showDeleteConfirmation(
+      context: context,
+      title: "إستعادة نسخة من كافة البيانات",
+      content: "سيتم نسخ كافة تقارير الأرشيف إلى القسم النشط مع الإبقاء عليها في الأرشيف. هل تريد الاستمرار؟",
+      confirmLabel: "إستعادة الكل",
+      confirmColor: Colors.green,
+      onConfirm: () async {
+        try {
+          final reportsBox = Hive.box('inkReports');
+          final allArchive = _archiveBox!.toMap();
+          
+          for (var entry in allArchive.entries) {
+            final data = entry.value as Map;
+            final reportData = data['data'] ?? data;
+            await reportsBox.add(reportData);
+          }
+          // تم إزالة عملية التفريغ (clear) بناءً على طلب المستخدم لإبقاء الأرشيف كنسخة دائمة
+          
+          if (mounted) {
+            UIUtils.showInfoSnackBar(
+              message: "تم إستعادة نسخة من كافة التقارير للقسم النشط بنجاح",
+              backgroundColor: Colors.green,
+              icon: Icons.settings_backup_restore,
+            );
+          }
+        } catch (e) {
+          debugPrint("Restore All Error: $e");
+        }
+      },
+    );
+  }
+
   String _normalizeString(String input) {
     if (input.isEmpty) return "";
     String normalized = input.trim().toLowerCase();
@@ -94,12 +151,19 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
             }),
             tooltip: _isSearching ? "إغلاق البحث" : "بحث باسم العميل",
           ),
-          if (!_isSearching)
+          if (!_isSearching) ...[
+            IconButton(
+              icon: const Icon(Icons.settings_backup_restore),
+              onPressed: _restoreAllEntries,
+              tooltip: "إستعادة الكل للرئيسية",
+              color: Colors.greenAccent,
+            ),
             IconButton(
               icon: const Icon(Icons.delete_sweep_outlined),
               onPressed: _clearArchive,
               tooltip: "مسح الكل",
             ),
+          ],
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(40.0),
@@ -264,13 +328,34 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Text(
-                    displayDate,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[600],
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        displayDate,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.settings_backup_restore, color: Colors.green),
+                        onPressed: () => _restoreEntry(key, data),
+                        tooltip: "إستعادة للرئيسية",
+                      ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                        icon: Icon(Icons.delete_outline, color: Colors.red.shade300),
+                        onPressed: () => _deleteEntry(key),
+                        tooltip: "حذف من الأرشيف",
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -281,32 +366,54 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                   const Icon(Icons.inventory_2_outlined, size: 18, color: Colors.blueGrey),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white70
-                              : Colors.black87,
-                          fontSize: 15,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: product.replaceAll("\n", " "),
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                          if (dimStr.isNotEmpty) ...[
-                            const TextSpan(text: " | ", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-                            TextSpan(
-                              text: dimStr,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blueAccent,
-                                fontSize: 16,
-                              ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white70
+                                  : Colors.black87,
+                              fontSize: 15,
                             ),
-                          ],
-                        ],
-                      ),
+                            children: [
+                              TextSpan(
+                                text: product.replaceAll("\n", " "),
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              TextSpan(
+                                text: " [ ${report['productCode'] ?? '---'} ]",
+                                style: const TextStyle(
+                                  color: Colors.blueAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (dimStr.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              children: [
+                                const Text("📏 المقاس: ", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                Directionality(
+                                  textDirection: TextDirection.ltr,
+                                  child: Text(
+                                    dimStr,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blueAccent,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],

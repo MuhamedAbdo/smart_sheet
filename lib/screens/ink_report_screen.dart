@@ -368,8 +368,19 @@ class _InkReportScreenState extends State<InkReportScreen> {
         .toList();
 
     entries.sort((a, b) {
-      // نعتمد على الـ key الخاص بـ Hive لأنه تزايدي تلقائياً مع كل إضافة
-      return descending ? b.key.compareTo(a.key) : a.key.compareTo(b.key);
+      final dateAStr = a.value['date']?.toString() ?? '2000-01-01';
+      final dateBStr = b.value['date']?.toString() ?? '2000-01-01';
+      final dateA = DateTime.tryParse(dateAStr) ?? DateTime(2000);
+      final dateB = DateTime.tryParse(dateBStr) ?? DateTime(2000);
+
+      // الفرز الأساسي: التاريخ (حسب اختيار المستخدم)
+      int dateCompare = descending ? dateB.compareTo(dateA) : dateA.compareTo(dateB);
+      if (dateCompare != 0) return dateCompare;
+
+      // الفرز الثانوي: اسم العميل (تصاعدياً دائماً)
+      final nameA = (a.value['clientName'] ?? '').toString().toLowerCase();
+      final nameB = (b.value['clientName'] ?? '').toString().toLowerCase();
+      return nameA.compareTo(nameB);
     });
 
     return entries;
