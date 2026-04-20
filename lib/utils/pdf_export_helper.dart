@@ -245,7 +245,7 @@ String _getDimensionsOnly(Map<String, dynamic> record) {
   if (dimensions is! Map) return '---';
 
   String formatNumber(String value) {
-    if (value.isEmpty) return '';
+    if (value.isEmpty) return '0';
     if (value.contains('.')) {
       final parts = value.split('.');
       if (parts.length > 1 && parts[1] == '0') return parts[0];
@@ -258,12 +258,13 @@ String _getDimensionsOnly(Map<String, dynamic> record) {
   final fW = formatNumber(dimensions['width']?.toString() ?? '');
   final fH = formatNumber(dimensions['height']?.toString() ?? '');
 
-  if (fL.isEmpty || fW.isEmpty) return '---';
+  if (fL == '0' || fW == '0') return '---';
 
+  // صياغة النص بناءً على نوع الصنف
   if (record['isSheet'] == true) {
-    return '$fL x $fW';
+    return '$fL / $fW';
   } else {
-    return (fH.isEmpty || fH == '0') ? '$fL x $fW' : '$fL/$fW/$fH';
+    return '$fL / $fW / $fH';
   }
 }
 
@@ -325,7 +326,7 @@ Future<Uint8List> _generateConsolidatedPdfBytes(
           pw.Container(
               alignment: pw.Alignment.centerRight,
               child: _buildInkMiniTable(colorEntries, arabicFont)),
-          _buildDataCell(_getDimensionsOnly(record), arabicFont),
+          _buildCenteredDataCell(_getDimensionsOnly(record), arabicFont),
           _buildDataCell(record['product']?.toString() ?? '---', arabicFont),
           _buildDataCell(record['productCode']?.toString() ?? '---', arabicFont),
           _buildDataCell(record['clientName']?.toString() ?? '---', arabicFont),
@@ -375,6 +376,12 @@ pw.Widget _buildHeaderCell(String text, pw.Font font) => pw.Container(
 
 pw.Widget _buildDataCell(String text, pw.Font font) => pw.Container(
     alignment: pw.Alignment.centerRight,
+    padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+    child: pw.Text(ArabicPDFHelper.fixArabic(text),
+        style: pw.TextStyle(font: font, fontSize: 9)));
+
+pw.Widget _buildCenteredDataCell(String text, pw.Font font) => pw.Container(
+    alignment: pw.Alignment.center,
     padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
     child: pw.Text(ArabicPDFHelper.fixArabic(text),
         style: pw.TextStyle(font: font, fontSize: 9)));
