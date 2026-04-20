@@ -15,6 +15,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
   Box? _archiveBox;
   bool _isSearching = false;
   String _searchQuery = "";
+  String? _selectedDate;
 
 
   @override
@@ -116,20 +117,138 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     return normalized;
   }
 
+  // ✅ توحيد صيغة التاريخ وتجاهل الوقت (YYYY-MM-DD)
+  String _normalizeDateOnly(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty || dateStr == "---") return "";
+    try {
+      final dt = DateTime.tryParse(dateStr);
+      if (dt != null) {
+        return "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
+      }
+    } catch (_) {}
+    // في حال فشل الـ parse، نحاول استخراج أول جزء (التاريخ) يدوياً
+    return dateStr.split(' ')[0].split('T')[0];
+  }
+
   List<MapEntry<dynamic, dynamic>> _getFilteredEntries(Box box) {
     final query = _normalizeString(_searchQuery);
     var entries = box.toMap().entries.toList();
 
+    // 1. الفلترة باسم العميل أو كود الصنف
     if (query.isNotEmpty) {
       entries = entries.where((e) {
         final data = e.value as Map;
         final report = data['data'] ?? data;
-        final clientName =
-            _normalizeString(report['clientName']?.toString() ?? '');
-        return clientName.contains(query);
+        final clientName = _normalizeString(report['clientName']?.toString() ?? '');
+        final productCode = _normalizeString(report['productCode']?.toString() ?? '');
+        return clientName.contains(query) || productCode.contains(query);
       }).toList();
     }
+
+    // 2. الفلترة بتاريخ الإنتاج المختار (بعد التطبيع)
+    if (_selectedDate != null) {
+      entries = entries.where((e) {
+        final data = e.value as Map;
+        final report = data['data'] ?? data;
+        final prodDate = _normalizeDateOnly(report['date']?.toString());
+        return prodDate == _selectedDate;
+      }).toList();
+    }
+
     return entries;
+  }
+
+  List<String> _getUniqueDates() {
+    if (_archiveBox == null) return [];
+    final Set<String> dates = {};
+    for (var value in _archiveBox!.values) {
+      final data = value as Map;
+      final report = data['data'] ?? data;
+      final rawDate = report['date']?.toString();
+      final normalizedDate = _normalizeDateOnly(rawDate);
+      if (normalizedDate.isNotEmpty) {
+        dates.add(normalizedDate);
+      }
+    }
+    final sortedDates = dates.toList();
+    sortedDates.sort((a, b) {
+      final dA = DateTime.tryParse(a) ?? DateTime(2000);
+      final dB = DateTime.tryParse(b) ?? DateTime(2000);
+      return dB.compareTo(dA);
+    });
+    return sortedDates;
+  }
+
+  void _showDateFilterDialog() {
+    final uniqueDates = _getUniqueDates();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.all(0),
+        title: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            color: Colors.blueAccent,
+            borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.calendar_month, color: Colors.white),
+              SizedBox(width: 10),
+              Text("اختر تاريخ الإنتاج", style: TextStyle(color: Colors.white, fontFamily: 'Cairo', fontSize: 18)),
+            ],
+          ),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // خيار عرض الكل
+              ListTile(
+                leading: const Icon(Icons.all_inclusive, color: Colors.green),
+                title: const Text("عرض الكل (إلغاء الفلترة)", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontFamily: 'Cairo')),
+                onTap: () {
+                  setState(() => _selectedDate = null);
+                  Navigator.pop(context);
+                },
+              ),
+              const Divider(),
+              if (uniqueDates.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text("لا توجد تواريخ متاحة"),
+                )
+              else
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: uniqueDates.length,
+                    itemBuilder: (ctx, index) {
+                      final date = uniqueDates[index];
+                      final isSelected = _selectedDate == date;
+                      return ListTile(
+                        leading: Icon(Icons.date_range, color: isSelected ? Colors.blueAccent : Colors.grey),
+                        title: Text(date, style: TextStyle(
+                          color: isSelected ? Colors.blueAccent : null,
+                          fontWeight: isSelected ? FontWeight.bold : null,
+                        )),
+                        trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blueAccent) : null,
+                        onTap: () {
+                          setState(() => _selectedDate = date);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -137,8 +256,22 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     return Scaffold(
       appBar: AppBar(
         title: _isSearching
-            ? SavedSizeSearchBar(
-                onChanged: (v) => setState(() => _searchQuery = v),
+            ? Row(
+                children: [
+                  Expanded(
+                    child: SavedSizeSearchBar(
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.calendar_month,
+                      color: _selectedDate != null ? Colors.orangeAccent : null,
+                    ),
+                    onPressed: _showDateFilterDialog,
+                    tooltip: "بحث بتاريخ الإنتاج",
+                  ),
+                ],
               )
             : const Text("أرشيف الفلكسو التاريخي"),
         centerTitle: !_isSearching,
@@ -147,7 +280,10 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
             icon: Icon(_isSearching ? Icons.close : Icons.search),
             onPressed: () => setState(() {
               _isSearching = !_isSearching;
-              if (!_isSearching) _searchQuery = "";
+              if (!_isSearching) {
+                _searchQuery = "";
+                _selectedDate = null;
+              }
             }),
             tooltip: _isSearching ? "إغلاق البحث" : "بحث باسم العميل",
           ),
@@ -203,6 +339,31 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                         color: isDark ? Colors.grey[300] : Colors.blueGrey[800],
                       ),
                     ),
+                    if (_selectedDate != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.event, size: 14, color: Colors.orange),
+                            const SizedBox(width: 4),
+                            Text(
+                              _selectedDate!,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () => setState(() => _selectedDate = null),
+                              child: const Icon(Icons.close, size: 14, color: Colors.red),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               );
