@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:smart_sheet/screens/production_report_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
+import 'package:smart_sheet/widgets/start_session_dialog.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
@@ -385,14 +386,28 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         'notes': 'مستورد من قسم المقاسات',
       };
 
-
       if (context.mounted) {
-        Navigator.pop(context);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => ProductionReportScreen(initialData: initialData)),
+        Navigator.pop(context); // Close loading dialog
+
+        // Open StartSessionDialog instead of direct report screen
+        final started = await showModalBottomSheet<bool>(
+          context: context,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (context) => StartSessionDialog(initialData: initialData),
         );
+
+        if (started == true && context.mounted) {
+          // Navigate to ProductionReportScreen where the active card will be visible
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ProductionReportScreen(),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) Navigator.pop(context);

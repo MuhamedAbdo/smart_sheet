@@ -48,6 +48,8 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
   late TextEditingController printWasteController;
   late TextEditingController downtimeStartController;
   late TextEditingController downtimeEndController;
+  late TextEditingController machineNameController;
+  late TextEditingController technicianNameController;
 
   List<ColorField> colors = [];
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -79,6 +81,8 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     printWasteController = TextEditingController();
     downtimeStartController = TextEditingController();
     downtimeEndController = TextEditingController();
+    machineNameController = TextEditingController();
+    technicianNameController = TextEditingController();
 
     if (widget.initialData != null) {
       _loadInitialData(widget.initialData!);
@@ -112,6 +116,8 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     printWasteController.text = data['printWaste']?.toString() ?? data['print_waste']?.toString() ?? '';
     downtimeStartController.text = data['downtimeStart']?.toString() ?? data['downtime_start']?.toString() ?? '';
     downtimeEndController.text = data['downtimeEnd']?.toString() ?? data['downtime_end']?.toString() ?? '';
+    machineNameController.text = data['machineName']?.toString() ?? data['machine_name']?.toString() ?? '';
+    technicianNameController.text = data['technicianName']?.toString() ?? data['technician_name']?.toString() ?? '';
 
     colors.clear();
     if (data['colors'] is List) {
@@ -156,8 +162,10 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
         'endTime': endTimeController.text.trim(),
         'lineWaste': int.tryParse(lineWasteController.text),
         'printWaste': int.tryParse(printWasteController.text),
-        'downtimeStart': downtimeStartController.text.trim(),
-        'downtimeEnd': downtimeEndController.text.trim(),
+        'downtime_start': downtimeStartController.text.trim(),
+        'downtime_end': downtimeEndController.text.trim(),
+        'machine_name': machineNameController.text.trim(),
+        'technician_name': technicianNameController.text.trim(),
       };
 
       widget.onSave(report);
@@ -190,6 +198,8 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     printWasteController.dispose();
     downtimeStartController.dispose();
     downtimeEndController.dispose();
+    machineNameController.dispose();
+    technicianNameController.dispose();
     for (var c in colors) {
       c.colorController.dispose();
       c.quantityController.dispose();
@@ -246,9 +256,16 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
                     const SizedBox(height: 12),
                     _buildTextField(productController, "📦 الصنف"),
                     const SizedBox(height: 12),
-                    _buildTextField(productCodeController, "🔢 كود الصنف",
-                        keyboardType: TextInputType.number),
-                    const SizedBox(height: 12),
+                    _buildTextField(productCodeController, "كود الصنف", icon: Icons.qr_code, keyboardType: TextInputType.number),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(child: _buildTextField(machineNameController, "الماكينة", icon: Icons.precision_manufacturing)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildTextField(technicianNameController, "الفني المسؤول", icon: Icons.engineering)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(

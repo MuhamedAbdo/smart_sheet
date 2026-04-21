@@ -28,6 +28,9 @@ import 'package:smart_sheet/models/finished_product_model.dart';
 import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/models/store_entry_model.dart';
 import 'package:smart_sheet/models/production_report.dart';
+import 'package:smart_sheet/models/flexo_machine.dart';
+import 'package:smart_sheet/models/downtime_interval.dart';
+import 'package:smart_sheet/models/live_session.dart';
 
 // استيراد الخدمات والبروفايدر والشاشات
 import 'package:smart_sheet/config/constants.dart';
@@ -107,18 +110,23 @@ void _registerAdapters() {
   }
   if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(StoreEntryAdapter());
   if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(ProductionReportAdapter());
+  if (!Hive.isAdapterRegistered(15)) Hive.registerAdapter(FlexoMachineAdapter());
+  if (!Hive.isAdapterRegistered(16)) Hive.registerAdapter(DowntimeIntervalAdapter());
+  if (!Hive.isAdapterRegistered(17)) Hive.registerAdapter(LiveSessionAdapter());
 }
 
 void _openBackgroundBoxes() {
   Hive.openBox<StoreEntry>('store_flexo');
   Hive.openBox<MaintenanceRecord>('maintenance_records_main');
+  Hive.openBox<FlexoMachine>('flexo_machines');
+  Hive.openBox<LiveSession>('flexo_live_sessions');
 
   final otherBoxes = [
     'savedSheetSizes',
     'inkReports',
     'flexoArchive',
     'measurements',
-    'serial_setup_state'
+    'serial_setup_state',
   ];
   for (var box in otherBoxes) {
     Hive.openBox(box).then(

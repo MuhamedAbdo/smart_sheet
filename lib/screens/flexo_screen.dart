@@ -8,6 +8,7 @@ import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/serial_setup_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
+import 'package:smart_sheet/screens/machine_management_screen.dart';
 // ✅ أضف هذا السطر لاستيراد شاشة البالتة
 
 // ✅ استيراد الشاشات
@@ -155,6 +156,18 @@ class FlexoScreen extends StatelessWidget {
                                 'workers_flexo', // ✅ اسم الصندوق المخصص
                             departmentTitle: 'طاقم الفلكسو', // ✅ عنوان القسم
                           ),
+                        ),
+                      );
+                    },
+                  ),
+                  HomeButton(
+                    icon: Icons.precision_manufacturing,
+                    label: 'إدارة الماكينات',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MachineManagementScreen(),
                         ),
                       );
                     },

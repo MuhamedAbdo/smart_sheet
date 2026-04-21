@@ -6,6 +6,9 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
 import 'package:smart_sheet/screens/flexo_archive_screen.dart';
 import 'package:smart_sheet/widgets/production_report_form.dart';
+import 'package:smart_sheet/widgets/start_session_dialog.dart';
+import 'package:smart_sheet/models/live_session.dart';
+import 'package:smart_sheet/widgets/active_sessions_dashboard.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import '../../../utils/pdf_export_helper.dart';
 
@@ -412,54 +415,50 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       body: ValueListenableBuilder(
         valueListenable: _productionReportBox!.listenable(),
         builder: (context, Box box, _) {
-          if (box.isEmpty) {
-            return const Center(child: Text("🚫 لا يوجد تقارير"));
-          }
-          final allRecords =
-              _filterAndSortRecords(box, _searchQuery, _sortDescending);
-
-          if (allRecords.isEmpty &&
-              (_searchQuery.isNotEmpty || _selectedDate != null)) {
-            return const Center(child: Text("🔍 لا توجد نتائج للبحث/التصفية"));
-          }
-
           return Column(
             children: [
-              if (_selectedDate != null)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  color: Colors.blue.withValues(alpha: 0.1),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.filter_list,
-                          size: 16, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      Text("تصفية بتاريخ: $_selectedDate",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, color: Colors.blue)),
-                      const Spacer(),
-                      TextButton(
-                          onPressed: () => setState(() => _selectedDate = null),
-                          child: const Text("إلغاء"))
-                    ],
-                  ),
-                ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: allRecords.length,
-                  padding: const EdgeInsets.only(bottom: 80),
-                  itemBuilder: (context, index) =>
-                      _buildReportCard(allRecords[index]),
-                ),
+              ActiveSessionsDashboard(
+                onFinishSession: (session) => _finishSession(session),
               ),
+              if (box.isEmpty && Hive.box<LiveSession>('flexo_live_sessions').isEmpty)
+                const Expanded(child: Center(child: Text("🚫 لا يوجد تقارير أو جلسات نشطة"))),
+              if (box.isNotEmpty || Hive.box<LiveSession>('flexo_live_sessions').isNotEmpty)
+                ...[
+                  if (_selectedDate != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: Colors.blue.withValues(alpha: 0.1),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.filter_list, size: 16, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Text("تصفية بتاريخ: $_selectedDate",
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                          const Spacer(),
+                          TextButton(
+                              onPressed: () => setState(() => _selectedDate = null),
+                              child: const Text("إلغاء"))
+                        ],
+                      ),
+                    ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _filterAndSortRecords(box, _searchQuery, _sortDescending).length,
+                      padding: const EdgeInsets.only(bottom: 80),
+                      itemBuilder: (context, index) {
+                        final allRecords = _filterAndSortRecords(box, _searchQuery, _sortDescending);
+                        return _buildReportCard(allRecords[index]);
+                      },
+                    ),
+                  ),
+                ],
             ],
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddReportDialog(),
-        child: const Icon(Icons.add),
+        onPressed: () => _showStartSessionDialog(),
+        child: const Icon(Icons.play_arrow),
       ),
     );
   }
@@ -517,12 +516,32 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   ],
                 ),
               ),
+            if (record['machineName'] != null || record['technicianName'] != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    if (record['machineName'] != null) ...[
+                      const Icon(Icons.precision_manufacturing, size: 16, color: Colors.blueGrey),
+                      const SizedBox(width: 4),
+                      Text("${record['machineName']}", style: const TextStyle(fontSize: 13)),
+                    ],
+                    if (record['machineName'] != null && record['technicianName'] != null)
+                      const Text(" | "),
+                    if (record['technicianName'] != null) ...[
+                      const Icon(Icons.engineering, size: 16, color: Colors.blueGrey),
+                      const SizedBox(width: 4),
+                      Text("${record['technicianName']}", style: const TextStyle(fontSize: 13)),
+                    ],
+                  ],
+                ),
+              ),
             if ((record['downtimeStart'] != null &&
                     record['downtimeStart'].toString().isNotEmpty) ||
                 (record['downtimeEnd'] != null &&
                     record['downtimeEnd'].toString().isNotEmpty))
-              _buildInfoRow("⏱️ وقت الأعطال:",
-                  "${record['downtimeStart'] ?? '--:--'} إلى ${record['downtimeEnd'] ?? '--:--'}"),
+              _buildInfoRow("⏱️ الأعطال:",
+                  "${record['downtimeStart'] ?? ''} ${record['downtimeEnd'] ?? ''}".trim()),
             _buildNotesText(record['notes']),
             const SizedBox(height: 12),
             Row(
@@ -667,6 +686,66 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               _productionReportBox!.put(key, r);
               Navigator.pop(c);
             }));
+  }
+
+  void _showStartSessionDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => const StartSessionDialog(),
+    );
+  }
+
+
+
+  void _finishSession(LiveSession session) {
+    final now = DateTime.now();
+    final startTimeStr = "${session.startTime.hour.toString().padLeft(2, '0')}:${session.startTime.minute.toString().padLeft(2, '0')}";
+    final endTimeStr = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+    // If session was in downtime, close the last interval
+    if (!session.isRunning && session.downtimeIntervals.isNotEmpty) {
+      final last = session.downtimeIntervals.last;
+      last.end ??= now;
+    }
+
+    final totalDowntimeMin = session.totalDowntime.inMinutes;
+    final downtimeValue = totalDowntimeMin > 0 ? "(إجمالي: $totalDowntimeMin دقيقة)" : "";
+
+    final initialData = {
+      'date': "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
+      'clientName': session.clientName,
+      'product': session.productName,
+      'productCode': session.productCode,
+      'order_number': session.orderNumber,
+      'start_time': startTimeStr,
+      'end_time': endTimeStr,
+      'downtime_start': downtimeValue,
+      'machine_name': session.machineName,
+      'technician_name': session.technicianName,
+      'dimensions': session.dimensions,
+      'isSheet': session.isSheet,
+      'imagePaths': session.imagePaths,
+      'notes': "",
+    };
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (c) => ProductionReportForm(
+        initialData: initialData,
+        onSave: (r) async {
+          await _productionReportBox!.add(r);
+          await session.delete(); // Remove the session once saved as report
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+        },
+      ),
+    );
   }
 
   void _showSortSheet() {

@@ -54,6 +54,12 @@ class ProductionReport extends HiveObject {
   @HiveField(15)
   final String? downtimeEnd;
 
+  @HiveField(16)
+  final String? machineName;
+
+  @HiveField(17)
+  final String? technicianName;
+
   ProductionReport({
     required this.id,
     required this.date,
@@ -71,6 +77,8 @@ class ProductionReport extends HiveObject {
     this.printWaste,
     this.downtimeStart,
     this.downtimeEnd,
+    this.machineName,
+    this.technicianName,
   });
 
   Map<String, dynamic> toJson() {
@@ -91,6 +99,8 @@ class ProductionReport extends HiveObject {
       'print_waste': printWaste,
       'downtime_start': downtimeStart,
       'downtime_end': downtimeEnd,
+      'machine_name': machineName,
+      'technician_name': technicianName,
     };
   }
 
@@ -128,6 +138,8 @@ class ProductionReport extends HiveObject {
           : (map['print_waste'] is int ? map['print_waste'] : int.tryParse(map['print_waste']?.toString() ?? '')),
       downtimeStart: map['downtimeStart'] ?? map['downtime_start'],
       downtimeEnd: map['downtimeEnd'] ?? map['downtime_end'],
+      machineName: map['machineName'] ?? map['machine_name'],
+      technicianName: map['technicianName'] ?? map['technician_name'],
     );
   }
 }
