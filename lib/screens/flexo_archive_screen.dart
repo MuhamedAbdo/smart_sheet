@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/screens/archive_detail_screen.dart';
-import 'package:smart_sheet/utils/pdf_export_helper.dart';
-import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 
 class FlexoArchiveScreen extends StatefulWidget {
   const FlexoArchiveScreen({super.key});
@@ -17,7 +15,6 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
   bool _isSearching = false;
   String _searchQuery = "";
   String? _selectedDate;
-
 
   @override
   void initState() {
@@ -53,10 +50,10 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     try {
       final reportsBox = Hive.box('inkReports');
       final reportData = data['data'] ?? data;
-      
+
       // نقوم بإضافة نسخة للتقارير النشطة دون حذفها من الأرشيف
       await reportsBox.add(reportData);
-      
+
       if (mounted) {
         UIUtils.showInfoSnackBar(
           message: "تم استعادة نسخة من تقرير الإنتاج للقسم النشط بنجاح",
@@ -72,28 +69,30 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
   // ✅ ميزة استعادة الكل
   void _restoreAllEntries() {
     if (_archiveBox == null || _archiveBox!.isEmpty) return;
-    
+
     UIUtils.showDeleteConfirmation(
       context: context,
       title: "إستعادة نسخة من كافة البيانات",
-      content: "سيتم نسخ كافة تقارير الأرشيف إلى القسم النشط مع الإبقاء عليها في الأرشيف. هل تريد الاستمرار؟",
+      content:
+          "سيتم نسخ كافة تقارير الأرشيف إلى القسم النشط مع الإبقاء عليها في الأرشيف. هل تريد الاستمرار؟",
       confirmLabel: "إستعادة الكل",
       confirmColor: Colors.green,
       onConfirm: () async {
         try {
           final reportsBox = Hive.box('inkReports');
           final allArchive = _archiveBox!.toMap();
-          
+
           for (var entry in allArchive.entries) {
             final data = entry.value as Map;
             final reportData = data['data'] ?? data;
             await reportsBox.add(reportData);
           }
           // تم إزالة عملية التفريغ (clear) بناءً على طلب المستخدم لإبقاء الأرشيف كنسخة دائمة
-          
+
           if (mounted) {
             UIUtils.showInfoSnackBar(
-              message: "تم إستعادة نسخة من كافة تقارير الإنتاج للقسم النشط بنجاح",
+              message:
+                  "تم إستعادة نسخة من كافة تقارير الإنتاج للقسم النشط بنجاح",
               backgroundColor: Colors.green,
               icon: Icons.settings_backup_restore,
             );
@@ -140,8 +139,10 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       entries = entries.where((e) {
         final data = e.value as Map;
         final report = data['data'] ?? data;
-        final clientName = _normalizeString(report['clientName']?.toString() ?? '');
-        final productCode = _normalizeString(report['productCode']?.toString() ?? '');
+        final clientName =
+            _normalizeString(report['clientName']?.toString() ?? '');
+        final productCode =
+            _normalizeString(report['productCode']?.toString() ?? '');
         return clientName.contains(query) || productCode.contains(query);
       }).toList();
     }
@@ -182,7 +183,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
 
   void _showDateFilterDialog() {
     final uniqueDates = _getUniqueDates();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -192,13 +193,16 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
           padding: const EdgeInsets.all(16),
           decoration: const BoxDecoration(
             color: Colors.blueAccent,
-            borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+            borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20), topRight: Radius.circular(20)),
           ),
           child: const Row(
             children: [
               Icon(Icons.calendar_month, color: Colors.white),
               SizedBox(width: 10),
-              Text("اختر تاريخ الإنتاج", style: TextStyle(color: Colors.white, fontFamily: 'Cairo', fontSize: 18)),
+              Text("اختر تاريخ الإنتاج",
+                  style: TextStyle(
+                      color: Colors.white, fontFamily: 'Cairo', fontSize: 18)),
             ],
           ),
         ),
@@ -210,7 +214,11 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               // خيار عرض الكل
               ListTile(
                 leading: const Icon(Icons.all_inclusive, color: Colors.green),
-                title: const Text("عرض الكل (إلغاء الفلترة)", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontFamily: 'Cairo')),
+                title: const Text("عرض الكل (إلغاء الفلترة)",
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                        fontFamily: 'Cairo')),
                 onTap: () {
                   setState(() => _selectedDate = null);
                   Navigator.pop(context);
@@ -231,12 +239,18 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                       final date = uniqueDates[index];
                       final isSelected = _selectedDate == date;
                       return ListTile(
-                        leading: Icon(Icons.date_range, color: isSelected ? Colors.blueAccent : Colors.grey),
-                        title: Text(date, style: TextStyle(
-                          color: isSelected ? Colors.blueAccent : null,
-                          fontWeight: isSelected ? FontWeight.bold : null,
-                        )),
-                        trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blueAccent) : null,
+                        leading: Icon(Icons.date_range,
+                            color:
+                                isSelected ? Colors.blueAccent : Colors.grey),
+                        title: Text(date,
+                            style: TextStyle(
+                              color: isSelected ? Colors.blueAccent : null,
+                              fontWeight: isSelected ? FontWeight.bold : null,
+                            )),
+                        trailing: isSelected
+                            ? const Icon(Icons.check_circle,
+                                color: Colors.blueAccent)
+                            : null,
                         onTap: () {
                           setState(() => _selectedDate = date);
                           Navigator.pop(context);
@@ -269,47 +283,57 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               _showDateFilterDialog();
             } else if (value == 'restore') {
               _restoreAllEntries();
-            } else if (value == 'pdf_view' || value == 'pdf_save') {
-              final filtered = _getFilteredEntries(_archiveBox!);
-              final records = filtered.map((e) {
-                final data = e.value as Map;
-                return Map<String, dynamic>.from(data['data'] ?? data);
-              }).toList();
-              
-              if (value == 'pdf_view') {
-                await exportReportsToPdf(context, records);
-              } else {
-                await savePdfToDevice(context, records);
-              }
             } else if (value == 'clear') {
               _clearArchive();
             }
           },
           itemBuilder: (context) => [
-            const PopupMenuItem(value: 'search', child: ListTile(leading: Icon(Icons.search), title: Text('بحث'))),
-            const PopupMenuItem(value: 'filter', child: ListTile(leading: Icon(Icons.calendar_month), title: Text('تصفية بالتاريخ'))),
-            const PopupMenuItem(value: 'restore', child: ListTile(leading: Icon(Icons.settings_backup_restore), title: Text('استعادة الكل'))),
-            const PopupMenuItem(value: 'pdf_view', child: ListTile(leading: Icon(Icons.picture_as_pdf), title: Text('عرض/طباعة PDF'))),
-            const PopupMenuItem(value: 'pdf_save', child: ListTile(leading: Icon(Icons.save_alt), title: Text('حفظ نسخة PDF'))),
-            const PopupMenuItem(value: 'clear', child: ListTile(leading: Icon(Icons.delete_sweep_outlined, color: Colors.red), title: Text('مسح الأرشيف', style: TextStyle(color: Colors.red)))),
+            const PopupMenuItem(
+                value: 'search',
+                child:
+                    ListTile(leading: Icon(Icons.search), title: Text('بحث'))),
+            const PopupMenuItem(
+                value: 'filter',
+                child: ListTile(
+                    leading: Icon(Icons.calendar_month),
+                    title: Text('تصفية بالتاريخ'))),
+            const PopupMenuItem(
+                value: 'restore',
+                child: ListTile(
+                    leading: Icon(Icons.settings_backup_restore),
+                    title: Text('استعادة الكل'))),
+            const PopupMenuItem(
+                value: 'clear',
+                child: ListTile(
+                    leading:
+                        Icon(Icons.delete_sweep_outlined, color: Colors.red),
+                    title: Text('مسح الأرشيف',
+                        style: TextStyle(color: Colors.red)))),
           ],
         ),
         title: _isSearching
             ? Container(
                 height: 40,
-                decoration: BoxDecoration(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white10
+                        : Colors.black.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(10)),
                 child: TextField(
                   autofocus: true,
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  style:
+                      TextStyle(color: isDark ? Colors.white : Colors.black87),
                   onChanged: (v) => setState(() => _searchQuery = v),
                   decoration: InputDecoration(
                     hintText: 'بحث باسم العميل...',
                     prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => setState(() {
-                      _isSearching = false;
-                      _searchQuery = '';
-                      _selectedDate = null;
-                    })),
+                    suffixIcon: IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => setState(() {
+                              _isSearching = false;
+                              _searchQuery = '';
+                              _selectedDate = null;
+                            })),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
@@ -344,7 +368,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                     Icon(
                       Icons.inventory_2,
                       size: 16,
-                      color: isDark ? Colors.blueAccent[100] : Colors.blueAccent,
+                      color:
+                          isDark ? Colors.blueAccent[100] : Colors.blueAccent,
                     ),
                     const SizedBox(width: 10),
                     Text(
@@ -359,23 +384,29 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                     if (_selectedDate != null) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.orange.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.event, size: 14, color: Colors.orange),
+                            const Icon(Icons.event,
+                                size: 14, color: Colors.orange),
                             const SizedBox(width: 4),
                             Text(
                               _selectedDate!,
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange),
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange),
                             ),
                             const SizedBox(width: 4),
                             GestureDetector(
                               onTap: () => setState(() => _selectedDate = null),
-                              child: const Icon(Icons.close, size: 14, color: Colors.red),
+                              child: const Icon(Icons.close,
+                                  size: 14, color: Colors.red),
                             ),
                           ],
                         ),
@@ -406,7 +437,10 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                   SizedBox(height: 16),
                   Text(
                     "لا توجد تقارير مؤرشفة لهذا العميل",
-                    style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -434,8 +468,10 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
             int dateCompare = dateB.compareTo(dateA);
             if (dateCompare != 0) return dateCompare;
 
-            final nameA = (reportA['clientName'] ?? '').toString().toLowerCase();
-            final nameB = (reportB['clientName'] ?? '').toString().toLowerCase();
+            final nameA =
+                (reportA['clientName'] ?? '').toString().toLowerCase();
+            final nameB =
+                (reportB['clientName'] ?? '').toString().toLowerCase();
 
             return nameA.compareTo(nameB);
           });
@@ -460,9 +496,10 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     final String displayDate = report['date'] ?? "---";
 
     final dims = report['dimensions'];
-    final String dimStr = dims != null && (dims['length'] != 0 || dims['width'] != 0)
-        ? "${dims['length']} × ${dims['width']} × ${dims['height']}"
-        : "";
+    final String dimStr =
+        dims != null && (dims['length'] != 0 || dims['width'] != 0)
+            ? "${dims['length']} × ${dims['width']} × ${dims['height']}"
+            : "";
 
     final colors = report['colors'] as List? ?? [];
 
@@ -521,7 +558,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                       IconButton(
                         constraints: const BoxConstraints(),
                         padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.settings_backup_restore, color: Colors.green),
+                        icon: const Icon(Icons.settings_backup_restore,
+                            color: Colors.green),
                         onPressed: () => _restoreEntry(key, data),
                         tooltip: "إستعادة للرئيسية",
                       ),
@@ -529,7 +567,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                       IconButton(
                         constraints: const BoxConstraints(),
                         padding: EdgeInsets.zero,
-                        icon: Icon(Icons.delete_outline, color: Colors.red.shade300),
+                        icon: Icon(Icons.delete_outline,
+                            color: Colors.red.shade300),
                         onPressed: () => _deleteEntry(key),
                         tooltip: "حذف من الأرشيف",
                       ),
@@ -541,7 +580,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.inventory_2_outlined, size: 18, color: Colors.blueGrey),
+                  const Icon(Icons.inventory_2_outlined,
+                      size: 18, color: Colors.blueGrey),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -550,7 +590,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                         RichText(
                           text: TextSpan(
                             style: TextStyle(
-                              color: Theme.of(context).brightness == Brightness.dark
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
                                   ? Colors.white70
                                   : Colors.black87,
                               fontSize: 15,
@@ -558,7 +599,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                             children: [
                               TextSpan(
                                 text: product.replaceAll("\n", " "),
-                                style: const TextStyle(fontWeight: FontWeight.w700),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700),
                               ),
                               TextSpan(
                                 text: " [ ${report['productCode'] ?? '---'} ]",
@@ -576,7 +618,11 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                             padding: const EdgeInsets.only(top: 4),
                             child: Row(
                               children: [
-                                const Text("📏 المقاس: ", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                const Text("📏 المقاس: ",
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey)),
                                 Directionality(
                                   textDirection: TextDirection.ltr,
                                   child: Text(
@@ -596,8 +642,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                   ),
                 ],
               ),
-              if (report['notes'] != null && 
-                  report['notes'].toString().isNotEmpty && 
+              if (report['notes'] != null &&
+                  report['notes'].toString().isNotEmpty &&
                   !report['notes'].toString().contains("مستورد"))
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
@@ -606,11 +652,13 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                     decoration: BoxDecoration(
                       color: Colors.orange.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.withValues(alpha: 0.1)),
+                      border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.1)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.sticky_note_2_outlined, size: 16, color: Colors.orange),
+                        const Icon(Icons.sticky_note_2_outlined,
+                            size: 16, color: Colors.orange),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -618,7 +666,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontStyle: FontStyle.italic,
-                              color: Theme.of(context).brightness == Brightness.dark
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
                                   ? Colors.orange.shade100
                                   : Colors.black87,
                             ),
@@ -638,20 +687,24 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                       final qty = c['quantity'] ?? '0';
                       return Container(
                         margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.blue.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.blue.withValues(alpha: 0.15)),
+                          border: Border.all(
+                              color: Colors.blue.withValues(alpha: 0.15)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.circle, size: 10, color: Colors.blueAccent),
+                            const Icon(Icons.circle,
+                                size: 10, color: Colors.blueAccent),
                             const SizedBox(width: 6),
                             Text(
                               "$name: $qty ل",
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),

@@ -35,8 +35,8 @@ Future<Uint8List?> generateProductionReportPdfBytes(
 
   try {
     // تحميل الخطوط لدعم اللغة العربية
-    final fontData = await rootBundle.load("assets/fonts/Cairo-Regular.ttf");
-    final boldFontData = await rootBundle.load("assets/fonts/Cairo-Bold.ttf");
+    final fontData = await rootBundle.load("assets/fonts/Amiri-Regular.ttf");
+    final boldFontData = await rootBundle.load("assets/fonts/Amiri-Bold.ttf");
 
     final Uint8List fontBytes = fontData.buffer
         .asUint8List(fontData.offsetInBytes, fontData.lengthInBytes);
@@ -163,7 +163,8 @@ Future<String> _saveToInternalStorage(Uint8List pdfBytes) async {
   final directory = await getApplicationDocumentsDirectory();
   final appDir = Directory('${directory.path}/SmartSheet/Reports');
   if (!await appDir.exists()) await appDir.create(recursive: true);
-  final fileName = 'تقارير_الإنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
+  final fileName =
+      'تقارير_الإنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
   final file = File('${appDir.path}/$fileName');
   await file.writeAsBytes(pdfBytes);
   return file.path;
@@ -186,7 +187,7 @@ void _showSuccessSnackBar(
             child: Text(
               'تم حفظ PDF بنجاح\n$fileName',
               style: const TextStyle(
-                fontFamily: 'Cairo',
+                fontFamily: 'Amiri',
                 color: Colors.white,
               ),
             ),
@@ -249,7 +250,9 @@ String _getDimensionsOnly(Map<String, dynamic> record) {
     if (value.contains('.')) {
       final parts = value.split('.');
       if (parts.length > 1 && parts[1] == '0') return parts[0];
-      return value.replaceAll(RegExp(r'0*$'), '').replaceAll(RegExp(r'\.$'), '');
+      return value
+          .replaceAll(RegExp(r'0*$'), '')
+          .replaceAll(RegExp(r'\.$'), '');
     }
     return value;
   }
@@ -268,154 +271,274 @@ String _getDimensionsOnly(Map<String, dynamic> record) {
   }
 }
 
-Future<Uint8List> _generateConsolidatedPdfBytes(
-    Map<String, dynamic> params) async {
-  final List<dynamic> records = params['records'];
-  final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
-  final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
+Future<Uint8List> _generateConsolidatedPdfBytes(Map<String, dynamic> params) async {
+  try {
+    final List<dynamic> records = params['records'];
+    final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
+    final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
 
-  final pdf = pw.Document();
-  const int recordsPerPage = 9;
-  final int totalPages = (records.length / recordsPerPage).ceil();
-
-  for (int page = 0; page < totalPages; page++) {
-    final int startIndex = page * recordsPerPage;
-    final int endIndex = (page + 1) * recordsPerPage < records.length
-        ? (page + 1) * recordsPerPage
-        : records.length;
-
-    final List<dynamic> pageRecords = records.sublist(startIndex, endIndex);
-    final tableRows = <pw.TableRow>[];
-
-    // رأس الجدول
-    tableRows.add(pw.TableRow(
-      decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF38761D)),
-      children: [
-        _buildHeaderCell('الملاحظات', arabicBoldFont),
-        _buildHeaderCell('العدد', arabicBoldFont),
-        _buildHeaderCell('كمية الحبر بالليتر', arabicBoldFont),
-        _buildHeaderCell('المقاس', arabicBoldFont),
-        _buildHeaderCell('اسم الصنف', arabicBoldFont),
-        _buildHeaderCell('كود الصنف', arabicBoldFont),
-        _buildHeaderCell('العميل', arabicBoldFont),
-        _buildHeaderCell('التاريخ', arabicBoldFont),
-        _buildHeaderCell('م', arabicBoldFont),
-      ],
-    ));
-
-    for (int i = 0; i < pageRecords.length; i++) {
-      final record = pageRecords[i] as Map<String, dynamic>;
+    // 1. استخراج الألوان الفريدة
+    final Set<String> uniqueColorsSet = {};
+    for (var record in records) {
       final List<dynamic> colors = record['colors'] ?? [];
-      final List<Map<String, String>> colorEntries = colors
-          .map((c) => {
-                'color': c['color']?.toString() ?? '---',
-                'quantity': c['quantity']?.toString() ?? '---',
-              })
-          .toList();
-      while (colorEntries.length < 3) {
-        colorEntries.add({'color': '---', 'quantity': '---'});
+      for (var c in colors) {
+        final colorData = c is Map ? c : {};
+        final colorName = colorData['color']?.toString() ?? '';
+        if (colorName.isNotEmpty && colorName != '---') {
+          uniqueColorsSet.add(colorName);
+        }
       }
+    }
+    final List<String> uniqueColors = uniqueColorsSet.toList()..sort();
 
-      tableRows.add(pw.TableRow(
+    final pdf = pw.Document();
+    const int recordsPerPage = 13;
+    final int totalPages = (records.length / recordsPerPage).ceil();
+
+    const double masterHeaderHeight = 18.0;
+    const double subHeaderHeight = 17.0;
+    const double totalHeaderHeight = masterHeaderHeight + subHeaderHeight;
+    const double dataRowHeight = 30.0;
+
+    // توزيع المساحة المتبقية على العميل والصنف والملاحظات مع تفادي الأخطاء الكسرية
+    final double remainingWidth = 810 - (20 + 55 + 48 + 60 + 45 + 35 + 70 + 50 + 70) - (uniqueColors.length * 30.0);
+    final double flexibleColWidth = (remainingWidth / 3).floorToDouble();
+
+    // دالة موحدة لبناء خلايا البيانات لضمان استقامة الخطوط
+    pw.Widget buildTableDataCell(String text, double width, {bool isRightMost = false, bool isSectionEnd = false}) {
+      return pw.Container(
+        width: width,
+        height: dataRowHeight,
+        alignment: pw.Alignment.center,
         decoration: pw.BoxDecoration(
-            color:
-                i.isOdd ? const PdfColor.fromInt(0xFFF5F5F5) : PdfColors.white),
-        children: [
-          _buildDataCell(record['notes']?.toString() ?? '---', arabicFont),
-          _buildDataCell(record['quantity']?.toString() ?? '---', arabicFont),
-          pw.Container(
-              alignment: pw.Alignment.centerRight,
-              child: _buildInkMiniTable(colorEntries, arabicFont)),
-          _buildCenteredDataCell(_getDimensionsOnly(record), arabicFont),
-          _buildDataCell(record['product']?.toString() ?? '---', arabicFont),
-          _buildDataCell(record['productCode']?.toString() ?? '---', arabicFont),
-          _buildDataCell(record['clientName']?.toString() ?? '---', arabicFont),
-          _buildDataCell(_formatDate(record['date']?.toString() ?? '---'), arabicFont),
-          _buildDataCell('${startIndex + i + 1}', arabicFont),
-        ],
-      ));
+          border: pw.Border(
+            bottom: const pw.BorderSide(width: 0.5),
+            left: pw.BorderSide(width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
+            right: isRightMost ? const pw.BorderSide(width: 0.5) : pw.BorderSide.none,
+          ),
+        ),
+        child: pw.Text(ArabicPDFHelper.fixArabic(text), 
+          style: pw.TextStyle(font: arabicFont, fontSize: 7.5), 
+          softWrap: true, textAlign: pw.TextAlign.center),
+      );
     }
 
-    pdf.addPage(pw.Page(
-      pageFormat: PdfPageFormat.a4.landscape,
-      margin: const pw.EdgeInsets.all(16),
-      build: (context) => pw.Directionality(
-        textDirection: pw.TextDirection.rtl,
+    // بناء خلية الحبر المقسمة (إسم اللون فوق الكمية)
+    pw.Widget buildStackedInkCell(String colorName, String quantity, double width, {bool isSectionEnd = false}) {
+      return pw.Container(
+        width: width,
+        height: dataRowHeight,
+        decoration: pw.BoxDecoration(
+          border: pw.Border(
+            bottom: const pw.BorderSide(width: 0.5),
+            left: pw.BorderSide(width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
+          ),
+        ),
         child: pw.Column(children: [
-          pw.Text(ArabicPDFHelper.fixArabic('تقارير الإنتاج'),
-              style: pw.TextStyle(font: arabicBoldFont, fontSize: 18)),
-          pw.SizedBox(height: 10),
-          pw.Table(
-            border: pw.TableBorder.all(width: 0.5),
-            columnWidths: {
-              0: const pw.FlexColumnWidth(2), // الملاحظات
-              1: const pw.FixedColumnWidth(40), // العدد
-              2: const pw.FixedColumnWidth(160), // كمية الحبر بالليتر
-              3: const pw.FixedColumnWidth(80), // المقاس
-              4: const pw.FixedColumnWidth(110), // اسم الصنف
-              5: const pw.FixedColumnWidth(80), // كود الصنف
-              6: const pw.FixedColumnWidth(110), // العميل
-              7: const pw.FixedColumnWidth(80), // التاريخ
-              8: const pw.FixedColumnWidth(30), // م
-            },
-            children: tableRows,
+          pw.Container(
+            height: dataRowHeight / 2,
+            alignment: pw.Alignment.center,
+            decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(width: 0.5))),
+            child: pw.Text(ArabicPDFHelper.fixArabic(colorName), style: pw.TextStyle(font: arabicFont, fontSize: 6.5)),
+          ),
+          pw.Container(
+            height: dataRowHeight / 2,
+            alignment: pw.Alignment.center,
+            child: pw.Text(ArabicPDFHelper.fixArabic(quantity), style: pw.TextStyle(font: arabicFont, fontSize: 7)),
           ),
         ]),
-      ),
-    ));
+      );
+    }
+
+    for (int page = 0; page < totalPages; page++) {
+      final int startIndex = page * recordsPerPage;
+      final int endIndex = (page + 1) * recordsPerPage < records.length
+          ? (page + 1) * recordsPerPage
+          : records.length;
+
+      final List<dynamic> pageRecords = records.sublist(startIndex, endIndex);
+      final List<pw.Widget> pageRows = [];
+
+      for (int i = 0; i < pageRecords.length; i++) {
+        final record = pageRecords[i] as Map<String, dynamic>;
+        
+        pageRows.add(
+          pw.Row(children: [
+            buildTableDataCell('${startIndex + i + 1}', 20, isRightMost: true),
+            buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 55),
+            buildTableDataCell(record['clientName']?.toString() ?? '---', flexibleColWidth),
+            buildTableDataCell(record['product']?.toString() ?? '---', flexibleColWidth),
+            buildTableDataCell(record['productCode']?.toString() ?? '---', 48),
+            buildTableDataCell(_getDimensionsOnly(record), 60),
+            buildTableDataCell(record['orderNumber']?.toString() ?? '---', 45),
+            buildTableDataCell(record['quantity']?.toString() ?? '---', 35),
+            // وقت التشغيل
+            buildTableDataCell(record['startTime']?.toString() ?? '---', 35),
+            buildTableDataCell(record['endTime']?.toString() ?? '---', 35, isSectionEnd: true),
+            // الهالك
+            buildTableDataCell(record['lineWaste']?.toString() ?? '---', 25),
+            buildTableDataCell(record['printWaste']?.toString() ?? '---', 25, isSectionEnd: true),
+            // الأعطال
+            buildTableDataCell(record['downtimeStart']?.toString() ?? '---', 35),
+            buildTableDataCell(record['downtimeEnd']?.toString() ?? '---', 35, isSectionEnd: true),
+            // الأحبار المقسمة (تعبئة من اليمين لليسار حسب ألوان السجل الفعلي)
+            ...List.generate(uniqueColors.length, (j) {
+              final recordColors = record['colors'] as List? ?? [];
+              
+              // سحب اللون حسب الترتيب في هذا السجل تحديداً
+              String displayedName = '---';
+              String displayedQty = '---';
+              
+              if (j < recordColors.length) {
+                final colorEntry = recordColors[j];
+                displayedName = colorEntry['color']?.toString() ?? '---';
+                displayedQty = colorEntry['quantity']?.toString() ?? '---';
+              }
+              
+              return buildStackedInkCell(
+                displayedName,
+                displayedQty,
+                30,
+                isSectionEnd: true, // تلبية لطلب جعل كل لون ينتهي بخط سميك
+              );
+            }),
+            buildTableDataCell(record['notes']?.toString() ?? '---', flexibleColWidth),
+          ]),
+        );
+      }
+
+      pdf.addPage(pw.Page(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(12),
+        build: (context) => pw.Directionality(
+          textDirection: pw.TextDirection.rtl,
+          child: pw.Column(children: [
+            pw.Text(ArabicPDFHelper.fixArabic('تقرير إنتاج الطباعة'), 
+              style: pw.TextStyle(font: arabicBoldFont, fontSize: 16)),
+            pw.SizedBox(height: 10),
+            _buildManualHeader(
+              uniqueColors: uniqueColors,
+              flexibleWidth: flexibleColWidth,
+              font: arabicBoldFont,
+              headerHeight: totalHeaderHeight,
+              masterHeight: masterHeaderHeight,
+              subHeight: subHeaderHeight,
+            ),
+            pw.Column(children: pageRows),
+          ]),
+        ),
+      ));
+    }
+    return await pdf.save();
+  } catch (e) {
+    debugPrint('❌ خطأ في _generateConsolidatedPdfBytes: $e');
+    return Uint8List(0);
   }
-  return await pdf.save();
 }
 
-// الدوال المساعدة للبناء (Header, Data, MiniTable)
-pw.Widget _buildHeaderCell(String text, pw.Font font) => pw.Container(
-    alignment: pw.Alignment.centerRight,
-    padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-    child: pw.Text(ArabicPDFHelper.fixArabic(text),
-        style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.white)));
+/// بناء الرأس المطور مع ضمان مطابقة الحدود تماماً للبيانات
+pw.Widget _buildManualHeader({
+  required List<String> uniqueColors,
+  required double flexibleWidth,
+  required pw.Font font,
+  required double headerHeight,
+  required double masterHeight,
+  required double subHeight,
+}) {
+  pw.Widget buildSpannedHeader(String text, double width, {bool isRightMost = false, bool isSectionEnd = false}) {
+    return pw.Container(
+      width: width,
+      height: headerHeight,
+      alignment: pw.Alignment.center,
+      decoration: pw.BoxDecoration(
+        color: PdfColors.grey300,
+        border: pw.Border(
+          top: const pw.BorderSide(width: 0.5),
+          bottom: const pw.BorderSide(width: 0.5),
+          left: pw.BorderSide(width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
+          right: isRightMost ? const pw.BorderSide(width: 0.5) : pw.BorderSide.none,
+        ),
+      ),
+      child: pw.Text(ArabicPDFHelper.fixArabic(text), 
+        style: pw.TextStyle(font: font, fontSize: 8), 
+        softWrap: true, textAlign: pw.TextAlign.center),
+    );
+  }
 
-pw.Widget _buildDataCell(String text, pw.Font font) => pw.Container(
-    alignment: pw.Alignment.centerRight,
-    padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-    child: pw.Text(ArabicPDFHelper.fixArabic(text),
-        style: pw.TextStyle(font: font, fontSize: 9)));
+  pw.Widget buildGroupedHeader(String title, List<String> subs, List<double> subWidths, {bool isSectionEnd = false}) {
+    double totalWidth = subWidths.reduce((a, b) => a + b);
+    return pw.Container(
+      width: totalWidth,
+      height: headerHeight,
+      decoration: pw.BoxDecoration(
+        color: PdfColors.grey300,
+        border: pw.Border(
+          top: const pw.BorderSide(width: 0.5),
+          bottom: const pw.BorderSide(width: 0.5),
+          left: pw.BorderSide(width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
+        ),
+      ),
+      child: pw.Column(children: [
+        pw.Container(
+          height: masterHeight,
+          alignment: pw.Alignment.center,
+          child: pw.Text(ArabicPDFHelper.fixArabic(title), 
+            style: pw.TextStyle(font: font, fontSize: 8), textAlign: pw.TextAlign.center),
+        ),
+        pw.Container(
+          height: subHeight,
+          decoration: const pw.BoxDecoration(
+            color: PdfColors.grey200,
+            border: pw.Border(top: pw.BorderSide(width: 0.5)),
+          ),
+          child: pw.Row(children: [
+            for (int i = 0; i < subs.length; i++)
+              pw.Container(
+                width: subWidths[i],
+                alignment: pw.Alignment.center,
+                decoration: i == (subs.length - 1) 
+                  ? null 
+                  : const pw.BoxDecoration(border: pw.Border(left: pw.BorderSide(width: 0.5))),
+                child: pw.Text(ArabicPDFHelper.fixArabic(subs[i]), 
+                  style: pw.TextStyle(font: font, fontSize: 7), softWrap: true, textAlign: pw.TextAlign.center),
+              ),
+          ]),
+        ),
+      ]),
+    );
+  }
 
-pw.Widget _buildCenteredDataCell(String text, pw.Font font) => pw.Container(
-    alignment: pw.Alignment.center,
-    padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-    child: pw.Text(ArabicPDFHelper.fixArabic(text),
-        style: pw.TextStyle(font: font, fontSize: 9)));
-
-pw.Widget _buildInkMiniTable(List<Map<String, String>> entries, pw.Font font) {
-  return pw.Table(
-    border: pw.TableBorder.all(width: 0.3),
+  return pw.Row(
     children: [
-      pw.TableRow(
-          children: entries
-              .take(3)
-              .map((e) => _miniCell(e['color']!, font))
-              .toList()),
-      pw.TableRow(
-          children: entries
-              .take(3)
-              .map((e) => _miniCell(e['quantity']!, font))
-              .toList()),
+      buildSpannedHeader('م', 20, isRightMost: true),
+      buildSpannedHeader('التاريخ', 55),
+      buildSpannedHeader('إسم العميل', flexibleWidth),
+      buildSpannedHeader('الصنف', flexibleWidth),
+      buildSpannedHeader('كود الصنف', 48),
+      buildSpannedHeader('المقاس', 60),
+      buildSpannedHeader('أمر التشغيل', 45),
+      buildSpannedHeader('الإنتاج', 35),
+      buildGroupedHeader('وقت التشغيل', ['من', 'إلى'], [35, 35], isSectionEnd: true),
+      buildGroupedHeader('الهالك', ['خ', 'ط'], [25, 25], isSectionEnd: true),
+      buildGroupedHeader('الأعطال', ['من', 'إلى'], [35, 35], isSectionEnd: true),
+      if (uniqueColors.isNotEmpty)
+        buildSpannedHeader(
+          'كمية الحبر بالليتر', 
+          uniqueColors.length * 30.0, 
+          isSectionEnd: true,
+        ),
+      buildSpannedHeader('الملاحظات', flexibleWidth),
     ],
   );
 }
 
-pw.Widget _miniCell(String text, pw.Font font) => pw.Container(
-    width: 60,
-    height: 18,
-    alignment: pw.Alignment.center,
-    child: pw.Text(ArabicPDFHelper.fixArabic(text),
-        style: pw.TextStyle(font: font, fontSize: 7)));
+// الدوال المساعدة للبناء بتنسيق مطور مع دعم الـ SoftWrap والتوسيط الكامل
 
 // دالة توليد تقرير فردي لـ Isolate
 Future<Uint8List> _generateSingleReportPdfBytes(
     Map<String, dynamic> params) async {
   // نفس منطق Consolidated ولكن لسجل واحد فقط (مختصر)
-  return await _generateConsolidatedPdfBytes({
+  return await compute(_generateConsolidatedPdfBytes, {
     'records': [params['record']],
     'font': params['font'],
     'bold': params['bold']

@@ -218,7 +218,9 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
                         readOnly: true, onTap: _selectDate),
                     const SizedBox(height: 12),
                     _buildTextField(orderNumberController, "🔢 رقم أمر التشغيل",
-                        icon: Icons.numbers, isRequired: false),
+                        icon: Icons.numbers,
+                        isRequired: false,
+                        keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
                     Row(
                       children: [
