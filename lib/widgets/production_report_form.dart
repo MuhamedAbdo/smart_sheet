@@ -164,8 +164,8 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
         'printWaste': int.tryParse(printWasteController.text),
         'downtime_start': downtimeStartController.text.trim(),
         'downtime_end': downtimeEndController.text.trim(),
-        'machine_name': machineNameController.text.trim(),
-        'technician_name': technicianNameController.text.trim(),
+        'machineName': machineNameController.text.trim(),
+        'technicianName': technicianNameController.text.trim(),
       };
 
       widget.onSave(report);

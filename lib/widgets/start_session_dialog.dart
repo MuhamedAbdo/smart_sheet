@@ -157,6 +157,8 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
           },
           onSelected: (String selection) {
             controller.text = selection;
+            // Force unfocus to dismiss the suggestions overlay and keyboard immediately
+            FocusScope.of(context).unfocus();
           },
           fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
             if (textController.text.isEmpty && controller.text.isNotEmpty) {

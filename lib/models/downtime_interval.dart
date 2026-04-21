@@ -5,7 +5,7 @@ part 'downtime_interval.g.dart';
 @HiveType(typeId: 16)
 class DowntimeInterval {
   @HiveField(0)
-  final DateTime start;
+  DateTime start;
 
   @HiveField(1)
   DateTime? end;

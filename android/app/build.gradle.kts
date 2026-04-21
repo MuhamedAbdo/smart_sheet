@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.muhamed.smart_sheet"
     // تحديث إلى 36 لدعم البكجات الجديدة
-    compileSdk = 35 
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -25,7 +25,7 @@ android {
         applicationId = "com.muhamed.smart_sheet"
         // نستخدم نسخة صريحة لضمان الاستقرار مع الهاتف الحقيقي
         minSdk = flutter.minSdkVersion 
-        targetSdk = 35 
+        targetSdk = 36 
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true

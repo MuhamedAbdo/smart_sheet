@@ -107,7 +107,8 @@ class _SessionCardState extends State<SessionCard> {
                 ],
               ),
               const Divider(),
-              _buildInfoRow(Icons.person, widget.session.clientName),
+              _buildInfoRow(Icons.person, "العميل: ${widget.session.clientName}"),
+              _buildInfoRow(Icons.engineering, "الفني: ${widget.session.technicianName}"),
               _buildInfoRow(
                   Icons.numbers, "أمر: ${widget.session.orderNumber}"),
               InkWell(
@@ -118,6 +119,30 @@ class _SessionCardState extends State<SessionCard> {
                   isEditable: true,
                 ),
               ),
+              if (widget.session.downtimeIntervals.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: () => _selectDowntimeTime(true),
+                  child: _buildInfoRow(
+                    Icons.pause_circle_filled,
+                    "بدء العطل: ${widget.session.downtimeIntervals.last.start.hour.toString().padLeft(2, '0')}:${widget.session.downtimeIntervals.last.start.minute.toString().padLeft(2, '0')}",
+                    isEditable: true,
+                    color: Colors.orange,
+                  ),
+                ),
+                if (widget.session.downtimeIntervals.last.end != null) ...[
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: () => _selectDowntimeTime(false),
+                    child: _buildInfoRow(
+                      Icons.play_circle_filled,
+                      "نهاية العطل: ${widget.session.downtimeIntervals.last.end!.hour.toString().padLeft(2, '0')}:${widget.session.downtimeIntervals.last.end!.minute.toString().padLeft(2, '0')}",
+                      isEditable: true,
+                      color: Colors.green,
+                    ),
+                  ),
+                ],
+              ],
               const SizedBox(height: 10),
               Center(
                 child: Text(
@@ -183,7 +208,6 @@ class _SessionCardState extends State<SessionCard> {
         picked.minute,
       );
 
-      // Don't allow start time in the future
       if (newStartTime.isAfter(now)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('لا يمكن اختيار وقت في المستقبل')),
@@ -199,26 +223,66 @@ class _SessionCardState extends State<SessionCard> {
     }
   }
 
-  Widget _buildInfoRow(IconData icon, String text, {bool isEditable = false}) {
+  Future<void> _selectDowntimeTime(bool isStart) async {
+    if (widget.session.downtimeIntervals.isEmpty) return;
+    final last = widget.session.downtimeIntervals.last;
+    final currentTime = isStart ? last.start : (last.end ?? DateTime.now());
+
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(currentTime),
+    );
+
+    if (!mounted || picked == null) return;
+
+    final now = DateTime.now();
+    final newTime = DateTime(
+      currentTime.year,
+      currentTime.month,
+      currentTime.day,
+      picked.hour,
+      picked.minute,
+    );
+
+    if (newTime.isAfter(now)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا يمكن اختيار وقت في المستقبل')),
+      );
+      return;
+    }
+
+    setState(() {
+      if (isStart) {
+        last.start = newTime;
+      } else {
+        last.end = newTime;
+      }
+      _displayDuration = widget.session.netRunningTime;
+    });
+    widget.session.save();
+  }
+
+  Widget _buildInfoRow(IconData icon, String text, {bool isEditable = false, Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Icon(icon, size: 14, color: Colors.grey),
+          Icon(icon, size: 14, color: color ?? Colors.grey),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               text,
               style: TextStyle(
                 fontSize: 13,
-                color: isEditable ? Colors.blue : null,
+                color: isEditable ? (color ?? Colors.blue) : null,
+                fontWeight: isEditable ? FontWeight.w500 : null,
                 decoration: isEditable ? TextDecoration.underline : null,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           if (isEditable)
-            const Icon(Icons.edit, size: 12, color: Colors.blue),
+            Icon(Icons.edit, size: 12, color: color ?? Colors.blue),
         ],
       ),
     );

@@ -21,7 +21,7 @@ class ActiveSessionsDashboard extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        final sessions = box.values.toList();
+        final sessions = box.values.toList().reversed.toList();
 
         return Container(
           height: 280,

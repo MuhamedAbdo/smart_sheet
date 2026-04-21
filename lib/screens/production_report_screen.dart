@@ -467,6 +467,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     final key = entry.key;
     final record = entry.value;
 
+    final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
+    final tName = (record['technicianName'] ?? record['technician_name'])?.toString() ?? '';
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       elevation: 4,
@@ -516,26 +519,10 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   ],
                 ),
               ),
-            if (record['machineName'] != null || record['technicianName'] != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    if (record['machineName'] != null) ...[
-                      const Icon(Icons.precision_manufacturing, size: 16, color: Colors.blueGrey),
-                      const SizedBox(width: 4),
-                      Text("${record['machineName']}", style: const TextStyle(fontSize: 13)),
-                    ],
-                    if (record['machineName'] != null && record['technicianName'] != null)
-                      const Text(" | "),
-                    if (record['technicianName'] != null) ...[
-                      const Icon(Icons.engineering, size: 16, color: Colors.blueGrey),
-                      const SizedBox(width: 4),
-                      Text("${record['technicianName']}", style: const TextStyle(fontSize: 13)),
-                    ],
-                  ],
-                ),
-              ),
+            if (mName.isNotEmpty)
+              _buildInfoRowWithIcon(Icons.settings, "الماكينة:", mName),
+            if (tName.isNotEmpty)
+              _buildInfoRowWithIcon(Icons.person, "الفني المسؤول:", tName),
             if ((record['downtimeStart'] != null &&
                     record['downtimeStart'].toString().isNotEmpty) ||
                 (record['downtimeEnd'] != null &&
@@ -597,10 +584,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           descending ? dateB.compareTo(dateA) : dateA.compareTo(dateB);
       if (dateCompare != 0) return dateCompare;
 
-      // الفرز الثانوي: اسم العميل (تصاعدياً دائماً)
-      final nameA = (a.value['clientName'] ?? '').toString().toLowerCase();
-      final nameB = (b.value['clientName'] ?? '').toString().toLowerCase();
-      return nameA.compareTo(nameB);
+      // الفرز الثانوي: المفتاح التقني (Key) لضمان ظهور الأحدث إضافياً أولاً عند تساوي التواريخ
+      return b.key.toString().compareTo(a.key.toString());
     });
 
     // إضافة فلترة التاريخ في النهاية إذا كان مختاراً
@@ -612,6 +597,21 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     }
 
     return entries;
+  }
+
+  Widget _buildInfoRowWithIcon(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.blueGrey),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          Text(value),
+        ],
+      ),
+    );
   }
 
   Widget _buildInfoRow(String l, String v) => Padding(
@@ -712,8 +712,18 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       last.end ??= now;
     }
 
+    // Correct Downtime Mapping (First Start -> Last End)
+    String dStart = "";
+    String dEnd = "";
+    if (session.downtimeIntervals.isNotEmpty) {
+      final firstStart = session.downtimeIntervals.first.start;
+      final lastEnd = session.downtimeIntervals.last.end ?? now;
+      dStart = "${firstStart.hour.toString().padLeft(2, '0')}:${firstStart.minute.toString().padLeft(2, '0')}";
+      dEnd = "${lastEnd.hour.toString().padLeft(2, '0')}:${lastEnd.minute.toString().padLeft(2, '0')}";
+    }
+
     final totalDowntimeMin = session.totalDowntime.inMinutes;
-    final downtimeValue = totalDowntimeMin > 0 ? "(إجمالي: $totalDowntimeMin دقيقة)" : "";
+    final totalDowntimeText = totalDowntimeMin > 0 ? " (إجمالي: $totalDowntimeMin دقيقة)" : "";
 
     final initialData = {
       'date': "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
@@ -723,13 +733,14 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       'order_number': session.orderNumber,
       'start_time': startTimeStr,
       'end_time': endTimeStr,
-      'downtime_start': downtimeValue,
-      'machine_name': session.machineName,
-      'technician_name': session.technicianName,
+      'downtime_start': dStart,
+      'downtime_end': dEnd,
+      'machineName': session.machineName,
+      'technicianName': session.technicianName,
       'dimensions': session.dimensions,
       'isSheet': session.isSheet,
       'imagePaths': session.imagePaths,
-      'notes': "",
+      'notes': totalDowntimeText,
     };
 
     showModalBottomSheet(
