@@ -6,10 +6,12 @@ import 'package:smart_sheet/widgets/session_card.dart';
 
 class ActiveSessionsDashboard extends StatelessWidget {
   final Function(LiveSession) onFinishSession;
+  final Function(LiveSession) onCancelSession; // ✅ إضافة دالة الإلغاء
 
   const ActiveSessionsDashboard({
     super.key,
     required this.onFinishSession,
+    required this.onCancelSession, // ✅ تمرير الدالة للمُنشئ
   });
 
   @override
@@ -55,6 +57,7 @@ class ActiveSessionsDashboard extends StatelessWidget {
                     return SessionCard(
                       session: session,
                       onFinish: () => onFinishSession(session),
+                      onCancel: () => onCancelSession(session), // ✅ تمرير الدالة للبطاقة
                       onToggleDowntime: (shouldResume) => _toggleDowntime(session, shouldResume),
                     );
                   },

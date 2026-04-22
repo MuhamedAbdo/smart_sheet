@@ -127,6 +127,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                   dimensions: widget.initialData?['dimensions'],
                   isSheet: widget.initialData?['isSheet'] ?? false,
                   imagePaths: List<String>.from(widget.initialData?['imagePaths'] ?? []),
+                  factoryId: '', // معرف فريد للمصنع (للتأسيس السحابي مستقبلاً)
                 );
                 
                 Hive.box<LiveSession>('flexo_live_sessions').add(session);

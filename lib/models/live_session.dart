@@ -47,6 +47,9 @@ class LiveSession extends HiveObject {
   @HiveField(13)
   final List<String>? imagePaths;
 
+  @HiveField(14)
+  final String? factoryId;
+
   LiveSession({
     required this.id,
     required this.machineName,
@@ -62,6 +65,7 @@ class LiveSession extends HiveObject {
     this.dimensions,
     this.isSheet,
     this.imagePaths,
+    this.factoryId,
   });
 
   Duration get totalDowntime {

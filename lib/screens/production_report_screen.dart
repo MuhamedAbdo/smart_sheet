@@ -419,6 +419,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             children: [
               ActiveSessionsDashboard(
                 onFinishSession: (session) => _finishSession(session),
+                onCancelSession: (session) => _cancelSession(session), // ✅ إضافة دالة الإلغاء
               ),
               if (box.isEmpty && Hive.box<LiveSession>('flexo_live_sessions').isEmpty)
                 const Expanded(child: Center(child: Text("🚫 لا يوجد تقارير أو جلسات نشطة"))),
@@ -768,6 +769,25 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           }
         },
       ),
+    );
+  }
+
+  void _cancelSession(LiveSession session) {
+    UIUtils.showDeleteConfirmation(
+      context: context,
+      title: "إلغاء الجلسة",
+      content: "هل أنت متأكد من إلغاء هذه الجلسة؟ سيتم حذف جميع البيانات المؤقتة الخاصة بها نهائياً.",
+      confirmLabel: "إلغاء الجلسة",
+      onConfirm: () async {
+        await session.delete(); // حذف مباشر من Hive دون ترحيل
+        if (mounted) {
+          UIUtils.showInfoSnackBar(
+            message: "تم إلغاء الجلسة بنجاح",
+            backgroundColor: Colors.orange,
+            icon: Icons.delete_sweep,
+          );
+        }
+      },
     );
   }
 

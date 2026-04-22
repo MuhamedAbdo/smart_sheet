@@ -5,12 +5,14 @@ import 'package:smart_sheet/models/live_session.dart';
 class SessionCard extends StatefulWidget {
   final LiveSession session;
   final VoidCallback onFinish;
+  final VoidCallback onCancel; // ✅ إضافة دالة الإلغاء
   final Function(bool) onToggleDowntime;
 
   const SessionCard({
     super.key,
     required this.session,
     required this.onFinish,
+    required this.onCancel, // ✅ تمرير الدالة للمُنشئ
     required this.onToggleDowntime,
   });
 
@@ -103,6 +105,15 @@ class _SessionCardState extends State<SessionCard> {
                         fontSize: 12,
                       ),
                     ),
+                  ),
+                  const SizedBox(width: 4),
+                  // ✅ زر الإلغاء الجديد
+                  IconButton(
+                    icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 22),
+                    tooltip: 'إلغاء الجلسة',
+                    onPressed: widget.onCancel,
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
                   ),
                 ],
               ),
