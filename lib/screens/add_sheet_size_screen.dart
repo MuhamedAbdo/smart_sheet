@@ -217,6 +217,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'date': DateTime.now().toIso8601String(),
       'isSheet': isSheet,
       'isClientRecord': isAddingClientOnly,
+      'factoryId': '', // معرف فريد للمصنع (للتأسيس السحابي مستقبلاً)
     };
 
 

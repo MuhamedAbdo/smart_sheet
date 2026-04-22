@@ -43,84 +43,143 @@ class SheetSizeCheckboxes extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildCheckboxRow(
-          "أوڨر فلاب",
-          isOverFlap,
-          onOverFlapChanged,
-          "فلاب",
-          isFlap,
-          onFlapChanged,
+        // صف الأوفر فلاب والفلاب
+        Row(
+          children: [
+            Expanded(
+              child: _buildCompactCheckbox(
+                "أوڨر فلاب",
+                isOverFlap,
+                onOverFlapChanged,
+              ),
+            ),
+            Expanded(
+              child: _buildCompactCheckbox(
+                "فلاب",
+                isFlap,
+                onFlapChanged,
+              ),
+            ),
+          ],
         ),
-        _buildCheckboxRow(
-          "1 فلاب",
-          isOneFlap,
-          onOneFlapChanged,
-          "2 فلاب",
-          isTwoFlap,
-          onTwoFlapChanged,
+        const SizedBox(height: 8),
+        // صف 1 فلاب و 2 فلاب
+        Row(
+          children: [
+            Expanded(
+              child: _buildCompactCheckbox(
+                "1 فلاب",
+                isOneFlap,
+                onOneFlapChanged,
+              ),
+            ),
+            Expanded(
+              child: _buildCompactCheckbox(
+                "2 فلاب",
+                isTwoFlap,
+                onTwoFlapChanged,
+              ),
+            ),
+          ],
         ),
-        CheckboxListTile(
-          title: const Text("إضافة 2 مللم"),
-          value: addTwoMm,
-          onChanged: onAddTwoMmChanged,
+        const SizedBox(height: 8),
+        // خيار الدوبل (إضافة 2 مللم)
+        _buildCompactCheckbox(
+          "دوبل (إضافة 2 مللم للفلاب)",
+          addTwoMm,
+          onAddTwoMmChanged,
         ),
-        _buildCheckboxRow(
-          "ص",
-          isFullSize,
-          onFullSizeChanged,
-          "1/2 ص",
-          !isFullSize && !isQuarterSize,
-          (value) {
-            onFullSizeChanged(!value!);
-            onQuarterSizeChanged(false);
-          },
+        const Divider(height: 24),
+        // خيارات المقاس (ص، 1/2 ص)
+        Row(
+          children: [
+            Expanded(
+              child: _buildCompactCheckbox(
+                "ص",
+                isFullSize,
+                onFullSizeChanged,
+              ),
+            ),
+            Expanded(
+              child: _buildCompactCheckbox(
+                "1/2 ص",
+                !isFullSize && !isQuarterSize,
+                (value) {
+                  onFullSizeChanged(!value!);
+                  onQuarterSizeChanged(false);
+                },
+              ),
+            ),
+          ],
         ),
-        CheckboxListTile(
-          title: const Text("1/4 ص"),
-          value: isQuarterSize,
-          onChanged: onQuarterSizeChanged,
+        const SizedBox(height: 8),
+        // خيار 1/4 ص
+        _buildCompactCheckbox(
+          "1/4 ص",
+          isQuarterSize,
+          onQuarterSizeChanged,
         ),
-        if (isQuarterSize)
-          _buildCheckboxRow(
-            "عرض",
-            isQuarterWidth,
-            onQuarterWidthChanged,
-            "طول",
-            !isQuarterWidth,
-            (value) => onQuarterWidthChanged(!value!),
+        if (isQuarterSize) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildCompactCheckbox(
+                  "عرض",
+                  isQuarterWidth,
+                  onQuarterWidthChanged,
+                ),
+              ),
+              Expanded(
+                child: _buildCompactCheckbox(
+                  "طول",
+                  !isQuarterWidth,
+                  (value) => onQuarterWidthChanged(!value!),
+                ),
+              ),
+            ],
           ),
+        ],
       ],
     );
   }
 
-  Widget _buildCheckboxRow(
-    String title1,
-    bool value1,
-    Function(bool?) onChanged1,
-    String title2,
-    bool value2,
-    Function(bool?) onChanged2,
+  Widget _buildCompactCheckbox(
+    String title,
+    bool value,
+    void Function(bool?) onChanged,
   ) {
-    return Row(
-      children: [
-        Expanded(
-          child: CheckboxListTile(
-            title: Text(title1),
-            value: value1,
-            onChanged: onChanged1,
-            contentPadding: EdgeInsets.zero,
-          ),
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Checkbox(
+                value: value,
+                onChanged: onChanged,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
-        Expanded(
-          child: CheckboxListTile(
-            title: Text(title2),
-            value: value2,
-            onChanged: onChanged2,
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

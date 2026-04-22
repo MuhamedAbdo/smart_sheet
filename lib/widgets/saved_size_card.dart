@@ -257,10 +257,43 @@ class SavedSizeCard extends StatelessWidget {
   }
 
   void _showFullDetails(BuildContext context, Map<String, dynamic> record) {
-    // منطق الحسابات كما هو موجود في الكود الخاص بك
     double length = double.tryParse(record['length']?.toString() ?? '0') ?? 0.0;
     double width = double.tryParse(record['width']?.toString() ?? '0') ?? 0.0;
     double height = double.tryParse(record['height']?.toString() ?? '0') ?? 0.0;
+
+    // استخراج الإعدادات المحفوظة للحسابات
+    bool isOverFlap = record['isOverFlap'] ?? false;
+    bool isFlap = record['isFlap'] ?? true;
+    bool isOneFlap = record['isOneFlap'] ?? false;
+    bool isTwoFlap = record['isTwoFlap'] ?? true;
+    bool addTwoMm = record['addTwoMm'] ?? false;
+
+    String productionWidth1 = "";
+    String productionHeight = height.toStringAsFixed(2);
+    String productionWidth2 = "";
+
+    // تنفيذ نفس منطق دالة _calculateSheet الموجودة في شاشة الإدخال لضمان التطابق
+    if (isOverFlap && isTwoFlap) {
+      productionWidth1 =
+          addTwoMm ? (width + 0.2).toStringAsFixed(2) : width.toStringAsFixed(2);
+      productionWidth2 = productionWidth1;
+    } else if (isOverFlap && isOneFlap) {
+      productionWidth1 = ".....";
+      productionWidth2 =
+          addTwoMm ? (width + 0.2).toStringAsFixed(2) : width.toStringAsFixed(2);
+    } else if (isFlap && isTwoFlap) {
+      productionWidth1 = addTwoMm
+          ? ((width / 2) + 0.2).toStringAsFixed(2)
+          : (width / 2).toStringAsFixed(2);
+      productionWidth2 = productionWidth1;
+    } else if (isFlap && isOneFlap) {
+      productionWidth1 = ".....";
+      productionWidth2 = addTwoMm
+          ? ((width / 2) + 0.2).toStringAsFixed(2)
+          : (width / 2).toStringAsFixed(2);
+    } else {
+      productionWidth1 = productionWidth2 = ".....";
+    }
 
     showDialog(
       context: context,
@@ -278,9 +311,9 @@ class SavedSizeCard extends StatelessWidget {
               border: TableBorder.all(color: Colors.grey),
               children: [
                 TableRow(children: [
-                  _buildTableCell((width / 2).toStringAsFixed(1)),
-                  _buildTableCell(height.toStringAsFixed(1)),
-                  _buildTableCell((width / 2).toStringAsFixed(1)),
+                  _buildTableCell(productionWidth1),
+                  _buildTableCell(productionHeight),
+                  _buildTableCell(productionWidth2),
                 ])
               ],
             )

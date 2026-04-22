@@ -60,6 +60,9 @@ class ProductionReport extends HiveObject {
   @HiveField(17)
   final String? technicianName;
 
+  @HiveField(18)
+  final String? factoryId;
+
   ProductionReport({
     required this.id,
     required this.date,
@@ -79,6 +82,7 @@ class ProductionReport extends HiveObject {
     this.downtimeEnd,
     this.machineName,
     this.technicianName,
+    this.factoryId,
   });
 
   Map<String, dynamic> toJson() {
@@ -101,6 +105,7 @@ class ProductionReport extends HiveObject {
       'downtime_end': downtimeEnd,
       'machine_name': machineName,
       'technician_name': technicianName,
+      'factory_id': factoryId,
     };
   }
 
@@ -140,6 +145,7 @@ class ProductionReport extends HiveObject {
       downtimeEnd: map['downtimeEnd'] ?? map['downtime_end'],
       machineName: map['machineName'] ?? map['machine_name'],
       technicianName: map['technicianName'] ?? map['technician_name'],
+      factoryId: map['factoryId'] ?? map['factory_id'],
     );
   }
 }

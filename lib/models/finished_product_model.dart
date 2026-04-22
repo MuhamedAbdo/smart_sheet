@@ -43,6 +43,9 @@ class FinishedProduct extends HiveObject {
   @HiveField(11)
   String? dateBacker;
 
+  @HiveField(12)
+  String? factoryId;
+
   FinishedProduct({
     this.clientName,
     this.productName,
@@ -55,7 +58,8 @@ class FinishedProduct extends HiveObject {
     this.imagePaths,
     this.technician,
     this.notes,
-    this.dateBacker, // ✅ إضافة الحقل إلى المُنشئ
+    this.dateBacker,
+    this.factoryId, // ✅ إضافة الحقل إلى المُنشئ
   });
 
   Map<String, dynamic> toJson() {
@@ -71,7 +75,8 @@ class FinishedProduct extends HiveObject {
       'imagePaths': imagePaths,
       'technician': technician,
       'notes': notes,
-      'dateBacker': dateBacker, // ✅ إضافة الحقل إلى التحويل
+      'dateBacker': dateBacker,
+      'factoryId': factoryId, // ✅ إضافة الحقل إلى التحويل
     };
   }
 
@@ -95,7 +100,8 @@ class FinishedProduct extends HiveObject {
       imagePaths: List<String>.from(map['imagePaths'] ?? []),
       technician: map['technician'],
       notes: map['notes'],
-      dateBacker: map['dateBacker'], // ✅ إضافة الحقل من التحويل
+      dateBacker: map['dateBacker'],
+      factoryId: map['factoryId'], // ✅ إضافة الحقل من التحويل
     );
   }
 }
