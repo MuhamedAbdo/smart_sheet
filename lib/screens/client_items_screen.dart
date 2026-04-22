@@ -218,7 +218,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                 record: entry.value,
                 onEdit: () => _navigateToEdit(entry.key, entry.value),
                 onDelete: () => _confirmDelete(entry.key),
-                onPrint: (data) => _openProductionReportWithSheetData(context, data),
+                onStartProduction: (data) => _openProductionReportWithSheetData(context, data),
               );
             },
           ),

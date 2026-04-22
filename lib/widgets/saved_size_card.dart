@@ -7,15 +7,15 @@ class SavedSizeCard extends StatelessWidget {
   final Map<String, dynamic> record;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  // التغيير هنا: بدلاً من VoidCallback، جعلناها Function تستقبل الـ record
-  final Function(Map<String, dynamic>) onPrint;
+  // التغيير هنا: مسمى الزر أصبح بدء إنتاج بدلاً من طباعة
+  final Function(Map<String, dynamic>) onStartProduction;
 
   const SavedSizeCard({
     super.key,
     required this.record,
     required this.onEdit,
     required this.onDelete,
-    required this.onPrint,
+    required this.onStartProduction,
   });
 
   // دالة مساعدة لجلب مسار مجلد الصور
@@ -148,16 +148,22 @@ class SavedSizeCard extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // --- زر الطباعة ---
+            // --- أزرار الإنتاج (مصممة بمرونة للأقسام القادمة) ---
             Align(
               alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                // هنا نقوم بتمرير الـ record للدالة الممررة
-                onPressed: () => onPrint(record),
-                icon: const Icon(Icons.print, size: 18),
-                label: const Text("طباعة التقرير"),
-                style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => onStartProduction(record),
+                    icon: const Icon(Icons.precision_manufacturing, size: 18),
+                    label: const Text("بدء إنتاج (فلكسو)"),
+                    style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact),
+                  ),
+                  // هنا يمكن إضافة أزرار أخرى لاحقاً (تكسير، دبوس...) دون تداخل
+                ],
               ),
             ),
           ],
