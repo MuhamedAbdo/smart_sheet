@@ -22,13 +22,14 @@ class StoreEntryAdapter extends TypeAdapter<StoreEntry> {
       unit: fields[2] as String,
       quantity: fields[3] as int,
       notes: fields[4] as String?,
+      factoryId: fields[5] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, StoreEntry obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.date)
       ..writeByte(1)
@@ -38,7 +39,9 @@ class StoreEntryAdapter extends TypeAdapter<StoreEntry> {
       ..writeByte(3)
       ..write(obj.quantity)
       ..writeByte(4)
-      ..write(obj.notes);
+      ..write(obj.notes)
+      ..writeByte(5)
+      ..write(obj.factoryId);
   }
 
   @override

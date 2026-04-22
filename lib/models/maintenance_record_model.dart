@@ -46,6 +46,9 @@ class MaintenanceRecord extends HiveObject {
   @HiveField(12) // حقل جديد للـ ID
   final String? id;
 
+  @HiveField(13)
+  final String? factoryId;
+
   MaintenanceRecord({
     this.id, // اجعله اختيارياً
     required this.machine,
@@ -60,5 +63,44 @@ class MaintenanceRecord extends HiveObject {
     required this.reportedToTechnician,
     this.notes,
     required this.imagePaths,
+    this.factoryId,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'machine': machine,
+      'is_fixed': isFixed,
+      'issue_date': issueDate,
+      'report_date': reportDate,
+      'action_date': actionDate,
+      'issue_description': issueDescription,
+      'action_taken': actionTaken,
+      'repair_location': repairLocation,
+      'repaired_by': repairedBy,
+      'reported_to_technician': reportedToTechnician,
+      'notes': notes,
+      'image_paths': imagePaths,
+      'factory_id': factoryId,
+    };
+  }
+
+  factory MaintenanceRecord.fromJson(Map<String, dynamic> map) {
+    return MaintenanceRecord(
+      id: map['id'],
+      machine: map['machine'] ?? '',
+      isFixed: map['is_fixed'] ?? false,
+      issueDate: map['issue_date'] ?? '',
+      reportDate: map['report_date'] ?? '',
+      actionDate: map['action_date'] ?? '',
+      issueDescription: map['issue_description'] ?? '',
+      actionTaken: map['action_taken'] ?? '',
+      repairLocation: map['repair_location'] ?? '',
+      repairedBy: map['repaired_by'] ?? '',
+      reportedToTechnician: map['reported_to_technician'] ?? '',
+      notes: map['notes'],
+      imagePaths: List<String>.from(map['image_paths'] ?? []),
+      factoryId: map['factory_id'],
+    );
+  }
 }

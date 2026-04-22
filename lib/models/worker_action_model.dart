@@ -37,6 +37,9 @@ class WorkerAction extends HiveObject {
   @HiveField(10)
   final double? bonusDays; // للمكافأة/الجزاء (أيام)
 
+  @HiveField(11)
+  final String? factoryId;
+
   WorkerAction({
     required this.type,
     required this.days,
@@ -49,6 +52,7 @@ class WorkerAction extends HiveObject {
     this.endTimeMinute,
     this.amount,
     this.bonusDays,
+    this.factoryId,
   });
 
   TimeOfDay? get startTime {
@@ -85,6 +89,7 @@ class WorkerAction extends HiveObject {
       'end_time_minute': endTimeMinute,
       'amount': amount,
       'bonus_days': bonusDays,
+      'factory_id': factoryId,
     };
   }
 
@@ -105,6 +110,7 @@ class WorkerAction extends HiveObject {
       bonusDays: map['bonus_days'] is num
           ? (map['bonus_days'] as num).toDouble()
           : null,
+      factoryId: map['factory_id'],
     );
   }
 }

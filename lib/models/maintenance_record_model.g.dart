@@ -30,13 +30,14 @@ class MaintenanceRecordAdapter extends TypeAdapter<MaintenanceRecord> {
       reportedToTechnician: fields[9] as String,
       notes: fields[10] as String?,
       imagePaths: (fields[11] as List).cast<String>(),
+      factoryId: fields[13] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, MaintenanceRecord obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.machine)
       ..writeByte(1)
@@ -62,7 +63,9 @@ class MaintenanceRecordAdapter extends TypeAdapter<MaintenanceRecord> {
       ..writeByte(11)
       ..write(obj.imagePaths)
       ..writeByte(12)
-      ..write(obj.id);
+      ..write(obj.id)
+      ..writeByte(13)
+      ..write(obj.factoryId);
   }
 
   @override

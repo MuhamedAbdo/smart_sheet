@@ -22,12 +22,16 @@ class Worker extends HiveObject {
   @HiveField(4)
   late bool hasMedicalInsurance;
 
+  @HiveField(5)
+  late String? factoryId;
+
   Worker({
     required this.name,
     required this.phone,
     required this.job,
     List<WorkerAction>? actions,
     this.hasMedicalInsurance = false,
+    this.factoryId,
   }) {
     if (Hive.isBoxOpen('worker_actions')) {
       final box = Hive.box<WorkerAction>('worker_actions');
@@ -53,6 +57,7 @@ class Worker extends HiveObject {
       'phone': phone,
       'job': job,
       'has_medical_insurance': hasMedicalInsurance,
+      'factory_id': factoryId,
       // ignore: experimental_member_use
       'actions': actions.map((action) => action.toJson()).toList(),
     };
@@ -69,6 +74,7 @@ class Worker extends HiveObject {
       job: map['job'] ?? '',
       actions: actions,
       hasMedicalInsurance: map['has_medical_insurance'] ?? false,
+      factoryId: map['factory_id'],
     );
   }
 }

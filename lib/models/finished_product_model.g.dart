@@ -29,13 +29,14 @@ class FinishedProductAdapter extends TypeAdapter<FinishedProduct> {
       technician: fields[9] as String?,
       notes: fields[10] as String?,
       dateBacker: fields[11] as String?,
+      factoryId: fields[12] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, FinishedProduct obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.clientName)
       ..writeByte(1)
@@ -59,7 +60,9 @@ class FinishedProductAdapter extends TypeAdapter<FinishedProduct> {
       ..writeByte(10)
       ..write(obj.notes)
       ..writeByte(11)
-      ..write(obj.dateBacker);
+      ..write(obj.dateBacker)
+      ..writeByte(12)
+      ..write(obj.factoryId);
   }
 
   @override
