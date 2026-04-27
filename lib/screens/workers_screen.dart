@@ -4,6 +4,7 @@ import 'package:smart_sheet/widgets/worker_form.dart';
 import 'package:smart_sheet/widgets/worker_list.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/widgets/active_absences_dashboard.dart';
 
 class WorkersScreen extends StatelessWidget {
   final String departmentBoxName;
@@ -53,7 +54,12 @@ class WorkersScreen extends StatelessWidget {
             title: Text("👷‍♂️ $departmentTitle - العمال"),
             centerTitle: true,
           ),
-          body: WorkerList(box: box),
+          body: Column(
+            children: [
+              ActiveAbsencesDashboard(workerBox: box),
+              Expanded(child: WorkerList(box: box)),
+            ],
+          ),
           floatingActionButton: FloatingActionButton(
             onPressed: () => WorkerForm.show(context, box: box),
             child: const Icon(Icons.add),

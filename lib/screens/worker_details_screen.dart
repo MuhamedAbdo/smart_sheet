@@ -6,6 +6,7 @@ import '../../models/worker_action_model.dart';
 import '../../models/worker_model.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/worker_action_card.dart';
+import '../../widgets/active_absence_card.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 
 class WorkerDetailsScreen extends StatefulWidget {
@@ -48,6 +49,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             const Text("📜 الإجراءات",
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const Divider(),
+            _buildActiveAbsenceSection(),
             Expanded(
               child: widget.worker.actions.isEmpty
                   ? const Center(child: Text("لا توجد إجراءات لهذا العامل بعد"))
@@ -57,6 +59,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                         final action = widget.worker.actions[index];
                         return WorkerActionCard(
                           action: action,
+                          onRefresh: _refresh,
                           onEdit: () async {
                             await _showEditActionDialog(context, action, index);
                             _refresh();
@@ -85,8 +88,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                   },
                                 );
 
-
-
                                 _refresh();
                               },
                             );
@@ -104,6 +105,30 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildActiveAbsenceSection() {
+    try {
+      final activeAction = widget.worker.actions.firstWhere(
+        (a) => (a.type == 'غياب' && a.returnDate == null &&
+               DateTime.now().difference(a.date).inDays <= 30) ||
+               ((a.type == 'إذن' || a.type == 'تأمين صحي') && a.returnDate == null),
+      );
+      
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: SizedBox(
+          height: 190,
+          child: ActiveAbsenceCard(
+            worker: widget.worker,
+            action: activeAction,
+            onRefresh: _refresh,
+          ),
+        ),
+      );
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
   }
 
   void _showAddActionDialog(BuildContext context) {
@@ -130,6 +155,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   initialValue: actionType.value,
                   items: const [
                     DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
+                    DropdownMenuItem(value: 'أجازة عارضة', child: Text('أجازة عارضة')),
                     DropdownMenuItem(value: 'غياب', child: Text('غياب')),
                     DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
                     DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
@@ -154,7 +180,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                     if (p != null) setState(() => date.value = p);
                   },
                 ),
-                // التعديل الخاص بالإجازة والغياب فقط
                 if (actionType.value == 'إجازة' ||
                     actionType.value == 'غياب') ...[
                   TextField(
@@ -165,7 +190,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                         labelText: "🔢 عدد الأيام", hintText: "مثال: 1.5"),
                   ),
                 ]
-                // العودة للمنطق القديم لباقي الإجراءات
                 else if (actionType.value == 'مكافئة' ||
                     actionType.value == 'جزاء') ...[
                   const SizedBox(height: 8),
@@ -230,7 +254,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 final actionBox = Hive.box<WorkerAction>('worker_actions');
                 double? amountToSave;
                 double? bonusDaysToSave;
-                double finalDays = double.tryParse(daysController.text) ?? 1.0;
 
                 if (actionType.value == 'مكافئة' ||
                     actionType.value == 'جزاء') {
@@ -244,8 +267,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 final newAction = WorkerAction(
                   type: actionType.value,
                   days: (actionType.value == 'إجازة' ||
+                          actionType.value == 'أجازة عارضة' ||
                           actionType.value == 'غياب')
-                      ? finalDays
+                      ? double.tryParse(daysController.text)
                       : 0,
                   date: date.value,
                   notes: notesController.text,
@@ -255,6 +279,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   endTimeMinute: endTime.value?.minute,
                   amount: amountToSave,
                   bonusDays: bonusDaysToSave,
+                  factoryId: widget.worker.factoryId,
                 );
 
                 final key = await actionBox.add(newAction);
@@ -278,7 +303,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       BuildContext context, WorkerAction action, int index) async {
     final actionType = ValueNotifier<String>(action.type);
     final date = ValueNotifier<DateTime>(action.date);
-    final daysController = TextEditingController(text: action.days.toString());
+    final daysController = TextEditingController(text: action.days?.toString() ?? '');
     final startTime = ValueNotifier<TimeOfDay?>(action.startTime);
     final endTime = ValueNotifier<TimeOfDay?>(action.endTime);
     final rewardType =
@@ -301,6 +326,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   initialValue: actionType.value,
                   items: const [
                     DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
+                    DropdownMenuItem(value: 'أجازة عارضة', child: Text('أجازة عارضة')),
                     DropdownMenuItem(value: 'غياب', child: Text('غياب')),
                     DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
                     DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
@@ -398,7 +424,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 final actionBox = Hive.box<WorkerAction>('worker_actions');
                 double? amountToSave;
                 double? bonusDaysToSave;
-                double finalDays = double.tryParse(daysController.text) ?? 1.0;
 
                 if (actionType.value == 'مكافئة' ||
                     actionType.value == 'جزاء') {
@@ -412,8 +437,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 final updatedAction = WorkerAction(
                   type: actionType.value,
                   days: (actionType.value == 'إجازة' ||
+                          actionType.value == 'أجازة عارضة' ||
                           actionType.value == 'غياب')
-                      ? finalDays
+                      ? double.tryParse(daysController.text)
                       : 0,
                   date: date.value,
                   notes: notesController.text,
@@ -423,6 +449,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   endTimeMinute: endTime.value?.minute,
                   amount: amountToSave,
                   bonusDays: bonusDaysToSave,
+                  factoryId: widget.worker.factoryId,
                 );
 
                 final key = await actionBox.add(updatedAction);

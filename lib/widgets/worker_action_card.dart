@@ -7,12 +7,14 @@ class WorkerActionCard extends StatelessWidget {
   final WorkerAction action;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onRefresh;
 
   const WorkerActionCard({
     super.key,
     required this.action,
     required this.onEdit,
     required this.onDelete,
+    required this.onRefresh,
   });
 
   @override
@@ -47,28 +49,36 @@ class WorkerActionCard extends StatelessWidget {
             ),
             const SizedBox(height: 14),
 
-            // التعديل المطلوب: الأجازة والغياب فقط
-            if (action.type == 'إجازة' || action.type == 'غياب') ...[
+            // التعديل المطلوب: الأجازة والغياب والأجازة العارضة
+            if (action.type == 'إجازة' || action.type == 'غياب' || action.type == 'أجازة عارضة') ...[
               _buildSectionTitle('🗓️ البيانات', color: colorScheme.primary),
               _buildInfoRow(
-                'تاريخ البدء:',
+                '📅 تاريخ القيام:',
                 _f(action.date),
                 labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                 valueColor: textTheme.bodyMedium?.color,
               ),
+              if (action.type == 'غياب' || action.type == 'أجازة عارضة')
+                _buildInfoRow(
+                  '🔙 تاريخ العودة:',
+                  action.returnDate != null ? _f(action.returnDate!) : 'قيد الغياب',
+                  labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: action.returnDate != null 
+                      ? textTheme.bodyMedium?.color 
+                      : Colors.orange,
+                ),
               _buildInfoRow(
-                'عدد الأيام:',
-                action.days.toStringAsFixed(1), // رقم عشري واحد
+                '🔢 عدد الأيام:',
+                action.days != null ? "${action.days!.toStringAsFixed(1)} يوم" : 'قيد التنفيذ',
                 labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                 valueColor: textTheme.bodyMedium?.color,
               ),
             ]
-            // باقي الإجراءات كما كانت في ملفك الأصلي تماماً
             else if (action.type == 'مكافئة' || action.type == 'جزاء') ...[
               _buildSectionTitle('💰 القيمة', color: colorScheme.primary),
               if (action.amount != null)
                 _buildInfoRow(
-                  'المكافأة:',
+                  '💵 المبلغ:',
                   '${action.amount!.toStringAsFixed(2)} جنيه',
                   labelColor:
                       textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
@@ -76,7 +86,7 @@ class WorkerActionCard extends StatelessWidget {
                 ),
               if (action.bonusDays != null)
                 _buildInfoRow(
-                  'أيام مكافئة:',
+                  '📅 أيام مكافئة:',
                   _formatBonusDays(action.bonusDays!),
                   labelColor:
                       textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
@@ -85,30 +95,38 @@ class WorkerActionCard extends StatelessWidget {
             ] else if (action.type == 'إذن' || action.type == 'تأمين صحي') ...[
               _buildSectionTitle('⏰ التوقيت', color: colorScheme.primary),
               _buildInfoRow(
-                'التاريخ:',
+                '📅 تاريخ البدأ:',
                 _f(action.date),
-                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                labelColor:
+                    textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                 valueColor: textTheme.bodyMedium?.color,
               ),
-              if (action.startTime != null)
+              _buildInfoRow(
+                '🕒 وقت الخروج:',
+                action.startTime?.format(context) ?? '--',
+                labelColor:
+                    textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                valueColor: textTheme.bodyMedium?.color,
+              ),
+              if (action.endTime != null) ...[
                 _buildInfoRow(
-                  'وقت الخروج:',
-                  action.startTime!.format(context),
-                  labelColor:
-                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: textTheme.bodyMedium?.color,
-                ),
-              if (action.endTime != null)
-                _buildInfoRow(
-                  'وقت العودة:',
+                  '🔙 وقت العودة:',
                   action.endTime!.format(context),
                   labelColor:
                       textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                   valueColor: textTheme.bodyMedium?.color,
                 ),
+                _buildInfoRow(
+                  '🗓️ تاريخ العودة:',
+                  action.returnDate != null ? _f(action.returnDate!) : _f(action.date),
+                  labelColor:
+                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: textTheme.bodyMedium?.color,
+                ),
+              ],
               if (action.duration != null)
                 _buildInfoRow(
-                  'المدة:',
+                  '⏳ المدة الإجمالية:',
                   action.duration!,
                   labelColor:
                       textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
@@ -142,6 +160,21 @@ class WorkerActionCard extends StatelessWidget {
             ],
             Row(
               children: [
+                if (action.type == 'غياب' && action.returnDate != null) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _convertToCasualLeave(context),
+                      icon: const Icon(Icons.swap_horiz, size: 16),
+                      label: const Text('تحويل لعرضة', style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(color: Colors.orange.shade300),
+                        foregroundColor: Colors.orange.shade700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: onEdit,
@@ -153,7 +186,7 @@ class WorkerActionCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 12)),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: onDelete,
@@ -173,6 +206,25 @@ class WorkerActionCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _convertToCasualLeave(BuildContext context) async {
+    action.type = 'أجازة عارضة';
+    await action.save();
+    onRefresh();
+    
+    if (context.mounted) {
+      // Find the parent worker if possible to save and trigger UI refresh
+      // Since WorkerAction has HiveObject.save(), it should update the box.
+      // But to be sure about listeners on the Worker, we rely on the parent refresh.
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("تم تحويل الغياب إلى أجازة عارضة"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
   }
 
   // الدوال المساعدة كما هي

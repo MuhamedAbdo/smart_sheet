@@ -18,7 +18,7 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
     };
     return WorkerAction(
       type: fields[0] as String,
-      days: fields[1] as double,
+      days: fields[1] as double?,
       date: fields[2] as DateTime,
       notes: fields[3] as String?,
       returnDate: fields[4] as DateTime?,

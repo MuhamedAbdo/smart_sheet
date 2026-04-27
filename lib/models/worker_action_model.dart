@@ -8,10 +8,10 @@ part 'worker_action_model.g.dart';
 @HiveType(typeId: 11)
 class WorkerAction extends HiveObject {
   @HiveField(0)
-  final String type;
+  String type;
 
   @HiveField(1)
-  final double days;
+  double? days;
 
   @HiveField(2)
   final DateTime date;
@@ -20,16 +20,16 @@ class WorkerAction extends HiveObject {
   final String? notes;
 
   @HiveField(4)
-  final DateTime? returnDate;
+  DateTime? returnDate;
 
   @HiveField(5)
   final int? startTimeHour;
   @HiveField(6)
   final int? startTimeMinute;
   @HiveField(7)
-  final int? endTimeHour;
+  int? endTimeHour;
   @HiveField(8)
-  final int? endTimeMinute;
+  int? endTimeMinute;
 
   @HiveField(9)
   final double? amount; // للمكافأة/الجزاء (جنيه)
@@ -42,7 +42,7 @@ class WorkerAction extends HiveObject {
 
   WorkerAction({
     required this.type,
-    required this.days,
+    this.days,
     required this.date,
     this.notes,
     this.returnDate,
@@ -67,13 +67,27 @@ class WorkerAction extends HiveObject {
 
   String? get duration {
     if (startTime == null || endTime == null) return null;
-    final startMin = startTime!.hour * 60 + startTime!.minute;
-    final endMin = endTime!.hour * 60 + endTime!.minute;
-    final diff = endMin - startMin;
-    if (diff <= 0) return "00:00";
-    final h = (diff ~/ 60).toString().padLeft(2, '0');
-    final m = (diff % 60).toString().padLeft(2, '0');
-    return "$h:$m";
+
+    final startDateTime = DateTime(
+        date.year, date.month, date.day, startTime!.hour, startTime!.minute);
+    
+    final endBaseDate = returnDate ?? date;
+    final endDateTime = DateTime(endBaseDate.year, endBaseDate.month,
+        endBaseDate.day, endTime!.hour, endTime!.minute);
+
+    final diff = endDateTime.difference(startDateTime);
+    if (diff.isNegative || diff.inMinutes == 0) return "0 دقيقة";
+
+    final days = diff.inDays;
+    final hours = diff.inHours % 24;
+    final minutes = diff.inMinutes % 60;
+
+    final parts = <String>[];
+    if (days > 0) parts.add("$days يوم");
+    if (hours > 0) parts.add("$hours ساعة");
+    if (minutes > 0) parts.add("$minutes دقيقة");
+
+    return parts.join(" و ");
   }
 
   Map<String, dynamic> toJson() {
