@@ -21,6 +21,7 @@ class BackupRestoreScreen extends StatefulWidget {
 class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   final BackupService _backupService = BackupService();
   bool _isLoading = false;
+  bool _isRefreshing = false;
   String? _message;
   bool _hasBackup = false;
   bool _isAuthenticated = false;
@@ -64,9 +65,11 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       if (user == null) return;
 
       final backups = await _backupService.listBackups();
+      final backupExists = backups.any((file) => file.name.endsWith('.zip'));
+
       if (mounted) {
         setState(() {
-          _hasBackup = backups.isNotEmpty;
+          _hasBackup = backupExists;
         });
       }
     } catch (e) {
@@ -110,7 +113,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       });
 
       if (result?.startsWith('✅') == true) {
-        _checkBackupExists(); // Refresh backup status
+        await _checkBackupExists(); // Refresh backup status
         UIUtils.showInfoSnackBar(
           message: result!,
           backgroundColor: Colors.green,
@@ -188,31 +191,52 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         actions: [
           // زر تحديث الصلاحيات
           if (_isAuthenticated)
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.blue),
-              tooltip: 'تحديث بيانات المستخدم',
-              onPressed: () async {
-                final result = await authService.refreshUserData();
-                if (!context.mounted) return;
-                
-                if (result != null) {
-                   UIUtils.showInfoSnackBar(
-                     message: result,
-                     backgroundColor: Colors.orange,
-                     icon: Icons.warning_amber_rounded,
-                   );
-                   if (result.contains("تم تسجيل الخروج")) {
-                     Navigator.pushReplacementNamed(context, AuthScreen.routeName);
-                   }
-                } else {
-                   UIUtils.showInfoSnackBar(
-                     message: "تم مزامنة بياناتك بنجاح",
-                     backgroundColor: Colors.green,
-                     icon: Icons.check_circle_outline,
-                   );
-                }
-              },
-            ),
+            _isRefreshing
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.blue),
+                    tooltip: 'تحديث بيانات المستخدم',
+                    onPressed: () async {
+                      setState(() {
+                        _isRefreshing = true;
+                      });
+                      
+                      await _checkBackupExists();
+                      final result = await authService.refreshUserData();
+                      
+                      if (!context.mounted) return;
+                      
+                      setState(() {
+                        _isRefreshing = false;
+                      });
+                      
+                      if (result != null) {
+                        UIUtils.showInfoSnackBar(
+                          message: result,
+                          backgroundColor: Colors.orange,
+                          icon: Icons.warning_amber_rounded,
+                        );
+                        if (result.contains("تم تسجيل الخروج")) {
+                          Navigator.pushReplacementNamed(context, AuthScreen.routeName);
+                        }
+                      } else {
+                        UIUtils.showInfoSnackBar(
+                          message: "تم مزامنة بياناتك بنجاح",
+                          backgroundColor: Colors.green,
+                          icon: Icons.check_circle_outline,
+                        );
+                      }
+                    },
+                  ),
           // زر المطور لفتح Supabase - يظهر فقط للأدمن
           if (Supabase.instance.client.auth.currentUser?.email ==
               'mohamedabdo9999933@gmail.com')

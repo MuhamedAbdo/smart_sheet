@@ -232,7 +232,10 @@ class BackupService {
       final factoryId = await SupabaseManager.getFactoryId();
       if (factoryId == null) return [];
       // List backups from backups bucket (direct path)
-      return await _supabaseClient.storage.from('backups').list(path: factoryId);
+      final files = await _supabaseClient.storage.from('backups').list(
+        searchOptions: SearchOptions(search: factoryId),
+      );
+      return files.where((file) => file.name == '$factoryId.zip').toList();
     } catch (e) {
       return [];
     }
