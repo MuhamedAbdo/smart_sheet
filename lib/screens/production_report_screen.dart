@@ -11,7 +11,8 @@ import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/widgets/active_sessions_dashboard.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import '../../../utils/pdf_export_helper.dart';
-
+import 'package:smart_sheet/services/supabase_manager.dart';
+import 'dart:async';
 class ProductionReportScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
 
@@ -30,6 +31,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
   bool _isSearching = false;
   String? _selectedDate;
   bool _sortDescending = true;
+  StreamSubscription? _supabaseSubscription;
 
   @override
   void initState() {
@@ -49,6 +51,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           _isBoxLoading = false;
         });
 
+        _setupSupabaseStream();
+
         if (widget.initialData != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _showAddReportDialog(widget.initialData);
@@ -58,6 +62,42 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     } catch (e) {
       if (mounted) setState(() => _isBoxLoading = false);
     }
+  }
+
+  Future<void> _setupSupabaseStream() async {
+    final stream = await SupabaseManager.streamData('production_reports', primaryKey: ['id']);
+    if (stream != null) {
+      _supabaseSubscription = stream.listen((data) async {
+        if (_productionReportBox == null) return;
+        
+        final existingRecords = _productionReportBox!.toMap();
+        for (var record in data) {
+           final recordId = record['id']?.toString();
+           if (recordId == null) continue;
+           
+           dynamic existingKey;
+           for (var entry in existingRecords.entries) {
+             if (entry.value is Map && entry.value['id']?.toString() == recordId) {
+               existingKey = entry.key;
+               break;
+             }
+           }
+           
+           if (existingKey == null) {
+             await _productionReportBox!.add(record);
+           } else {
+             await _productionReportBox!.put(existingKey, record);
+           }
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _supabaseSubscription?.cancel();
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _savePdfToDeviceLocally(
@@ -708,9 +748,11 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         isScrollControlled: true,
         builder: (c) => ProductionReportForm(
             initialData: data,
-            onSave: (r) {
-              _productionReportBox!.add(r);
-              Navigator.pop(c);
+            onSave: (r) async {
+              r['id'] ??= DateTime.now().millisecondsSinceEpoch.toString();
+              await _productionReportBox!.add(r);
+              SupabaseManager.pushData('production_reports', r);
+              if (c.mounted) Navigator.pop(c);
             }));
   }
 
@@ -721,9 +763,11 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         builder: (c) => ProductionReportForm(
             initialData: record,
             reportKey: key.toString(),
-            onSave: (r) {
-              _productionReportBox!.put(key, r);
-              Navigator.pop(c);
+            onSave: (r) async {
+              r['id'] = record['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
+              await _productionReportBox!.put(key, r);
+              SupabaseManager.pushData('production_reports', r);
+              if (c.mounted) Navigator.pop(c);
             }));
   }
 
@@ -788,7 +832,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       builder: (c) => ProductionReportForm(
         initialData: initialData,
         onSave: (r) async {
+          r['id'] ??= DateTime.now().millisecondsSinceEpoch.toString();
           await _productionReportBox!.add(r);
+          SupabaseManager.pushData('production_reports', r);
           await session.delete(); // Remove the session once saved as report
           if (mounted) {
             Navigator.of(context).pop();

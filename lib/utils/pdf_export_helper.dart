@@ -380,7 +380,7 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
         build: (context) => pw.Directionality(
           textDirection: pw.TextDirection.rtl,
           child: pw.Column(children: [
-            pw.Text(ArabicPDFHelper.fixArabic('تقرير الإنتاج العام'),
+            pw.Text(ArabicPDFHelper.fixArabic('تقرير الإنتاج لقسم الفلكسو'),
               style: pw.TextStyle(font: arabicBoldFont, fontSize: 16)),
             pw.SizedBox(height: 10),
             _buildProductionHeader(flexibleWidth: flexibleColWidth, font: arabicBoldFont),

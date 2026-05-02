@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_state.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class AuthService extends ChangeNotifier {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
   UserState _state = UserState.unauthenticated();
@@ -27,8 +27,12 @@ class AuthService extends ChangeNotifier {
     
     if (session != null) {
       _state = UserState.authenticated(session.user);
+      if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.initialSession) {
+        _fetchAndStoreFactoryId(session.user.id);
+      }
     } else {
       _state = UserState.unauthenticated();
+      _clearFactoryId();
     }
     notifyListeners();
   }
@@ -37,10 +41,41 @@ class AuthService extends ChangeNotifier {
     final session = _supabaseClient.auth.currentSession;
     if (session != null) {
       _state = UserState.authenticated(session.user);
+      _fetchAndStoreFactoryId(session.user.id);
     } else {
       _state = UserState.unauthenticated();
+      _clearFactoryId();
     }
     notifyListeners();
+  }
+
+  Future<void> _fetchAndStoreFactoryId(String userId) async {
+    try {
+      const storage = FlutterSecureStorage();
+      
+      // التأكد مما إذا كان factory_id موجوداً مسبقاً في SecureStorage لتجنب الاستعلام المتكرر
+      final existingFactoryId = await storage.read(key: 'factory_id');
+      if (existingFactoryId != null && existingFactoryId.isNotEmpty) {
+        return;
+      }
+
+      final response = await _supabaseClient
+          .from('profiles')
+          .select('factory_id')
+          .eq('id', userId)
+          .maybeSingle();
+      
+      if (response != null && response['factory_id'] != null) {
+        await storage.write(key: 'factory_id', value: response['factory_id'].toString());
+      }
+    } catch (e) {
+      debugPrint('Error fetching factory_id: $e');
+    }
+  }
+
+  Future<void> _clearFactoryId() async {
+    const storage = FlutterSecureStorage();
+    await storage.delete(key: 'factory_id');
   }
 
   /// 📧 تسجيل الدخول بالبريد الإلكتروني وكلمة المرور

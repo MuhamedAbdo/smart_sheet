@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:smart_sheet/services/supabase_manager.dart';
 
 @pragma('vm:entry-point')
 void startCallback() {
@@ -121,8 +122,13 @@ class BackupService {
 
       debugPrint("✅ User authenticated: ${user.id}");
 
-      // Direct path: Just {user_id}.zip in bucket (no folders)
-      final uploadPath = "${user.id}.zip";
+      final factoryId = await SupabaseManager.getFactoryId();
+      if (factoryId == null) {
+        return '❌ خطأ: لم يتم العثور على معرّف المصنع (factory_id). الرجاء إعادة تسجيل الدخول.';
+      }
+
+      // Direct path: Just {factory_id}.zip in bucket (no folders)
+      final uploadPath = "$factoryId.zip";
       debugPrint("📁 Upload path: $uploadPath");
 
       await _requestPermissions();
@@ -156,7 +162,7 @@ class BackupService {
 
       try {
         await _supabaseClient.storage.from('backups').uploadBinary(
-              "${user.id}.zip",
+              uploadPath,
               bytes,
               fileOptions: const FileOptions(upsert: true),
             );
@@ -223,10 +229,10 @@ class BackupService {
 
   Future<List<FileObject>> listBackups() async {
     try {
-      final user = _supabaseClient.auth.currentUser;
-      if (user == null) return [];
+      final factoryId = await SupabaseManager.getFactoryId();
+      if (factoryId == null) return [];
       // List backups from backups bucket (direct path)
-      return await _supabaseClient.storage.from('backups').list(path: user.id);
+      return await _supabaseClient.storage.from('backups').list(path: factoryId);
     } catch (e) {
       return [];
     }

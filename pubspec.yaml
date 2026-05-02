@@ -66,6 +66,7 @@ dependencies:
   flutter_native_contact_picker: ^0.0.11
   arabic_reshaper: ^0.0.1
   intl: ^0.20.2
+  flutter_secure_storage: ^10.0.0
 
 dev_dependencies:
   flutter_test:

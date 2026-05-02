@@ -17,6 +17,7 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return WorkerAction(
+      id: fields[12] as String?,
       type: fields[0] as String,
       days: fields[1] as double?,
       date: fields[2] as DateTime,
@@ -29,15 +30,18 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
       amount: fields[9] as double?,
       bonusDays: fields[10] as double?,
       factoryId: fields[11] as String?,
+      workerName: fields[13] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, WorkerAction obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.type)
+      ..writeByte(12)
+      ..write(obj.id)
       ..writeByte(1)
       ..write(obj.days)
       ..writeByte(2)
@@ -59,7 +63,9 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
       ..writeByte(10)
       ..write(obj.bonusDays)
       ..writeByte(11)
-      ..write(obj.factoryId);
+      ..write(obj.factoryId)
+      ..writeByte(13)
+      ..write(obj.workerName);
   }
 
   @override

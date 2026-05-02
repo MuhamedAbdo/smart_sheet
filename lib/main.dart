@@ -75,6 +75,7 @@ Future<void> main() async {
         Hive.openBox<Worker>('workers_flexo'),
         Hive.openBox<Worker>('workers_production'),
         Hive.openBox<FinishedProduct>('finished_products'),
+        Hive.openBox<LiveSession>('flexo_live_sessions'),
       ]);
 
       // فتح الصناديق الثانوية في الخلفية لتحسين سرعة التشغيل
@@ -119,7 +120,6 @@ void _openBackgroundBoxes() {
   Hive.openBox<StoreEntry>('store_flexo');
   Hive.openBox<MaintenanceRecord>('maintenance_records_main');
   Hive.openBox<FlexoMachine>('flexo_machines');
-  Hive.openBox<LiveSession>('flexo_live_sessions');
 
   final otherBoxes = [
     'savedSheetSizes',

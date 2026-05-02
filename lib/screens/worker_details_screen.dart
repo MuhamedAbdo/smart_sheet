@@ -8,6 +8,8 @@ import '../../widgets/app_drawer.dart';
 import '../../widgets/worker_action_card.dart';
 import '../../widgets/active_absence_card.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/services/supabase_manager.dart';
+import 'dart:async';
 
 class WorkerDetailsScreen extends StatefulWidget {
   final Worker worker;
@@ -24,6 +26,63 @@ class WorkerDetailsScreen extends StatefulWidget {
 }
 
 class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
+  StreamSubscription? _supabaseSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupSupabaseStream();
+  }
+
+  Future<void> _setupSupabaseStream() async {
+    final stream = await SupabaseManager.streamData('worker_actions', primaryKey: ['id']);
+    if (stream != null) {
+      _supabaseSubscription = stream.listen((data) async {
+        if (!Hive.isBoxOpen('worker_actions')) return;
+        final actionBox = Hive.box<WorkerAction>('worker_actions');
+        bool updated = false;
+        
+        for (var record in data) {
+           if (record['worker_name'] != widget.worker.name) continue;
+           
+           final action = WorkerAction.fromJson(record);
+           if (action.id == null) continue;
+           
+           final localIndex = widget.worker.actions.indexWhere((a) => a.id == action.id);
+           if (localIndex == -1) {
+             final key = await actionBox.add(action);
+             final saved = actionBox.get(key);
+             if (saved != null) {
+               widget.worker.actions.add(saved);
+               updated = true;
+             }
+           } else {
+             final localAction = widget.worker.actions[localIndex];
+             final keys = actionBox.keys.toList();
+             final values = actionBox.values.toList();
+             final indexInBox = values.indexOf(localAction);
+             if (indexInBox != -1) {
+               final key = keys[indexInBox];
+               await actionBox.put(key, action);
+               widget.worker.actions[localIndex] = action;
+               updated = true;
+             }
+           }
+        }
+        if (updated) {
+          await widget.worker.save();
+          if (mounted) _refresh();
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _supabaseSubscription?.cancel();
+    super.dispose();
+  }
+
   void _refresh() => setState(() {});
 
   String _f(DateTime date) {
@@ -265,6 +324,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 }
 
                 final newAction = WorkerAction(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
                   type: actionType.value,
                   days: (actionType.value == 'إجازة' ||
                           actionType.value == 'أجازة عارضة' ||
@@ -280,6 +340,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   amount: amountToSave,
                   bonusDays: bonusDaysToSave,
                   factoryId: widget.worker.factoryId,
+                  workerName: widget.worker.name,
                 );
 
                 final key = await actionBox.add(newAction);
@@ -287,6 +348,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 if (saved != null) {
                   widget.worker.actions.add(saved);
                   await widget.worker.save();
+                  SupabaseManager.pushData('worker_actions', saved.toJson());
                 }
                 if (context.mounted) Navigator.pop(context);
                 _refresh();
@@ -435,6 +497,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 }
 
                 final updatedAction = WorkerAction(
+                  id: action.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
                   type: actionType.value,
                   days: (actionType.value == 'إجازة' ||
                           actionType.value == 'أجازة عارضة' ||
@@ -450,6 +513,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   amount: amountToSave,
                   bonusDays: bonusDaysToSave,
                   factoryId: widget.worker.factoryId,
+                  workerName: widget.worker.name,
                 );
 
                 final key = await actionBox.add(updatedAction);
@@ -458,6 +522,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   widget.worker.actions.removeAt(index);
                   widget.worker.actions.insert(index, saved);
                   await widget.worker.save();
+                  SupabaseManager.pushData('worker_actions', saved.toJson());
                 }
                 if (context.mounted) Navigator.pop(context);
                 _refresh();

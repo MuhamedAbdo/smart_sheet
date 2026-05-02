@@ -10,6 +10,9 @@ class WorkerAction extends HiveObject {
   @HiveField(0)
   String type;
 
+  @HiveField(12)
+  String? id;
+
   @HiveField(1)
   double? days;
 
@@ -40,7 +43,11 @@ class WorkerAction extends HiveObject {
   @HiveField(11)
   final String? factoryId;
 
+  @HiveField(13)
+  final String? workerName;
+
   WorkerAction({
+    this.id,
     required this.type,
     this.days,
     required this.date,
@@ -53,6 +60,7 @@ class WorkerAction extends HiveObject {
     this.amount,
     this.bonusDays,
     this.factoryId,
+    this.workerName,
   });
 
   TimeOfDay? get startTime {
@@ -92,6 +100,7 @@ class WorkerAction extends HiveObject {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'type': type,
       'days': days,
       'date': date.toIso8601String(),
@@ -104,11 +113,13 @@ class WorkerAction extends HiveObject {
       'amount': amount,
       'bonus_days': bonusDays,
       'factory_id': factoryId,
+      'worker_name': workerName,
     };
   }
 
   factory WorkerAction.fromJson(Map<String, dynamic> map) {
     return WorkerAction(
+      id: map['id']?.toString(),
       type: map['type'] ?? 'إجازة',
       days: (map['days'] as num?)?.toDouble() ?? 1.0,
       date: DateTime.tryParse(map['date'] ?? '') ?? DateTime.now(),
@@ -125,6 +136,7 @@ class WorkerAction extends HiveObject {
           ? (map['bonus_days'] as num).toDouble()
           : null,
       factoryId: map['factory_id'],
+      workerName: map['worker_name'],
     );
   }
 }
