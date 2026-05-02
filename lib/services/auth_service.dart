@@ -8,6 +8,7 @@ class AuthService extends ChangeNotifier {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   UserState get state => _state;
+  bool get isAdmin => _state.role?.trim().toLowerCase() == 'admin';
 
   AuthService() {
     // 💡 الاستماع إلى تغيرات حالة Supabase
@@ -26,13 +27,14 @@ class AuthService extends ChangeNotifier {
     }
     
     if (session != null) {
-      _state = UserState.authenticated(session.user);
+      // Keep existing role if available to avoid flicker before fetch
+      _state = UserState.authenticated(session.user, role: _state.role);
       if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.initialSession) {
-        _fetchAndStoreFactoryId(session.user.id);
+        _fetchAndStoreUserData(session.user.id);
       }
     } else {
       _state = UserState.unauthenticated();
-      _clearFactoryId();
+      _clearUserData();
     }
     notifyListeners();
   }
@@ -40,42 +42,51 @@ class AuthService extends ChangeNotifier {
   void _checkInitialSession() {
     final session = _supabaseClient.auth.currentSession;
     if (session != null) {
-      _state = UserState.authenticated(session.user);
-      _fetchAndStoreFactoryId(session.user.id);
+      _state = UserState.authenticated(session.user, role: _state.role);
+      _fetchAndStoreUserData(session.user.id);
     } else {
       _state = UserState.unauthenticated();
-      _clearFactoryId();
+      _clearUserData();
     }
     notifyListeners();
   }
 
-  Future<void> _fetchAndStoreFactoryId(String userId) async {
+  Future<void> _fetchAndStoreUserData(String userId) async {
     try {
       const storage = FlutterSecureStorage();
       
-      // التأكد مما إذا كان factory_id موجوداً مسبقاً في SecureStorage لتجنب الاستعلام المتكرر
-      final existingFactoryId = await storage.read(key: 'factory_id');
-      if (existingFactoryId != null && existingFactoryId.isNotEmpty) {
-        return;
-      }
-
       final response = await _supabaseClient
           .from('profiles')
-          .select('factory_id')
+          .select('factory_id, role')
           .eq('id', userId)
           .maybeSingle();
       
-      if (response != null && response['factory_id'] != null) {
-        await storage.write(key: 'factory_id', value: response['factory_id'].toString());
+      if (response != null) {
+        if (response['factory_id'] != null) {
+          await storage.write(key: 'factory_id', value: response['factory_id'].toString());
+        }
+        
+        final role = response['role']?.toString() ?? 'employee';
+        await storage.write(key: 'user_role', value: role);
+        
+        _state = _state.copyWith(role: role);
+        notifyListeners();
+      } else {
+        // Profile not found (could be due to RLS policies blocking the select)
+        _state = _state.copyWith(
+          errorMessage: 'لم يتم العثور على ملف المستخدم. قد يكون بسبب سياسات الأمان (RLS) في Supabase.',
+        );
+        notifyListeners();
       }
     } catch (e) {
-      debugPrint('Error fetching factory_id: $e');
+      debugPrint('Error fetching user data: $e');
     }
   }
 
-  Future<void> _clearFactoryId() async {
+  Future<void> _clearUserData() async {
     const storage = FlutterSecureStorage();
     await storage.delete(key: 'factory_id');
+    await storage.delete(key: 'user_role');
   }
 
   /// 📧 تسجيل الدخول بالبريد الإلكتروني وكلمة المرور
@@ -100,6 +111,77 @@ class AuthService extends ChangeNotifier {
           isLoading: false, errorMessage: 'حدث خطأ غير متوقع: $e');
       notifyListeners();
       return 'حدث خطأ غير متوقع: $e';
+    }
+  }
+
+  /// تحديث البيانات من السيرفر (مسح التخزين المؤقت)
+  Future<String?> refreshUserData() async {
+    final user = _supabaseClient.auth.currentUser;
+    if (user == null) return "يرجى تسجيل الدخول أولاً";
+
+    _state = _state.copyWith(isLoading: true);
+    notifyListeners();
+
+    try {
+      final oldRole = _state.role;
+      const storage = FlutterSecureStorage();
+      final oldFactoryId = await storage.read(key: 'factory_id');
+
+      // مسح التخزين المحلي لإجبار جلب بيانات جديدة
+      await storage.delete(key: 'factory_id');
+      await storage.delete(key: 'user_role');
+
+      // جلب البيانات من السيرفر وتحديث الحالة
+      await _fetchAndStoreUserData(user.id);
+
+      final newRole = _state.role;
+      final newFactoryId = await storage.read(key: 'factory_id');
+
+      _state = _state.copyWith(isLoading: false);
+      notifyListeners();
+
+      if ((oldRole != null && oldRole != newRole) || (oldFactoryId != null && oldFactoryId != newFactoryId)) {
+        // تم تغيير الصلاحيات أو المصنع، يجب تسجيل الخروج للمزامنة الكاملة
+        await signOut();
+        return "⚠️ تم اكتشاف تغيير في الصلاحيات أو المصنع.\nتم تسجيل الخروج تلقائياً لضمان سلامة البيانات.";
+      }
+
+      return null; // نجاح التحديث بدون تغييرات حرجة
+    } catch (e) {
+      _state = _state.copyWith(isLoading: false);
+      notifyListeners();
+      return "فشل التحديث: $e";
+    }
+  }
+
+  /// 🔗 ربط الموظف بمصنع جديد عبر QR Code
+  Future<String?> linkToFactory(String factoryId) async {
+    _state = _state.copyWith(isLoading: true, errorMessage: null);
+    notifyListeners();
+
+    try {
+      final user = _supabaseClient.auth.currentUser;
+      if (user == null) {
+        throw Exception('المستخدم غير مسجل الدخول');
+      }
+
+      // تحديث قاعدة البيانات في Supabase
+      await _supabaseClient
+          .from('profiles')
+          .update({'factory_id': factoryId})
+          .eq('id', user.id);
+
+      // تحديث التخزين المحلي
+      const storage = FlutterSecureStorage();
+      await storage.write(key: 'factory_id', value: factoryId);
+
+      _state = _state.copyWith(isLoading: false);
+      notifyListeners();
+      return null; // نجاح
+    } catch (e) {
+      _state = _state.copyWith(isLoading: false, errorMessage: 'فشل الربط: $e');
+      notifyListeners();
+      return 'فشل الربط: $e';
     }
   }
 

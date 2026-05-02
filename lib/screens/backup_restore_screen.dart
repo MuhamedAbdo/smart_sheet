@@ -4,6 +4,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_sheet/services/auth_service.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:smart_sheet/screens/qr_scanner_screen.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -174,10 +179,40 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authService = context.watch<AuthService>();
+    final isAdmin = authService.isAdmin;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('النسخ الاحتياطي السحابي'),
         actions: [
+          // زر تحديث الصلاحيات
+          if (_isAuthenticated)
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.blue),
+              tooltip: 'تحديث بيانات المستخدم',
+              onPressed: () async {
+                final result = await authService.refreshUserData();
+                if (!context.mounted) return;
+                
+                if (result != null) {
+                   UIUtils.showInfoSnackBar(
+                     message: result,
+                     backgroundColor: Colors.orange,
+                     icon: Icons.warning_amber_rounded,
+                   );
+                   if (result.contains("تم تسجيل الخروج")) {
+                     Navigator.pushReplacementNamed(context, AuthScreen.routeName);
+                   }
+                } else {
+                   UIUtils.showInfoSnackBar(
+                     message: "تم مزامنة بياناتك بنجاح",
+                     backgroundColor: Colors.green,
+                     icon: Icons.check_circle_outline,
+                   );
+                }
+              },
+            ),
           // زر المطور لفتح Supabase - يظهر فقط للأدمن
           if (Supabase.instance.client.auth.currentUser?.email ==
               'mohamedabdo9999933@gmail.com')
@@ -210,10 +245,30 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
             _buildRestoreButton(),
 
+            const SizedBox(height: 16),
+            
+            _buildQRActionSection(isAdmin),
+
             const Spacer(),
 
             // Info Section
             _buildInfoSection(),
+            
+            const SizedBox(height: 16),
+            
+            // Debug Section
+            Container(
+              padding: const EdgeInsets.all(8),
+              color: Colors.black12,
+              child: Column(
+                children: [
+                  Text('Debug User ID: ${Supabase.instance.client.auth.currentUser?.id}'),
+                  Text('Debug Role: ${authService.state.role} (isAdmin: ${authService.isAdmin})'),
+                  if (authService.state.errorMessage != null)
+                    Text('Debug Error: ${authService.state.errorMessage}', style: const TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -403,5 +458,182 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildQRActionSection(bool isAdmin) {
+    if (!_isAuthenticated) return const SizedBox.shrink();
+
+    if (isAdmin) {
+      return ElevatedButton.icon(
+        onPressed: _showAdminQRCode,
+        icon: const Icon(Icons.qr_code_2),
+        label: const Text(
+          'إضافة جهاز مساعد',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 56),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.blue[900],
+          side: BorderSide(color: Colors.blue[900]!, width: 2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    } else {
+      return ElevatedButton.icon(
+        onPressed: _openQRScanner,
+        icon: const Icon(Icons.qr_code_scanner),
+        label: const Text(
+          'ربط بالمصنع عبر QR',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 56),
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showAdminQRCode() async {
+    const storage = FlutterSecureStorage();
+    final factoryId = await storage.read(key: 'factory_id');
+
+    if (factoryId == null || factoryId.isEmpty) {
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "لا يوجد معرف مصنع لربطه. يرجى تسجيل الدخول مجدداً.",
+          backgroundColor: Colors.red,
+          icon: Icons.error_outline,
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'ربط جهاز مساعد',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'وجه هاتف المساعد نحو هذا الكود',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: QrImageView(
+                  data: factoryId,
+                  version: QrVersions.auto,
+                  size: 200.0,
+                  backgroundColor: Colors.white,
+                  dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: Colors.black87,
+                  ),
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[900],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('إغلاق', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openQRScanner() async {
+    final authService = context.read<AuthService>();
+    
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const QRScannerScreen()),
+    );
+
+    if (result != null && result is String) {
+      setState(() {
+        _isLoading = true;
+        _message = 'جاري ربط الحساب بالمصنع...';
+      });
+
+      final error = await authService.linkToFactory(result);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+        _message = null;
+      });
+
+      if (error == null) {
+        UIUtils.showInfoSnackBar(
+          message: "تم الربط بنجاح! يتم الآن تحديث البيانات.",
+          backgroundColor: Colors.green,
+          icon: Icons.check_circle_outline,
+        );
+        _checkBackupExists();
+      } else {
+        UIUtils.showInfoSnackBar(
+          message: error,
+          backgroundColor: Colors.red,
+          icon: Icons.error_outline,
+        );
+      }
+    }
   }
 }

@@ -7,11 +7,13 @@ class UserState {
   final bool isLoading;
   final String? errorMessage;
   final bool isAuthenticated;
+  final String? role;
 
   UserState({
     this.user,
     this.isLoading = false,
     this.errorMessage,
+    this.role,
   }) : isAuthenticated = user != null;
 
   // حالة التحميل
@@ -19,29 +21,28 @@ class UserState {
     User? user,
     bool? isLoading,
     String? errorMessage,
+    String? role,
   }) {
     return UserState(
       user: user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
+      role: role ?? this.role,
     );
   }
 
   // حالة غير مصادق (Logout)
   factory UserState.unauthenticated() {
-    // ✅ الإصلاح: إزالة تمرير isAuthenticated لأنها تحسب تلقائياً في constructor الرئيسي
     return UserState(user: null);
   }
 
   // حالة تحميل
   factory UserState.loading() {
-    // ✅ الإصلاح
     return UserState(user: null, isLoading: true);
   }
 
   // حالة مصادق
-  factory UserState.authenticated(User user) {
-    // ✅ الإصلاح
-    return UserState(user: user);
+  factory UserState.authenticated(User user, {String? role}) {
+    return UserState(user: user, role: role);
   }
 }

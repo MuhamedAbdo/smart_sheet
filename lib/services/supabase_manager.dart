@@ -61,9 +61,17 @@ class SupabaseManager {
       return null;
     }
 
-    return _supabase
-        .from(table)
-        .stream(primaryKey: primaryKey)
-        .eq('factory_id', factoryId);
+    try {
+      return _supabase
+          .from(table)
+          .stream(primaryKey: primaryKey)
+          .eq('factory_id', factoryId)
+          .handleError((error) {
+            debugPrint('❌ Stream Error on $table: $error');
+          });
+    } catch (e) {
+      debugPrint('❌ Critical Error setting up stream for $table: $e');
+      return null;
+    }
   }
 }
