@@ -61,16 +61,20 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
   }
 
   Future<void> _savePdfToDeviceLocally(
-      List<Map<String, dynamic>> records) async {
+      List<Map<String, dynamic>> records, {required bool isPrinting}) async {
     try {
       if (records.isEmpty) return;
-      final Uint8List? pdfBytes =
-          await generateProductionReportPdfBytes(records);
+      final Uint8List? pdfBytes = isPrinting
+          ? await generatePrintingReportPdfBytes(records)
+          : await generateProductionReportPdfBytes(records);
+          
       if (pdfBytes == null) return;
+
+      String prefix = isPrinting ? 'تقرير_طباعة' : 'تقرير_إنتاج';
 
       String? outputFile = await FilePicker.platform.saveFile(
         dialogTitle: 'اختر مكان حفظ ملف PDF',
-        fileName: 'تقرير_إنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf',
+        fileName: '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf',
         type: FileType.custom,
         allowedExtensions: ['pdf'],
         bytes: pdfBytes,
@@ -321,18 +325,30 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   context,
                   MaterialPageRoute(
                       builder: (_) => const FlexoArchiveScreen()));
-            } else if (value == 'pdf_view') {
+            } else if (value == 'pdf_view_prod') {
               final records = _filterAndSortRecords(
                       _productionReportBox!, _searchQuery, _sortDescending)
                   .map((e) => e.value)
                   .toList();
-              await exportReportsToPdf(context, records);
-            } else if (value == 'pdf_save') {
+              await exportProductionReportsToPdf(context, records);
+            } else if (value == 'pdf_save_prod') {
               final records = _filterAndSortRecords(
                       _productionReportBox!, _searchQuery, _sortDescending)
                   .map((e) => e.value)
                   .toList();
-              await _savePdfToDeviceLocally(records);
+              await _savePdfToDeviceLocally(records, isPrinting: false);
+            } else if (value == 'pdf_view_print') {
+              final records = _filterAndSortRecords(
+                      _productionReportBox!, _searchQuery, _sortDescending)
+                  .map((e) => e.value)
+                  .toList();
+              await exportPrintingReportsToPdf(context, records);
+            } else if (value == 'pdf_save_print') {
+              final records = _filterAndSortRecords(
+                      _productionReportBox!, _searchQuery, _sortDescending)
+                  .map((e) => e.value)
+                  .toList();
+              await _savePdfToDeviceLocally(records, isPrinting: true);
             } else if (value == 'clear') {
               _deleteAllReports();
             } else if (value == 'sort') {
@@ -360,15 +376,25 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                     leading: Icon(Icons.inventory_2_outlined),
                     title: Text('فتح الأرشيف'))),
             const PopupMenuItem(
-                value: 'pdf_view',
+                value: 'pdf_view_prod',
                 child: ListTile(
                     leading: Icon(Icons.picture_as_pdf),
-                    title: Text('عرض/طباعة PDF'))),
+                    title: Text('عرض/طباعة تقرير إنتاج'))),
             const PopupMenuItem(
-                value: 'pdf_save',
+                value: 'pdf_save_prod',
                 child: ListTile(
                     leading: Icon(Icons.save_alt),
-                    title: Text('حفظ نسخة PDF'))),
+                    title: Text('حفظ تقرير إنتاج'))),
+            const PopupMenuItem(
+                value: 'pdf_view_print',
+                child: ListTile(
+                    leading: Icon(Icons.picture_as_pdf, color: Colors.blueAccent),
+                    title: Text('عرض/طباعة تقرير طباعة'))),
+            const PopupMenuItem(
+                value: 'pdf_save_print',
+                child: ListTile(
+                    leading: Icon(Icons.save_alt, color: Colors.blueAccent),
+                    title: Text('حفظ تقرير طباعة'))),
             const PopupMenuItem(
                 value: 'sort',
                 child: ListTile(
