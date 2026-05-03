@@ -9,6 +9,7 @@ import 'package:smart_sheet/services/auth_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:smart_sheet/screens/qr_scanner_screen.dart';
+import 'package:smart_sheet/services/supabase_manager.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -159,8 +160,19 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         _message = 'جاري استعادة البيانات... برجاء الانتظار';
       });
 
-      // Direct restore from user-specific path (direct in bucket)
-      final restorePath = '${user.id}.zip';
+      // Direct restore from factory-specific path
+      final factoryId = await SupabaseManager.getFactoryId();
+      if (factoryId == null) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _message = '❌ فشل الاستعادة: تعذر العثور على معرّف المصنع';
+          });
+        }
+        return;
+      }
+      
+      final restorePath = '$factoryId.zip';
       final result = await _backupService.downloadAndRestore(restorePath);
 
       if (mounted) {
@@ -650,7 +662,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           backgroundColor: Colors.green,
           icon: Icons.check_circle_outline,
         );
-        _checkBackupExists();
+        await authService.refreshUserData();
+        await _checkBackupExists();
       } else {
         UIUtils.showInfoSnackBar(
           message: error,

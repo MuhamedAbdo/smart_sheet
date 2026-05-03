@@ -165,15 +165,15 @@ class AuthService extends ChangeNotifier {
         throw Exception('المستخدم غير مسجل الدخول');
       }
 
-      // تحديث قاعدة البيانات في Supabase
-      await _supabaseClient
-          .from('profiles')
-          .update({'factory_id': factoryId})
-          .eq('id', user.id);
+      // تحديث أو إنشاء ملف المستخدم في قاعدة البيانات
+      await _supabaseClient.from('profiles').upsert({
+        'id': user.id,
+        'factory_id': factoryId,
+        'role': 'employee',
+      });
 
-      // تحديث التخزين المحلي
-      const storage = FlutterSecureStorage();
-      await storage.write(key: 'factory_id', value: factoryId);
+      // تحديث الجلسة والبيانات لتفعيل الهوية الجديدة فوراً
+      await refreshUserData();
 
       _state = _state.copyWith(isLoading: false);
       notifyListeners();

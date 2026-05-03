@@ -65,6 +65,9 @@ class _AuthScreenState extends State<AuthScreen> {
         _showSnackBar(
             _isSignIn ? 'تم تسجيل الدخول بنجاح' : 'تم إنشاء الحساب بنجاح',
             Colors.green);
+            
+        // الانتقال للصفحة الرئيسية آلياً بعد النجاح
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
       }
     }
   }
