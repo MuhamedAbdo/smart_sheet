@@ -17,6 +17,7 @@ import 'package:smart_sheet/widgets/sheet_size_checkboxes.dart';
 import 'package:smart_sheet/widgets/sheet_size_form.dart';
 // ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_production_table.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class AddSheetSizeScreen extends StatefulWidget {
   final Map? existingData;
@@ -201,6 +202,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }).toList();
 
     final newRecord = <String, dynamic>{
+      'sync_id': widget.existingDataKey?.toString() ??
+          '${DateTime.now().millisecondsSinceEpoch}_${clientName.hashCode}',
       'processType': _processType,
       'clientName': clientName,
       'productName': productNameController.text.trim(),
@@ -212,7 +215,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'date': DateTime.now().toIso8601String(),
       'isSheet': isSheet,
       'isClientRecord': isAddingClientOnly,
-      'factoryId': '', // معرف فريد للمصنع (للتأسيس السحابي مستقبلاً)
+      'factoryId': '', // سيُملأ بواسطة SyncService
     };
 
     if (_processType == "تفصيل") {
@@ -303,6 +306,9 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
 
     if (mounted) {
+      // مزامنة سحابية عبر Queue (تعمل offline أيضاً)
+      SyncService.instance.pushToQueue('customers', _buildCustomerPayload(newRecord));
+
       UIUtils.showInfoSnackBar(
         message: "تم حفظ البيانات وتحديث السجلات",
         backgroundColor: Colors.green,
@@ -310,6 +316,24 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       );
       Navigator.pop(context);
     }
+  }
+
+  /// تحويل سجل Hive إلى تنسيق جدول customers في Supabase
+  Map<String, dynamic> _buildCustomerPayload(Map<String, dynamic> r) {
+    return {
+      'sync_id': r['sync_id'],
+      'client_name': r['clientName'],
+      'product_name': r['productName'],
+      'product_code': r['productCode'],
+      'process_type': r['processType'],
+      'length': r['length'],
+      'width': r['width'],
+      'height': r['height'],
+      'is_sheet': r['isSheet'],
+      'date': r['date'],
+      'is_client_record': r['isClientRecord'],
+      'image_paths': r['imagePaths'] ?? [],
+    };
   }
 
   // ديالوج التعارض (إستبدال أو إلغاء)
@@ -539,10 +563,15 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
               onPressed: () => _saveSheetSize())
         ],
       ),
+      resizeToAvoidBottomInset: false, // منع الفراغ الأبيض عند ظهور الكيبورد
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          // نُضيف ارتفاع الكيبورد كـ padding سفلي لضمان scroll صحيح
+          padding: EdgeInsets.fromLTRB(
+            16, 16, 16,
+            16 + MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

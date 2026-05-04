@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 class AuthService extends ChangeNotifier {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
   UserState _state = UserState.unauthenticated();
@@ -71,6 +73,9 @@ class AuthService extends ChangeNotifier {
         
         _state = _state.copyWith(role: role);
         notifyListeners();
+
+        // تفعيل Real-time channels بعد تخزين factory_id
+        unawaited(SyncService.instance.initialize());
       } else {
         // Profile not found (could be due to RLS policies blocking the select)
         _state = _state.copyWith(
@@ -87,6 +92,8 @@ class AuthService extends ChangeNotifier {
     const storage = FlutterSecureStorage();
     await storage.delete(key: 'factory_id');
     await storage.delete(key: 'user_role');
+    // إلغاء Real-time channels عند تسجيل الخروج
+    unawaited(SyncService.instance.dispose());
   }
 
   /// 📧 تسجيل الدخول بالبريد الإلكتروني وكلمة المرور

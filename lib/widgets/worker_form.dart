@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_native_contact_picker/model/contact.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
-import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart'; 
+import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class WorkerForm extends StatefulWidget {
   final Worker? existingWorker;
@@ -88,24 +90,35 @@ class _WorkerFormState extends State<WorkerForm> {
     super.dispose();
   }
 
-  void _saveWorker() {
+  void _saveWorker() async {
     if (nameController.text.trim().isEmpty) return;
 
+    // جلب factory_id من التخزين الآمن
+    const storage = FlutterSecureStorage();
+    final factoryId = await storage.read(key: 'factory_id');
+
     if (widget.existingWorker == null) {
-      widget.box.add(Worker(
-        name: nameController.text,
-        phone: phoneController.text,
+      final worker = Worker(
+        name: nameController.text.trim(),
+        phone: phoneController.text.trim(),
         job: job,
         actions: [],
-      ));
+        factoryId: factoryId,
+      );
+      await widget.box.add(worker);
+      // رفع للسحاب عبر Queue
+      SyncService.instance.pushToQueue('workers', worker.toJson());
     } else {
       final w = widget.existingWorker!;
-      w.name = nameController.text;
-      w.phone = phoneController.text;
+      w.name = nameController.text.trim();
+      w.phone = phoneController.text.trim();
       w.job = job;
-      w.save();
+      w.factoryId ??= factoryId;
+      await w.save();
+      // رفع للسحاب عبر Queue
+      SyncService.instance.pushToQueue('workers', w.toJson());
     }
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
   @override

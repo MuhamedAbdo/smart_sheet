@@ -1,13 +1,11 @@
-// lib/src/widgets/workers/worker_list.dart
-
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
-
 import 'package:smart_sheet/widgets/worker_card.dart';
 import 'package:smart_sheet/screens/worker_details_screen.dart';
 import 'package:smart_sheet/widgets/worker_form.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class WorkerList extends StatelessWidget {
   final Box<Worker> box; // ✅ إضافة الحقل
@@ -42,9 +40,15 @@ class WorkerList extends StatelessWidget {
                   content: "هل أنت متأكد من حذف العامل \"${workerToRemove.name}\"؟",
                       onConfirm: () async {
                         final messenger = ScaffoldMessenger.of(context);
+                        final workerJson = workerToRemove.toJson();
                         await box.deleteAt(index);
+                        // مزامنة الحذف سحابياً
+                        SyncService.instance.pushToQueue(
+                          'workers',
+                          workerJson,
+                          operation: 'delete',
+                        );
                         if (!context.mounted) return;
-                        
                         messenger.clearSnackBars();
                         UIUtils.showUndoSnackBar(
                           context: context,
@@ -52,6 +56,8 @@ class WorkerList extends StatelessWidget {
                           onUndo: () async {
                             messenger.clearSnackBars();
                             await box.putAt(index, workerToRemove);
+                            // إلغاء عملية الحذف (رفع مجدداً)
+                            SyncService.instance.pushToQueue('workers', workerJson);
                           },
                         );
                       },

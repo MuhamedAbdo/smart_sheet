@@ -4,6 +4,7 @@ import 'package:smart_sheet/screens/client_items_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 // تعريف أنواع الترتيب
 enum SortType {
@@ -172,6 +173,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     final box = _savedSheetSizesBox;
     final List<MapEntry<dynamic, dynamic>> backup = [];
     final keysToRemove = [];
+    final List<Map<String, dynamic>> syncPayloads = [];
 
     for (var i = 0; i < box.length; i++) {
       final key = box.keyAt(i);
@@ -181,27 +183,42 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
               clientName.trim()) {
         backup.add(MapEntry(key, record));
         keysToRemove.add(key);
+        // جمع sync_ids للحذف السحابي
+        final syncId = record['sync_id']?.toString();
+        if (syncId != null) {
+          syncPayloads.add({'sync_id': syncId, 'id': syncId});
+        }
       }
     }
 
     if (keysToRemove.isEmpty) return;
 
-    // Capture messenger before async gaps
     final messenger = ScaffoldMessenger.of(context);
-
-    // Actual Deletion triggers UI rebuild
     await box.deleteAll(keysToRemove);
 
-    if (mounted) {
-      messenger.clearSnackBars(); // إزالة أي عرض سابق
+    // مزامنة الحذف سحابياً
+    for (final payload in syncPayloads) {
+      SyncService.instance.pushToQueue('customers', payload, operation: 'delete');
+    }
 
+    if (mounted) {
+      messenger.clearSnackBars();
       UIUtils.showUndoSnackBar(
         context: context,
         message: 'تم حذف العميل "$clientName"',
         onUndo: () async {
-          messenger.clearSnackBars(); // المسح الفوري عند التراجع
+          messenger.clearSnackBars();
           for (var entry in backup) {
             await box.put(entry.key, entry.value);
+          }
+          // إعادة السجلات سحابياً
+          for (final entry in backup) {
+            if (entry.value is Map) {
+              SyncService.instance.pushToQueue(
+                'customers',
+                Map<String, dynamic>.from(entry.value),
+              );
+            }
           }
         },
       );

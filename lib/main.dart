@@ -38,6 +38,7 @@ import 'package:smart_sheet/models/live_session.dart';
 
 // استيراد الخدمات والبروفايدر والشاشات
 import 'package:smart_sheet/config/constants.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -68,6 +69,7 @@ Future<void> main() async {
         Hive.openBox<Worker>('workers_production'),
         Hive.openBox<FinishedProduct>('finished_products'),
         Hive.openBox<LiveSession>('flexo_live_sessions'),
+        Hive.openBox('sync_queue'), // قائمة انتظار المزامنة
       ]);
       _openBackgroundBoxes();
     }
@@ -78,6 +80,9 @@ Future<void> main() async {
       Supabase.initialize(
           url: supabaseUrl.trim(), anonKey: supabaseAnonKey.trim()),
     ]);
+
+    // تهيئة خدمة المزامنة (ستكتمل فقط إذا كان factory_id محفوظاً)
+    await SyncService.instance.initialize();
 
     // 4. تهيئة نافذة سطح المكتب
     if (!kIsWeb && Platform.isWindows) {
@@ -145,7 +150,6 @@ void _openBackgroundBoxes() {
     'savedSheetSizes',
     'inkReports',
     'flexoArchive',
-    'measurements',
     'serial_setup_state',
   ];
   for (var box in otherBoxes) {
