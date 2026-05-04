@@ -1,6 +1,8 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart'; // تأكد من إضافة url_launcher في pubspec.yaml
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/worker_model.dart';
 import '../../utils/ui_utils.dart';
@@ -28,6 +30,12 @@ class _WorkerCardState extends State<WorkerCard> {
 
   // دالة إجراء المكالمة
   Future<void> _makePhoneCall(String phoneNumber) async {
+    // تعطيل الاتصال على ويندوز
+    if (!kIsWeb && Platform.isWindows) {
+      _copyPhoneToClipboard();
+      return;
+    }
+
     final Uri launchUri = Uri(
       scheme: 'tel',
       path: phoneNumber,
@@ -77,6 +85,7 @@ class _WorkerCardState extends State<WorkerCard> {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
+    final isWindows = !kIsWeb && Platform.isWindows;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -108,24 +117,26 @@ class _WorkerCardState extends State<WorkerCard> {
             ),
             const SizedBox(height: 14),
 
-            // ✅ تم نقل الـ GestureDetector إلى هنا ليحيط بكلمة "التواصل"
-            GestureDetector(
-              onTap: () => _makePhoneCall(widget.worker.phone),
-              child: _buildSectionTitle(
-                '📞 التواصل (اضغط للاتصال)',
-                color: colorScheme.primary,
-              ),
+            // عنوان قسم التواصل
+            _buildSectionTitle(
+              isWindows ? '📞 بيانات التواصل' : '📞 التواصل (اضغط للاتصال)',
+              color: colorScheme.primary,
+              underline: !isWindows,
+              onTap: isWindows ? null : () => _makePhoneCall(widget.worker.phone),
             ),
 
-            // صف الرقم - يدعم الضغط المطول للنسخ فقط
+            // صف الرقم
             GestureDetector(
-              onLongPress: _copyPhoneToClipboard,
+              onTap: isWindows ? _copyPhoneToClipboard : null,
+              onLongPress: !isWindows ? _copyPhoneToClipboard : null,
               child: _buildInfoRow(
                 'الهاتف:',
                 widget.worker.phone,
                 labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                 valueColor: _isPhoneCopied ? Colors.green : null,
                 textColor: textTheme.bodyMedium?.color,
+                showCopyHint: isWindows,
+                textDirection: TextDirection.ltr,
               ),
             ),
 
@@ -183,17 +194,20 @@ class _WorkerCardState extends State<WorkerCard> {
     );
   }
 
-  Widget _buildSectionTitle(String title, {required Color color}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.bold,
-          color: color,
-          decoration:
-              TextDecoration.underline, // خط تحت الكلمة لبيان أنها قابلة للضغط
+  Widget _buildSectionTitle(String title,
+      {required Color color, bool underline = true, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: color,
+            decoration: underline ? TextDecoration.underline : null,
+          ),
         ),
       ),
     );
@@ -205,6 +219,8 @@ class _WorkerCardState extends State<WorkerCard> {
     Color? labelColor,
     Color? valueColor,
     Color? textColor,
+    bool showCopyHint = false,
+    TextDirection? textDirection,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
@@ -226,6 +242,8 @@ class _WorkerCardState extends State<WorkerCard> {
           Expanded(
             child: Text(
               value,
+              textDirection: textDirection,
+              textAlign: textDirection == TextDirection.ltr ? TextAlign.right : null,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -233,6 +251,11 @@ class _WorkerCardState extends State<WorkerCard> {
               ),
             ),
           ),
+          if (showCopyHint)
+            const Padding(
+              padding: EdgeInsets.only(left: 8.0),
+              child: Icon(Icons.copy, size: 14, color: Colors.grey),
+            ),
         ],
       ),
     );

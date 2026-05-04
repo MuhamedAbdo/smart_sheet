@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
-import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 
@@ -44,7 +43,6 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     }
 
     return Scaffold(
-      drawer: const AppDrawer(),
       appBar: AppBar(
         title: isSearching
             ? SavedSizeSearchBar(
@@ -79,21 +77,25 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
           if (clients.isEmpty) {
             return Center(
               child: Text(
-                searchQuery.isEmpty ? "لا يوجد عملاء مسجلون حالياً" : "لا توجد نتائج لبحثك",
+                searchQuery.isEmpty
+                    ? "لا يوجد عملاء مسجلون حالياً"
+                    : "لا توجد نتائج لبحثك",
                 style: const TextStyle(color: Colors.grey, fontSize: 16),
               ),
             );
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 8),
+            padding:
+                const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 8),
             itemCount: clients.length,
             itemBuilder: (context, index) {
               final String clientName = clients[index];
               final int itemCount = box.values
                   .where((e) =>
                       e is Map &&
-                      (e['clientName']?.toString().trim() ?? '') == clientName &&
+                      (e['clientName']?.toString().trim() ?? '') ==
+                          clientName &&
                       e['isClientRecord'] != true)
                   .length;
 
@@ -120,14 +122,16 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     // جلب كافة السجلات المرتبطة بهذا العميل
     final allClientRecords = _savedSheetSizesBox.toMap().entries.where((e) {
       if (e.value is! Map) return false;
-      return (e.value['clientName']?.toString().trim() ?? '') == clientName.trim();
+      return (e.value['clientName']?.toString().trim() ?? '') ==
+          clientName.trim();
     }).toList();
 
     if (allClientRecords.isEmpty) return;
 
     // نبحث عن سجل العميل الأساسي
-    final clientRecordIndex = allClientRecords.indexWhere((e) => e.value['isClientRecord'] == true);
-    
+    final clientRecordIndex =
+        allClientRecords.indexWhere((e) => e.value['isClientRecord'] == true);
+
     if (clientRecordIndex != -1) {
       final clientRecord = allClientRecords[clientRecordIndex];
       Navigator.push(
@@ -158,7 +162,8 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     UIUtils.showDeleteConfirmation(
       context: context,
       title: "حذف العميل نهائياً",
-      content: "هل أنت متأكد من حذف العميل \"$clientName\" وجميع الأصناف المرتبطة به؟\nسيتم حذف كافة البيانات المتعلقة بهذا العميل.",
+      content:
+          "هل أنت متأكد من حذف العميل \"$clientName\" وجميع الأصناف المرتبطة به؟\nسيتم حذف كافة البيانات المتعلقة بهذا العميل.",
       onConfirm: () => _deleteClientWithUndo(clientName),
     );
   }
@@ -222,7 +227,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         if (!clientMap.containsKey(name) || date.isAfter(clientMap[name]!)) {
           clientMap[name] = date;
         }
-        
+
         // نأخذ الكود فقط من سجل العميل الأساسي لضمان عدم الخلط بين كود الصنف وكود العميل
         if (record['isClientRecord'] == true) {
           clientCodeMap[name] = code;

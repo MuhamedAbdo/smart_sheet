@@ -1,6 +1,8 @@
 // lib/src/screens/home/home_screen.dart
 
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:smart_sheet/screens/crushing_screen.dart';
 import 'package:smart_sheet/screens/flexo_screen.dart';
 import 'package:smart_sheet/screens/production_line_screen.dart';
@@ -18,6 +20,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isWindows = !kIsWeb && Platform.isWindows;
 
     return Scaffold(
       appBar: AppBar(
@@ -28,7 +31,7 @@ class HomeScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 1,
       ),
-      drawer: const AppDrawer(),
+      drawer: isWindows ? null : const AppDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -50,105 +53,118 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.1,
-                children: [
-                  HomeButton(
-                    icon: Icons.factory,
-                    label: 'خط الإنتاج',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ProductionLineScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.print,
-                    label: 'الفلكسو',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const FlexoScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.cut,
-                    label: 'التكسير',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const CrushingScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.push_pin,
-                    label: 'الدبوس',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const StapleDepartmentScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.science,
-                    label: 'السليكات',
-                    onTap: () {
-                      UIUtils.showInfoSnackBar(
-                        message: 'سيتم تطويره قريبًا',
-                        backgroundColor: Colors.blueGrey,
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.warehouse,
-                    label: 'المخازن',
-                    onTap: () {
-                      UIUtils.showInfoSnackBar(
-                        message: 'سيتم تطويره قريبًا',
-                        backgroundColor: Colors.blueGrey,
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.add,
-                    label: 'إضافة عميل جديد',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AddSheetSizeScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.save,
-                    label: 'سجل العملاء',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SavedSizesScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  int crossAxisCount = 2;
+                  if (constraints.maxWidth > 1000) {
+                    crossAxisCount = 5;
+                  } else if (constraints.maxWidth > 700) {
+                    crossAxisCount = 4;
+                  } else if (constraints.maxWidth > 500) {
+                    crossAxisCount = 3;
+                  }
+                  
+                  return GridView.count(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 24,
+                    mainAxisSpacing: 24,
+                    childAspectRatio: 1.1,
+                    children: [
+                      HomeButton(
+                        icon: Icons.factory,
+                        label: 'خط الإنتاج',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProductionLineScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.print,
+                        label: 'الفلكسو',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const FlexoScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.cut,
+                        label: 'التكسير',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CrushingScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.push_pin,
+                        label: 'الدبوس',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const StapleDepartmentScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.science,
+                        label: 'السليكات',
+                        onTap: () {
+                          UIUtils.showInfoSnackBar(
+                            message: 'سيتم تطويره قريبًا',
+                            backgroundColor: Colors.blueGrey,
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.warehouse,
+                        label: 'المخازن',
+                        onTap: () {
+                          UIUtils.showInfoSnackBar(
+                            message: 'سيتم تطويره قريبًا',
+                            backgroundColor: Colors.blueGrey,
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.add,
+                        label: 'إضافة عميل جديد',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AddSheetSizeScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.save,
+                        label: 'سجل العملاء',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SavedSizesScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],

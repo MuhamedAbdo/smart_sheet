@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/worker_form.dart';
 import 'package:smart_sheet/widgets/worker_list.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -49,7 +48,6 @@ class WorkersScreen extends StatelessWidget {
         final Box<Worker> box = snapshot.data!;
 
         return Scaffold(
-          drawer: const AppDrawer(),
           appBar: AppBar(
             title: Text("👷‍♂️ $departmentTitle - العمال"),
             centerTitle: true,

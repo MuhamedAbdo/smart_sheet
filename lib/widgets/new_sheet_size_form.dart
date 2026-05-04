@@ -196,6 +196,9 @@ class _NewSheetSizeFormState extends State<NewSheetSizeForm> {
             title: const Text("➕ إضافة 2 مم"),
             value: addTwoMm,
             onChanged: (v) => setState(() => addTwoMm = v ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            dense: true,
           ),
 
           // ص / 1/2 ص / 1/4 ص
@@ -220,6 +223,9 @@ class _NewSheetSizeFormState extends State<NewSheetSizeForm> {
               isQuarterSize = v ?? false;
               isFullSize = false;
             }),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            dense: true,
           ),
 
           if (isQuarterSize)
@@ -307,6 +313,7 @@ class _NewSheetSizeFormState extends State<NewSheetSizeForm> {
             onChanged: onChanged1,
             contentPadding: EdgeInsets.zero,
             dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
           ),
         ),
         Expanded(
@@ -316,6 +323,7 @@ class _NewSheetSizeFormState extends State<NewSheetSizeForm> {
             onChanged: onChanged2,
             contentPadding: EdgeInsets.zero,
             dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
           ),
         ),
       ],

@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-class HomeButton extends StatelessWidget {
+class HomeButton extends StatefulWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -15,29 +15,53 @@ class HomeButton extends StatelessWidget {
   });
 
   @override
+  State<HomeButton> createState() => _HomeButtonState();
+}
+
+class _HomeButtonState extends State<HomeButton> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: Colors.blue),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        transform: Matrix4.diagonal3Values(
+          _isHovered ? 1.05 : 1.0,
+          _isHovered ? 1.05 : 1.0,
+          1.0,
+        ),
+        child: Card(
+          elevation: _isHovered ? 8 : 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  widget.icon, 
+                  size: 48, 
+                  color: _isHovered ? Colors.blueAccent : Colors.blue
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  widget.label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: _isHovered ? FontWeight.bold : FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

@@ -7,7 +7,6 @@ import 'package:smart_sheet/screens/new_sheet_size_screen.dart';
 import 'package:smart_sheet/screens/sheet_count_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
-import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
 
 // ✅ استيراد الشاشات
@@ -29,7 +28,6 @@ class ProductionLineScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 1,
       ),
-      drawer: const AppDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -38,112 +36,121 @@ class ProductionLineScreen extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12),
-              color: Colors.blue.shade50,
-              child: const Text(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              child: Text(
                 'اختر القسم الذي تريد العمل فيه :',
                 textAlign: TextAlign.center,
                 textDirection: TextDirection.rtl,
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.blue,
+                  color: Theme.of(context).colorScheme.primary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.1,
-                children: [
-                  HomeButton(
-                    icon: Icons.straighten,
-                    label: 'مقاس الشيت',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const NewSheetSizeScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.calculate,
-                    label: 'الآلة الحاسبة',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const CalculatorScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.inventory,
-                    label: 'وارد المخزن',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const StoreEntryScreen(
-                            boxName: 'store_production',
-                            title: 'وارد مخزن خط الإنتاج',
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.settings,
-                    label: 'الصيانة',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MaintenanceScreen(
-                            // ✅ أضف المعلمات المطلوبة
-                            boxName:
-                                'maintenance_production_v2', // <-- اسم الصندوق الخاص بخط الإنتاج
-                            title: 'صيانة خط الإنتاج', // <-- عنوان الشاشة
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.group,
-                    label: 'طاقم خط الإنتاج', // ✅ تغيير التسمية
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const WorkersScreen(
-                            // ← استخدام WorkersScreen الجديد
-                            departmentBoxName:
-                                'workers_production', // ✅ اسم الصندوق المخصص
-                            departmentTitle: 'طاقم خط الإنتاج', // ✅ عنوان القسم
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  HomeButton(
-                    icon: Icons.production_quantity_limits,
-                    label: 'عدد الشيتات',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SheetCountScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  int crossAxisCount = 2;
+                  if (constraints.maxWidth > 1000) {
+                    crossAxisCount = 5;
+                  } else if (constraints.maxWidth > 700) {
+                    crossAxisCount = 4;
+                  } else if (constraints.maxWidth > 500) {
+                    crossAxisCount = 3;
+                  }
+
+                  return GridView.count(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 24,
+                    mainAxisSpacing: 24,
+                    childAspectRatio: 1.1,
+                    children: [
+                      HomeButton(
+                        icon: Icons.straighten,
+                        label: 'مقاس الشيت',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NewSheetSizeScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.calculate,
+                        label: 'الآلة الحاسبة',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CalculatorScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.inventory,
+                        label: 'وارد المخزن',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const StoreEntryScreen(
+                                boxName: 'store_production',
+                                title: 'وارد مخزن خط الإنتاج',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.settings,
+                        label: 'الصيانة',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const MaintenanceScreen(
+                                boxName: 'maintenance_production_v2',
+                                title: 'صيانة خط الإنتاج',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.group,
+                        label: 'طاقم خط الإنتاج',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const WorkersScreen(
+                                departmentBoxName: 'workers_production',
+                                departmentTitle: 'طاقم خط الإنتاج',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.production_quantity_limits,
+                        label: 'عدد الشيتات',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SheetCountScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],

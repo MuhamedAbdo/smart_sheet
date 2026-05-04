@@ -351,102 +351,6 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     return Scaffold(
       appBar: AppBar(
         iconTheme: IconThemeData(color: appBarIconColor),
-        leading: PopupMenuButton<String>(
-          icon: Icon(Icons.menu, color: appBarIconColor),
-          onSelected: (value) async {
-            if (value == 'search') {
-              setState(() => _isSearching = true);
-            } else if (value == 'filter') {
-              _showDateFilterDialog();
-            } else if (value == 'archive_move') {
-              _moveToArchive();
-            } else if (value == 'archive_open') {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const FlexoArchiveScreen()));
-            } else if (value == 'pdf_view_prod') {
-              final records = _filterAndSortRecords(
-                      _productionReportBox!, _searchQuery, _sortDescending)
-                  .map((e) => e.value)
-                  .toList();
-              await exportProductionReportsToPdf(context, records);
-            } else if (value == 'pdf_save_prod') {
-              final records = _filterAndSortRecords(
-                      _productionReportBox!, _searchQuery, _sortDescending)
-                  .map((e) => e.value)
-                  .toList();
-              await _savePdfToDeviceLocally(records, isPrinting: false);
-            } else if (value == 'pdf_view_print') {
-              final records = _filterAndSortRecords(
-                      _productionReportBox!, _searchQuery, _sortDescending)
-                  .map((e) => e.value)
-                  .toList();
-              await exportPrintingReportsToPdf(context, records);
-            } else if (value == 'pdf_save_print') {
-              final records = _filterAndSortRecords(
-                      _productionReportBox!, _searchQuery, _sortDescending)
-                  .map((e) => e.value)
-                  .toList();
-              await _savePdfToDeviceLocally(records, isPrinting: true);
-            } else if (value == 'clear') {
-              _deleteAllReports();
-            } else if (value == 'sort') {
-              _showSortSheet();
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-                value: 'search',
-                child:
-                    ListTile(leading: Icon(Icons.search), title: Text('بحث'))),
-            const PopupMenuItem(
-                value: 'filter',
-                child: ListTile(
-                    leading: Icon(Icons.calendar_month),
-                    title: Text('تصفية بالتاريخ'))),
-            const PopupMenuItem(
-                value: 'archive_move',
-                child: ListTile(
-                    leading: Icon(Icons.inventory_2),
-                    title: Text('نقل للأرشيف'))),
-            const PopupMenuItem(
-                value: 'archive_open',
-                child: ListTile(
-                    leading: Icon(Icons.inventory_2_outlined),
-                    title: Text('فتح الأرشيف'))),
-            const PopupMenuItem(
-                value: 'pdf_view_prod',
-                child: ListTile(
-                    leading: Icon(Icons.picture_as_pdf),
-                    title: Text('عرض/طباعة تقرير إنتاج'))),
-            const PopupMenuItem(
-                value: 'pdf_save_prod',
-                child: ListTile(
-                    leading: Icon(Icons.save_alt),
-                    title: Text('حفظ تقرير إنتاج'))),
-            const PopupMenuItem(
-                value: 'pdf_view_print',
-                child: ListTile(
-                    leading: Icon(Icons.picture_as_pdf, color: Colors.blueAccent),
-                    title: Text('عرض/طباعة تقرير طباعة'))),
-            const PopupMenuItem(
-                value: 'pdf_save_print',
-                child: ListTile(
-                    leading: Icon(Icons.save_alt, color: Colors.blueAccent),
-                    title: Text('حفظ تقرير طباعة'))),
-            const PopupMenuItem(
-                value: 'sort',
-                child: ListTile(
-                    leading: Icon(Icons.sort), title: Text('الترتيب'))),
-            const PopupMenuItem(
-                value: 'clear',
-                child: ListTile(
-                    leading: Icon(Icons.delete_sweep, color: Colors.red),
-                    title:
-                        Text('مسح الكل', style: TextStyle(color: Colors.red)))),
-          ],
-        ),
         title: _isSearching
             ? Container(
                 height: 40,
@@ -476,7 +380,107 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 ),
               )
             : const Text("تقرير الإنتاج"),
-        actions: const [],
+        centerTitle: !_isSearching,
+        actions: [
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: appBarIconColor),
+            tooltip: "خيارات التقارير",
+            onSelected: (value) async {
+              if (value == 'search') {
+                setState(() => _isSearching = true);
+              } else if (value == 'filter') {
+                _showDateFilterDialog();
+              } else if (value == 'archive_move') {
+                _moveToArchive();
+              } else if (value == 'archive_open') {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const FlexoArchiveScreen()));
+              } else if (value == 'pdf_view_prod') {
+                final records = _filterAndSortRecords(
+                        _productionReportBox!, _searchQuery, _sortDescending)
+                    .map((e) => e.value)
+                    .toList();
+                await exportProductionReportsToPdf(context, records);
+              } else if (value == 'pdf_save_prod') {
+                final records = _filterAndSortRecords(
+                        _productionReportBox!, _searchQuery, _sortDescending)
+                    .map((e) => e.value)
+                    .toList();
+                await _savePdfToDeviceLocally(records, isPrinting: false);
+              } else if (value == 'pdf_view_print') {
+                final records = _filterAndSortRecords(
+                        _productionReportBox!, _searchQuery, _sortDescending)
+                    .map((e) => e.value)
+                    .toList();
+                await exportPrintingReportsToPdf(context, records);
+              } else if (value == 'pdf_save_print') {
+                final records = _filterAndSortRecords(
+                        _productionReportBox!, _searchQuery, _sortDescending)
+                    .map((e) => e.value)
+                    .toList();
+                await _savePdfToDeviceLocally(records, isPrinting: true);
+              } else if (value == 'clear') {
+                _deleteAllReports();
+              } else if (value == 'sort') {
+                _showSortSheet();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                  value: 'search',
+                  child:
+                      ListTile(leading: Icon(Icons.search), title: Text('بحث'))),
+              const PopupMenuItem(
+                  value: 'filter',
+                  child: ListTile(
+                      leading: Icon(Icons.calendar_month),
+                      title: Text('تصفية بالتاريخ'))),
+              const PopupMenuItem(
+                  value: 'archive_move',
+                  child: ListTile(
+                      leading: Icon(Icons.inventory_2),
+                      title: Text('نقل للأرشيف'))),
+              const PopupMenuItem(
+                  value: 'archive_open',
+                  child: ListTile(
+                      leading: Icon(Icons.inventory_2_outlined),
+                      title: Text('فتح الأرشيف'))),
+              const PopupMenuItem(
+                  value: 'pdf_view_prod',
+                  child: ListTile(
+                      leading: Icon(Icons.picture_as_pdf),
+                      title: Text('عرض/طباعة تقرير إنتاج'))),
+              const PopupMenuItem(
+                  value: 'pdf_save_prod',
+                  child: ListTile(
+                      leading: Icon(Icons.save_alt),
+                      title: Text('حفظ تقرير إنتاج'))),
+              const PopupMenuItem(
+                  value: 'pdf_view_print',
+                  child: ListTile(
+                      leading:
+                          Icon(Icons.picture_as_pdf, color: Colors.blueAccent),
+                      title: Text('عرض/طباعة تقرير طباعة'))),
+              const PopupMenuItem(
+                  value: 'pdf_save_print',
+                  child: ListTile(
+                      leading: Icon(Icons.save_alt, color: Colors.blueAccent),
+                      title: Text('حفظ تقرير طباعة'))),
+              const PopupMenuItem(
+                  value: 'sort',
+                  child: ListTile(
+                      leading: Icon(Icons.sort), title: Text('الترتيب'))),
+              const PopupMenuItem(
+                  value: 'clear',
+                  child: ListTile(
+                      leading: Icon(Icons.delete_sweep, color: Colors.red),
+                      title: Text('مسح الكل',
+                          style: TextStyle(color: Colors.red)))),
+            ],
+          ),
+        ],
       ),
       body: ValueListenableBuilder(
         valueListenable: _productionReportBox!.listenable(),

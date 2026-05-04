@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:smart_sheet/widgets/app_drawer.dart';
 
 class SheetCountScreen extends StatefulWidget {
   const SheetCountScreen({super.key});
@@ -85,7 +84,6 @@ class _SheetCountScreenState extends State<SheetCountScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('عدد الشيتات'),
         centerTitle: true,

@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:smart_sheet/screens/qr_scanner_screen.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
@@ -192,6 +191,71 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     }
   }
 
+  Future<void> _handleLocalBackup() async {
+    setState(() {
+      _isLoading = true;
+      _message = 'جاري إنشاء نسخة احتياطية محلية...';
+    });
+
+    final result = await _backupService.createBackup();
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _message = result;
+      });
+      if (result?.startsWith('✅') == true) {
+        UIUtils.showInfoSnackBar(
+          message: result!,
+          backgroundColor: Colors.green,
+          icon: Icons.save_alt,
+        );
+      }
+    }
+  }
+
+  Future<void> _handleLocalRestore() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('⚠️ تأكيد الاستعادة المحلية'),
+        content: const Text(
+            'سيتم حذف البيانات الحالية واستبدالها بالملف المختار. هل تريد الاستمرار؟'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('استعادة')),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+        _message = 'جاري استعادة البيانات...';
+      });
+
+      final result = await _backupService.restoreBackup();
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _message = result;
+        });
+        if (result == 'SUCCESS_RESTORE') {
+          UIUtils.showInfoSnackBar(
+            message: "تمت الاستعادة بنجاح، سيتم إعادة تشغيل التطبيق",
+            backgroundColor: Colors.green,
+            icon: Icons.check_circle,
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
@@ -261,8 +325,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: ListView(
           children: [
             // Status Card
             if (_isLoading || _message != null) _buildStatusCard(),
@@ -274,18 +337,57 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
             const SizedBox(height: 30),
 
-            // Main Action Buttons
+            // Main Action Buttons (Cloud)
+            const Text("النسخ السحابي", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
             _buildUploadButton(),
-
-            const SizedBox(height: 16),
-
+            const SizedBox(height: 12),
             _buildRestoreButton(),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 24),
+
+            // Local Backup Buttons
+            const Text("النسخ المحلي", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _handleLocalBackup,
+                    icon: const Icon(Icons.save),
+                    label: const Text('حفظ نسخة محلية'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueGrey,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _handleLocalRestore,
+                    icon: const Icon(Icons.restore),
+                    label: const Text('استعادة نسخة محلية'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 24),
             
             _buildQRActionSection(isAdmin),
 
-            const Spacer(),
+            const SizedBox(height: 32),
 
             // Info Section
             _buildInfoSection(),
@@ -635,13 +737,39 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
   Future<void> _openQRScanner() async {
     final authService = context.read<AuthService>();
+    // على سطح المكتب، بدلاً من مسح QR، نستخدم الإدخال اليدوي للكود
+    final TextEditingController codeController = TextEditingController();
     
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const QRScannerScreen()),
+    final String? result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ربط بالمصنع'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('أدخل معرف المصنع (Factory ID) الذي يزودك به المدير:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: codeController,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'أدخل الكود هنا...',
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, codeController.text.trim()),
+            child: const Text('ربط الآن'),
+          ),
+        ],
+      ),
     );
 
-    if (result != null && result is String) {
+    if (result != null && result.isNotEmpty) {
       setState(() {
         _isLoading = true;
         _message = 'جاري ربط الحساب بالمصنع...';

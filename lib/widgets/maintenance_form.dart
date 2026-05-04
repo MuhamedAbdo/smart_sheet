@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
-import 'package:photo_view/photo_view.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../models/maintenance_record_model.dart';
 import '../../services/storage_service.dart';
 import '../../utils/ui_utils.dart';
+import 'package:smart_sheet/widgets/desktop_image_picker.dart';
 
 class MaintenanceForm extends StatefulWidget {
   final MaintenanceRecord? existing;
@@ -38,19 +38,18 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   bool _isUploading = false;
   bool _isProcessing = false;
 
-  CameraController? _cameraController;
-  bool _isCameraReady = false;
+
 
   @override
   void initState() {
     super.initState();
     _initializeControllers();
-    _initializeCamera();
+
   }
 
   @override
   void dispose() {
-    _cameraController?.dispose();
+
     _disposeControllers();
     super.dispose();
   }
@@ -93,38 +92,34 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
 
   String _today() => DateTime.now().toString().split(' ')[0];
 
-  Future<void> _initializeCamera() async {
-    var status = await Permission.camera.request();
-    if (!status.isGranted) return;
-
-    try {
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) return;
-
-      _cameraController = CameraController(
-        cameras.first,
-        ResolutionPreset.medium,
-        enableAudio: false,
-      );
-
-      await _cameraController!.initialize();
-      if (mounted) setState(() => _isCameraReady = true);
-    } catch (e) {
-      debugPrint("Camera Error: $e");
-    }
-  }
-
-  Future<void> _captureImage() async {
-    if (!_isCameraReady || _cameraController == null) return;
+  Future<void> _pickImages() async {
     setState(() => _isProcessing = true);
     try {
-      final XFile photo = await _cameraController!.takePicture();
-      setState(() {
-        _imagePaths.add(photo.path);
-        _isProcessing = false;
-      });
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+      );
+
+      if (result != null) {
+        final appDir = await getApplicationDocumentsDirectory();
+        final imageDir = Directory('${appDir.path}/images');
+        if (!await imageDir.exists()) {
+          await imageDir.create(recursive: true);
+        }
+
+        for (var file in result.files) {
+          if (file.path != null) {
+            final String fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+            final targetPath = '${imageDir.path}/$fileName';
+            final savedFile = await File(file.path!).copy(targetPath);
+            setState(() => _imagePaths.add(savedFile.path));
+          }
+        }
+      }
     } catch (e) {
-      setState(() => _isProcessing = false);
+      debugPrint("Error picking files: $e");
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
@@ -225,9 +220,12 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                     onChanged: (v) => setState(() => isFixed = v ?? false),
                   ),
                   const SizedBox(height: 20),
-                  _buildCameraPreview(),
-                  const SizedBox(height: 12),
-                  _buildImageGallery(),
+                  DesktopImagePicker(
+                    isProcessing: _isProcessing,
+                    capturedImages: _imagePaths.map((p) => p.startsWith('http') ? p : File(p)).toList(),
+                    onPickImages: _pickImages,
+                    onRemoveImage: (index) => setState(() => _imagePaths.removeAt(index)),
+                  ),
                   const SizedBox(height: 100),
                 ],
               ),
@@ -281,103 +279,6 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
           .toList(),
       onChanged: (v) => setState(() => repairLocation = v!),
     );
-  }
-
-  Widget _buildCameraPreview() {
-    if (!_isCameraReady) {
-      return const SizedBox(
-          height: 200, child: Center(child: CircularProgressIndicator()));
-    }
-    return Column(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-              height: 200,
-              width: double.infinity,
-              child: CameraPreview(_cameraController!)),
-        ),
-        const SizedBox(height: 8),
-        ElevatedButton.icon(
-          onPressed: _isProcessing ? null : _captureImage,
-          icon: const Icon(Icons.camera_alt),
-          label: const Text("التقاط صورة عطل"),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildImageGallery() {
-    if (_imagePaths.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("المرفقات الحالية:",
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 100,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _imagePaths.length,
-            itemBuilder: (context, i) {
-              final path = _imagePaths[i];
-              final isNetwork = path.startsWith('http');
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                child: Stack(
-                  children: [
-                    GestureDetector(
-                      onTap: () => _viewFullScreen(path),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: isNetwork
-                            ? Image.network(path,
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) =>
-                                    const Icon(Icons.broken_image))
-                            : Image.file(File(path),
-                                width: 80, height: 80, fit: BoxFit.cover),
-                      ),
-                    ),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: GestureDetector(
-                        onTap: () => setState(() => _imagePaths.removeAt(i)),
-                        child: const CircleAvatar(
-                            radius: 10,
-                            backgroundColor: Colors.red,
-                            child: Icon(Icons.close,
-                                size: 12, color: Colors.white)),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _viewFullScreen(String path) {
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => Scaffold(
-            backgroundColor: Colors.black,
-            appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-            body: PhotoView(
-              imageProvider: path.startsWith('http')
-                  ? NetworkImage(path)
-                  : FileImage(File(path)) as ImageProvider,
-            ),
-          ),
-        ));
   }
 
   Widget _buildLoadingOverlay() {

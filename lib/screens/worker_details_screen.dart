@@ -1,10 +1,10 @@
-// lib/src/screens/workers/worker_details_screen.dart
-
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../models/worker_action_model.dart';
 import '../../models/worker_model.dart';
-import '../../widgets/app_drawer.dart';
 import '../../widgets/worker_action_card.dart';
 import '../../widgets/active_absence_card.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
@@ -27,6 +27,7 @@ class WorkerDetailsScreen extends StatefulWidget {
 
 class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   StreamSubscription? _supabaseSubscription;
+  bool _isPhoneCopied = false;
 
   @override
   void initState() {
@@ -35,39 +36,41 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   }
 
   Future<void> _setupSupabaseStream() async {
-    final stream = await SupabaseManager.streamData('worker_actions', primaryKey: ['id']);
+    final stream =
+        await SupabaseManager.streamData('worker_actions', primaryKey: ['id']);
     if (stream != null) {
       _supabaseSubscription = stream.listen((data) async {
         if (!Hive.isBoxOpen('worker_actions')) return;
         final actionBox = Hive.box<WorkerAction>('worker_actions');
         bool updated = false;
-        
+
         for (var record in data) {
-           if (record['worker_name'] != widget.worker.name) continue;
-           
-           final action = WorkerAction.fromJson(record);
-           if (action.id == null) continue;
-           
-           final localIndex = widget.worker.actions.indexWhere((a) => a.id == action.id);
-           if (localIndex == -1) {
-             final key = await actionBox.add(action);
-             final saved = actionBox.get(key);
-             if (saved != null) {
-               widget.worker.actions.add(saved);
-               updated = true;
-             }
-           } else {
-             final localAction = widget.worker.actions[localIndex];
-             final keys = actionBox.keys.toList();
-             final values = actionBox.values.toList();
-             final indexInBox = values.indexOf(localAction);
-             if (indexInBox != -1) {
-               final key = keys[indexInBox];
-               await actionBox.put(key, action);
-               widget.worker.actions[localIndex] = action;
-               updated = true;
-             }
-           }
+          if (record['worker_name'] != widget.worker.name) continue;
+
+          final action = WorkerAction.fromJson(record);
+          if (action.id == null) continue;
+
+          final localIndex =
+              widget.worker.actions.indexWhere((a) => a.id == action.id);
+          if (localIndex == -1) {
+            final key = await actionBox.add(action);
+            final saved = actionBox.get(key);
+            if (saved != null) {
+              widget.worker.actions.add(saved);
+              updated = true;
+            }
+          } else {
+            final localAction = widget.worker.actions[localIndex];
+            final keys = actionBox.keys.toList();
+            final values = actionBox.values.toList();
+            final indexInBox = values.indexOf(localAction);
+            if (indexInBox != -1) {
+              final key = keys[indexInBox];
+              await actionBox.put(key, action);
+              widget.worker.actions[localIndex] = action;
+              updated = true;
+            }
+          }
         }
         if (updated) {
           await widget.worker.save();
@@ -89,10 +92,35 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
+  Future<void> _copyPhoneToClipboard() async {
+    await Clipboard.setData(ClipboardData(text: widget.worker.phone));
+
+    if (!mounted) return;
+
+    setState(() {
+      _isPhoneCopied = true;
+    });
+
+    UIUtils.showInfoSnackBar(
+      message: "تم نسخ الرقم بنجاح",
+      backgroundColor: Colors.green,
+      icon: Icons.content_copy_outlined,
+    );
+
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _isPhoneCopied = false;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isWindows = !kIsWeb && Platform.isWindows;
+    
     return Scaffold(
-      drawer: const AppDrawer(),
       appBar: AppBar(
         title: Text("👤 ${widget.worker.name}"),
         centerTitle: true,
@@ -102,7 +130,26 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("📞 ${widget.worker.phone}"),
+            GestureDetector(
+              onTap: isWindows ? _copyPhoneToClipboard : null,
+              child: Row(
+                children: [
+                  Text(
+                    "📞 ${widget.worker.phone}",
+                    textDirection: TextDirection.ltr,
+                    style: TextStyle(
+                      color: _isPhoneCopied ? Colors.green : null,
+                      fontWeight: _isPhoneCopied ? FontWeight.bold : null,
+                    ),
+                  ),
+                  if (isWindows)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 8.0),
+                      child: Icon(Icons.copy, size: 14, color: Colors.grey),
+                    ),
+                ],
+              ),
+            ),
             Text("🛠 ${widget.worker.job}"),
             const SizedBox(height: 16),
             const Text("📜 الإجراءات",
@@ -141,7 +188,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                   message: "تم حذف الإجراء",
                                   onUndo: () async {
                                     messenger.clearSnackBars();
-                                    widget.worker.actions.insert(index, actionToRemove);
+                                    widget.worker.actions
+                                        .insert(index, actionToRemove);
                                     await widget.worker.save();
                                     _refresh();
                                   },
@@ -169,11 +217,14 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   Widget _buildActiveAbsenceSection() {
     try {
       final activeAction = widget.worker.actions.firstWhere(
-        (a) => (a.type == 'غياب' && a.returnDate == null &&
-               DateTime.now().difference(a.date).inDays <= 30) ||
-               ((a.type == 'إذن' || a.type == 'تأمين صحي') && a.returnDate == null),
+        (a) =>
+            (a.type == 'غياب' &&
+                a.returnDate == null &&
+                DateTime.now().difference(a.date).inDays <= 30) ||
+            ((a.type == 'إذن' || a.type == 'تأمين صحي') &&
+                a.returnDate == null),
       );
-      
+
       return Padding(
         padding: const EdgeInsets.only(bottom: 16),
         child: SizedBox(
@@ -214,7 +265,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   initialValue: actionType.value,
                   items: const [
                     DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
-                    DropdownMenuItem(value: 'أجازة عارضة', child: Text('أجازة عارضة')),
+                    DropdownMenuItem(
+                        value: 'أجازة عارضة', child: Text('أجازة عارضة')),
                     DropdownMenuItem(value: 'غياب', child: Text('غياب')),
                     DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
                     DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
@@ -248,8 +300,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                     decoration: const InputDecoration(
                         labelText: "🔢 عدد الأيام", hintText: "مثال: 1.5"),
                   ),
-                ]
-                else if (actionType.value == 'مكافئة' ||
+                ] else if (actionType.value == 'مكافئة' ||
                     actionType.value == 'جزاء') ...[
                   const SizedBox(height: 8),
                   ToggleButtons(
@@ -365,7 +416,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       BuildContext context, WorkerAction action, int index) async {
     final actionType = ValueNotifier<String>(action.type);
     final date = ValueNotifier<DateTime>(action.date);
-    final daysController = TextEditingController(text: action.days?.toString() ?? '');
+    final daysController =
+        TextEditingController(text: action.days?.toString() ?? '');
     final startTime = ValueNotifier<TimeOfDay?>(action.startTime);
     final endTime = ValueNotifier<TimeOfDay?>(action.endTime);
     final rewardType =
@@ -388,7 +440,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   initialValue: actionType.value,
                   items: const [
                     DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
-                    DropdownMenuItem(value: 'أجازة عارضة', child: Text('أجازة عارضة')),
+                    DropdownMenuItem(
+                        value: 'أجازة عارضة', child: Text('أجازة عارضة')),
                     DropdownMenuItem(value: 'غياب', child: Text('غياب')),
                     DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
                     DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
@@ -497,7 +550,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 }
 
                 final updatedAction = WorkerAction(
-                  id: action.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+                  id: action.id ??
+                      DateTime.now().millisecondsSinceEpoch.toString(),
                   type: actionType.value,
                   days: (actionType.value == 'إجازة' ||
                           actionType.value == 'أجازة عارضة' ||

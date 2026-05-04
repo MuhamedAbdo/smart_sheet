@@ -131,13 +131,15 @@ class BackupService {
       final uploadPath = "$factoryId.zip";
       debugPrint("📁 Upload path: $uploadPath");
 
-      await _requestPermissions();
-      _initService();
-      await _startService();
+      if (Platform.isAndroid) {
+        await _requestPermissions();
+        _initService();
+        await _startService();
+      }
 
       final localBackupPath = await _createLocalBackupFile();
       if (localBackupPath == null) {
-        await _stopService();
+        if (Platform.isAndroid) await _stopService();
         return '❌ فشل إنشاء ملف النسخ المحلية.';
       }
 
@@ -149,7 +151,7 @@ class BackupService {
             .timeout(const Duration(seconds: 5));
         socket.destroy();
       } catch (e) {
-        await _stopService();
+        if (Platform.isAndroid) await _stopService();
         return '❌ لا يوجد اتصال بالإنترنت.';
       }
 
@@ -168,7 +170,7 @@ class BackupService {
             );
 
         if (await backupFile.exists()) await backupFile.delete();
-        await _stopService();
+        if (Platform.isAndroid) await _stopService();
         await _showNotification(
             id: 1,
             title: 'النسخ السحابي',
@@ -176,12 +178,12 @@ class BackupService {
 
         return '✅ تم حفظ النسخة الاحتياطية بنجاح';
       } catch (e) {
-        await _stopService();
+        if (Platform.isAndroid) await _stopService();
         debugPrint("❌ Upload error: $e");
         return '❌ فشل الرفع: ${e.toString()}';
       }
     } catch (e) {
-      await _stopService();
+      if (Platform.isAndroid) await _stopService();
       debugPrint("❌ Upload error: $e");
       return '❌ فشل الرفع: ${e.toString()}';
     }
@@ -190,10 +192,12 @@ class BackupService {
   // --- 4. الاستعادة من السحاب ---
   Future<String?> downloadAndRestore(String fullPath) async {
     try {
-      _initService();
-      await _startService();
-      _updateForegroundNotification(
-          title: 'جاري الاستعادة', content: 'يتم الآن التحميل...');
+      if (Platform.isAndroid) {
+        _initService();
+        await _startService();
+        _updateForegroundNotification(
+            title: 'جاري الاستعادة', content: 'يتم الآن التحميل...');
+      }
       final tempDir = await getTemporaryDirectory();
       final tempZipPath = p.join(tempDir.path, 'downloaded_backup.zip');
 
@@ -204,14 +208,14 @@ class BackupService {
       final result = await _restoreFromZipPath(tempZipPath);
 
       if (await File(tempZipPath).exists()) await File(tempZipPath).delete();
-      await _stopService();
+      if (Platform.isAndroid) await _stopService();
 
       if (result == 'SUCCESS_RESTORE') {
         await _restartApp();
       }
       return result;
     } catch (e) {
-      await _stopService();
+      if (Platform.isAndroid) await _stopService();
       return '❌ فشل الاستعادة: $e';
     }
   }
@@ -221,7 +225,13 @@ class BackupService {
   Future<void> _restartApp() async {
     try {
       await Future.delayed(const Duration(milliseconds: 500));
-      await _platform.invokeMethod('restartApp');
+      if (Platform.isWindows) {
+        // إعادة تشغيل على ويندوز
+        await Process.start(Platform.resolvedExecutable, []);
+        exit(0);
+      } else {
+        await _platform.invokeMethod('restartApp');
+      }
     } catch (e) {
       debugPrint("Restart failed: $e");
     }

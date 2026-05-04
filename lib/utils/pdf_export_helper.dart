@@ -23,8 +23,8 @@ import 'package:flutter/material.dart'
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/globals.dart';
 import 'package:printing/printing.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:open_file/open_file.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:smart_sheet/utils/arabic_pdf_helper.dart';
 
 // ---------------------------------
@@ -146,46 +146,37 @@ Future<void> _savePdfCommon(
     return;
   }
 
-  var status = await Permission.storage.status;
-  if (!status.isGranted) status = await Permission.storage.request();
-
   final pdfBytes = await generateFn(records);
   if (pdfBytes == null) return;
 
   try {
-    String filePath;
     final fileName = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    String? filePath;
 
-    if (status.isGranted && Platform.isAndroid) {
-      final directory = await getExternalStorageDirectory();
-      if (directory != null) {
-        final appDir = Directory('${directory.path}/SmartSheet/Reports');
-        if (!await appDir.exists()) await appDir.create(recursive: true);
-        final file = File('${appDir.path}/$fileName');
-        await file.writeAsBytes(pdfBytes);
-        filePath = file.path;
-      } else {
-        filePath = await _saveToInternalStorage(pdfBytes, fileName);
-      }
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      filePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'حفظ ملف PDF',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        bytes: pdfBytes,
+      );
     } else {
-      filePath = await _saveToInternalStorage(pdfBytes, fileName);
+      // Android / iOS fallback
+      final directory = await getApplicationDocumentsDirectory();
+      final appDir = Directory('${directory.path}/SmartSheet/Reports');
+      if (!await appDir.exists()) await appDir.create(recursive: true);
+      final file = File('${appDir.path}/$fileName');
+      await file.writeAsBytes(pdfBytes);
+      filePath = file.path;
     }
 
-    if (context.mounted) {
+    if (filePath != null && context.mounted) {
       _showSuccessSnackBar(context, filePath, pdfBytes);
     }
   } catch (e) {
     debugPrint('❌ خطأ في حفظ PDF: $e');
   }
-}
-
-Future<String> _saveToInternalStorage(Uint8List pdfBytes, String fileName) async {
-  final directory = await getApplicationDocumentsDirectory();
-  final appDir = Directory('${directory.path}/SmartSheet/Reports');
-  if (!await appDir.exists()) await appDir.create(recursive: true);
-  final file = File('${appDir.path}/$fileName');
-  await file.writeAsBytes(pdfBytes);
-  return file.path;
 }
 
 void _showSuccessSnackBar(BuildContext context, String filePath, Uint8List bytes) {

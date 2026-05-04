@@ -4,7 +4,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/results_widget.dart';
 
 class SerialSetupScreen extends StatefulWidget {
@@ -35,8 +34,16 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
 
   String convertToWesternNumbers(String input) {
     const arabicToWestern = {
-      '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
-      '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9'
+      '٠': '0',
+      '١': '1',
+      '٢': '2',
+      '٣': '3',
+      '٤': '4',
+      '٥': '5',
+      '٦': '6',
+      '٧': '7',
+      '٨': '8',
+      '٩': '9'
     };
     return input.split('').map((char) => arabicToWestern[char] ?? char).join();
   }
@@ -69,9 +76,11 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
   // حساب أوتوماتيك
   void calculateAutoValues() {
     final double length =
-        double.tryParse(convertToWesternNumbers(autoLengthController.text)) ?? 0.0;
+        double.tryParse(convertToWesternNumbers(autoLengthController.text)) ??
+            0.0;
     final double width =
-        double.tryParse(convertToWesternNumbers(autoWidthController.text)) ?? 0.0;
+        double.tryParse(convertToWesternNumbers(autoWidthController.text)) ??
+            0.0;
 
     if (autoIsWidthActive) {
       autoA1 = length + (width / 2);
@@ -210,10 +219,13 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
       constraints: const BoxConstraints(minWidth: 70),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
-        color: isDarkMode ? Colors.blue.withValues(alpha: 0.15) : Colors.blue.shade50,
+        color: isDarkMode
+            ? Colors.blue.withValues(alpha: 0.15)
+            : Colors.blue.shade50,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-            color: isDarkMode ? Colors.blue.shade800 : Colors.blue.shade200, width: 1),
+            color: isDarkMode ? Colors.blue.shade800 : Colors.blue.shade200,
+            width: 1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -467,7 +479,7 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
                     ],
 
                     const SizedBox(width: 16),
-                    
+
                     // 3 dividers
                     _buildDividers(context),
 
@@ -494,10 +506,10 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
   }
 
   Widget _buildDividers(BuildContext context) {
-    final Color dividerColor = Theme.of(context).brightness == Brightness.dark 
-        ? Colors.grey.shade600 
+    final Color dividerColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.grey.shade600
         : Colors.grey.shade300;
-        
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -515,7 +527,6 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        drawer: const AppDrawer(),
         appBar: AppBar(
           title: const Text("ضبط تركيب السيريل"),
           centerTitle: true,

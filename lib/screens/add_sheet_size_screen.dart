@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 // الويدجات التالية محجوبة مؤقتاً من الـ UI لكنها تُستخدم في منطق التعديل
 // ignore: unused_import
@@ -12,7 +10,7 @@ import 'package:smart_sheet/widgets/sheet_size_buttons.dart';
 // ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_calculations.dart';
 // ignore: unused_import
-import 'package:smart_sheet/widgets/sheet_size_camera.dart';
+import 'package:smart_sheet/widgets/desktop_image_picker.dart';
 // ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_checkboxes.dart';
 // ignore: unused_import
@@ -55,11 +53,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   final sheetLengthManualController = TextEditingController();
   final sheetWidthManualController = TextEditingController();
 
-  final ImagePicker _imagePicker = ImagePicker();
-  // ignore: unused_field — محجوب مؤقتاً مع واجهة العميل المبسطة
   bool _isProcessing = false;
   List<dynamic> _capturedImages = []; // يدعم File محلي و String لرابط Supabase
-
 
   bool isSheet = false;
   bool isOverFlap = false;
@@ -219,7 +214,6 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'isClientRecord': isAddingClientOnly,
       'factoryId': '', // معرف فريد للمصنع (للتأسيس السحابي مستقبلاً)
     };
-
 
     if (_processType == "تفصيل") {
       newRecord.addAll({
@@ -384,7 +378,6 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       isSheet = data['isSheet'] ?? false;
 
       if (data['imagePaths'] != null) {
-
         _capturedImages = (data['imagePaths'] as List).map((p) {
           String path = p.toString();
           if (path.startsWith('http')) {
@@ -416,74 +409,36 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     });
   }
 
-  // دالة موحدة لإرفاق الصور (كاميرا أو استوديو) مع الضغط لتقليل المساحة
-  Future<void> _pickImage(ImageSource source) async {
-    debugPrint("========== START PICK IMAGE (Source: $source) ==========");
-
+  // دالة مرفقات جديدة باستخدام FilePicker لسطح المكتب
+  Future<void> _pickImages() async {
     setState(() => _isProcessing = true);
-    debugPrint("Processing state set to true");
-
     try {
-      debugPrint("Picking picture using ImagePicker from $source...");
-
-      final XFile? image = await _imagePicker.pickImage(
-        source: source,
-        imageQuality: 100, // نأخذها بجودة عالية كمرجع ثم نضغطها لضمان الجودة
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
       );
 
-      if (image == null) {
-        debugPrint("User cancelled image picking");
-        return;
-      }
+      if (result != null) {
+        final appDir = await getApplicationDocumentsDirectory();
+        final imageDir = Directory('${appDir.path}/images');
+        if (!await imageDir.exists()) {
+          await imageDir.create(recursive: true);
+        }
 
-      debugPrint("Image picked: ${image.path}");
-
-      final appDir = await getApplicationDocumentsDirectory();
-      final imageDir = Directory('${appDir.path}/images');
-      if (!await imageDir.exists()) {
-        await imageDir.create(recursive: true);
-      }
-
-      // توحيد اسم الملف ليكون فريداً
-      final String fileName =
-          'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final targetPath = '${imageDir.path}/$fileName';
-
-      // دقة الضغط (Quality 70) لضمان مساحة تخزين مثالية مع جودة ممتازة
-      XFile? compressedFile;
-      try {
-        debugPrint("Attempting image compression (Quality 70)...");
-        compressedFile = await FlutterImageCompress.compressAndGetFile(
-            image.path, targetPath,
-            quality: 70);
-        debugPrint(
-            "Compression finished. Result: ${compressedFile?.path ?? 'NULL'}");
-      } catch (e, stackTrace) {
-        debugPrint("========== COMPRESSION ERROR ==========");
-        debugPrint(e.toString());
-        debugPrint(stackTrace.toString());
-      }
-
-      if (mounted) {
-        if (compressedFile != null) {
-          debugPrint("Adding compressed image to list...");
-          setState(() => _capturedImages.add(File(compressedFile!.path)));
-        } else {
-          debugPrint("Compression failed. Copying fallback...");
-          final uncompressedFile = File(image.path);
-          final finalFile = await uncompressedFile.copy(targetPath);
-          setState(() => _capturedImages.add(finalFile));
+        for (var file in result.files) {
+          if (file.path != null) {
+            final String fileName =
+                'IMG_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+            final targetPath = '${imageDir.path}/$fileName';
+            final savedFile = await File(file.path!).copy(targetPath);
+            setState(() => _capturedImages.add(savedFile));
+          }
         }
       }
-    } catch (e, stackTrace) {
-      debugPrint("========== PICK IMAGE FATAL ERROR ==========");
-      debugPrint(e.toString());
-      debugPrint(stackTrace.toString());
+    } catch (e) {
+      debugPrint("Error picking files: $e");
     } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
-      debugPrint("========== END PICK IMAGE ==========");
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
@@ -569,7 +524,6 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         widget.clientName != null && widget.existingDataKey == null;
 
     return Scaffold(
-      drawer: const AppDrawer(),
       appBar: AppBar(
         title: Text(widget.isClientOnlyMode
             ? "تعديل بيانات العميل"
@@ -621,18 +575,15 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 isAddingClientOnly: isAddingClientOnly,
               ),
 
-
               const SizedBox(height: 16),
 
               // في وضع إضافة عميل فقط، لا نعرض بقية الأقسام (كاميرا، خيارات، إلخ)
               if (!isAddingClientOnly) ...[
-                // --- الكاميرا وصور الأوردر ---
-                SheetSizeCamera(
-                  isCameraReady: true,
+                // --- مرفقات سطح المكتب ---
+                DesktopImagePicker(
                   isProcessing: _isProcessing,
                   capturedImages: _capturedImages,
-                  onCaptureImage: () => _pickImage(ImageSource.camera),
-                  onPickFromGallery: () => _pickImage(ImageSource.gallery),
+                  onPickImages: _pickImages,
                   onRemoveImage: (index) {
                     final removedImage = _capturedImages[index];
                     UIUtils.showDeleteConfirmation(

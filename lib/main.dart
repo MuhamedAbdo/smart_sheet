@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/globals.dart';
+import 'package:smart_sheet/utils/route_observer.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -11,7 +12,10 @@ import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/home_screen.dart';
 import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
-import 'package:smart_sheet/screens/camera_quality_settings_screen.dart';
+
+import 'package:window_manager/window_manager.dart';
+import 'package:smart_sheet/widgets/desktop_title_bar.dart';
+import 'package:smart_sheet/widgets/desktop_sidebar.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
 import 'package:smart_sheet/screens/forgot_password_screen.dart';
 import 'package:smart_sheet/screens/update_password_screen.dart';
@@ -50,26 +54,14 @@ Future<void> main() async {
     WidgetsFlutterBinding.ensureInitialized();
     HttpOverrides.global = MyHttpOverrides();
 
-    // 2. تهيئة Supabase والإشعارات (أساسي قبل أي شيء)
-    await Future.wait([
-      _initializeNotifications(),
-      Supabase.initialize(
-          url: supabaseUrl.trim(), anonKey: supabaseAnonKey.trim()),
-    ]);
-
-    // 3. تهيئة قواعد بيانات Hive
+    // 2. تهيئة قواعد بيانات Hive أولاً (لأنها ضرورية للثيم والإعدادات)
     if (!kIsWeb) {
       await Hive.initFlutter();
       _registerAdapters();
-
-      // الأولوية القصوى: فتح الصناديق التي يحتاجها التطبيق فور تشغيله (الثيم والخط)
-      // نستخدم await هنا لضمان فتحها قبل بدء الـ Provider
       await Hive.openBox('settings');
-
+      
       // فتح صناديق العلاقات الأساسية
       await Hive.openBox<WorkerAction>('worker_actions');
-
-      // فتح الصناديق الأساسية المتبقية
       await Future.wait([
         Hive.openBox<Worker>('workers'),
         Hive.openBox<Worker>('workers_flexo'),
@@ -77,15 +69,43 @@ Future<void> main() async {
         Hive.openBox<FinishedProduct>('finished_products'),
         Hive.openBox<LiveSession>('flexo_live_sessions'),
       ]);
-
-      // فتح الصناديق الثانوية في الخلفية لتحسين سرعة التشغيل
       _openBackgroundBoxes();
+    }
+
+    // 3. تهيئة Supabase والإشعارات
+    await Future.wait([
+      _initializeNotifications(),
+      Supabase.initialize(
+          url: supabaseUrl.trim(), anonKey: supabaseAnonKey.trim()),
+    ]);
+
+    // 4. تهيئة نافذة سطح المكتب
+    if (!kIsWeb && Platform.isWindows) {
+      try {
+        await windowManager.ensureInitialized();
+        
+        WindowOptions windowOptions = const WindowOptions(
+          size: Size(1280, 720),
+          center: true,
+          backgroundColor: Colors.transparent,
+          skipTaskbar: false,
+          titleBarStyle: TitleBarStyle.hidden,
+        );
+
+        await windowManager.waitUntilReadyToShow(windowOptions);
+        await windowManager.show();
+        await windowManager.focus();
+        debugPrint("✅ Window is now visible");
+      } catch (e) {
+        debugPrint("⚠️ Window Manager Initialization Failed: $e");
+      }
     }
   } catch (e) {
     debugPrint("❌ Critical Initialization Error: $e");
   }
 
-  // 4. تشغيل التطبيق مع الـ Providers
+  debugPrint("🚀 Reached runApp()");
+  // 5. تشغيل التطبيق مع الـ Providers
   runApp(
     MultiProvider(
       providers: [
@@ -137,6 +157,7 @@ void _openBackgroundBoxes() {
 }
 
 Future<void> _initializeNotifications() async {
+  if (kIsWeb || !Platform.isAndroid) return;
   final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
   await flutterLocalNotificationsPlugin
@@ -154,6 +175,7 @@ class SmartSheetApp extends StatelessWidget {
     return MaterialApp(
       scaffoldMessengerKey: scaffoldMessengerKey,
       navigatorKey: Provider.of<AuthService>(context, listen: false).navigatorKey,
+      navigatorObservers: [routeObserver],
       title: 'Smart Sheet',
       debugShowCheckedModeBanner: false,
       theme: themeProvider.theme,
@@ -170,21 +192,46 @@ class SmartSheetApp extends StatelessWidget {
       ],
       locale: const Locale('ar', 'SA'), // اللغة الافتراضية للتطبيق
 
-      // ✅ تطبيق حجم الخط عالمياً عبر الـ Builder
+      // ✅ تطبيق حجم الخط عالمياً والتخطيط المكتبي عبر الـ Builder
       builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.linear(themeProvider.fontScale),
+        return Scaffold(
+          backgroundColor: themeProvider.theme.scaffoldBackgroundColor,
+          body: Column(
+            children: [
+              if (!kIsWeb && Platform.isWindows) const DesktopTitleBar(),
+              Expanded(
+                child: Row(
+                  children: [
+                    if (!kIsWeb && Platform.isWindows)
+                      ValueListenableBuilder<String?>(
+                        valueListenable: currentRouteNotifier,
+                        builder: (context, routeName, child) {
+                          if (routeName == '/' || routeName == AuthScreen.routeName) {
+                            return const SizedBox.shrink();
+                          }
+                          return const DesktopSidebar();
+                        },
+                      ),
+                    Expanded(
+                      child: MediaQuery(
+                        data: MediaQuery.of(context).copyWith(
+                          textScaler: TextScaler.linear(themeProvider.fontScale),
+                        ),
+                        child: child!,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          child: child!,
         );
       },
 
       home: const SplashScreen(),
       routes: {
         SettingsScreen.routeName: (_) => const SettingsScreen(),
-        CameraQualitySettingsScreen.routeName: (_) =>
-            const CameraQualitySettingsScreen(),
+
         AuthScreen.routeName: (_) => const AuthScreen(),
         ForgotPasswordScreen.routeName: (_) => const ForgotPasswordScreen(),
         UpdatePasswordScreen.routeName: (_) => const UpdatePasswordScreen(),

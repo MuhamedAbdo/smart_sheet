@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:math_expressions/math_expressions.dart';
-import 'package:smart_sheet/widgets/app_drawer.dart';
 
 class CalculatorScreen extends StatefulWidget {
   const CalculatorScreen({super.key});
@@ -69,7 +68,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   }
 
   Widget _buildButton(String text,
-      {Color? color, Color? textColor, VoidCallback? onPressed}) {
+      {Color? color, Color? textColor, int flex = 1, VoidCallback? onPressed}) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -94,6 +93,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             : Colors.white);
 
     return Expanded(
+      flex: flex,
       child: Container(
         margin: const EdgeInsets.all(4),
         child: ElevatedButton(
@@ -118,7 +118,6 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text("الآلة الحاسبة"),
         centerTitle: true,
@@ -186,13 +185,11 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       children: [
         for (int i = 0; i < buttons.length; i++) ...[
           if (isLastRow && buttons[i] == "=")
-            Expanded(
+            _buildButton(
+              "=",
+              color: Colors.blue.shade600,
+              textColor: Colors.white,
               flex: 2,
-              child: _buildButton(
-                "=",
-                color: Colors.blue.shade600,
-                textColor: Colors.white,
-              ),
             )
           else
             _buildButton(buttons[i]),

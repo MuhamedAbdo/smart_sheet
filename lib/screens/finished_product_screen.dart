@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
-import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 
 class FinishedProductScreen extends StatefulWidget {
@@ -270,7 +269,6 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
               icon: const Icon(Icons.refresh), onPressed: () => setState(() {}))
         ],
       ),
-      drawer: const AppDrawer(),
       body: ValueListenableBuilder(
         valueListenable: _productsBox!.listenable(),
         builder: (context, Box<FinishedProduct> box, _) {
@@ -327,15 +325,17 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                                 onPressed: () {
                                   final productToRemove = box.get(key);
                                   if (productToRemove == null) return;
-                                  
+
                                   UIUtils.showDeleteConfirmation(
                                     context: context,
                                     title: "حذف المنتج",
-                                    content: "هل أنت متأكد من حذف المنتج \"${productToRemove.productName}\"؟",
+                                    content:
+                                        "هل أنت متأكد من حذف المنتج \"${productToRemove.productName}\"؟",
                                     onConfirm: () async {
-                                      final messenger = ScaffoldMessenger.of(context);
+                                      final messenger =
+                                          ScaffoldMessenger.of(context);
                                       await box.delete(key);
-                                      
+
                                       messenger.clearSnackBars();
                                       if (!context.mounted) return;
                                       UIUtils.showUndoSnackBar(

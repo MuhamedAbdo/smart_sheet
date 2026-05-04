@@ -274,43 +274,6 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     return Scaffold(
       appBar: AppBar(
         iconTheme: IconThemeData(color: appBarIconColor),
-        leading: PopupMenuButton<String>(
-          icon: Icon(Icons.menu, color: appBarIconColor),
-          onSelected: (value) async {
-            if (value == 'search') {
-              setState(() => _isSearching = true);
-            } else if (value == 'filter') {
-              _showDateFilterDialog();
-            } else if (value == 'restore') {
-              _restoreAllEntries();
-            } else if (value == 'clear') {
-              _clearArchive();
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-                value: 'search',
-                child:
-                    ListTile(leading: Icon(Icons.search), title: Text('بحث'))),
-            const PopupMenuItem(
-                value: 'filter',
-                child: ListTile(
-                    leading: Icon(Icons.calendar_month),
-                    title: Text('تصفية بالتاريخ'))),
-            const PopupMenuItem(
-                value: 'restore',
-                child: ListTile(
-                    leading: Icon(Icons.settings_backup_restore),
-                    title: Text('استعادة الكل'))),
-            const PopupMenuItem(
-                value: 'clear',
-                child: ListTile(
-                    leading:
-                        Icon(Icons.delete_sweep_outlined, color: Colors.red),
-                    title: Text('مسح الأرشيف',
-                        style: TextStyle(color: Colors.red)))),
-          ],
-        ),
         title: _isSearching
             ? Container(
                 height: 40,
@@ -341,7 +304,46 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               )
             : const Text("أرشيف تقارير الإنتاج"),
         centerTitle: !_isSearching,
-        actions: const [],
+        actions: [
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: appBarIconColor),
+            tooltip: "خيارات الأرشيف",
+            onSelected: (value) async {
+              if (value == 'search') {
+                setState(() => _isSearching = true);
+              } else if (value == 'filter') {
+                _showDateFilterDialog();
+              } else if (value == 'restore') {
+                _restoreAllEntries();
+              } else if (value == 'clear') {
+                _clearArchive();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                  value: 'search',
+                  child:
+                      ListTile(leading: Icon(Icons.search), title: Text('بحث'))),
+              const PopupMenuItem(
+                  value: 'filter',
+                  child: ListTile(
+                      leading: Icon(Icons.calendar_month),
+                      title: Text('تصفية بالتاريخ'))),
+              const PopupMenuItem(
+                  value: 'restore',
+                  child: ListTile(
+                      leading: Icon(Icons.settings_backup_restore),
+                      title: Text('استعادة الكل'))),
+              const PopupMenuItem(
+                  value: 'clear',
+                  child: ListTile(
+                      leading:
+                          Icon(Icons.delete_sweep_outlined, color: Colors.red),
+                      title: Text('مسح الأرشيف',
+                          style: TextStyle(color: Colors.red)))),
+            ],
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(40.0),
           child: ValueListenableBuilder(

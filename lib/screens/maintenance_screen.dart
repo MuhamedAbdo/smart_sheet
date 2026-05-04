@@ -6,7 +6,6 @@ import 'package:smart_sheet/widgets/maintenance_form.dart';
 import 'package:smart_sheet/widgets/maintenance_list.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import '../../models/maintenance_record_model.dart';
-import '../../widgets/app_drawer.dart';
 
 class MaintenanceScreen extends StatefulWidget {
   final String boxName;
@@ -126,7 +125,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     }
 
     return Scaffold(
-      drawer: const AppDrawer(),
       appBar: AppBar(
         title: Text(widget.title ?? "سجلات الصيانة"),
         centerTitle: true,

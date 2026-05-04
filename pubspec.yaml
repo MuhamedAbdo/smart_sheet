@@ -22,7 +22,6 @@ dependencies:
   provider: ^6.1.2
 
   # اختيار الصور والكاميرا
-  image_picker: ^0.8.8+7
   image: ^4.1.7
 
   # إنشاء ملفات PDF
@@ -50,16 +49,13 @@ dependencies:
   # إعدادات إضافية
   rename: ^3.1.0
   path_provider: ^2.1.5
-  camera: ^0.11.2
   photo_view: ^0.15.0
-  permission_handler: ^12.0.1
   math_expressions: ^3.0.0
   change_app_package_name: ^1.5.0
   device_info_plus: ^12.3.0
   open_file: ^3.5.10
   file_picker: ^10.3.7
   supabase_flutter: ^2.12.0
-  flutter_image_compress: ^2.4.0
   workmanager: ^0.9.0+3
   flutter_local_notifications: ^19.5.0
   flutter_foreground_task: ^9.1.0
@@ -68,7 +64,8 @@ dependencies:
   intl: ^0.20.2
   flutter_secure_storage: ^10.0.0
   qr_flutter: ^4.1.0
-  mobile_scanner: ^7.2.0
+
+  window_manager: ^0.5.1
 
 dev_dependencies:
   flutter_test:
@@ -83,6 +80,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
+  windows: true
   image_path: "assets/images/app_icon.jpg"
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/images/app_icon.jpg"

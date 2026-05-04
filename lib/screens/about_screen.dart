@@ -1,7 +1,7 @@
 // lib/src/screens/about_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:smart_sheet/widgets/app_drawer.dart'; // استيراد الـ Drawer
+// استيراد الـ Drawer
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -20,7 +20,7 @@ class AboutScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 1,
       ),
-      drawer: const AppDrawer(), // ✅ إضافة الـ Drawer
+      // ✅ إضافة الـ Drawer
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ListView(

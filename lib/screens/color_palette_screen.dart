@@ -1,9 +1,7 @@
 // lib/src/screens/flexo/color_palette_screen.dart
 
 import 'package:flutter/material.dart';
-import '../widgets/app_drawer.dart';
 import 'color_detail_screen.dart'; // ✅ استيراد شاشة التفاصيل
-import 'camera_color_picker_screen.dart'; // ✅ استيراد شاشة الكاميرا
 
 // ✅ نسخة من موديل CMYK
 class CMYK {
@@ -73,12 +71,13 @@ class ColorPaletteScreen extends StatelessWidget {
         ),
         centerTitle: true,
         elevation: 1,
-        actions: [
+        actions: const [
           // أيقونة الكاميرا
+          // أيقونة الكاميرا - تمت إزالتها لنسخة سطح المكتب
+          /*
           IconButton(
             icon: const Icon(Icons.camera_alt),
             onPressed: () {
-              // ✅ Navigate to Camera Screen using standard Navigator
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -87,6 +86,7 @@ class ColorPaletteScreen extends StatelessWidget {
               );
             },
           ),
+          */
           // أيقونة التركيب اليدوي (نحنا مش عملينها دلوقتي، ممكن تضيفها لاحقًا)
           // IconButton(
           //   icon: const Icon(Icons.opacity),
@@ -96,7 +96,6 @@ class ColorPaletteScreen extends StatelessWidget {
           // ),
         ],
       ),
-      drawer: const AppDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: GridView.builder(

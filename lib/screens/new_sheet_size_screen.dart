@@ -1,7 +1,6 @@
 // lib/src/screens/sheet_size/new_sheet_size_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/new_sheet_size_form.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 
@@ -30,7 +29,6 @@ class NewSheetSizeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppDrawer(),
       appBar: AppBar(
         title: Text(
           existingDataKey == null ? "📏 حساب مقاس الشيت" : "✏️ تعديل المقاس",
