@@ -6,6 +6,7 @@ import 'package:smart_sheet/providers/theme_provider.dart';
 
 import 'package:smart_sheet/widgets/theme_toggle_button.dart';
 import 'package:smart_sheet/screens/backup_restore_screen.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   static const String routeName = '/settings';
@@ -129,8 +130,66 @@ class SettingsScreen extends StatelessWidget {
                 );
               },
             ),
+            const Divider(),
+            // ─── زر مسح قائمة المزامنة التالفة ─────────────────
+            ListTile(
+              leading: const Icon(Icons.cleaning_services_rounded,
+                  color: Colors.orange),
+              title: const Text("مسح قائمة المزامنة (sync_queue)"),
+              subtitle: const Text(
+                "استخدم هذا فقط لتنظيف السجلات التالفة بعد تحديث النظام",
+                style: TextStyle(color: Colors.orange),
+              ),
+              trailing: const Icon(Icons.delete_sweep, color: Colors.orange),
+              onTap: () => _confirmClearQueue(context),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmClearQueue(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text("تأكيد المسح"),
+          ],
+        ),
+        content: const Text(
+          "سيتم حذف جميع العمليات المعلقة في قائمة المزامنة.\n"
+          "تأكد أن كل البيانات المهمة قد رُفعت بالفعل قبل المتابعة.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("إلغاء"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await SyncService.instance.clearSyncQueue();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ تم مسح قائمة المزامنة بنجاح'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+            child: const Text("مسح القائمة"),
+          ),
+        ],
       ),
     );
   }

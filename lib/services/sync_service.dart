@@ -16,6 +16,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
+import 'package:uuid/uuid.dart';
 
 class SyncService {
   static final SyncService instance = SyncService._internal();
@@ -59,6 +60,20 @@ class SyncService {
   Future<void> dispose() async {
     await _tearDownChannels();
     debugPrint('🔄 SyncService: تم الإغلاق.');
+  }
+
+  /// مسح جميع عناصر الـ sync_queue (للتنظيف بعد الترحيل إلى UUID)
+  Future<void> clearSyncQueue() async {
+    try {
+      _queueBox ??= Hive.isBoxOpen('sync_queue')
+          ? Hive.box('sync_queue')
+          : await Hive.openBox('sync_queue');
+      final count = _queueBox!.length;
+      await _queueBox!.clear();
+      debugPrint('🧹 SyncService: تم مسح $count عنصر من sync_queue.');
+    } catch (e) {
+      debugPrint('❌ SyncService.clearSyncQueue: $e');
+    }
   }
 
   Future<void> pushToQueue(
@@ -335,24 +350,17 @@ class SyncService {
       } else {
         debugPrint('🌟 وصلت بيانات جديدة [workers]: $workerName');
 
-        int? existingIndex;
-        for (int i = 0; i < box.length; i++) {
-          final w = box.getAt(i);
-          if (w?.name == workerName && w?.factoryId == myFactoryId) {
-            existingIndex = i;
-            break;
-          }
-        }
-
         try {
           final worker = Worker.fromJson(Map<String, dynamic>.from(record));
-          if (existingIndex != null) {
-            await box.putAt(existingIndex, worker);
-            debugPrint('✏️ [workers] حُدِّث محلياً: $workerName');
-          } else {
-            await box.add(worker);
-            debugPrint('➕ [workers] أُضيف محلياً: $workerName');
-          }
+
+          // FIX: استخدام مفتاح ثابت = sync_id من Supabase أو name+factoryId كـ fallback
+          // هذا يمنع تكرار العامل مع كل تحديث Real-time
+          final stableKey = record['sync_id']?.toString() ??
+              record['id']?.toString() ??
+              '${workerName}_$myFactoryId';
+
+          await box.put(stableKey, worker);
+          debugPrint('✅ [workers] تم حفظ/تحديث محلياً بمفتاح ثابت: $workerName ($stableKey)');
         } catch (workerError) {
           debugPrint('❌ [workers] فشل تحويل payload إلى Worker: $workerError');
         }
@@ -405,14 +413,17 @@ class SyncService {
         final payload = Map<String, dynamic>.from(rawData);
         payload['factory_id'] = factoryId;
 
+        // FIX 22P02: تنظيف الـ payload من القيم الفارغة والأرقام الخاطئة
+        final cleanPayload = _sanitizePayload(payload);
+
         if (operation == 'delete') {
-          final id = payload['id'] ?? payload['sync_id'];
+          final id = cleanPayload['id'] ?? cleanPayload['sync_id'];
           if (id != null) {
-            await _supabase.from(table).delete().eq('id', id.toString());
-            debugPrint('✅ Queue: حذف من $table [id=$id]');
+            await _supabase.from(table).delete().eq('sync_id', id.toString());
+            debugPrint('✅ Queue: حذف من $table [sync_id=$id]');
           }
         } else {
-          await _supabase.from(table).upsert(payload);
+          await _supabase.from(table).upsert(cleanPayload);
           debugPrint('✅ Queue: رُفع إلى $table');
         }
 
@@ -461,12 +472,21 @@ class SyncService {
   }
 
   Future<void> _deleteFromBoxBySyncId(Box box, String syncId) async {
-    for (int i = 0; i < box.length; i++) {
-      final v = box.getAt(i);
-      if (v is Map && v['sync_id']?.toString() == syncId) {
-        await box.deleteAt(i);
-        return;
+    // FIX: sync_id هو مفتاح الـ box مباشرةً → O(1) بدلاً من O(n)
+    if (box.containsKey(syncId)) {
+      await box.delete(syncId);
+      debugPrint('🗑️ [box] حُذف السجل بالمفتاح: $syncId');
+    } else {
+      // fallback: بحث خطي للسجلات القديمة التي قد تكون حُفظت بـ add()
+      for (int i = 0; i < box.length; i++) {
+        final v = box.getAt(i);
+        if (v is Map && v['sync_id']?.toString() == syncId) {
+          await box.deleteAt(i);
+          debugPrint('🗑️ [box] حُذف السجل القديم (fallback) بـ sync_id: $syncId');
+          return;
+        }
       }
+      debugPrint('⚠️ [box] لم يُعثر على sync_id للحذف: $syncId');
     }
   }
 
@@ -514,5 +534,49 @@ class SyncService {
       'imagePaths': r['image_paths'] ?? [],
       'isClientRecord': r['is_client_record'] ?? false,
     };
+  }
+
+  // ==============================================================
+  // Payload Sanitizer — يمنع خطأ 22P02 (invalid input syntax)
+  // ==============================================================
+
+  /// يُنظف الـ payload قبل إرساله لـ Supabase:
+  ///  - الحقول الرقمية الفارغة "" → null
+  ///  - sync_id الفارغ → UUID جديد
+  ///  - إزالة المفاتيح ذات القيمة null للحقول غير المطلوبة
+  Map<String, dynamic> _sanitizePayload(Map<String, dynamic> raw) {
+    const numericFields = {
+      'length', 'width', 'height',
+      'sheet_length', 'sheet_width',
+    };
+    const uuidFields = {'sync_id', 'id', 'factory_id'};
+
+    final result = <String, dynamic>{};
+
+    raw.forEach((key, value) {
+      if (numericFields.contains(key)) {
+        // نص فارغ أو null → null (Supabase يقبل null لحقول double nullable)
+        if (value == null || value.toString().trim().isEmpty) {
+          result[key] = null;
+        } else {
+          // نحاول التحويل لـ double، وإذا فشل نرسل null
+          final parsed = double.tryParse(value.toString().trim());
+          result[key] = parsed; // قد يكون null إذا فشل الـ parse
+        }
+      } else if (uuidFields.contains(key)) {
+        final strVal = value?.toString().trim() ?? '';
+        if (strVal.isEmpty) {
+          // sync_id فارغ → نولّد UUID جديداً
+          result[key] = const Uuid().v4();
+          debugPrint('⚠️ [sanitize] $key كان فارغاً، تم توليد UUID جديد: ${result[key]}');
+        } else {
+          result[key] = strVal;
+        }
+      } else {
+        result[key] = value;
+      }
+    });
+
+    return result;
   }
 }

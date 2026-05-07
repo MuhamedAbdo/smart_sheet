@@ -18,6 +18,7 @@ import 'package:smart_sheet/widgets/sheet_size_form.dart';
 // ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_production_table.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:uuid/uuid.dart';
 
 class AddSheetSizeScreen extends StatefulWidget {
   final Map? existingData;
@@ -203,7 +204,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
     final newRecord = <String, dynamic>{
       'sync_id': widget.existingDataKey?.toString() ??
-          '${DateTime.now().millisecondsSinceEpoch}_${clientName.hashCode}',
+          const Uuid().v4(),
       'processType': _processType,
       'clientName': clientName,
       'productName': productNameController.text.trim(),
