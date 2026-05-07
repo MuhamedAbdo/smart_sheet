@@ -33,7 +33,10 @@ class WorkerList extends StatelessWidget {
               onDelete: () {
                 final workerToRemove = box.getAt(index);
                 if (workerToRemove == null) return;
-                
+                // استخراج الـ key والـ syncId قبل الحذف لضمان الاتساق في Undo
+                final hiveKey = box.keyAt(index);
+                final syncId = workerToRemove.syncId ?? hiveKey.toString();
+
                 UIUtils.showDeleteConfirmation(
                   context: context,
                   title: "حذف العامل",
@@ -41,13 +44,16 @@ class WorkerList extends StatelessWidget {
                       onConfirm: () async {
                         final messenger = ScaffoldMessenger.of(context);
                         final workerJson = workerToRemove.toJson();
-                        await box.deleteAt(index);
-                        // مزامنة الحذف سحابياً
+                        await box.delete(hiveKey);
+
+                        // ✅ إرسال أمر الحذف إلى Supabase عبر Queue
                         SyncService.instance.pushToQueue(
                           'workers',
-                          workerJson,
+                          {'sync_id': syncId, 'id': syncId},
                           operation: 'delete',
                         );
+                        debugPrint('🗑️ [WorkerList] تم إرسال طلب حذف [sync_id=$syncId] إلى Queue');
+
                         if (!context.mounted) return;
                         messenger.clearSnackBars();
                         UIUtils.showUndoSnackBar(
@@ -55,9 +61,11 @@ class WorkerList extends StatelessWidget {
                           message: "تم حذف العامل",
                           onUndo: () async {
                             messenger.clearSnackBars();
-                            await box.putAt(index, workerToRemove);
-                            // إلغاء عملية الحذف (رفع مجدداً)
+                            // إعادة العامل بنفس الـ key المستخرج قبل الحذف
+                            await box.put(hiveKey, workerToRemove);
+                            // إعادة السجل سحابياً (upsert)
                             SyncService.instance.pushToQueue('workers', workerJson);
+                            debugPrint('↩️ [WorkerList] إلغاء الحذف — تم إعادة sync_id=$syncId');
                           },
                         );
                       },

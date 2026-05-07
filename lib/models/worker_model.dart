@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'worker_action_model.dart';
+import 'package:uuid/uuid.dart';
 
 part 'worker_model.g.dart';
 
@@ -25,6 +26,9 @@ class Worker extends HiveObject {
   @HiveField(5)
   late String? factoryId;
 
+  @HiveField(6)
+  late String? syncId; // UUID فريد لتعريف العامل عبر الأجهزة
+
   Worker({
     required this.name,
     required this.phone,
@@ -32,7 +36,8 @@ class Worker extends HiveObject {
     List<WorkerAction>? actions,
     this.hasMedicalInsurance = false,
     this.factoryId,
-  }) {
+    String? syncId,
+  }) : syncId = syncId ?? const Uuid().v4() {
     if (Hive.isBoxOpen('worker_actions')) {
       final box = Hive.box<WorkerAction>('worker_actions');
       // ignore: experimental_member_use
@@ -53,6 +58,7 @@ class Worker extends HiveObject {
 
   Map<String, dynamic> toJson() {
     return {
+      'sync_id': syncId ?? const Uuid().v4(),
       'name': name,
       'phone': phone,
       'job': job,
@@ -75,6 +81,7 @@ class Worker extends HiveObject {
       actions: actions,
       hasMedicalInsurance: map['has_medical_insurance'] ?? false,
       factoryId: map['factory_id'],
+      syncId: map['sync_id']?.toString(),
     );
   }
 }

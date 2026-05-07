@@ -67,6 +67,7 @@ dependencies:
   uuid: ^4.3.3
 
   window_manager: ^0.5.1
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:

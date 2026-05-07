@@ -18,7 +18,9 @@ import 'package:smart_sheet/widgets/sheet_size_form.dart';
 // ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_production_table.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/services/storage_service.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart';
 
 class AddSheetSizeScreen extends StatefulWidget {
   final Map? existingData;
@@ -56,6 +58,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   final sheetWidthManualController = TextEditingController();
 
   bool _isProcessing = false;
+  bool _isUploading = false; // حالة رفع الصور إلى Cloud
   List<dynamic> _capturedImages = []; // يدعم File محلي و String لرابط Supabase
 
   bool isSheet = false;
@@ -191,16 +194,34 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       }
     }
 
-    final List<String> imageNames = _capturedImages.map((item) {
-      if (item is File) {
-        return item.path
-            .split('/')
-            .last; // إذا كانت صورة محلية جديدة احفظ اسمها فقط
-      } else if (item is String) {
-        return item; // إذا كان رابط Supabase أو مسار كامل، اتركه كما هو
+    // ③ رفع الصور الجديدة (File محلي) إلى Supabase Storage والحصول على Public URLs
+    //    هذه هي الخطوة الحاسمة: نخزن فقط الـ URL وليس مسار الجهاز المحلي
+    List<String> finalImageUrls = [];
+    if (!kIsWeb && _capturedImages.isNotEmpty) {
+      if (mounted) setState(() => _isUploading = true);
+      try {
+        final localPaths = _capturedImages.map((item) {
+          if (item is File) return item.path;
+          if (item is String) return item; // URL موجود مسبقاً
+          return item.toString();
+        }).toList();
+
+        // StorageService.uploadMultipleImages: يُعيد الروابط الجاهزة مباشرة،
+        // ويتجاهل المسارات التي تبدأ بـ http (مرفوعة مسبقاً)
+        finalImageUrls = await StorageService.uploadMultipleImages(
+          localPaths, 'images',
+        );
+        debugPrint('✅ تم رفع ${finalImageUrls.length} صورة إلى Supabase Storage');
+        for (final url in finalImageUrls) {
+          debugPrint('  🔗 $url');
+        }
+      } catch (e) {
+        debugPrint('⚠️ فشل رفع الصور: $e — سيتم الحفظ بدون صور');
+        finalImageUrls = [];
+      } finally {
+        if (mounted) setState(() => _isUploading = false);
       }
-      return item.toString();
-    }).toList();
+    }
 
     final newRecord = <String, dynamic>{
       'sync_id': widget.existingDataKey?.toString() ??
@@ -212,7 +233,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'length': lengthController.text,
       'width': widthController.text,
       'height': heightController.text,
-      'imagePaths': imageNames,
+      // ✅ نخزن فقط Public URLs — لا مسارات محلية تصل إلى الهاتف
+      'imagePaths': finalImageUrls,
       'date': DateTime.now().toIso8601String(),
       'isSheet': isSheet,
       'isClientRecord': isAddingClientOnly,
@@ -435,6 +457,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   }
 
   // دالة مرفقات جديدة باستخدام FilePicker لسطح المكتب
+  // نحتفظ بـ File المحلي للعرض الفوري في الـ UI — الرفع يحدث عند الضغط على حفظ
   Future<void> _pickImages() async {
     setState(() => _isProcessing = true);
     try {
@@ -444,21 +467,13 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       );
 
       if (result != null) {
-        final appDir = await getApplicationDocumentsDirectory();
-        final imageDir = Directory('${appDir.path}/images');
-        if (!await imageDir.exists()) {
-          await imageDir.create(recursive: true);
-        }
-
         for (var file in result.files) {
           if (file.path != null) {
-            final String fileName =
-                'IMG_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
-            final targetPath = '${imageDir.path}/$fileName';
-            final savedFile = await File(file.path!).copy(targetPath);
-            setState(() => _capturedImages.add(savedFile));
+            // نضيف الملف مباشرةً للعرض الفوري — الرفع يحدث عند الحفظ
+            setState(() => _capturedImages.add(File(file.path!)));
           }
         }
+        debugPrint('📂 تم اختيار ${result.files.length} صورة — سيتم رفعها عند الحفظ');
       }
     } catch (e) {
       debugPrint("Error picking files: $e");
@@ -559,9 +574,18 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                     : "إضافة صنف"),
         centerTitle: true,
         actions: [
+          if (_isUploading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+            )
+          else
           IconButton(
               icon: const Icon(Icons.check_circle),
-              onPressed: () => _saveSheetSize())
+              onPressed: _isUploading ? null : () => _saveSheetSize())
         ],
       ),
       resizeToAvoidBottomInset: false, // منع الفراغ الأبيض عند ظهور الكيبورد

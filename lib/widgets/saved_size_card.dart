@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
 
 class SavedSizeCard extends StatelessWidget {
@@ -189,6 +190,51 @@ class SavedSizeCard extends StatelessWidget {
   }
 
   Widget _buildImagesList(List<String> images) {
+    // إذا كل الصور هي URLs (الحالة بعد المزامنة) — نعرضها مباشرة
+    final bool allUrls = images.every((p) => p.startsWith('http'));
+
+    if (allUrls) {
+      return SizedBox(
+        height: 60,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: images.length,
+          itemBuilder: (context, i) {
+            return Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: GestureDetector(
+                onTap: () => _showFullScreenImage(context, images, i, ''),
+                child: Container(
+                  width: 60,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: CachedNetworkImage(
+                    imageUrl: images[i],
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Tooltip(
+                      message: 'تعذّر التحميل:\n$url\n\n$error',
+                      child: const Icon(Icons.broken_image, size: 20, color: Colors.red),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // مسارات محلية (Desktop فقط) — تحتاج لحساب المسار الكامل
     return FutureBuilder<String>(
       future: _getImagesDirPath(),
       builder: (context, snapshot) {
@@ -204,7 +250,6 @@ class SavedSizeCard extends StatelessWidget {
                   !path.contains(Platform.pathSeparator)) {
                 path = "$baseDirPath/$path";
               }
-              final file = File(path);
 
               return Padding(
                 padding: const EdgeInsets.only(left: 8.0),
@@ -218,12 +263,28 @@ class SavedSizeCard extends StatelessWidget {
                       border: Border.all(color: Colors.grey.shade300),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: Image.file(
-                      file,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.broken_image, size: 20),
-                    ),
+                    child: path.startsWith('http')
+                        ? CachedNetworkImage(
+                            imageUrl: path,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Tooltip(
+                              message: 'تعذّر التحميل:\n$url\n\n$error',
+                              child: const Icon(Icons.broken_image, size: 20, color: Colors.red),
+                            ),
+                          )
+                        : Image.file(
+                            File(path),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.broken_image, size: 20),
+                          ),
                   ),
                 ),
               );
@@ -393,12 +454,47 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
         itemCount: widget.images.length,
         onPageChanged: (i) => setState(() => _currentIndex = i),
         itemBuilder: (context, index) {
-          return PhotoView(
-            imageProvider: FileImage(File(widget.images[index])),
-            minScale: PhotoViewComputedScale.contained,
-            errorBuilder: (c, e, s) => const Center(
-                child: Icon(Icons.broken_image, color: Colors.white, size: 50)),
-          );
+          final path = widget.images[index];
+          // تمييز URL من مسار محلي — استخدام المزود المناسب لكل حالة
+          if (path.startsWith('http')) {
+            return PhotoView(
+              imageProvider: CachedNetworkImageProvider(path),
+              minScale: PhotoViewComputedScale.contained,
+              errorBuilder: (c, e, s) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.broken_image, color: Colors.white, size: 50),
+                    const SizedBox(height: 8),
+                    Text(
+                      'تعذّر تحميل الصورة\n$path',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          } else {
+            return PhotoView(
+              imageProvider: FileImage(File(path)),
+              minScale: PhotoViewComputedScale.contained,
+              errorBuilder: (c, e, s) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.broken_image, color: Colors.white, size: 50),
+                    const SizedBox(height: 8),
+                    Text(
+                      'فشل تحميل الملف:\n$path',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
         },
       ),
     );

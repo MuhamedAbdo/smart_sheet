@@ -8,6 +8,7 @@ import 'package:smart_sheet/widgets/start_session_dialog.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 /// شاشة تعرض جميع الأصناف والمقاسات المرتبطة بعميل معين
 class ClientItemsScreen extends StatefulWidget {
@@ -314,8 +315,18 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     final backupRecord = box.get(key);
     if (backupRecord == null) return;
 
+    // استخراج sync_id قبل الحذف لاستخدامه في المزامنة السحابية
+    final syncId = backupRecord['sync_id']?.toString() ?? key.toString();
     final messenger = ScaffoldMessenger.of(context);
     await box.delete(key);
+
+    // ✅ إرسال أمر الحذف إلى Supabase عبر Queue
+    SyncService.instance.pushToQueue(
+      'customers',
+      {'sync_id': syncId, 'id': syncId},
+      operation: 'delete',
+    );
+    debugPrint('🗑️ [ClientItems] تم إرسال طلب حذف الصنف [sync_id=$syncId] إلى Queue');
 
     if (mounted) {
       messenger.clearSnackBars();
@@ -324,7 +335,14 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         message: 'تم حذف الصنف بنجاح',
         onUndo: () async {
           messenger.clearSnackBars();
+          // إعادة السجل محلياً
           await box.put(key, backupRecord);
+          // إعادة السجل سحابياً (upsert)
+          SyncService.instance.pushToQueue(
+            'customers',
+            Map<String, dynamic>.from(backupRecord),
+          );
+          debugPrint('↩️ [ClientItems] إلغاء الحذف — تم إعادة sync_id=$syncId');
         },
       );
     }

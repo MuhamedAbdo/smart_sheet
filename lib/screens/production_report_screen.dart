@@ -13,6 +13,7 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import '../../../utils/pdf_export_helper.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'dart:async';
+import 'package:uuid/uuid.dart';
 class ProductionReportScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
 
@@ -720,9 +721,15 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         builder: (c) => ProductionReportForm(
             initialData: data,
             onSave: (r) async {
-              r['id'] ??= DateTime.now().millisecondsSinceEpoch.toString();
-              await _productionReportBox!.add(r);
-              // رفع للسحاب عبر Queue (يعمل offline)
+              // FIX: UUID حقيقي بدلاً من millisecondsSinceEpoch
+              final syncId = const Uuid().v4();
+              r['sync_id'] = syncId;
+              r['id'] = syncId; // لحماية التوافق مع الكود القديم
+
+              // FIX: box.put(syncId) — مفتاح ثابت يمنع التكرار على الجهاز الآخر
+              await _productionReportBox!.put(syncId, r);
+
+              // رفع للسحاب عبر Queue
               SyncService.instance.pushToQueue('production_reports', r);
               if (c.mounted) Navigator.pop(c);
             }));
@@ -736,8 +743,16 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             initialData: record,
             reportKey: key.toString(),
             onSave: (r) async {
-              r['id'] = record['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
-              await _productionReportBox!.put(key, r);
+              // إعادة استخدام الـ sync_id الأصلي — لا نغيره عند التعديل
+              final existingSyncId = record['sync_id']?.toString() ??
+                  record['id']?.toString() ??
+                  const Uuid().v4();
+              r['sync_id'] = existingSyncId;
+              r['id'] = existingSyncId;
+
+              // FIX: box.put بنفس المفتاح الأصلي
+              await _productionReportBox!.put(existingSyncId, r);
+
               // رفع للسحاب عبر Queue
               SyncService.instance.pushToQueue('production_reports', r);
               if (c.mounted) Navigator.pop(c);

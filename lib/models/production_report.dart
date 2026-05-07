@@ -110,42 +110,51 @@ class ProductionReport extends HiveObject {
   }
 
   factory ProductionReport.fromJson(Map<String, dynamic> map) {
+    // معالجة قائمة الألوان بأمان لضمان عدم حدوث Type Error
     List<dynamic> colorsList = map['colors'] ?? [];
-
-    List<Map<String, double>> parsedColors = colorsList
-        .map<Map<String, double>>((item) => Map<String, double>.from(
-            (item as Map)
-                .map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))))
-        .toList();
+    List<Map<String, double>> parsedColors =
+        colorsList.map<Map<String, double>>((item) {
+      if (item is Map) {
+        return item
+            .map((k, v) => MapEntry(k.toString(), (v as num).toDouble()));
+      }
+      return {};
+    }).toList();
 
     return ProductionReport(
-      id: map['id'] ?? '',
-      date: map['date'] ?? '',
-      clientName: map['clientName'] ?? map['client_name'] ?? '',
+      id: map['id']?.toString() ?? '',
+      date: map['date']?.toString() ?? '',
+      // الأولوية دائماً لتنسيق السيرفر (snake_case)
+      clientName: map['client_name'] ?? map['clientName'] ?? '',
       product: map['product'] ?? '',
-      productCode: map['productCode'] ?? map['product_code'] ?? '',
+      productCode: map['product_code'] ?? map['productCode'] ?? '',
       dimensions: map['dimensions'] is Map
           ? Map<String, dynamic>.from(map['dimensions'])
           : {},
       colors: parsedColors,
-      quantity: map['quantity'] is int
-          ? map['quantity']
-          : int.tryParse(map['quantity'].toString()) ?? 0,
-      notes: map['notes'],
-      orderNumber: map['orderNumber'] ?? map['order_number'],
-      startTime: map['startTime'] ?? map['start_time'],
-      endTime: map['endTime'] ?? map['end_time'],
-      lineWaste: map['lineWaste'] is int
-          ? map['lineWaste']
-          : (map['line_waste'] is int ? map['line_waste'] : int.tryParse(map['line_waste']?.toString() ?? '')),
-      printWaste: map['printWaste'] is int
-          ? map['printWaste']
-          : (map['print_waste'] is int ? map['print_waste'] : int.tryParse(map['print_waste']?.toString() ?? '')),
-      downtimeStart: map['downtimeStart'] ?? map['downtime_start'],
-      downtimeEnd: map['downtimeEnd'] ?? map['downtime_end'],
-      machineName: map['machineName'] ?? map['machine_name'],
-      technicianName: map['technicianName'] ?? map['technician_name'],
-      factoryId: map['factoryId'] ?? map['factory_id'],
+      // ضمان أن القيمة int وليست null
+      quantity: _toInt(map['quantity']) ?? 0,
+      notes: map['notes']?.toString(),
+      orderNumber: (map['order_number'] ?? map['orderNumber'])?.toString(),
+      startTime: (map['start_time'] ?? map['startTime'])?.toString(),
+      endTime: (map['end_time'] ?? map['endTime'])?.toString(),
+      lineWaste: _toInt(map['line_waste'] ?? map['lineWaste']),
+      printWaste: _toInt(map['print_waste'] ?? map['printWaste']),
+      downtimeStart:
+          (map['downtime_start'] ?? map['downtimeStart'])?.toString(),
+      downtimeEnd: (map['downtime_end'] ?? map['downtimeEnd'])?.toString(),
+      machineName: (map['machine_name'] ?? map['machineName'])?.toString(),
+      technicianName:
+          (map['technician_name'] ?? map['technicianName'])?.toString(),
+      factoryId: (map['factory_id'] ?? map['factoryId'])?.toString(),
     );
+  }
+
+  // دالة مساعدة قوية لتحويل أي نوع بيانات إلى int
+  static int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    return int.tryParse(value.toString());
   }
 }

@@ -28,6 +28,13 @@ class SyncService {
   RealtimeChannel? _productionChannel;
   RealtimeChannel? _workersChannel;
 
+  // ─── Auto-Reconnect ───────────────────────────────────────────
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 6;
+  Timer? _reconnectTimer;
+  bool _isDisposed = false;
+  String? _currentFactoryId; // لاستخدامه في إعادة الاتصال التلقائي
+
   Box? _queueBox;
   bool _isProcessingQueue = false;
 
@@ -58,6 +65,9 @@ class SyncService {
   }
 
   Future<void> dispose() async {
+    _isDisposed = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     await _tearDownChannels();
     debugPrint('🔄 SyncService: تم الإغلاق.');
   }
@@ -106,7 +116,9 @@ class SyncService {
   // ==============================================================
 
   void _setupChannels(String factoryId) {
-    debugPrint('📡 SyncService: إعداد الـ channels لـ factory: $factoryId');
+    if (_isDisposed) return;
+    _currentFactoryId = factoryId;
+    debugPrint('📡 SyncService: إعداد الـ channels لـ factory: $factoryId (محاولة #$_reconnectAttempts)');
 
     // ─── 1. customers ────────────────────────────────────────────
     _customersChannel = _supabase
@@ -126,8 +138,13 @@ class SyncService {
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → customers (factory: $factoryId)');
+            _reconnectAttempts = 0; // إعادة العداد عند النجاح
+          } else if (status == RealtimeSubscribeStatus.timedOut) {
+            debugPrint('⏱️ TIMEOUT → customers — جدولة إعادة الاتصال...');
+            _scheduleReconnect();
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → customers: $error');
+            _scheduleReconnect();
           } else {
             debugPrint('📡 customers: $status ${error ?? ""}');
           }
@@ -151,8 +168,13 @@ class SyncService {
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → production_reports (factory: $factoryId)');
+            _reconnectAttempts = 0;
+          } else if (status == RealtimeSubscribeStatus.timedOut) {
+            debugPrint('⏱️ TIMEOUT → production_reports — جدولة إعادة الاتصال...');
+            _scheduleReconnect();
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → production_reports: $error');
+            _scheduleReconnect();
           } else {
             debugPrint('📡 production_reports: $status ${error ?? ""}');
           }
@@ -176,8 +198,13 @@ class SyncService {
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → workers (factory: $factoryId)');
+            _reconnectAttempts = 0;
+          } else if (status == RealtimeSubscribeStatus.timedOut) {
+            debugPrint('⏱️ TIMEOUT → workers — جدولة إعادة الاتصال...');
+            _scheduleReconnect();
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → workers: $error');
+            _scheduleReconnect();
           } else {
             debugPrint('📡 workers: $status ${error ?? ""}');
           }
@@ -185,6 +212,9 @@ class SyncService {
   }
 
   Future<void> _tearDownChannels() async {
+    // إلغاء أي جدولة معلقة قبل إغلاق الـ channels
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     try {
       if (_customersChannel != null) {
         await _supabase.removeChannel(_customersChannel!);
@@ -202,6 +232,44 @@ class SyncService {
     } catch (e) {
       debugPrint('❌ _tearDownChannels: $e');
     }
+  }
+
+  // ==============================================================
+  // Auto-Reconnect Logic — Exponential Backoff
+  // ==============================================================
+
+  /// جدولة إعادة الاتصال بعد انتهاء المهلة أو حدوث خطأ:
+  /// #1 → 5ث | #2 → 10ث | #3 → 20ث | #4 → 40ث | #5 → 80ث | #6+ → توقف
+  void _scheduleReconnect() {
+    if (_isDisposed || _currentFactoryId == null) return;
+
+    // منع جدولة متكررة: إذا كان هناك طلب معلق بالفعل نتجاهل الطلب الجديد
+    if (_reconnectTimer?.isActive == true) return;
+
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      debugPrint(
+        '⛔ SyncService: تجاوز الحد الأقصى ($_maxReconnectAttempts). '
+        'استخدم SyncService.instance.initialize() للإعادة يدوياً.',
+      );
+      return;
+    }
+
+    _reconnectAttempts++;
+    // Exponential backoff: clamp لمنع تجاوز 80ث
+    final delaySeconds = (5 * (1 << (_reconnectAttempts - 1))).clamp(5, 80);
+    final delay = Duration(seconds: delaySeconds);
+
+    debugPrint(
+      '⏳ SyncService: إعادة محاولة #$_reconnectAttempts '
+      'خلال ${delay.inSeconds}ث...',
+    );
+
+    _reconnectTimer = Timer(delay, () async {
+      if (_isDisposed || _currentFactoryId == null) return;
+      debugPrint('🔄 SyncService: بدء إعادة الاتصال (محاولة #$_reconnectAttempts)...');
+      await _tearDownChannels();
+      _setupChannels(_currentFactoryId!);
+    });
   }
 
   // ==============================================================
@@ -293,29 +361,38 @@ class SyncService {
       }
       final box = Hive.box('inkReports');
 
+      // FIX: نستخدم sync_id كمفتاح أساسي بدلاً من id العشوائي
+      final stableKey = record['sync_id']?.toString() ?? record['id']?.toString();
+
       if (isDelete) {
-        final id = record['id']?.toString();
-        if (id == null) return;
-        await _deleteFromBoxById(box, id);
-        debugPrint('🗑️ [production_reports] حُذف محلياً: $id');
+        if (stableKey == null) return;
+        // بحث O(1) إذا كان السجل محفوظاً بالمفتاح الجديد
+        if (box.containsKey(stableKey)) {
+          await box.delete(stableKey);
+          debugPrint('🗑️ [production_reports] حُذف محلياً: $stableKey');
+        } else {
+          // fallback: بحث خطي للسجلات القديمة
+          await _deleteFromBoxById(box, stableKey);
+          debugPrint('🗑️ [production_reports] حُذف (fallback): $stableKey');
+        }
       } else {
-        final id = record['id']?.toString();
-        if (id == null) {
-          debugPrint('⚠️ [production_reports] لا يوجد id!');
+        if (stableKey == null) {
+          debugPrint('⚠️ [production_reports] لا يوجد sync_id أو id!');
           return;
         }
 
         final clientName = record['client_name'] ?? record['clientName'] ?? '';
-        debugPrint('🌟 وصلت بيانات جديدة [production_reports]: $clientName (id: $id)');
+        debugPrint('🌟 وصلت بيانات جديدة [production_reports]: $clientName (key: $stableKey)');
 
-        // FIX: box.put(id) كـ key ثابت — يمنع التكرار
-        await box.put(id, Map<String, dynamic>.from(record));
-        debugPrint('✅ [production_reports] تم حفظ محلياً: $id');
+        // FIX: box.put(stableKey) — Upsert حقيقي يمنع التكرار
+        await box.put(stableKey, Map<String, dynamic>.from(record));
+        debugPrint('✅ [production_reports] تم حفظ محلياً: $stableKey');
       }
     } catch (e) {
       debugPrint('❌ _onProductionReportChange: $e');
     }
   }
+
 
   // ─── workers → workers_flexo ─────────────────────────────────
   void _onWorkerChange(
@@ -376,7 +453,12 @@ class SyncService {
 
   Future<void> _processQueue() async {
     if (_isProcessingQueue) return;
-    if (_queueBox == null || _queueBox!.isEmpty) return;
+    if (_queueBox == null || _queueBox!.isEmpty) {
+      debugPrint('📱 Mobile Queue: القائمة فارغة، لا يوجد شيء للإرسال.');
+      return;
+    }
+
+    debugPrint('📱 Mobile Queue: محاولة إرسال بيانات... (${_queueBox!.length} عنصر في الانتظار)');
 
     final hasInternet = await _checkInternet();
     if (!hasInternet) {
@@ -413,16 +495,19 @@ class SyncService {
         final payload = Map<String, dynamic>.from(rawData);
         payload['factory_id'] = factoryId;
 
-        // FIX 22P02: تنظيف الـ payload من القيم الفارغة والأرقام الخاطئة
-        final cleanPayload = _sanitizePayload(payload);
-
         if (operation == 'delete') {
-          final id = cleanPayload['id'] ?? cleanPayload['sync_id'];
-          if (id != null) {
-            await _supabase.from(table).delete().eq('sync_id', id.toString());
-            debugPrint('✅ Queue: حذف من $table [sync_id=$id]');
+          // ⚠️ نستخرج sync_id من الـ payload الأصلي قبل _sanitizePayload
+          // لأن الـ sanitizer قد يُولّد UUID جديداً إذا كان sync_id فارغاً
+          final syncId = payload['sync_id']?.toString() ?? payload['id']?.toString();
+          if (syncId != null && syncId.isNotEmpty) {
+            await _supabase.from(table).delete().eq('sync_id', syncId);
+            debugPrint('✅ Queue: حذف من $table [sync_id=$syncId]');
+          } else {
+            debugPrint('⚠️ Queue: تجاهل delete — لا يوجد sync_id في payload $table');
           }
         } else {
+          // FIX 22P02: تنظيف الـ payload من القيم الفارغة والأرقام الخاطئة
+          final cleanPayload = _sanitizePayload(payload);
           await _supabase.from(table).upsert(cleanPayload);
           debugPrint('✅ Queue: رُفع إلى $table');
         }

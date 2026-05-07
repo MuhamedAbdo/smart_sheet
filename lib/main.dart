@@ -74,15 +74,22 @@ Future<void> main() async {
       _openBackgroundBoxes();
     }
 
-    // 3. تهيئة Supabase والإشعارات
-    await Future.wait([
-      _initializeNotifications(),
-      Supabase.initialize(
-          url: supabaseUrl.trim(), anonKey: supabaseAnonKey.trim()),
-    ]);
+    // 3. تهيئة Supabase (دائماً مطلوبة)
+    await Supabase.initialize(
+        url: supabaseUrl.trim(), anonKey: supabaseAnonKey.trim());
+
+    // 3b. تهيئة الإشعارات — مغلّفة بـ try/catch لمنع MissingPluginException
+    //     من إيقاف التطبيق (تحدث على المحاكي أو عند التشغيل بعد Clean Build)
+    try {
+      await _initializeNotifications();
+      debugPrint('✅ Notifications: تمت التهيئة بنجاح.');
+    } catch (e) {
+      debugPrint('⚠️ Notifications: تعذّرت التهيئة (MissingPluginException مقبول): $e');
+    }
 
     // تهيئة خدمة المزامنة (ستكتمل فقط إذا كان factory_id محفوظاً)
     await SyncService.instance.initialize();
+    debugPrint('✅ SyncService: تم استدعاء initialize() بعد تجاوز عقبة الإشعارات.');
 
     // 4. تهيئة نافذة سطح المكتب
     if (!kIsWeb && Platform.isWindows) {

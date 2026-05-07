@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class DesktopImagePicker extends StatelessWidget {
   final bool isProcessing;
@@ -96,7 +97,21 @@ class DesktopImagePicker extends StatelessWidget {
     if (image is File) {
       return Image.file(image, fit: BoxFit.cover);
     } else if (image is String && image.startsWith('http')) {
-      return Image.network(image, fit: BoxFit.cover);
+      return CachedNetworkImage(
+        imageUrl: image,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        errorWidget: (context, url, error) => Tooltip(
+          message: 'تعذّر التحميل:\n$url\n$error',
+          child: const Center(child: Icon(Icons.broken_image, color: Colors.red)),
+        ),
+      );
     } else {
       return const Center(child: Icon(Icons.broken_image));
     }

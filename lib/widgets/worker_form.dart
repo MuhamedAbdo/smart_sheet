@@ -98,6 +98,7 @@ class _WorkerFormState extends State<WorkerForm> {
     final factoryId = await storage.read(key: 'factory_id');
 
     if (widget.existingWorker == null) {
+      // إضافة عامل جديد — UUID يُولّد تلقائياً في الـ constructor
       final worker = Worker(
         name: nameController.text.trim(),
         phone: phoneController.text.trim(),
@@ -105,8 +106,12 @@ class _WorkerFormState extends State<WorkerForm> {
         actions: [],
         factoryId: factoryId,
       );
-      await widget.box.add(worker);
-      // رفع للسحاب عبر Queue
+
+      // FIX: box.put(syncId) بدلاً من box.add() — مفتاح ثابت يمنع التكرار
+      await widget.box.put(worker.syncId!, worker);
+      debugPrint('✅ [WorkerForm] أُضيف العامل: ${worker.name} (key=${worker.syncId})');
+
+      // رفع للسحاب عبر Queue (يتضمن sync_id تلقائياً من toJson)
       SyncService.instance.pushToQueue('workers', worker.toJson());
     } else {
       final w = widget.existingWorker!;
@@ -114,6 +119,7 @@ class _WorkerFormState extends State<WorkerForm> {
       w.phone = phoneController.text.trim();
       w.job = job;
       w.factoryId ??= factoryId;
+      // الـ syncId محفوظ بالفعل في الكائن — لا نغيره
       await w.save();
       // رفع للسحاب عبر Queue
       SyncService.instance.pushToQueue('workers', w.toJson());
