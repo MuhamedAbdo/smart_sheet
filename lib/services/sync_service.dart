@@ -326,8 +326,18 @@ class SyncService {
         final hiveRecord = _customerToHive(record);
         hiveRecord['sync_id'] = syncId; // ضمان وجود sync_id دائماً
 
+        // FIX: البحث عن السجل لمنع التكرار (Double Entry)
+        dynamic existingKey = syncId;
+        for (var i = 0; i < box.length; i++) {
+          final item = box.getAt(i);
+          if (item is Map && item['sync_id'] == syncId) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+
         // FIX: box.put(key) بدلاً من box.add() — يمنع التكرار ويُطلق ValueListenable
-        await box.put(syncId, hiveRecord);
+        await box.put(existingKey, hiveRecord);
         debugPrint('✅ [customers] تم حفظ محلياً: $clientName');
       }
     } catch (e) {
@@ -384,8 +394,18 @@ class SyncService {
         final clientName = record['client_name'] ?? record['clientName'] ?? '';
         debugPrint('🌟 وصلت بيانات جديدة [production_reports]: $clientName (key: $stableKey)');
 
-        // FIX: box.put(stableKey) — Upsert حقيقي يمنع التكرار
-        await box.put(stableKey, Map<String, dynamic>.from(record));
+        // FIX: البحث عن السجل لمنع التكرار (Double Entry)
+        dynamic existingKey = stableKey;
+        for (var i = 0; i < box.length; i++) {
+          final item = box.getAt(i);
+          if (item is Map && item['sync_id'] == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+
+        // FIX: box.put(existingKey) — Upsert حقيقي يمنع التكرار
+        await box.put(existingKey, Map<String, dynamic>.from(record));
         debugPrint('✅ [production_reports] تم حفظ محلياً: $stableKey');
       }
     } catch (e) {
@@ -436,7 +456,17 @@ class SyncService {
               record['id']?.toString() ??
               '${workerName}_$myFactoryId';
 
-          await box.put(stableKey, worker);
+          // FIX: البحث عن السجل لمنع التكرار (Double Entry)
+          dynamic existingKey = stableKey;
+          for (var i = 0; i < box.length; i++) {
+            final item = box.getAt(i);
+            if (item != null && item.syncId == stableKey) {
+              existingKey = box.keyAt(i);
+              break;
+            }
+          }
+
+          await box.put(existingKey, worker);
           debugPrint('✅ [workers] تم حفظ/تحديث محلياً بمفتاح ثابت: $workerName ($stableKey)');
         } catch (workerError) {
           debugPrint('❌ [workers] فشل تحويل payload إلى Worker: $workerError');

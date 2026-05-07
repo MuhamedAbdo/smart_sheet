@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
 import '../../models/maintenance_record_model.dart';
 import '../../services/storage_service.dart';
 import '../../utils/ui_utils.dart';
@@ -92,27 +94,50 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
 
   String _today() => DateTime.now().toString().split(' ')[0];
 
-  Future<void> _pickImages() async {
+  Future<void> _pickImages([ImageSource? source]) async {
     setState(() => _isProcessing = true);
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: true,
-      );
+      final appDir = await getApplicationDocumentsDirectory();
+      final imageDir = Directory('${appDir.path}/images');
+      if (!await imageDir.exists()) {
+        await imageDir.create(recursive: true);
+      }
 
-      if (result != null) {
-        final appDir = await getApplicationDocumentsDirectory();
-        final imageDir = Directory('${appDir.path}/images');
-        if (!await imageDir.exists()) {
-          await imageDir.create(recursive: true);
-        }
-
-        for (var file in result.files) {
-          if (file.path != null) {
-            final String fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+      if (!kIsWeb && Platform.isAndroid && source != null) {
+        final ImagePicker picker = ImagePicker();
+        if (source == ImageSource.gallery) {
+          final List<XFile> images = await picker.pickMultiImage();
+          if (images.isNotEmpty) {
+            for (var img in images) {
+              final String fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}_${img.name}';
+              final targetPath = '${imageDir.path}/$fileName';
+              final savedFile = await File(img.path).copy(targetPath);
+              setState(() => _imagePaths.add(savedFile.path));
+            }
+          }
+        } else {
+          final XFile? image = await picker.pickImage(source: ImageSource.camera);
+          if (image != null) {
+            final String fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
             final targetPath = '${imageDir.path}/$fileName';
-            final savedFile = await File(file.path!).copy(targetPath);
+            final savedFile = await File(image.path).copy(targetPath);
             setState(() => _imagePaths.add(savedFile.path));
+          }
+        }
+      } else {
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: true,
+        );
+
+        if (result != null) {
+          for (var file in result.files) {
+            if (file.path != null) {
+              final String fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+              final targetPath = '${imageDir.path}/$fileName';
+              final savedFile = await File(file.path!).copy(targetPath);
+              setState(() => _imagePaths.add(savedFile.path));
+            }
           }
         }
       }
@@ -223,7 +248,9 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                   DesktopImagePicker(
                     isProcessing: _isProcessing,
                     capturedImages: _imagePaths.map((p) => p.startsWith('http') ? p : File(p)).toList(),
-                    onPickImages: _pickImages,
+                    onPickDesktop: () => _pickImages(),
+                    onPickCamera: () => _pickImages(ImageSource.camera),
+                    onPickGallery: () => _pickImages(ImageSource.gallery),
                     onRemoveImage: (index) => setState(() => _imagePaths.removeAt(index)),
                   ),
                   const SizedBox(height: 100),

@@ -1,23 +1,30 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class DesktopImagePicker extends StatelessWidget {
   final bool isProcessing;
   final List<dynamic> capturedImages;
-  final VoidCallback onPickImages;
+  final VoidCallback? onPickDesktop;
+  final VoidCallback? onPickCamera;
+  final VoidCallback? onPickGallery;
   final Function(int) onRemoveImage;
 
   const DesktopImagePicker({
     super.key,
     required this.isProcessing,
     required this.capturedImages,
-    required this.onPickImages,
+    this.onPickDesktop,
+    this.onPickCamera,
+    this.onPickGallery,
     required this.onRemoveImage,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -26,22 +33,63 @@ class DesktopImagePicker extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "الصور والمرفقات",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                ElevatedButton.icon(
-                  onPressed: isProcessing ? null : onPickImages,
-                  icon: isProcessing 
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
-                      : const Icon(Icons.upload_file),
-                  label: const Text("رفع صور من الجهاز"),
-                ),
-              ],
-            ),
+            if (isMobile)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "الصور والمرفقات",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: isProcessing ? null : onPickGallery,
+                          icon: isProcessing 
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                              : const Icon(Icons.photo_library),
+                          label: const Text("الاستوديو"),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: isProcessing ? null : onPickCamera,
+                          icon: isProcessing 
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                              : const Icon(Icons.camera_alt),
+                          label: const Text("الكاميرا"),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "الصور والمرفقات",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: isProcessing ? null : onPickDesktop,
+                    icon: isProcessing 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                        : const Icon(Icons.upload_file),
+                    label: const Text("رفع صور من الجهاز"),
+                  ),
+                ],
+              ),
             if (capturedImages.isNotEmpty) ...[
               const SizedBox(height: 16),
               SizedBox(

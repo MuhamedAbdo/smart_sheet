@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -456,24 +457,41 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     });
   }
 
-  // دالة مرفقات جديدة باستخدام FilePicker لسطح المكتب
-  // نحتفظ بـ File المحلي للعرض الفوري في الـ UI — الرفع يحدث عند الضغط على حفظ
-  Future<void> _pickImages() async {
+  // دالة المرفقات: تدعم الكاميرا والاستوديو في الموبايل، و FilePicker في الديسكتوب
+  // نحتفظ بـ File المحلي للعرض الفوري في الـ UI — الرفع لـ Supabase يحدث استباقياً عند الضغط على حفظ
+  Future<void> _pickImages([ImageSource? source]) async {
     setState(() => _isProcessing = true);
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: true,
-      );
-
-      if (result != null) {
-        for (var file in result.files) {
-          if (file.path != null) {
-            // نضيف الملف مباشرةً للعرض الفوري — الرفع يحدث عند الحفظ
-            setState(() => _capturedImages.add(File(file.path!)));
+      if (!kIsWeb && Platform.isAndroid && source != null) {
+        final ImagePicker picker = ImagePicker();
+        if (source == ImageSource.gallery) {
+          final List<XFile> images = await picker.pickMultiImage();
+          if (images.isNotEmpty) {
+            for (var img in images) {
+              setState(() => _capturedImages.add(File(img.path)));
+            }
+          }
+        } else {
+          final XFile? image = await picker.pickImage(source: ImageSource.camera);
+          if (image != null) {
+            setState(() => _capturedImages.add(File(image.path)));
           }
         }
-        debugPrint('📂 تم اختيار ${result.files.length} صورة — سيتم رفعها عند الحفظ');
+      } else {
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: true,
+        );
+
+        if (result != null) {
+          for (var file in result.files) {
+            if (file.path != null) {
+              // نضيف الملف مباشرةً للعرض الفوري — الرفع يحدث عند الحفظ
+              setState(() => _capturedImages.add(File(file.path!)));
+            }
+          }
+          debugPrint('📂 تم اختيار ${result.files.length} صورة — سيتم رفعها عند الحفظ');
+        }
       }
     } catch (e) {
       debugPrint("Error picking files: $e");
@@ -633,11 +651,13 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
               // في وضع إضافة عميل فقط، لا نعرض بقية الأقسام (كاميرا، خيارات، إلخ)
               if (!isAddingClientOnly) ...[
-                // --- مرفقات سطح المكتب ---
+                // --- مرفقات سطح المكتب والموبايل ---
                 DesktopImagePicker(
                   isProcessing: _isProcessing,
                   capturedImages: _capturedImages,
-                  onPickImages: _pickImages,
+                  onPickDesktop: () => _pickImages(),
+                  onPickCamera: () => _pickImages(ImageSource.camera),
+                  onPickGallery: () => _pickImages(ImageSource.gallery),
                   onRemoveImage: (index) {
                     final removedImage = _capturedImages[index];
                     UIUtils.showDeleteConfirmation(
