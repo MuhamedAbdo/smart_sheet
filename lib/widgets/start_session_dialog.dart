@@ -1,9 +1,15 @@
+// lib/widgets/start_session_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/services/sync_service.dart'; // استيراد خدمة المزامنة
+import 'package:smart_sheet/services/supabase_manager.dart'; // استيراد مدير سوبابيز
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/utils/device_manager.dart'; // استيراد DeviceManager
+import 'package:uuid/uuid.dart'; // استيراد مكتبة الـ UUID
 
 class StartSessionDialog extends StatefulWidget {
   final Map<String, dynamic>? initialData;
@@ -26,10 +32,15 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
   void initState() {
     super.initState();
     if (widget.initialData != null) {
-      clientController.text = widget.initialData!['clientName']?.toString() ?? '';
-      productController.text = widget.initialData!['productName']?.toString() ?? widget.initialData!['product']?.toString() ?? '';
-      productCodeController.text = widget.initialData!['productCode']?.toString() ?? '';
-      orderNumberController.text = widget.initialData!['orderNumber']?.toString() ?? '';
+      clientController.text =
+          widget.initialData!['clientName']?.toString() ?? '';
+      productController.text = widget.initialData!['productName']?.toString() ??
+          widget.initialData!['product']?.toString() ??
+          '';
+      productCodeController.text =
+          widget.initialData!['productCode']?.toString() ?? '';
+      orderNumberController.text =
+          widget.initialData!['orderNumber']?.toString() ?? '';
     }
   }
 
@@ -65,21 +76,27 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
             const Divider(),
             const SizedBox(height: 10),
             ValueListenableBuilder(
-              valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
+              valueListenable:
+                  Hive.box<FlexoMachine>('flexo_machines').listenable(),
               builder: (context, Box<FlexoMachine> box, _) {
                 final machines = box.values.toList();
                 return DropdownButtonFormField<String>(
                   initialValue: selectedMachine,
-                  decoration: const InputDecoration(labelText: 'اختر الماكينة', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                      labelText: 'اختر الماكينة', border: OutlineInputBorder()),
                   items: [
-                    ...machines.map((m) => DropdownMenuItem(value: m.name, child: Text(m.name))),
-                    const DropdownMenuItem(value: 'MANUAL', child: Text('➕ إضافة يدوي')),
+                    ...machines.map((m) =>
+                        DropdownMenuItem(value: m.name, child: Text(m.name))),
+                    const DropdownMenuItem(
+                        value: 'MANUAL', child: Text('➕ إضافة يدوي')),
                   ],
                   onChanged: (val) async {
                     if (val == 'MANUAL') {
-                      final name = await _showSimplePrompt('اسم الماكينة الجديدة');
+                      final name =
+                          await _showSimplePrompt('اسم الماكينة الجديدة');
                       if (name != null && name.isNotEmpty) {
-                        box.add(FlexoMachine(id: DateTime.now().millisecondsSinceEpoch.toString(), name: name));
+                        box.add(
+                            FlexoMachine(id: const Uuid().v4(), name: name));
                         setState(() => selectedMachine = name);
                       }
                     } else {
@@ -94,9 +111,12 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
             const SizedBox(height: 12),
             _buildSimpleField(productController, 'الصنف', Icons.inventory),
             const SizedBox(height: 12),
-            _buildSimpleField(productCodeController, 'كود الصنف', Icons.qr_code, keyboardType: TextInputType.number),
+            _buildSimpleField(productCodeController, 'كود الصنف', Icons.qr_code,
+                keyboardType: TextInputType.number),
             const SizedBox(height: 12),
-            _buildSimpleField(orderNumberController, 'رقم أمر التشغيل', Icons.numbers, keyboardType: TextInputType.number),
+            _buildSimpleField(
+                orderNumberController, 'رقم أمر التشغيل', Icons.numbers,
+                keyboardType: TextInputType.number),
             const SizedBox(height: 12),
             _buildWorkerSuggestField(techController),
             const SizedBox(height: 20),
@@ -106,14 +126,22 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
               ),
-              onPressed: () {
+              onPressed: () async {
                 if (selectedMachine == null || clientController.text.isEmpty) {
-                  UIUtils.showInfoSnackBar(message: 'يرجى ملء البيانات الأساسية', backgroundColor: Colors.orange);
+                  UIUtils.showInfoSnackBar(
+                      message: 'يرجى ملء البيانات الأساسية',
+                      backgroundColor: Colors.orange);
                   return;
                 }
-                
+
+                // 1. توليد ID فريد للمزامنة
+                final sessionId = const Uuid().v4();
+                final fId = await SupabaseManager.getFactoryId();
+                final deviceId = await DeviceManager.getDeviceId();
+
+                // 2. إنشاء كائن الجلسة الحية
                 final session = LiveSession(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  id: sessionId,
                   machineName: selectedMachine!,
                   clientName: clientController.text.trim(),
                   productName: productController.text.trim(),
@@ -123,15 +151,26 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                   startTime: DateTime.now(),
                   downtimeIntervals: [],
                   lastStateChange: DateTime.now(),
-                  // Fields from initialData
                   dimensions: widget.initialData?['dimensions'],
                   isSheet: widget.initialData?['isSheet'] ?? false,
-                  imagePaths: List<String>.from(widget.initialData?['imagePaths'] ?? []),
-                  factoryId: '', // معرف فريد للمصنع (للتأسيس السحابي مستقبلاً)
+                  imagePaths: List<String>.from(
+                      widget.initialData?['imagePaths'] ?? []),
+                  factoryId: fId, // استخدام معرف المصنع الحقيقي
+                  createdByDeviceId: deviceId,
                 );
-                
-                Hive.box<LiveSession>('flexo_live_sessions').add(session);
-                Navigator.pop(context, true);
+
+                // 3. الحفظ المحلي في Hive (لتحديث الواجهة فوراً)
+                final liveBox = Hive.box<LiveSession>('flexo_live_sessions');
+                await liveBox.put(sessionId, session);
+
+                // 4. الإرسال لقائمة المزامنة (ليرسل للسحابة والديسك توب)
+                await SyncService.instance.pushToQueue(
+                  'live_sessions',
+                  session.toJson(),
+                  operation: 'upsert',
+                );
+
+                if (context.mounted) Navigator.pop(context, true);
               },
               child: const Text('ابدأ التشغيل الآن ⚡'),
             ),
@@ -158,22 +197,27 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
           },
           onSelected: (String selection) {
             controller.text = selection;
-            // Force unfocus to dismiss the suggestions overlay and keyboard immediately
             FocusScope.of(context).unfocus();
           },
-          fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
+          fieldViewBuilder:
+              (context, textController, focusNode, onFieldSubmitted) {
             if (textController.text.isEmpty && controller.text.isNotEmpty) {
               textController.text = controller.text;
             }
-            textController.addListener(() => controller.text = textController.text);
-            return _buildSimpleField(textController, 'الفني (رئيسي)', Icons.engineering, focusNode: focusNode);
+            textController
+                .addListener(() => controller.text = textController.text);
+            return _buildSimpleField(
+                textController, 'الفني (رئيسي)', Icons.engineering,
+                focusNode: focusNode);
           },
         );
       },
     );
   }
 
-  Widget _buildSimpleField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, FocusNode? focusNode}) {
+  Widget _buildSimpleField(
+      TextEditingController controller, String label, IconData icon,
+      {TextInputType? keyboardType, FocusNode? focusNode}) {
     return TextField(
       controller: controller,
       focusNode: focusNode,
@@ -196,7 +240,9 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
           title: Text(title),
           content: TextField(controller: c, autofocus: true),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('إلغاء')),
             TextButton(
               onPressed: () {
                 result = c.text;

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/live_session.dart';
 
 class SessionCard extends StatefulWidget {
@@ -58,6 +59,8 @@ class _SessionCardState extends State<SessionCard> {
   @override
   Widget build(BuildContext context) {
     final bool isPaused = !widget.session.isRunning;
+    final String? currentDeviceId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('device_id') : null;
+    final bool isOwner = currentDeviceId != null && currentDeviceId == widget.session.createdByDeviceId;
 
     return Card(
       elevation: 4,
@@ -107,14 +110,14 @@ class _SessionCardState extends State<SessionCard> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  // ✅ زر الإلغاء الجديد
-                  IconButton(
-                    icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 22),
-                    tooltip: 'إلغاء الجلسة',
-                    onPressed: widget.onCancel,
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                  ),
+                  if (isOwner)
+                    IconButton(
+                      icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 22),
+                      tooltip: 'إلغاء الجلسة',
+                      onPressed: widget.onCancel,
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
+                    ),
                 ],
               ),
               const Divider(),
@@ -123,79 +126,111 @@ class _SessionCardState extends State<SessionCard> {
               _buildInfoRow(
                   Icons.numbers, "أمر: ${widget.session.orderNumber}"),
               InkWell(
-                onTap: _selectStartTime,
+                onTap: isOwner ? _selectStartTime : null,
                 child: _buildInfoRow(
                   Icons.access_time,
                   "وقت البدء: ${widget.session.startTime.hour.toString().padLeft(2, '0')}:${widget.session.startTime.minute.toString().padLeft(2, '0')}",
-                  isEditable: true,
+                  isEditable: isOwner,
                 ),
               ),
               if (widget.session.downtimeIntervals.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 InkWell(
-                  onTap: () => _selectDowntimeTime(true),
+                  onTap: isOwner ? () => _selectDowntimeTime(true) : null,
                   child: _buildInfoRow(
                     Icons.pause_circle_filled,
                     "بدء العطل: ${widget.session.downtimeIntervals.last.start.hour.toString().padLeft(2, '0')}:${widget.session.downtimeIntervals.last.start.minute.toString().padLeft(2, '0')}",
-                    isEditable: true,
+                    isEditable: isOwner,
                     color: Colors.orange,
                   ),
                 ),
                 if (widget.session.downtimeIntervals.last.end != null) ...[
                   const SizedBox(height: 4),
                   InkWell(
-                    onTap: () => _selectDowntimeTime(false),
+                    onTap: isOwner ? () => _selectDowntimeTime(false) : null,
                     child: _buildInfoRow(
                       Icons.play_circle_filled,
                       "نهاية العطل: ${widget.session.downtimeIntervals.last.end!.hour.toString().padLeft(2, '0')}:${widget.session.downtimeIntervals.last.end!.minute.toString().padLeft(2, '0')}",
-                      isEditable: true,
+                      isEditable: isOwner,
                       color: Colors.green,
                     ),
                   ),
                 ],
               ],
               const SizedBox(height: 10),
-              Center(
-                child: Text(
-                  _formatDuration(_displayDuration),
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
+              if (isOwner) ...[
+                Center(
+                  child: Text(
+                    _formatDuration(_displayDuration),
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'monospace',
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            isPaused ? Colors.green : Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isPaused ? Colors.green : Colors.orange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                        onPressed: () => widget.onToggleDowntime(isPaused),
+                        icon: Icon(isPaused ? Icons.play_arrow : Icons.pause),
+                        label: Text(isPaused ? 'تم الإصلاح' : 'تسجيل عطل'),
                       ),
-                      onPressed: () => widget.onToggleDowntime(isPaused),
-                      icon: Icon(isPaused ? Icons.play_arrow : Icons.pause),
-                      label: Text(isPaused ? 'تم الإصلاح' : 'تسجيل عطل'),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                        onPressed: widget.onFinish,
+                        icon: const Icon(Icons.check_circle),
+                        label: const Text('إنهاء'),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.sync, color: Colors.blue, size: 20),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'الماكينة تعمل الآن تحت إشراف:\n${widget.session.technicianName}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                      ),
-                      onPressed: widget.onFinish,
-                      icon: const Icon(Icons.check_circle),
-                      label: const Text('إنهاء'),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ],
           ),
         ),

@@ -32,13 +32,14 @@ class LiveSessionAdapter extends TypeAdapter<LiveSession> {
       isSheet: fields[12] as bool?,
       imagePaths: (fields[13] as List?)?.cast<String>(),
       factoryId: fields[14] as String?,
+      createdByDeviceId: fields[15] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, LiveSession obj) {
     writer
-      ..writeByte(15)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -68,7 +69,9 @@ class LiveSessionAdapter extends TypeAdapter<LiveSession> {
       ..writeByte(13)
       ..write(obj.imagePaths)
       ..writeByte(14)
-      ..write(obj.factoryId);
+      ..write(obj.factoryId)
+      ..writeByte(15)
+      ..write(obj.createdByDeviceId);
   }
 
   @override

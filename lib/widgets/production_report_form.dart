@@ -169,8 +169,8 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
         'endTime': endTimeController.text.trim(),
         'lineWaste': int.tryParse(lineWasteController.text) ?? 0,
         'printWaste': int.tryParse(printWasteController.text) ?? 0,
-        'downtime_start': downtimeStartController.text.trim(),
-        'downtime_end': downtimeEndController.text.trim(),
+        'downtimeStart': downtimeStartController.text.trim(),
+        'downtimeEnd': downtimeEndController.text.trim(),
         'totalDowntime': int.tryParse(totalDowntimeController.text) ?? 0,
         'machineName': machineNameController.text.trim(),
         'technicianName': technicianNameController.text.trim(),
@@ -223,6 +223,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
       child: Stack(
         children: [
           Scaffold(
+            resizeToAvoidBottomInset: false,
             appBar: AppBar(
                 title: Text(widget.reportKey == null
                     ? "🆕 إضافة تقرير إنتاج"

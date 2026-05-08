@@ -1,10 +1,11 @@
 // lib/src/models/finished_product_model.dart
 
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 part 'finished_product_model.g.dart';
 
-@HiveType(typeId: 5) // ✅ استخدمTypeId فريد (5 مثلاً)
+@HiveType(typeId: 5)
 class FinishedProduct extends HiveObject {
   @HiveField(0)
   String? clientName;
@@ -39,12 +40,14 @@ class FinishedProduct extends HiveObject {
   @HiveField(10)
   String? notes;
 
-  // ✅ إضافة الحقل الجديد
   @HiveField(11)
   String? dateBacker;
 
   @HiveField(12)
   String? factoryId;
+
+  @HiveField(13)
+  String? id; // تم الإضافة للمزامنة
 
   FinishedProduct({
     this.clientName,
@@ -59,49 +62,51 @@ class FinishedProduct extends HiveObject {
     this.technician,
     this.notes,
     this.dateBacker,
-    this.factoryId, // ✅ إضافة الحقل إلى المُنشئ
-  });
+    this.factoryId,
+    this.id,
+  }) {
+    id ??= const Uuid().v4(); // توليد معرف تلقائي لو لم يوجد
+  }
 
   Map<String, dynamic> toJson() {
     return {
-      'clientName': clientName,
-      'productName': productName,
-      'operationOrder': operationOrder,
-      'productCode': productCode,
+      'id': id,
+      'sync_id': id,
+      'client_name': clientName,
+      'product_name': productName,
+      'operation_order': operationOrder,
+      'product_code': productCode,
       'length': length,
       'width': width,
       'height': height,
       'count': count,
-      'imagePaths': imagePaths,
+      'image_paths': imagePaths,
       'technician': technician,
       'notes': notes,
-      'dateBacker': dateBacker,
-      'factoryId': factoryId, // ✅ إضافة الحقل إلى التحويل
+      'date_backer': dateBacker,
+      'factory_id': factoryId,
     };
   }
 
   factory FinishedProduct.fromJson(Map<String, dynamic> map) {
     return FinishedProduct(
-      clientName: map['clientName'],
-      productName: map['productName'],
-      operationOrder: map['operationOrder'],
-      productCode: map['productCode'],
-      length: map['length'] is int
-          ? (map['length'] as int).toDouble()
-          : map['length'],
-      width:
-          map['width'] is int ? (map['width'] as int).toDouble() : map['width'],
-      height: map['height'] is int
-          ? (map['height'] as int).toDouble()
-          : map['height'],
+      id: map['sync_id'] ?? map['id'],
+      clientName: map['client_name'] ?? map['clientName'],
+      productName: map['product_name'] ?? map['productName'],
+      operationOrder: map['operation_order'] ?? map['operationOrder'],
+      productCode: map['product_code'] ?? map['productCode'],
+      length: (map['length'] as num?)?.toDouble(),
+      width: (map['width'] as num?)?.toDouble(),
+      height: (map['height'] as num?)?.toDouble(),
       count: map['count'] is int
           ? map['count']
           : int.tryParse(map['count'].toString()) ?? 0,
-      imagePaths: List<String>.from(map['imagePaths'] ?? []),
+      imagePaths:
+          List<String>.from(map['image_paths'] ?? map['imagePaths'] ?? []),
       technician: map['technician'],
       notes: map['notes'],
-      dateBacker: map['dateBacker'],
-      factoryId: map['factoryId'], // ✅ إضافة الحقل من التحويل
+      dateBacker: map['date_backer'] ?? map['dateBacker'],
+      factoryId: map['factory_id'] ?? map['factoryId'],
     );
   }
 }

@@ -23,9 +23,7 @@ class ProductionReportAdapter extends TypeAdapter<ProductionReport> {
       product: fields[3] as String,
       productCode: fields[4] as String,
       dimensions: (fields[5] as Map).cast<String, dynamic>(),
-      colors: (fields[6] as List)
-          .map((dynamic e) => (e as Map).cast<String, double>())
-          .toList(),
+      colors: (fields[6] as List).cast<dynamic>(),
       quantity: fields[7] as int,
       notes: fields[8] as String?,
       orderNumber: fields[9] as String?,
@@ -38,13 +36,14 @@ class ProductionReportAdapter extends TypeAdapter<ProductionReport> {
       machineName: fields[16] as String?,
       technicianName: fields[17] as String?,
       factoryId: fields[18] as String?,
+      totalDowntime: fields[19] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ProductionReport obj) {
     writer
-      ..writeByte(19)
+      ..writeByte(20)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -82,7 +81,9 @@ class ProductionReportAdapter extends TypeAdapter<ProductionReport> {
       ..writeByte(17)
       ..write(obj.technicianName)
       ..writeByte(18)
-      ..write(obj.factoryId);
+      ..write(obj.factoryId)
+      ..writeByte(19)
+      ..write(obj.totalDowntime);
   }
 
   @override

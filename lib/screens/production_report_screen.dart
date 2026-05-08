@@ -8,6 +8,7 @@ import 'package:smart_sheet/screens/flexo_archive_screen.dart';
 import 'package:smart_sheet/widgets/production_report_form.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
 import 'package:smart_sheet/models/live_session.dart';
+import 'package:smart_sheet/models/production_report.dart';
 import 'package:smart_sheet/widgets/active_sessions_dashboard.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import '../../../utils/pdf_export_helper.dart';
@@ -453,41 +454,50 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       body: ValueListenableBuilder(
         valueListenable: _productionReportBox!.listenable(),
         builder: (context, Box box, _) {
-          return Column(
-            children: [
-              ActiveSessionsDashboard(
-                onFinishSession: (session) => _finishSession(session),
-                onCancelSession: (session) => _cancelSession(session), // ✅ إضافة دالة الإلغاء
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: ActiveSessionsDashboard(
+                  onFinishSession: (session) => _finishSession(session),
+                  onCancelSession: (session) => _cancelSession(session), // ✅ إضافة دالة الإلغاء
+                ),
               ),
               if (box.isEmpty && Hive.box<LiveSession>('flexo_live_sessions').isEmpty)
-                const Expanded(child: Center(child: Text("🚫 لا يوجد تقارير أو جلسات نشطة"))),
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: Text("🚫 لا يوجد تقارير أو جلسات نشطة")),
+                ),
               if (box.isNotEmpty || Hive.box<LiveSession>('flexo_live_sessions').isNotEmpty)
                 ...[
                   if (_selectedDate != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      color: Colors.blue.withValues(alpha: 0.1),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.filter_list, size: 16, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Text("تصفية بتاريخ: $_selectedDate",
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                          const Spacer(),
-                          TextButton(
-                              onPressed: () => setState(() => _selectedDate = null),
-                              child: const Text("إلغاء"))
-                        ],
+                    SliverToBoxAdapter(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.filter_list, size: 16, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Text("تصفية بتاريخ: $_selectedDate",
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                            const Spacer(),
+                            TextButton(
+                                onPressed: () => setState(() => _selectedDate = null),
+                                child: const Text("إلغاء"))
+                          ],
+                        ),
                       ),
                     ),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _filterAndSortRecords(box, _searchQuery, _sortDescending).length,
-                      padding: const EdgeInsets.only(bottom: 80),
-                      itemBuilder: (context, index) {
-                        final allRecords = _filterAndSortRecords(box, _searchQuery, _sortDescending);
-                        return _buildReportCard(allRecords[index]);
-                      },
+                  SliverPadding(
+                    padding: const EdgeInsets.only(bottom: 80),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final allRecords = _filterAndSortRecords(box, _searchQuery, _sortDescending);
+                          return _buildReportCard(allRecords[index]);
+                        },
+                        childCount: _filterAndSortRecords(box, _searchQuery, _sortDescending).length,
+                      ),
                     ),
                   ),
                 ],
@@ -510,7 +520,10 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     final tName = (record['technicianName'] ?? record['technician_name'])?.toString() ?? '';
     final downtimeStart = record['downtimeStart'] ?? record['downtime_start'];
     final downtimeEnd = record['downtimeEnd'] ?? record['downtime_end'];
-    final totalDowntime = record['totalDowntime'] ?? 0;
+    final rawTotalDowntime = record['totalDowntime'];
+    final totalDowntime = rawTotalDowntime is num 
+        ? rawTotalDowntime.toInt() 
+        : int.tryParse(rawTotalDowntime?.toString() ?? '0') ?? 0;
 
     String downtimeDisplay = "";
     if ((downtimeStart != null && downtimeStart.toString().isNotEmpty) ||
@@ -800,11 +813,11 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       'clientName': session.clientName,
       'product': session.productName,
       'productCode': session.productCode,
-      'order_number': session.orderNumber,
-      'start_time': startTimeStr,
-      'end_time': endTimeStr,
-      'downtime_start': dStart,
-      'downtime_end': dEnd,
+      'orderNumber': session.orderNumber,
+      'startTime': startTimeStr,
+      'endTime': endTimeStr,
+      'downtimeStart': dStart,
+      'downtimeEnd': dEnd,
       'totalDowntime': totalDowntimeMin,
       'machineName': session.machineName,
       'technicianName': session.technicianName,
@@ -820,10 +833,25 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       builder: (c) => ProductionReportForm(
         initialData: initialData,
         onSave: (r) async {
-          r['id'] ??= DateTime.now().millisecondsSinceEpoch.toString();
-          await _productionReportBox!.add(r);
-          SyncService.instance.pushToQueue('production_reports', r);
+          final syncId = const Uuid().v4();
+          r['sync_id'] = syncId;
+          r['id'] = syncId; // لحماية التوافق مع الكود القديم
+          
+          // حفظ محلي باستخدام المفتاح الثابت لمنع التكرار
+          await _productionReportBox!.put(syncId, r);
+
+          // تنقية البيانات باستخدام الموديل قبل إرسالها للسحابة (لإزالة الحقول المحسوبة)
+          final reportObj = ProductionReport.fromJson(r);
+          SyncService.instance.pushToQueue('production_reports', reportObj.toJson());
+          
+          final sessionId = session.id;
           await session.delete();
+          SyncService.instance.pushToQueue(
+            'live_sessions',
+            {'sync_id': sessionId, 'id': sessionId},
+            operation: 'delete',
+          );
+          
           if (mounted) Navigator.of(context).pop();
         },
       ),
@@ -837,7 +865,14 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       content: "هل أنت متأكد من إلغاء هذه الجلسة؟ سيتم حذف جميع البيانات المؤقتة الخاصة بها نهائياً.",
       confirmLabel: "إلغاء الجلسة",
       onConfirm: () async {
+        final sessionId = session.id;
         await session.delete(); // حذف مباشر من Hive دون ترحيل
+        SyncService.instance.pushToQueue(
+          'live_sessions',
+          {'sync_id': sessionId, 'id': sessionId},
+          operation: 'delete',
+        );
+        
         if (mounted) {
           UIUtils.showInfoSnackBar(
             message: "تم إلغاء الجلسة بنجاح",

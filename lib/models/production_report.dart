@@ -25,7 +25,7 @@ class ProductionReport extends HiveObject {
   final Map<String, dynamic> dimensions;
 
   @HiveField(6)
-  final List<Map<String, double>> colors;
+  final List<dynamic> colors;
 
   @HiveField(7)
   final int quantity;
@@ -63,6 +63,9 @@ class ProductionReport extends HiveObject {
   @HiveField(18)
   final String? factoryId;
 
+  @HiveField(19)
+  final int? totalDowntime;
+
   ProductionReport({
     required this.id,
     required this.date,
@@ -83,11 +86,13 @@ class ProductionReport extends HiveObject {
     this.machineName,
     this.technicianName,
     this.factoryId,
+    this.totalDowntime,
   });
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'id': id.toString(),
+      'sync_id': id.toString(),
       'date': date,
       'client_name': clientName,
       'product': product,
@@ -97,34 +102,31 @@ class ProductionReport extends HiveObject {
       'quantity': quantity,
       'notes': notes,
       'order_number': orderNumber,
-      'start_time': startTime,
-      'end_time': endTime,
+      'start_time': _formatDateTime(startTime),
+      'end_time': _formatDateTime(endTime),
       'line_waste': lineWaste,
       'print_waste': printWaste,
       'downtime_start': downtimeStart,
       'downtime_end': downtimeEnd,
+      'total_downtime': totalDowntime?.toString(), // إرسال كـ String
       'machine_name': machineName,
       'technician_name': technicianName,
       'factory_id': factoryId,
     };
   }
 
+  String? _formatDateTime(dynamic timeStr) {
+    if (timeStr == null) return null;
+    if (timeStr is DateTime) return timeStr.toIso8601String();
+    return timeStr.toString();
+  }
+
   factory ProductionReport.fromJson(Map<String, dynamic> map) {
-    // معالجة قائمة الألوان بأمان لضمان عدم حدوث Type Error
-    List<dynamic> colorsList = map['colors'] ?? [];
-    List<Map<String, double>> parsedColors =
-        colorsList.map<Map<String, double>>((item) {
-      if (item is Map) {
-        return item
-            .map((k, v) => MapEntry(k.toString(), (v as num).toDouble()));
-      }
-      return {};
-    }).toList();
+    List<dynamic> parsedColors = map['colors'] ?? [];
 
     return ProductionReport(
-      id: map['id']?.toString() ?? '',
+      id: map['sync_id']?.toString() ?? map['id']?.toString() ?? '',
       date: map['date']?.toString() ?? '',
-      // الأولوية دائماً لتنسيق السيرفر (snake_case)
       clientName: map['client_name'] ?? map['clientName'] ?? '',
       product: map['product'] ?? '',
       productCode: map['product_code'] ?? map['productCode'] ?? '',
@@ -132,7 +134,6 @@ class ProductionReport extends HiveObject {
           ? Map<String, dynamic>.from(map['dimensions'])
           : {},
       colors: parsedColors,
-      // ضمان أن القيمة int وليست null
       quantity: _toInt(map['quantity']) ?? 0,
       notes: map['notes']?.toString(),
       orderNumber: (map['order_number'] ?? map['orderNumber'])?.toString(),
@@ -147,10 +148,10 @@ class ProductionReport extends HiveObject {
       technicianName:
           (map['technician_name'] ?? map['technicianName'])?.toString(),
       factoryId: (map['factory_id'] ?? map['factoryId'])?.toString(),
+      totalDowntime: _toInt(map['total_downtime'] ?? map['totalDowntime']),
     );
   }
 
-  // دالة مساعدة قوية لتحويل أي نوع بيانات إلى int
   static int? _toInt(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;

@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/downtime_interval.dart';
 import 'package:smart_sheet/widgets/session_card.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class ActiveSessionsDashboard extends StatelessWidget {
   final Function(LiveSession) onFinishSession;
@@ -85,5 +86,12 @@ class ActiveSessionsDashboard extends StatelessWidget {
     }
     session.lastStateChange = DateTime.now();
     session.save();
+
+    // 📡 إرسال التحديث للسحابة ليعكس العطل على الديسكتوب
+    SyncService.instance.pushToQueue(
+      'live_sessions',
+      session.toJson(),
+      operation: 'upsert',
+    );
   }
 }

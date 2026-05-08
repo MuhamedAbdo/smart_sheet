@@ -15,6 +15,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:uuid/uuid.dart';
 
@@ -27,6 +28,7 @@ class SyncService {
   RealtimeChannel? _customersChannel;
   RealtimeChannel? _productionChannel;
   RealtimeChannel? _workersChannel;
+  RealtimeChannel? _liveSessionsChannel;
 
   // ─── Auto-Reconnect ───────────────────────────────────────────
   int _reconnectAttempts = 0;
@@ -56,6 +58,24 @@ class SyncService {
 
       await _tearDownChannels();
       _setupChannels(factoryId);
+
+      // تنزيل الجلسات الحية النشطة
+      try {
+        final liveSessionsResponse = await _supabase.from('live_sessions').select().eq('factory_id', factoryId);
+        final liveSessionsBox = Hive.isBoxOpen('flexo_live_sessions') 
+            ? Hive.box<LiveSession>('flexo_live_sessions') 
+            : await Hive.openBox<LiveSession>('flexo_live_sessions');
+            
+        await liveSessionsBox.clear(); // مسح الجلسات المحلية وإعادة ملئها
+        for (final record in liveSessionsResponse) {
+          final session = LiveSession.fromJson(record);
+          await liveSessionsBox.put(session.id, session); // id هو الـ sync_id
+        }
+        debugPrint('✅ SyncService: تم استرجاع ${liveSessionsResponse.length} جلسة حية نشطة.');
+      } catch (e) {
+        debugPrint('❌ SyncService.initialize(live_sessions): $e');
+      }
+
       unawaited(_processQueue());
 
       debugPrint('✅ SyncService: تم التهيئة للمصنع: $factoryId');
@@ -209,6 +229,36 @@ class SyncService {
             debugPrint('📡 workers: $status ${error ?? ""}');
           }
         });
+
+    // ─── 4. live_sessions ──────────────────────────────────────────
+    _liveSessionsChannel = _supabase
+        .channel('rt_live_sessions_${factoryId}_v2')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'live_sessions',
+          callback: (payload) {
+            debugPrint(
+              '📥 [live_sessions] event=${payload.eventType} '
+              'new=${payload.newRecord} old=${payload.oldRecord}',
+            );
+            _onLiveSessionChange(payload, factoryId);
+          },
+        )
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            debugPrint('✅ SUBSCRIBED → live_sessions (factory: $factoryId)');
+            _reconnectAttempts = 0;
+          } else if (status == RealtimeSubscribeStatus.timedOut) {
+            debugPrint('⏱️ TIMEOUT → live_sessions — جدولة إعادة الاتصال...');
+            _scheduleReconnect();
+          } else if (status == RealtimeSubscribeStatus.channelError) {
+            debugPrint('❌ CHANNEL ERROR → live_sessions: $error');
+            _scheduleReconnect();
+          } else {
+            debugPrint('📡 live_sessions: $status ${error ?? ""}');
+          }
+        });
   }
 
   Future<void> _tearDownChannels() async {
@@ -227,6 +277,10 @@ class SyncService {
       if (_workersChannel != null) {
         await _supabase.removeChannel(_workersChannel!);
         _workersChannel = null;
+      }
+      if (_liveSessionsChannel != null) {
+        await _supabase.removeChannel(_liveSessionsChannel!);
+        _liveSessionsChannel = null;
       }
       debugPrint('🔄 SyncService: تم إغلاق الـ channels.');
     } catch (e) {
@@ -360,7 +414,7 @@ class SyncService {
       }
 
       final recordFactoryId = record['factory_id']?.toString();
-      if (recordFactoryId != myFactoryId) {
+      if (!isDelete && recordFactoryId != myFactoryId) {
         debugPrint('⏭️ [production_reports] تجاهل: factory مختلف');
         return;
       }
@@ -404,8 +458,12 @@ class SyncService {
           }
         }
 
+        // FIX: تحويل البيانات من snake_case إلى camelCase لتتوافق مع الواجهة
+        final hiveRecord = _reportToHive(record);
+        hiveRecord['sync_id'] = stableKey; 
+
         // FIX: box.put(existingKey) — Upsert حقيقي يمنع التكرار
-        await box.put(existingKey, Map<String, dynamic>.from(record));
+        await box.put(existingKey, hiveRecord);
         debugPrint('✅ [production_reports] تم حفظ محلياً: $stableKey');
       }
     } catch (e) {
@@ -477,6 +535,62 @@ class SyncService {
     }
   }
 
+  // ─── live_sessions → flexo_live_sessions ───────────────────────
+  void _onLiveSessionChange(
+    PostgresChangePayload payload,
+    String myFactoryId,
+  ) async {
+    try {
+      final isDelete = payload.eventType == PostgresChangeEvent.delete;
+      final record = isDelete ? payload.oldRecord : payload.newRecord;
+
+      if (record.isEmpty) return;
+
+      final recordFactoryId = record['factory_id']?.toString();
+      if (!isDelete && recordFactoryId != myFactoryId) return;
+
+      if (!Hive.isBoxOpen('flexo_live_sessions')) {
+        await Hive.openBox<LiveSession>('flexo_live_sessions');
+      }
+      final box = Hive.box<LiveSession>('flexo_live_sessions');
+      
+      final stableKey = record['sync_id']?.toString() ?? record['id']?.toString();
+      if (stableKey == null) return;
+
+      if (isDelete) {
+        // حذف من الجلسات الحية
+        dynamic existingKey = stableKey;
+        for (var i = 0; i < box.length; i++) {
+          final session = box.getAt(i);
+          if (session != null && session.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+        await box.delete(existingKey);
+        debugPrint('🗑️ [live_sessions] حُذف محلياً: $stableKey');
+      } else {
+        // إضافة أو تحديث الجلسة
+        final session = LiveSession.fromJson(record);
+        
+        // FIX: البحث عن السجل لمنع التكرار (Double Entry)
+        dynamic existingKey = stableKey;
+        for (var i = 0; i < box.length; i++) {
+          final item = box.getAt(i);
+          if (item != null && item.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+
+        await box.put(existingKey, session);
+        debugPrint('✅ [live_sessions] تم حفظ/تحديث محلياً: $stableKey');
+      }
+    } catch (e) {
+      debugPrint('❌ _onLiveSessionChange: $e');
+    }
+  }
+
   // ==============================================================
   // Offline Queue Processing
   // ==============================================================
@@ -512,6 +626,24 @@ class SyncService {
       final retries = (item['retries'] as int?) ?? 0;
 
       if (table == null || rawData is! Map) continue;
+
+      // التحقق من أن الـ sync_id صالح (ليس فارغاً ولا يحتوي على رموز غريبة)
+      final syncId = rawData['sync_id']?.toString() ?? rawData['id']?.toString();
+      
+      if (syncId == null || syncId.trim().isEmpty) {
+        debugPrint('🗑️ تم حذف تقرير تالف من الطابور (sync_id فارغ)');
+        keysToDelete.add(key);
+        continue;
+      }
+
+      // التحقق من وجود رموز غير صالحة لمعرف
+      final hasWeirdChars = RegExp(r'[<>{}\[\]\*\&\^%\$#@!]').hasMatch(syncId);
+      if (hasWeirdChars) {
+        debugPrint('🗑️ تم حذف تقرير تالف من الطابور (رموز غريبة: $syncId)');
+        keysToDelete.add(key);
+        continue;
+      }
+
       if (retries >= 5) {
         debugPrint('⚠️ Queue: تجاوز الحد → $table [$operation]');
         keysToDelete.add(key);
@@ -648,6 +780,33 @@ class SyncService {
       'factory_id': r['factory_id'],
       'imagePaths': r['image_paths'] ?? [],
       'isClientRecord': r['is_client_record'] ?? false,
+    };
+  }
+
+  Map<String, dynamic> _reportToHive(Map<String, dynamic> r) {
+    return {
+      'sync_id': r['sync_id'],
+      'id': r['id'] ?? r['sync_id'],
+      'date': r['date'],
+      'clientName': r['clientName'] ?? r['client_name'],
+      'product': r['product'] ?? r['product_name'],
+      'productCode': r['productCode'] ?? r['product_code'],
+      'orderNumber': r['orderNumber'] ?? r['order_number'],
+      'startTime': r['startTime'] ?? r['start_time'],
+      'endTime': r['endTime'] ?? r['end_time'],
+      'downtimeStart': r['downtimeStart'] ?? r['downtime_start'],
+      'downtimeEnd': r['downtimeEnd'] ?? r['downtime_end'],
+      'totalDowntime': r['totalDowntime'] ?? r['total_downtime'],
+      'machineName': r['machineName'] ?? r['machine_name'],
+      'technicianName': r['technicianName'] ?? r['technician_name'],
+      'quantity': r['quantity'],
+      'lineWaste': r['lineWaste'] ?? r['line_waste'],
+      'printWaste': r['printWaste'] ?? r['print_waste'],
+      'notes': r['notes'],
+      'isSheet': r['isSheet'] ?? r['is_sheet'] ?? false,
+      'factory_id': r['factory_id'],
+      'colors': r['colors'] ?? [],
+      'dimensions': r['dimensions'] ?? {},
     };
   }
 
