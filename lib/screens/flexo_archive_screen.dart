@@ -274,6 +274,12 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     return Scaffold(
       appBar: AppBar(
         iconTheme: IconThemeData(color: appBarIconColor),
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: _isSearching
             ? Container(
                 height: 40,

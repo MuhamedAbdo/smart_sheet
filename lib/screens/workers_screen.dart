@@ -84,6 +84,12 @@ class _WorkersScreenState extends State<WorkersScreen> {
           appBar: AppBar(
             title: Text("👷‍♂️ ${widget.departmentTitle} - العمال (${box.length})"),
             centerTitle: true,
+            leading: Navigator.canPop(context)
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.pop(context),
+                  )
+                : null,
           ),
           body: Column(
             children: [

@@ -31,7 +31,8 @@ import 'package:smart_sheet/utils/arabic_pdf_helper.dart';
 // توليد الـ Bytes
 // ---------------------------------
 
-Future<Uint8List?> generateProductionReportPdfBytes(List<Map<String, dynamic>> records) async {
+Future<Uint8List?> generateProductionReportPdfBytes(Map<String, dynamic> params) async {
+  final records = params['records'] as List<Map<String, dynamic>>;
   if (records.isEmpty) return null;
   try {
     final fontData = await rootBundle.load("assets/fonts/Amiri-Regular.ttf");
@@ -44,6 +45,7 @@ Future<Uint8List?> generateProductionReportPdfBytes(List<Map<String, dynamic>> r
       'records': safeRecords,
       'font': fontBytes,
       'bold': boldFontBytes,
+      'title': params['title'],
     });
   } catch (e) {
     debugPrint('❌ خطأ في generateProductionReportPdfBytes: $e');
@@ -51,7 +53,8 @@ Future<Uint8List?> generateProductionReportPdfBytes(List<Map<String, dynamic>> r
   }
 }
 
-Future<Uint8List?> generatePrintingReportPdfBytes(List<Map<String, dynamic>> records) async {
+Future<Uint8List?> generatePrintingReportPdfBytes(Map<String, dynamic> params) async {
+  final records = params['records'] as List<Map<String, dynamic>>;
   if (records.isEmpty) return null;
   try {
     final fontData = await rootBundle.load("assets/fonts/Amiri-Regular.ttf");
@@ -64,6 +67,7 @@ Future<Uint8List?> generatePrintingReportPdfBytes(List<Map<String, dynamic>> rec
       'records': safeRecords,
       'font': fontBytes,
       'bold': boldFontBytes,
+      'title': params['title'],
     });
   } catch (e) {
     debugPrint('❌ خطأ في generatePrintingReportPdfBytes: $e');
@@ -134,7 +138,7 @@ Future<void> savePrintingPdfToDevice(BuildContext context, List<Map<String, dyna
 Future<void> _savePdfCommon(
   BuildContext context,
   List<Map<String, dynamic>> records,
-  Future<Uint8List?> Function(List<Map<String, dynamic>>) generateFn,
+  Future<Uint8List?> Function(Map<String, dynamic>) generateFn,
   String prefix
 ) async {
   if (records.isEmpty) {
@@ -146,11 +150,13 @@ Future<void> _savePdfCommon(
     return;
   }
 
-  final pdfBytes = await generateFn(records);
+  final pdfBytes = await generateFn({'records': records, 'title': prefix});
   if (pdfBytes == null) return;
 
   try {
-    final fileName = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    String fileName = prefix.contains('ماكينة') 
+        ? '${prefix.replaceAll(' ', '_')}.pdf'
+        : '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     String? filePath;
 
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
@@ -214,17 +220,19 @@ void _showSuccessSnackBar(BuildContext context, String filePath, Uint8List bytes
 // المشاركة/الطباعة (عرض PDF)
 // ---------------------------------
 
-Future<void> exportProductionReportsToPdf(BuildContext context, List<Map<String, dynamic>> records) async {
-  final pdfBytes = await generateProductionReportPdfBytes(records);
+Future<void> exportProductionReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title}) async {
+  final pdfBytes = await generateProductionReportPdfBytes({'records': records, 'title': title});
   if (pdfBytes != null) {
-    await Printing.sharePdf(bytes: pdfBytes, filename: 'تقرير_إنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    String fileName = title != null ? '${title.replaceAll(' ', '_')}.pdf' : 'تقرير_إنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
   }
 }
 
-Future<void> exportPrintingReportsToPdf(BuildContext context, List<Map<String, dynamic>> records) async {
-  final pdfBytes = await generatePrintingReportPdfBytes(records);
+Future<void> exportPrintingReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title}) async {
+  final pdfBytes = await generatePrintingReportPdfBytes({'records': records, 'title': title});
   if (pdfBytes != null) {
-    await Printing.sharePdf(bytes: pdfBytes, filename: 'تقرير_طباعة_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    String fileName = title != null ? '${title.replaceAll(' ', '_')}.pdf' : 'تقرير_طباعة_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
   }
 }
 
@@ -315,6 +323,7 @@ pw.Widget buildStackedInkCell(String colorName, String quantity, double width, p
 Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> params) async {
   try {
     final List<dynamic> records = params['records'];
+    final String customTitle = params['title']?.toString() ?? 'تقرير الإنتاج لقسم الفلكسو';
     final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
     final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
 
@@ -339,14 +348,13 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
 
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
-        final String mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '---';
+
         final String tName = (record['technicianName'] ?? record['technician_name'])?.toString() ?? '---';
-        final String techMachine = '$tName - $mName';
 
         pageRows.add(
           pw.Row(children: [
             buildTableDataCell('${startIndex + i + 1}', 20.0, arabicFont, isRightMost: true),
-            buildTableDataCell(techMachine, 70.0, arabicFont),
+            buildTableDataCell(tName, 70.0, arabicFont),
             buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 55.0, arabicFont),
             buildTableDataCell(record['clientName']?.toString() ?? '---', flexibleColWidth, arabicFont),
             buildTableDataCell(record['product']?.toString() ?? '---', flexibleColWidth, arabicFont),
@@ -371,7 +379,7 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
         build: (context) => pw.Directionality(
           textDirection: pw.TextDirection.rtl,
           child: pw.Column(children: [
-            pw.Text(ArabicPDFHelper.fixArabic('تقرير الإنتاج لقسم الفلكسو'),
+            pw.Text(ArabicPDFHelper.fixArabic(customTitle),
               style: pw.TextStyle(font: arabicBoldFont, fontSize: 16)),
             pw.SizedBox(height: 10),
             _buildProductionHeader(flexibleWidth: flexibleColWidth, font: arabicBoldFont),
@@ -391,7 +399,7 @@ pw.Widget _buildProductionHeader({required double flexibleWidth, required pw.Fon
   return pw.Row(
     children: [
       _buildSpannedHeader('م', 20.0, font, isRightMost: true),
-      _buildSpannedHeader('الفني - الماكينة', 70.0, font),
+      _buildSpannedHeader('الفني', 70.0, font),
       _buildSpannedHeader('التاريخ', 55.0, font),
       _buildSpannedHeader('إسم العميل', flexibleWidth, font),
       _buildSpannedHeader('الصنف', flexibleWidth, font),
@@ -413,22 +421,18 @@ pw.Widget _buildProductionHeader({required double flexibleWidth, required pw.Fon
 Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> params) async {
   try {
     final List<dynamic> records = params['records'];
+    final String customTitle = params['title']?.toString() ?? 'تقرير إنتاج الطباعة';
     final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
     final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
 
-    // استخراج الألوان الفريدة للتقرير
-    final Set<String> uniqueColorsSet = {};
+    // حساب أقصى عدد ألوان موجود في أي تقرير واحد
+    int maxColorsCount = 0;
     for (var record in records) {
       final List<dynamic> colors = record['colors'] ?? [];
-      for (var c in colors) {
-        final colorData = c is Map ? c : {};
-        final colorName = colorData['color']?.toString() ?? '';
-        if (colorName.isNotEmpty && colorName != '---') {
-          uniqueColorsSet.add(colorName);
-        }
+      if (colors.length > maxColorsCount) {
+        maxColorsCount = colors.length;
       }
     }
-    final List<String> uniqueColors = uniqueColorsSet.toList()..sort();
 
     final pdf = pw.Document();
     const int recordsPerPage = 13;
@@ -436,10 +440,11 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
 
     // Width calculation: Total 810
     // Fixed columns: م(20), التاريخ(55), المقاس(60), العدد(40) = 175
-    // Colors width: uniqueColors.length * 35.0
+    // Colors width: maxColorsCount * 35.0
     // Remaining = 810 - 175 - (colorsWidth)
-    final double colorsWidth = uniqueColors.length * 35.0;
-    final double flexibleColWidth = ((810 - 175 - colorsWidth) / 3).floorToDouble();
+    final double colorsWidth = maxColorsCount * 35.0;
+    final double remainingWidth = 810 - 175 - colorsWidth;
+    final double flexibleColWidth = (remainingWidth / 3).floorToDouble();
 
     for (int page = 0; page < totalPages; page++) {
       final int startIndex = page * recordsPerPage;
@@ -461,11 +466,11 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
             buildTableDataCell(record['product']?.toString() ?? '---', flexibleColWidth, arabicFont),
             buildTableDataCell(_getDimensionsOnly(record), 60.0, arabicFont),
             
-            // الأحبار المقسمة
-            ...List.generate(uniqueColors.length, (j) {
+            // الأحبار المقسمة بديناميكية
+            ...List.generate(maxColorsCount, (j) {
               final recordColors = record['colors'] as List? ?? [];
-              String displayedName = '---';
-              String displayedQty = '---';
+              String displayedName = '';
+              String displayedQty = '';
               
               if (j < recordColors.length) {
                 final colorEntry = recordColors[j];
@@ -478,7 +483,7 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
                 displayedQty,
                 35.0,
                 arabicFont,
-                isSectionEnd: j == uniqueColors.length - 1,
+                isSectionEnd: j == maxColorsCount - 1,
               );
             }),
             
@@ -494,10 +499,10 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
         build: (context) => pw.Directionality(
           textDirection: pw.TextDirection.rtl,
           child: pw.Column(children: [
-            pw.Text(ArabicPDFHelper.fixArabic('تقرير إنتاج الطباعة'),
+            pw.Text(ArabicPDFHelper.fixArabic(customTitle),
               style: pw.TextStyle(font: arabicBoldFont, fontSize: 16)),
             pw.SizedBox(height: 10),
-            _buildPrintingHeader(uniqueColors: uniqueColors, flexibleWidth: flexibleColWidth, font: arabicBoldFont),
+            _buildPrintingHeader(maxColorsCount: maxColorsCount, flexibleWidth: flexibleColWidth, font: arabicBoldFont),
             pw.Column(children: pageRows),
           ]),
         ),
@@ -510,7 +515,7 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
   }
 }
 
-pw.Widget _buildPrintingHeader({required List<String> uniqueColors, required double flexibleWidth, required pw.Font font}) {
+pw.Widget _buildPrintingHeader({required int maxColorsCount, required double flexibleWidth, required pw.Font font}) {
   return pw.Row(
     children: [
       _buildSpannedHeader('م', 20.0, font, isRightMost: true),
@@ -518,8 +523,8 @@ pw.Widget _buildPrintingHeader({required List<String> uniqueColors, required dou
       _buildSpannedHeader('إسم العميل', flexibleWidth, font),
       _buildSpannedHeader('الصنف', flexibleWidth, font),
       _buildSpannedHeader('المقاس', 60.0, font),
-      if (uniqueColors.isNotEmpty)
-        _buildSpannedHeader('كمية الحبر بالليتر', uniqueColors.length * 35.0, font, isSectionEnd: true),
+      if (maxColorsCount > 0)
+        _buildSpannedHeader('كمية الحبر بالليتر', maxColorsCount * 35.0, font, isSectionEnd: true),
       _buildSpannedHeader('العدد', 40.0, font),
       _buildSpannedHeader('الملاحظات', flexibleWidth, font),
     ],

@@ -14,6 +14,8 @@ import 'package:smart_sheet/screens/machine_management_screen.dart';
 // ✅ استيراد الشاشات
 
 import 'package:smart_sheet/widgets/home_button.dart';
+import 'package:smart_sheet/widgets/flexo_report_drawer.dart';
+import 'package:smart_sheet/widgets/app_drawer.dart';
 
 class FlexoScreen extends StatelessWidget {
   const FlexoScreen({super.key});
@@ -31,7 +33,15 @@ class FlexoScreen extends StatelessWidget {
         ),
         centerTitle: true,
         elevation: 1,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
       ),
+      drawer: const AppDrawer(),
+      endDrawer: const FlexoReportDrawer(),
       // ✅ الـ Drawer متاح في كل الشاشات
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -66,15 +76,25 @@ class FlexoScreen extends StatelessWidget {
                     crossAxisCount = 3;
                   }
 
-                  return GridView.count(
-                    crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: 24,
-                    mainAxisSpacing: 24,
-                    childAspectRatio: 1.1,
-                    children: [
-                      HomeButton(
-                        icon: Icons.build_circle,
-                        label: 'تركيب السيريل',
+                  return Scrollbar(
+                    thumbVisibility: true,
+                    child: GridView.count(
+                      primary: true,
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 24,
+                      mainAxisSpacing: 24,
+                      childAspectRatio: 1.1,
+                      children: [
+                        HomeButton(
+                          icon: Icons.print_outlined,
+                          label: 'تقارير الماكينات',
+                          onTap: () {
+                            Scaffold.of(context).openEndDrawer();
+                          },
+                        ),
+                        HomeButton(
+                          icon: Icons.build_circle,
+                          label: 'تركيب السيريل',
                         onTap: () {
                           Navigator.push(
                             context,
@@ -177,7 +197,8 @@ class FlexoScreen extends StatelessWidget {
                           );
                         },
                       ),
-                    ],
+                      ],
+                    ),
                   );
                 },
               ),

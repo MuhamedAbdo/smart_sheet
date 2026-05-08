@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/live_session.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_sheet/services/auth_service.dart';
 
 class SessionCard extends StatefulWidget {
   final LiveSession session;
@@ -61,6 +63,7 @@ class _SessionCardState extends State<SessionCard> {
     final bool isPaused = !widget.session.isRunning;
     final String? currentDeviceId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('device_id') : null;
     final bool isOwner = currentDeviceId != null && currentDeviceId == widget.session.createdByDeviceId;
+    final bool isAdmin = context.watch<AuthService>().isAdmin;
 
     return Card(
       elevation: 4,
@@ -110,7 +113,7 @@ class _SessionCardState extends State<SessionCard> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  if (isOwner)
+                  if (isOwner || isAdmin)
                     IconButton(
                       icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 22),
                       tooltip: 'إلغاء الجلسة',
@@ -158,7 +161,7 @@ class _SessionCardState extends State<SessionCard> {
                 ],
               ],
               const SizedBox(height: 10),
-              if (isOwner) ...[
+              if (isOwner || isAdmin) ...[
                 Center(
                   child: Text(
                     _formatDuration(_displayDuration),

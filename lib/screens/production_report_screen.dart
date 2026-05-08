@@ -2,8 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:file_picker/file_picker.dart';
-import 'dart:typed_data';
 import 'package:smart_sheet/screens/flexo_archive_screen.dart';
 import 'package:smart_sheet/widgets/production_report_form.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
@@ -11,7 +9,8 @@ import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/production_report.dart';
 import 'package:smart_sheet/widgets/active_sessions_dashboard.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
-import '../../../utils/pdf_export_helper.dart';
+import 'package:smart_sheet/widgets/app_drawer.dart';
+import 'package:smart_sheet/widgets/flexo_report_drawer.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'dart:async';
 import 'package:uuid/uuid.dart';
@@ -69,37 +68,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     super.dispose();
   }
 
-  Future<void> _savePdfToDeviceLocally(
-      List<Map<String, dynamic>> records, {required bool isPrinting}) async {
-    try {
-      if (records.isEmpty) return;
-      final Uint8List? pdfBytes = isPrinting
-          ? await generatePrintingReportPdfBytes(records)
-          : await generateProductionReportPdfBytes(records);
-          
-      if (pdfBytes == null) return;
 
-      String prefix = isPrinting ? 'تقرير_طباعة' : 'تقرير_إنتاج';
-
-      String? outputFile = await FilePicker.platform.saveFile(
-        dialogTitle: 'اختر مكان حفظ ملف PDF',
-        fileName: '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf',
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        bytes: pdfBytes,
-      );
-
-      if (outputFile != null && mounted) {
-        UIUtils.showInfoSnackBar(
-          message: "تم حفظ الملف بنجاح",
-          backgroundColor: Colors.green,
-          icon: Icons.check_circle_outline,
-        );
-      }
-    } catch (e) {
-      debugPrint("Error saving: $e");
-    }
-  }
 
   void _deleteSingleReport(dynamic key, dynamic record) {
     UIUtils.showDeleteConfirmation(
@@ -320,6 +289,13 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     return Scaffold(
       appBar: AppBar(
         iconTheme: IconThemeData(color: appBarIconColor),
+        automaticallyImplyLeading: true,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: _isSearching
             ? Container(
                 height: 40,
@@ -366,30 +342,6 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                     context,
                     MaterialPageRoute(
                         builder: (_) => const FlexoArchiveScreen()));
-              } else if (value == 'pdf_view_prod') {
-                final records = _filterAndSortRecords(
-                        _productionReportBox!, _searchQuery, _sortDescending)
-                    .map((e) => e.value)
-                    .toList();
-                await exportProductionReportsToPdf(context, records);
-              } else if (value == 'pdf_save_prod') {
-                final records = _filterAndSortRecords(
-                        _productionReportBox!, _searchQuery, _sortDescending)
-                    .map((e) => e.value)
-                    .toList();
-                await _savePdfToDeviceLocally(records, isPrinting: false);
-              } else if (value == 'pdf_view_print') {
-                final records = _filterAndSortRecords(
-                        _productionReportBox!, _searchQuery, _sortDescending)
-                    .map((e) => e.value)
-                    .toList();
-                await exportPrintingReportsToPdf(context, records);
-              } else if (value == 'pdf_save_print') {
-                final records = _filterAndSortRecords(
-                        _productionReportBox!, _searchQuery, _sortDescending)
-                    .map((e) => e.value)
-                    .toList();
-                await _savePdfToDeviceLocally(records, isPrinting: true);
               } else if (value == 'clear') {
                 _deleteAllReports();
               } else if (value == 'sort') {
@@ -417,27 +369,6 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                       leading: Icon(Icons.inventory_2_outlined),
                       title: Text('فتح الأرشيف'))),
               const PopupMenuItem(
-                  value: 'pdf_view_prod',
-                  child: ListTile(
-                      leading: Icon(Icons.picture_as_pdf),
-                      title: Text('عرض/طباعة تقرير إنتاج'))),
-              const PopupMenuItem(
-                  value: 'pdf_save_prod',
-                  child: ListTile(
-                      leading: Icon(Icons.save_alt),
-                      title: Text('حفظ تقرير إنتاج'))),
-              const PopupMenuItem(
-                  value: 'pdf_view_print',
-                  child: ListTile(
-                      leading:
-                          Icon(Icons.picture_as_pdf, color: Colors.blueAccent),
-                      title: Text('عرض/طباعة تقرير طباعة'))),
-              const PopupMenuItem(
-                  value: 'pdf_save_print',
-                  child: ListTile(
-                      leading: Icon(Icons.save_alt, color: Colors.blueAccent),
-                      title: Text('حفظ تقرير طباعة'))),
-              const PopupMenuItem(
                   value: 'sort',
                   child: ListTile(
                       leading: Icon(Icons.sort), title: Text('الترتيب'))),
@@ -451,6 +382,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           ),
         ],
       ),
+      drawer: const AppDrawer(),
+      endDrawer: const FlexoReportDrawer(),
       body: ValueListenableBuilder(
         valueListenable: _productionReportBox!.listenable(),
         builder: (context, Box box, _) {

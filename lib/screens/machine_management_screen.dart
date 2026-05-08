@@ -12,6 +12,12 @@ class MachineManagementScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('إدارة ماكينات الفلكسو'),
         centerTitle: true,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
       ),
       body: ValueListenableBuilder(
         valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
@@ -67,7 +73,7 @@ class MachineManagementScreen extends StatelessWidget {
           controller: controller,
           decoration: const InputDecoration(
             labelText: 'اسم الماكينة',
-            hintText: 'مثلاً: 3 لون، روتاري...',
+            hintText: 'مثلاً: ماكينة 1، ماكينة 2...',
             border: OutlineInputBorder(),
           ),
           autofocus: true,

@@ -15,6 +15,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:uuid/uuid.dart';
@@ -66,14 +67,26 @@ class SyncService {
             : await Hive.openBox<LiveSession>('flexo_live_sessions');
             
         final Map<dynamic, LiveSession> sessionsMap = {};
+        final now = DateTime.now();
+        
         for (final record in liveSessionsResponse) {
           final session = LiveSession.fromJson(record);
-          sessionsMap[session.id] = session;
+          // ✅ تحسين أمان الجلسات: استبعاد الجلسات التي مر عليها أكثر من 24 ساعة
+          final sessionAge = now.difference(session.startTime);
+          if (sessionAge.inHours < 24) {
+            sessionsMap[session.id] = session;
+          } else {
+            debugPrint('🧹 SyncService: تجاهل جلسة قديمة (Ghost) للماكينة: ${session.machineName}');
+          }
         }
+        
+        // مسح الجلسات القديمة من Hive قبل إضافة الجديدة لضمان نظافة الواجهة
+        await liveSessionsBox.clear();
+        
         for (var key in sessionsMap.keys) {
           await liveSessionsBox.put(key, sessionsMap[key]!);
         }
-        debugPrint('✅ SyncService: تم استرجاع ${liveSessionsResponse.length} جلسة حية نشطة.');
+        debugPrint('✅ SyncService: تم استرجاع ${sessionsMap.length} جلسة نشطة (من إجمالي ${liveSessionsResponse.length}).');
       } catch (e) {
         debugPrint('❌ SyncService.initialize(live_sessions): $e');
       }
@@ -101,8 +114,25 @@ class SyncService {
         final box = Hive.isBoxOpen('workers_flexo') ? Hive.box<Worker>('workers_flexo') : await Hive.openBox<Worker>('workers_flexo');
         
         final Map<dynamic, Worker> workersMap = {};
+        final actionsBox = Hive.isBoxOpen('worker_actions') 
+            ? Hive.box<WorkerAction>('worker_actions') 
+            : await Hive.openBox<WorkerAction>('worker_actions');
+
         for (final r in res) {
-          final worker = Worker.fromJson(r);
+          // استخراج الحركات ومعالجتها بشكل منفصل لتجنب خطأ HiveList
+          final actionsList = r['actions'] as List? ?? [];
+          final workerData = Map<String, dynamic>.from(r);
+          workerData['actions'] = []; // نترك الحركات فارغة مؤقتاً عند الإنشاء عبر FromJson
+          
+          final worker = Worker.fromJson(workerData);
+          
+          // إضافة الحركات للصندوق ثم للـ HiveList الخاص بالعامل
+          for (final a in actionsList) {
+            final action = WorkerAction.fromJson(Map<String, dynamic>.from(a));
+            await actionsBox.add(action);
+            worker.actions.add(action);
+          }
+          
           workersMap[r['sync_id'] ?? r['id']] = worker;
         }
         for (var key in workersMap.keys) {
@@ -615,7 +645,20 @@ class SyncService {
         debugPrint('🌟 وصلت بيانات جديدة [workers]: $workerName');
 
         try {
-          final worker = Worker.fromJson(Map<String, dynamic>.from(record));
+          final actionsList = record['actions'] as List? ?? [];
+          final workerData = Map<String, dynamic>.from(record);
+          workerData['actions'] = [];
+          
+          final worker = Worker.fromJson(workerData);
+          
+          if (Hive.isBoxOpen('worker_actions')) {
+            final actionsBox = Hive.box<WorkerAction>('worker_actions');
+            for (final a in actionsList) {
+              final action = WorkerAction.fromJson(Map<String, dynamic>.from(a));
+              await actionsBox.add(action);
+              worker.actions.add(action);
+            }
+          }
 
           // FIX: استخدام مفتاح ثابت = sync_id من Supabase أو name+factoryId كـ fallback
           // هذا يمنع تكرار العامل مع كل تحديث Real-time

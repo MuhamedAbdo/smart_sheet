@@ -23,6 +23,12 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text("🔧 الإعدادات"),
         centerTitle: true,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         actions: const [
           ThemeToggleButton(), // زر تبديل الثيم في الزاوية
         ],
