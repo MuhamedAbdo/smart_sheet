@@ -57,24 +57,79 @@ class SyncService {
       }
 
       await _tearDownChannels();
-      _setupChannels(factoryId);
 
-      // تنزيل الجلسات الحية النشطة
+      // 1. تنزيل الجلسات الحية النشطة
       try {
         final liveSessionsResponse = await _supabase.from('live_sessions').select().eq('factory_id', factoryId);
         final liveSessionsBox = Hive.isBoxOpen('flexo_live_sessions') 
             ? Hive.box<LiveSession>('flexo_live_sessions') 
             : await Hive.openBox<LiveSession>('flexo_live_sessions');
             
-        await liveSessionsBox.clear(); // مسح الجلسات المحلية وإعادة ملئها
+        final Map<dynamic, LiveSession> sessionsMap = {};
         for (final record in liveSessionsResponse) {
           final session = LiveSession.fromJson(record);
-          await liveSessionsBox.put(session.id, session); // id هو الـ sync_id
+          sessionsMap[session.id] = session;
+        }
+        for (var key in sessionsMap.keys) {
+          await liveSessionsBox.put(key, sessionsMap[key]!);
         }
         debugPrint('✅ SyncService: تم استرجاع ${liveSessionsResponse.length} جلسة حية نشطة.');
       } catch (e) {
         debugPrint('❌ SyncService.initialize(live_sessions): $e');
       }
+
+      // 2. المزامنة المبدئية لـ customers
+      try {
+        final res = await _supabase.from('customers').select().eq('factory_id', factoryId);
+        final box = Hive.isBoxOpen('savedSheetSizes') ? Hive.box('savedSheetSizes') : await Hive.openBox('savedSheetSizes');
+        
+        final Map<dynamic, dynamic> customersMap = {};
+        for (final r in res) {
+          final hiveRecord = _customerToHive(r);
+          hiveRecord['sync_id'] = r['sync_id'] ?? r['id'];
+          customersMap[hiveRecord['sync_id']] = hiveRecord;
+        }
+        for (var key in customersMap.keys) {
+          await box.put(key, customersMap[key]);
+        }
+        debugPrint('✅ SyncService: تم استرجاع ${res.length} customers.');
+      } catch (e) { debugPrint('❌ SyncService.initialize(customers): $e'); }
+
+      // 3. المزامنة المبدئية لـ workers
+      try {
+        final res = await _supabase.from('workers').select().eq('factory_id', factoryId);
+        final box = Hive.isBoxOpen('workers_flexo') ? Hive.box<Worker>('workers_flexo') : await Hive.openBox<Worker>('workers_flexo');
+        
+        final Map<dynamic, Worker> workersMap = {};
+        for (final r in res) {
+          final worker = Worker.fromJson(r);
+          workersMap[r['sync_id'] ?? r['id']] = worker;
+        }
+        for (var key in workersMap.keys) {
+          await box.put(key, workersMap[key]!);
+        }
+        debugPrint('✅ SyncService: تم استرجاع ${res.length} workers.');
+      } catch (e) { debugPrint('❌ SyncService.initialize(workers): $e'); }
+
+      // 4. المزامنة المبدئية لـ production_reports
+      try {
+        final res = await _supabase.from('production_reports').select().eq('factory_id', factoryId);
+        final box = Hive.isBoxOpen('inkReports') ? Hive.box('inkReports') : await Hive.openBox('inkReports');
+        
+        final Map<dynamic, dynamic> reportsMap = {};
+        for (final r in res) {
+          final hiveRecord = _reportToHive(r);
+          hiveRecord['sync_id'] = r['sync_id'] ?? r['id'];
+          reportsMap[hiveRecord['sync_id']] = hiveRecord;
+        }
+        for (var key in reportsMap.keys) {
+          await box.put(key, reportsMap[key]);
+        }
+        debugPrint('✅ SyncService: تم استرجاع ${res.length} production_reports.');
+      } catch (e) { debugPrint('❌ SyncService.initialize(production_reports): $e'); }
+
+      // إعداد قنوات Real-time بعد التحميل المبدئي بنجاح
+      _setupChannels(factoryId);
 
       unawaited(_processQueue());
 
@@ -103,6 +158,60 @@ class SyncService {
       debugPrint('🧹 SyncService: تم مسح $count عنصر من sync_queue.');
     } catch (e) {
       debugPrint('❌ SyncService.clearSyncQueue: $e');
+    }
+  }
+
+  /// مزامنة إجبارية (Full Sync Push): إضافة جميع البيانات المحلية إلى طابور المزامنة
+  Future<String> forcePushAllLocalDataToServer() async {
+    try {
+      final factoryId = await SupabaseManager.getFactoryId();
+      if (factoryId == null) throw Exception('المصنع غير محدد');
+
+      int addedCount = 0;
+
+      // 1. العملاء (customers)
+      final customersBox = Hive.isBoxOpen('savedSheetSizes') ? Hive.box('savedSheetSizes') : await Hive.openBox('savedSheetSizes');
+      for (var key in customersBox.keys) {
+        final data = customersBox.get(key);
+        if (data is Map) {
+          final Map<String, dynamic> mapData = Map<String, dynamic>.from(data);
+          mapData['factory_id'] = factoryId; // لضمان الارتباط
+          // إزالة مفتاح sync_status لو موجود لأنه محلي فقط
+          mapData.remove('sync_status'); 
+          await pushToQueue('customers', mapData, operation: 'upsert');
+          addedCount++;
+        }
+      }
+
+      // 2. العمال (workers)
+      final workersBox = Hive.isBoxOpen('workers_flexo') ? Hive.box<Worker>('workers_flexo') : await Hive.openBox<Worker>('workers_flexo');
+      for (var key in workersBox.keys) {
+        final worker = workersBox.get(key);
+        if (worker != null) {
+          final mapData = worker.toJson();
+          mapData['factory_id'] = factoryId;
+          await pushToQueue('workers', mapData, operation: 'upsert');
+          addedCount++;
+        }
+      }
+
+      // 3. التقارير (production_reports)
+      final reportsBox = Hive.isBoxOpen('inkReports') ? Hive.box('inkReports') : await Hive.openBox('inkReports');
+      for (var key in reportsBox.keys) {
+        final data = reportsBox.get(key);
+        if (data is Map) {
+          final Map<String, dynamic> mapData = Map<String, dynamic>.from(data);
+          mapData['factory_id'] = factoryId;
+          mapData.remove('sync_status');
+          await pushToQueue('production_reports', mapData, operation: 'upsert');
+          addedCount++;
+        }
+      }
+
+      return '✅ تم إضافة $addedCount سجل إلى طابور المزامنة بنجاح. سيتم رفعها للسيرفر تباعاً.';
+    } catch (e) {
+      debugPrint('❌ forcePushAllLocalDataToServer error: $e');
+      return '❌ فشل المزامنة الإجبارية: $e';
     }
   }
 

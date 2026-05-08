@@ -10,7 +10,9 @@ class AuthService extends ChangeNotifier {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   UserState get state => _state;
+  String? get factoryId => _factoryId;
   bool get isAdmin => _state.role?.trim().toLowerCase() == 'admin';
+  String? _factoryId;
 
   AuthService() {
     // 💡 الاستماع إلى تغيرات حالة Supabase
@@ -20,6 +22,13 @@ class AuthService extends ChangeNotifier {
 
     // تحقق من الجلسة الأولية عند التشغيل
     _checkInitialSession();
+    _loadFactoryId();
+  }
+
+  Future<void> _loadFactoryId() async {
+    const storage = FlutterSecureStorage();
+    _factoryId = await storage.read(key: 'factory_id');
+    notifyListeners();
   }
 
   void _onAuthStateChange(AuthChangeEvent event, Session? session) {
@@ -64,18 +73,21 @@ class AuthService extends ChangeNotifier {
           .maybeSingle();
       
       if (response != null) {
-        if (response['factory_id'] != null) {
-          await storage.write(key: 'factory_id', value: response['factory_id'].toString());
-        }
-        
         final role = response['role']?.toString() ?? 'employee';
         await storage.write(key: 'user_role', value: role);
+        
+        _factoryId = response['factory_id']?.toString();
+        if (_factoryId != null) {
+          await storage.write(key: 'factory_id', value: _factoryId!);
+        } else {
+          await storage.delete(key: 'factory_id');
+        }
         
         _state = _state.copyWith(role: role);
         notifyListeners();
 
-        // تفعيل Real-time channels بعد تخزين factory_id
-        unawaited(SyncService.instance.initialize());
+        // تفعيل Real-time channels والمزامنة المبدئية بعد تخزين factory_id
+        await SyncService.instance.initialize();
       } else {
         // Profile not found (could be due to RLS policies blocking the select)
         _state = _state.copyWith(
@@ -92,6 +104,7 @@ class AuthService extends ChangeNotifier {
     const storage = FlutterSecureStorage();
     await storage.delete(key: 'factory_id');
     await storage.delete(key: 'user_role');
+    _factoryId = null;
     // إلغاء Real-time channels عند تسجيل الخروج
     unawaited(SyncService.instance.dispose());
   }
@@ -161,8 +174,8 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// 🔗 ربط الموظف بمصنع جديد عبر QR Code
-  Future<String?> linkToFactory(String factoryId) async {
+  /// 🔗 ربط الموظف بمصنع جديد عبر QR Code أو كود يدوي
+  Future<String?> linkToFactory(String inputCode) async {
     _state = _state.copyWith(isLoading: true, errorMessage: null);
     notifyListeners();
 
@@ -170,6 +183,29 @@ class AuthService extends ChangeNotifier {
       final user = _supabaseClient.auth.currentUser;
       if (user == null) {
         throw Exception('المستخدم غير مسجل الدخول');
+      }
+
+      String factoryId = inputCode.trim();
+
+      // إذا كان الكود قصيراً (6 خانات)، نتحقق من جدول الأكواد المؤقتة pairing_codes
+      if (factoryId.length == 6) {
+        final resolution = await _supabaseClient
+            .from('pairing_codes')
+            .select('factory_id, expires_at')
+            .eq('pairing_code', factoryId)
+            .limit(1)
+            .maybeSingle();
+            
+        if (resolution != null) {
+          final expiresAt = DateTime.parse(resolution['expires_at'].toString());
+          if (DateTime.now().isAfter(expiresAt)) {
+             throw Exception('انتهت صلاحية الكود، اطلب كوداً جديداً من المدير');
+          }
+          factoryId = resolution['factory_id'];
+          debugPrint('✅ Resolved short code $inputCode to $factoryId');
+        } else {
+          throw Exception('كود الربط غير صحيح أو غير موجود');
+        }
       }
 
       // تحديث أو إنشاء ملف المستخدم في قاعدة البيانات
@@ -289,5 +325,27 @@ class AuthService extends ChangeNotifier {
           .copyWith(errorMessage: 'فشل تسجيل الخروج: $e');
       notifyListeners();
     }
+  }
+
+  /// 🔓 فك ارتباط الجهاز بالمصنع الحالي (مسح factory_id محلياً ومن السيرفر)
+  Future<void> unlinkFactory() async {
+    const storage = FlutterSecureStorage();
+    await storage.delete(key: 'factory_id');
+    _factoryId = null;
+    
+    // إيقاف القنوات
+    unawaited(SyncService.instance.dispose());
+
+    // تحديث قاعدة البيانات لمسح factory_id من حساب المستخدم
+    try {
+      final user = _supabaseClient.auth.currentUser;
+      if (user != null) {
+        await _supabaseClient.from('profiles').update({'factory_id': null}).eq('id', user.id);
+      }
+    } catch (e) {
+      debugPrint('Error clearing factory_id from profiles: $e');
+    }
+    
+    notifyListeners();
   }
 }

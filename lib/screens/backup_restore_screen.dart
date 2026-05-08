@@ -8,7 +8,13 @@ import 'package:provider/provider.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'dart:math';
+import 'package:smart_sheet/models/live_session.dart';
+import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -95,16 +101,16 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     setState(() {
       _isLoading = true;
-      _message = 'جاري رفع النسخة الاحتياطية...';
+      _message = 'جاري إرسال البيانات للمزامنة الفورية...';
     });
 
     UIUtils.showInfoSnackBar(
-      message: "بدأت عملية الرفع السحابي، تابع التقدم في الإشعارات",
+      message: "بدأت عملية المزامنة السحابية الإجبارية، تابع التقدم في الخلفية",
       backgroundColor: Colors.blueAccent,
-      icon: Icons.cloud_upload_outlined,
+      icon: Icons.sync,
     );
 
-    final result = await _backupService.uploadToSupabase();
+    final result = await SyncService.instance.forcePushAllLocalDataToServer();
 
     if (mounted) {
       setState(() {
@@ -112,12 +118,17 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         _isLoading = false;
       });
 
-      if (result?.startsWith('✅') == true) {
-        await _checkBackupExists(); // Refresh backup status
+      if (result.startsWith('✅')) {
         UIUtils.showInfoSnackBar(
-          message: result!,
+          message: "تم بدء المزامنة بنجاح!",
           backgroundColor: Colors.green,
           icon: Icons.check_circle_outline,
+        );
+      } else {
+        UIUtils.showInfoSnackBar(
+          message: result,
+          backgroundColor: Colors.red,
+          icon: Icons.error_outline,
         );
       }
     }
@@ -391,20 +402,16 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
             // Info Section
             _buildInfoSection(),
-            
+
             const SizedBox(height: 16),
-            
-            // Debug Section
-            Container(
-              padding: const EdgeInsets.all(8),
-              color: Colors.black12,
-              child: Column(
-                children: [
-                  Text('Debug User ID: ${Supabase.instance.client.auth.currentUser?.id}'),
-                  Text('Debug Role: ${authService.state.role} (isAdmin: ${authService.isAdmin})'),
-                  if (authService.state.errorMessage != null)
-                    Text('Debug Error: ${authService.state.errorMessage}', style: const TextStyle(color: Colors.red)),
-                ],
+            Center(
+              child: Text(
+                isAdmin ? '(صلاحية: مدير النظام)' : '(صلاحية: مستخدم مساعد)',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -528,9 +535,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Icon(Icons.cloud_upload),
+          : const Icon(Icons.sync_alt),
       label: Text(
-        _isLoading ? 'جاري الرفع...' : 'رفع نسخة احتياطية',
+        _isLoading ? 'جاري المزامنة...' : 'مزامنة سحابية إجبارية (Push)',
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
       style: ElevatedButton.styleFrom(
@@ -601,41 +608,157 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   Widget _buildQRActionSection(bool isAdmin) {
     if (!_isAuthenticated) return const SizedBox.shrink();
 
+    final authService = context.read<AuthService>();
+    final currentFactoryId = authService.factoryId;
+    final isLinked = currentFactoryId != null && currentFactoryId.isNotEmpty;
+
+    // 1. الجزء الخاص بالمدير (Admin) - يظهر دائماً خيار التوليد
     if (isAdmin) {
-      return ElevatedButton.icon(
-        onPressed: _showAdminQRCode,
-        icon: const Icon(Icons.qr_code_2),
-        label: const Text(
-          'إضافة جهاز مساعد',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 56),
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.blue[900],
-          side: BorderSide(color: Colors.blue[900]!, width: 2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+      return Column(
+        children: [
+          if (isLinked) ...[
+            _buildLinkedStatusBox(currentFactoryId, isAdmin),
+            const SizedBox(height: 16),
+          ],
+          ElevatedButton.icon(
+            onPressed: _showAdminQRCode,
+            icon: const Icon(Icons.qr_code_2),
+            label: const Text(
+              'إضافة جهاز مساعد',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 56),
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.blue[900],
+              side: BorderSide(color: Colors.blue[900]!, width: 2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
           ),
-        ),
+        ],
       );
-    } else {
-      return ElevatedButton.icon(
-        onPressed: _openQRScanner,
-        icon: const Icon(Icons.qr_code_scanner),
-        label: const Text(
-          'ربط بالمصنع عبر QR',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+    }
+
+    // 2. الجزء الخاص بالمساعد (Assistant)
+    if (isLinked) {
+      return _buildLinkedStatusBox(currentFactoryId, isAdmin);
+    }
+
+    // المساعد غير مرتبط -> اظهر خيار القارئ
+    return ElevatedButton.icon(
+      onPressed: _openQRScanner,
+      icon: const Icon(Icons.qr_code_scanner),
+      label: const Text(
+        'ربط بالمصنع (QR أو كود)',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 56),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
         ),
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 56),
-          backgroundColor: Colors.green,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+      ),
+    );
+  }
+
+  Widget _buildLinkedStatusBox(String factoryId, bool isAdmin) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.green, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'هذا الجهاز مرتبط بنجاح بالمصنع: $factoryId',
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
           ),
+          if (!isAdmin) ...[
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.center,
+              child: ElevatedButton.icon(
+                onPressed: _handleUnlink,
+                icon: const Icon(Icons.link_off, size: 20),
+                label: const Text('فك ارتباط هذا الجهاز', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleUnlink() async {
+    final authService = context.read<AuthService>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('⚠️ فك الارتباط', style: TextStyle(color: Colors.red)),
+          ],
         ),
-      );
+        content: const Text('هل أنت متأكد من فك الارتباط؟ سيتم حذف كافة البيانات المحلية (التقارير، العمال، المقاسات) من هذا الجهاز وإيقاف المزامنة فوراً.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true), 
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('فك الارتباط الآن'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      // تفريغ القواعد المحلية
+      try {
+        if (Hive.isBoxOpen('flexo_live_sessions')) await Hive.box<LiveSession>('flexo_live_sessions').clear();
+        if (Hive.isBoxOpen('savedSheetSizes')) await Hive.box('savedSheetSizes').clear();
+        if (Hive.isBoxOpen('workers_flexo')) await Hive.box<Worker>('workers_flexo').clear();
+        if (Hive.isBoxOpen('inkReports')) await Hive.box('inkReports').clear();
+        if (Hive.isBoxOpen('sync_queue')) await Hive.box('sync_queue').clear();
+        debugPrint('🧹 تم تفريغ جميع قواعد البيانات المحلية بنجاح.');
+      } catch (e) {
+        debugPrint('❌ فشل تفريغ القواعد المحلية: $e');
+      }
+
+      await authService.unlinkFactory();
+      
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "تم فك ارتباط الجهاز ومسح البيانات بنجاح",
+          backgroundColor: Colors.redAccent,
+          icon: Icons.delete_sweep,
+        );
+      }
     }
   }
 
@@ -653,6 +776,33 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       }
       return;
     }
+
+    setState(() => _isLoading = true);
+
+    // توليد كود عشوائي من 6 أرقام
+    final random = Random();
+    final String shortCode = (100000 + random.nextInt(900000)).toString();
+
+    // حفظ الكود في جدول pairing_codes بصلاحية 5 دقائق
+    try {
+      await Supabase.instance.client.from('pairing_codes').insert({
+        'factory_id': factoryId,
+        'pairing_code': shortCode,
+        'expires_at': DateTime.now().add(const Duration(minutes: 5)).toIso8601String(),
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "فشل توليد كود الربط، تحقق من الاتصال بالإنترنت.",
+          backgroundColor: Colors.red,
+          icon: Icons.error_outline,
+        );
+      }
+      return;
+    }
+
+    setState(() => _isLoading = false);
 
     if (!mounted) return;
 
@@ -679,8 +829,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'وجه هاتف المساعد نحو هذا الكود',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+                'وجه هاتف المساعد نحو الكود، أو أعطه كود الربط اليدوي',
+                style: TextStyle(fontSize: 15, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -700,7 +850,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                 child: QrImageView(
                   data: factoryId,
                   version: QrVersions.auto,
-                  size: 200.0,
+                  size: 180.0,
                   backgroundColor: Colors.white,
                   dataModuleStyle: const QrDataModuleStyle(
                     dataModuleShape: QrDataModuleShape.square,
@@ -713,6 +863,41 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                 ),
               ),
               const SizedBox(height: 24),
+              const Text('كود الربط اليدوي:', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      shortCode,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 4,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    IconButton(
+                      icon: const Icon(Icons.copy, color: Colors.blue),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: shortCode));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('تم نسخ الكود')),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -737,24 +922,35 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
   Future<void> _openQRScanner() async {
     final authService = context.read<AuthService>();
-    // على سطح المكتب، بدلاً من مسح QR، نستخدم الإدخال اليدوي للكود
     final TextEditingController codeController = TextEditingController();
     
     final String? result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('ربط بالمصنع'),
+        title: const Row(
+          children: [
+            Icon(Icons.vpn_key, color: Colors.blue),
+            SizedBox(width: 10),
+            Text('ربط الجهاز يدوياً'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('أدخل معرف المصنع (Factory ID) الذي يزودك به المدير:'),
+            const Text('أدخل كود الربط المكون من 6 خانات أو المعرف الكامل للمصنع:'),
             const SizedBox(height: 16),
             TextField(
               controller: codeController,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
-                hintText: 'أدخل الكود هنا...',
+                labelText: 'كود الربط',
+                hintText: 'مثال: 550E84',
+                counterText: '',
               ),
+              maxLength: 36, // لدعم UUID أيضاً
+              keyboardType: TextInputType.text,
+              textCapitalization: TextCapitalization.characters, // تحويل تلقائي للحروف الكبيرة
               autofocus: true,
             ),
           ],
@@ -763,7 +959,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, codeController.text.trim()),
-            child: const Text('ربط الآن'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+            child: const Text('تأكيد الربط'),
           ),
         ],
       ),

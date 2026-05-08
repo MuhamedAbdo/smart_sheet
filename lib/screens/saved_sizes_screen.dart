@@ -48,8 +48,42 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         title: isSearching
             ? SavedSizeSearchBar(
                 onChanged: (v) => setState(() => searchQuery = v))
-            : const Text("سجل العملاء"),
-        centerTitle: !isSearching,
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("سجل العملاء"),
+                  const SizedBox(width: 8),
+                  ValueListenableBuilder(
+                    valueListenable: _savedSheetSizesBox.listenable(),
+                    builder: (context, Box box, _) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .primaryColor
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Theme.of(context)
+                                .primaryColor
+                                .withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Text(
+                          "${box.length}",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+        centerTitle: true,
         actions: [
           IconButton(
             icon: Icon(isSearching ? Icons.close : Icons.search),
