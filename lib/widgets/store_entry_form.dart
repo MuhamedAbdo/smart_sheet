@@ -106,34 +106,37 @@ class _StoreEntryFormState extends State<StoreEntryForm> {
     return AlertDialog(
       title: Text(widget.index == null ? "➕ إضافة وارد" : "✏️ تعديل وارد"),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: dateController,
-              readOnly: true,
-              decoration: const InputDecoration(labelText: "📅 التاريخ"),
-              onTap: () => _selectDate(context),
-            ),
-            TextField(
-              controller: productController,
-              decoration: const InputDecoration(labelText: "📦 الصنف"),
-            ),
-            TextField(
-              controller: unitController,
-              decoration: const InputDecoration(labelText: "📏 الوحدة"),
-            ),
-            TextField(
-              controller: quantityController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: "🔢 العدد"),
-            ),
-            TextField(
-              controller: notesController,
-              maxLines: 2,
-              decoration: const InputDecoration(labelText: "📝 الملاحظات"),
-            ),
-          ],
+        child: Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: dateController,
+                readOnly: true,
+                decoration: const InputDecoration(labelText: "📅 التاريخ"),
+                onTap: () => _selectDate(context),
+              ),
+              TextField(
+                controller: productController,
+                decoration: const InputDecoration(labelText: "📦 الصنف"),
+              ),
+              TextField(
+                controller: unitController,
+                decoration: const InputDecoration(labelText: "📏 الوحدة"),
+              ),
+              TextField(
+                controller: quantityController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "🔢 العدد"),
+              ),
+              TextField(
+                controller: notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: "📝 الملاحظات"),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [

@@ -133,34 +133,37 @@ class _WorkerFormState extends State<WorkerForm> {
       title: Text(
           widget.existingWorker == null ? "➕ إضافة عامل" : "✏️ تعديل العامل"),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: "👤 الاسم")),
-            const SizedBox(height: 10),
-            TextField(
-                controller: phoneController,
-                decoration: InputDecoration(
-                  labelText: "📞 الهاتف",
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.contact_phone, color: Colors.blue),
-                    onPressed: _pickContact,
-                    tooltip: "اختيار من جهات الاتصال",
+        child: Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: "👤 الاسم")),
+              const SizedBox(height: 10),
+              TextField(
+                  controller: phoneController,
+                  decoration: InputDecoration(
+                    labelText: "📞 الهاتف",
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.contact_phone, color: Colors.blue),
+                      onPressed: _pickContact,
+                      tooltip: "اختيار من جهات الاتصال",
+                    ),
                   ),
-                ),
-                keyboardType: TextInputType.phone),
-            const SizedBox(height: 10),
-            DropdownButtonFormField(
-              initialValue: job,
-              items: jobOptions
-                  .map((j) => DropdownMenuItem(value: j, child: Text(j)))
-                  .toList(),
-              onChanged: (v) => setState(() => job = v ?? 'عامل'),
-              decoration: const InputDecoration(labelText: "🛠 الوظيفة"),
-            ),
-          ],
+                  keyboardType: TextInputType.phone),
+              const SizedBox(height: 10),
+              DropdownButtonFormField(
+                initialValue: job,
+                items: jobOptions
+                    .map((j) => DropdownMenuItem(value: j, child: Text(j)))
+                    .toList(),
+                onChanged: (v) => setState(() => job = v ?? 'عامل'),
+                decoration: const InputDecoration(labelText: "🛠 الوظيفة"),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [

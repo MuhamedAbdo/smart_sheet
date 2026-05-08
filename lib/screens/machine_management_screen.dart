@@ -69,14 +69,24 @@ class MachineManagementScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('إضافة ماكينة جديدة'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'اسم الماكينة',
-            hintText: 'مثلاً: ماكينة 1، ماكينة 2...',
-            border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    labelText: 'اسم الماكينة',
+                    hintText: 'مثلاً: ماكينة 1، ماكينة 2...',
+                    border: OutlineInputBorder(),
+                  ),
+                  autofocus: true,
+                ),
+              ],
+            ),
           ),
-          autofocus: true,
         ),
         actions: [
           TextButton(

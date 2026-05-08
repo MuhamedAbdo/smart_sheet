@@ -199,41 +199,46 @@ class ActiveAbsenceCard extends StatelessWidget {
               Text("تسجيل عودة"),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text("تاريخ العودة", style: TextStyle(fontSize: 14)),
-                subtitle: Text(_formatDate(returnDateNotifier.value), style: const TextStyle(fontWeight: FontWeight.bold)),
-                trailing: const Icon(Icons.calendar_month, color: Colors.blue),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: returnDateNotifier.value,
-                    firstDate: action.date,
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    setState(() {
-                      returnDateNotifier.value = picked;
-                      daysController.text = calcDays().toString();
-                    });
-                  }
-                },
+          content: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text("تاريخ العودة", style: TextStyle(fontSize: 14)),
+                    subtitle: Text(_formatDate(returnDateNotifier.value), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    trailing: const Icon(Icons.calendar_month, color: Colors.blue),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: returnDateNotifier.value,
+                        firstDate: action.date,
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          returnDateNotifier.value = picked;
+                          daysController.text = calcDays().toString();
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: daysController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: "عدد الأيام النهائي",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      prefixIcon: const Icon(Icons.calculate_outlined),
+                      suffixText: "يوم",
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: daysController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: "عدد الأيام النهائي",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.calculate_outlined),
-                  suffixText: "يوم",
-                ),
-              ),
-            ],
+            ),
           ),
           actions: [
             TextButton(

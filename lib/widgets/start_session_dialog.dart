@@ -238,7 +238,17 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
         final c = TextEditingController();
         return AlertDialog(
           title: Text(title),
-          content: TextField(controller: c, autofocus: true),
+          content: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: c, autofocus: true),
+                ],
+              ),
+            ),
+          ),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context),

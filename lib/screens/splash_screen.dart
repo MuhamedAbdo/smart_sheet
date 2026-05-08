@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
-import 'home_screen.dart';
+import 'package:smart_sheet/widgets/auth_gate.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -27,7 +27,7 @@ class _SplashScreenState extends State<SplashScreen> {
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
+          pageBuilder: (context, animation, secondaryAnimation) => const AuthGate(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(
               opacity: animation,
@@ -39,8 +39,8 @@ class _SplashScreenState extends State<SplashScreen> {
       );
     } catch (e) {
       debugPrint("Navigation Error: $e");
-      // Fallback في حالة فشل الـ PageRouteBuilder المخصص
-      Navigator.pushReplacementNamed(context, '/home');
+      // Fallback
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthGate()));
     }
   }
 

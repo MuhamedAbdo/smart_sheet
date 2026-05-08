@@ -4,13 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/globals.dart';
+import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/utils/route_observer.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/home_screen.dart';
-import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
 
 import 'package:window_manager/window_manager.dart';
@@ -60,7 +60,7 @@ Future<void> main() async {
       await Hive.initFlutter();
       _registerAdapters();
       await Hive.openBox('settings');
-      
+
       // فتح صناديق العلاقات الأساسية
       await Hive.openBox<WorkerAction>('worker_actions');
       await Future.wait([
@@ -84,18 +84,20 @@ Future<void> main() async {
       await _initializeNotifications();
       debugPrint('✅ Notifications: تمت التهيئة بنجاح.');
     } catch (e) {
-      debugPrint('⚠️ Notifications: تعذّرت التهيئة (MissingPluginException مقبول): $e');
+      debugPrint(
+          '⚠️ Notifications: تعذّرت التهيئة (MissingPluginException مقبول): $e');
     }
 
     // تهيئة خدمة المزامنة (ستكتمل فقط إذا كان factory_id محفوظاً)
     await SyncService.instance.initialize();
-    debugPrint('✅ SyncService: تم استدعاء initialize() بعد تجاوز عقبة الإشعارات.');
+    debugPrint(
+        '✅ SyncService: تم استدعاء initialize() بعد تجاوز عقبة الإشعارات.');
 
     // 4. تهيئة نافذة سطح المكتب
     if (!kIsWeb && Platform.isWindows) {
       try {
         await windowManager.ensureInitialized();
-        
+
         WindowOptions windowOptions = const WindowOptions(
           size: Size(1280, 720),
           center: true,
@@ -142,9 +144,15 @@ void _registerAdapters() {
     Hive.registerAdapter(MaintenanceRecordAdapter());
   }
   if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(StoreEntryAdapter());
-  if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(ProductionReportAdapter());
-  if (!Hive.isAdapterRegistered(15)) Hive.registerAdapter(FlexoMachineAdapter());
-  if (!Hive.isAdapterRegistered(16)) Hive.registerAdapter(DowntimeIntervalAdapter());
+  if (!Hive.isAdapterRegistered(3)) {
+    Hive.registerAdapter(ProductionReportAdapter());
+  }
+  if (!Hive.isAdapterRegistered(15)) {
+    Hive.registerAdapter(FlexoMachineAdapter());
+  }
+  if (!Hive.isAdapterRegistered(16)) {
+    Hive.registerAdapter(DowntimeIntervalAdapter());
+  }
   if (!Hive.isAdapterRegistered(17)) Hive.registerAdapter(LiveSessionAdapter());
 }
 
@@ -185,7 +193,8 @@ class SmartSheetApp extends StatelessWidget {
 
     return MaterialApp(
       scaffoldMessengerKey: scaffoldMessengerKey,
-      navigatorKey: Provider.of<AuthService>(context, listen: false).navigatorKey,
+      navigatorKey:
+          Provider.of<AuthService>(context, listen: false).navigatorKey,
       navigatorObservers: [routeObserver],
       title: 'Smart Sheet',
       debugShowCheckedModeBanner: false,
@@ -206,6 +215,7 @@ class SmartSheetApp extends StatelessWidget {
       // ✅ تطبيق حجم الخط عالمياً والتخطيط المكتبي عبر الـ Builder
       builder: (context, child) {
         return Scaffold(
+          resizeToAvoidBottomInset: false,
           backgroundColor: themeProvider.theme.scaffoldBackgroundColor,
           body: Column(
             children: [
@@ -217,7 +227,8 @@ class SmartSheetApp extends StatelessWidget {
                       ValueListenableBuilder<String?>(
                         valueListenable: currentRouteNotifier,
                         builder: (context, routeName, child) {
-                          if (routeName == '/' || routeName == AuthScreen.routeName) {
+                          if (routeName == '/' ||
+                              routeName == AuthScreen.routeName) {
                             return const SizedBox.shrink();
                           }
                           return const DesktopSidebar();
@@ -226,7 +237,8 @@ class SmartSheetApp extends StatelessWidget {
                     Expanded(
                       child: MediaQuery(
                         data: MediaQuery.of(context).copyWith(
-                          textScaler: TextScaler.linear(themeProvider.fontScale),
+                          textScaler:
+                              TextScaler.linear(themeProvider.fontScale),
                         ),
                         child: child!,
                       ),
@@ -242,7 +254,6 @@ class SmartSheetApp extends StatelessWidget {
       home: const SplashScreen(),
       routes: {
         SettingsScreen.routeName: (_) => const SettingsScreen(),
-
         AuthScreen.routeName: (_) => const AuthScreen(),
         ForgotPasswordScreen.routeName: (_) => const ForgotPasswordScreen(),
         UpdatePasswordScreen.routeName: (_) => const UpdatePasswordScreen(),

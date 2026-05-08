@@ -258,101 +258,104 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         builder: (context, setState) => AlertDialog(
           title: Text("➕ ${actionType.value}"),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: actionType.value,
-                  items: const [
-                    DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
-                    DropdownMenuItem(
-                        value: 'أجازة عارضة', child: Text('أجازة عارضة')),
-                    DropdownMenuItem(value: 'غياب', child: Text('غياب')),
-                    DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
-                    DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
-                    DropdownMenuItem(value: 'إذن', child: Text('إذن')),
-                    DropdownMenuItem(
-                        value: 'تأمين صحي', child: Text('تأمين صحي')),
-                  ],
-                  onChanged: (v) =>
-                      setState(() => actionType.value = v ?? 'إجازة'),
-                ),
-                TextField(
-                  readOnly: true,
-                  controller: TextEditingController(text: _f(date.value)),
-                  decoration: const InputDecoration(labelText: "📅 التاريخ"),
-                  onTap: () async {
-                    final p = await showDatePicker(
-                      context: context,
-                      initialDate: date.value,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (p != null) setState(() => date.value = p);
-                  },
-                ),
-                if (actionType.value == 'إجازة' ||
-                    actionType.value == 'غياب') ...[
+            child: Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: actionType.value,
+                    items: const [
+                      DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
+                      DropdownMenuItem(
+                          value: 'أجازة عارضة', child: Text('أجازة عارضة')),
+                      DropdownMenuItem(value: 'غياب', child: Text('غياب')),
+                      DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
+                      DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
+                      DropdownMenuItem(value: 'إذن', child: Text('إذن')),
+                      DropdownMenuItem(
+                          value: 'تأمين صحي', child: Text('تأمين صحي')),
+                    ],
+                    onChanged: (v) =>
+                        setState(() => actionType.value = v ?? 'إجازة'),
+                  ),
                   TextField(
-                    controller: daysController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                        labelText: "🔢 عدد الأيام", hintText: "مثال: 1.5"),
+                    readOnly: true,
+                    controller: TextEditingController(text: _f(date.value)),
+                    decoration: const InputDecoration(labelText: "📅 التاريخ"),
+                    onTap: () async {
+                      final p = await showDatePicker(
+                        context: context,
+                        initialDate: date.value,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (p != null) setState(() => date.value = p);
+                    },
                   ),
-                ] else if (actionType.value == 'مكافئة' ||
-                    actionType.value == 'جزاء') ...[
-                  const SizedBox(height: 8),
-                  ToggleButtons(
-                    borderRadius: BorderRadius.circular(8),
-                    isSelected: [
-                      rewardType.value == 'amount',
-                      rewardType.value == 'days'
-                    ],
-                    onPressed: (int index) => setState(() =>
-                        rewardType.value = index == 0 ? 'amount' : 'days'),
-                    children: const [
-                      Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text("جنيه")),
-                      Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text("أيام")),
-                    ],
-                  ),
-                  if (rewardType.value == 'amount')
+                  if (actionType.value == 'إجازة' ||
+                      actionType.value == 'غياب') ...[
                     TextField(
-                      controller: amountController,
+                      controller: daysController,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(labelText: "💰 المبلغ"),
-                    )
-                  else
-                    DropdownButtonFormField<double>(
-                      initialValue: bonusDays.value,
-                      items: [
-                        const DropdownMenuItem(
-                            value: 0.25, child: Text('¼ يوم')),
-                        const DropdownMenuItem(
-                            value: 0.5, child: Text('½ يوم')),
-                        for (var i = 1; i <= 5; i++)
-                          DropdownMenuItem(
-                              value: i.toDouble(), child: Text('$i يوم')),
-                      ],
-                      onChanged: (v) => setState(() => bonusDays.value = v),
-                      decoration: const InputDecoration(labelText: "📅 الأيام"),
+                      decoration: const InputDecoration(
+                          labelText: "🔢 عدد الأيام", hintText: "مثال: 1.5"),
                     ),
-                ] else if (actionType.value == 'إذن' ||
-                    actionType.value == 'تأمين صحي') ...[
-                  _buildTimeField("⏰ خروج", startTime, context, setState),
-                  _buildTimeField("🔙 رجوع", endTime, context, setState),
+                  ] else if (actionType.value == 'مكافئة' ||
+                      actionType.value == 'جزاء') ...[
+                    const SizedBox(height: 8),
+                    ToggleButtons(
+                      borderRadius: BorderRadius.circular(8),
+                      isSelected: [
+                        rewardType.value == 'amount',
+                        rewardType.value == 'days'
+                      ],
+                      onPressed: (int index) => setState(() =>
+                          rewardType.value = index == 0 ? 'amount' : 'days'),
+                      children: const [
+                        Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text("جنيه")),
+                        Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text("أيام")),
+                      ],
+                    ),
+                    if (rewardType.value == 'amount')
+                      TextField(
+                        controller: amountController,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: "💰 المبلغ"),
+                      )
+                    else
+                      DropdownButtonFormField<double>(
+                        initialValue: bonusDays.value,
+                        items: [
+                          const DropdownMenuItem(
+                              value: 0.25, child: Text('¼ يوم')),
+                          const DropdownMenuItem(
+                              value: 0.5, child: Text('½ يوم')),
+                          for (var i = 1; i <= 5; i++)
+                            DropdownMenuItem(
+                                value: i.toDouble(), child: Text('$i يوم')),
+                        ],
+                        onChanged: (v) => setState(() => bonusDays.value = v),
+                        decoration: const InputDecoration(labelText: "📅 الأيام"),
+                      ),
+                  ] else if (actionType.value == 'إذن' ||
+                      actionType.value == 'تأمين صحي') ...[
+                    _buildTimeField("⏰ خروج", startTime, context, setState),
+                    _buildTimeField("🔙 رجوع", endTime, context, setState),
+                  ],
+                  TextField(
+                    controller: notesController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(labelText: "📝 ملاحظات"),
+                  ),
                 ],
-                TextField(
-                  controller: notesController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: "📝 ملاحظات"),
-                ),
-              ],
+              ),
             ),
           ),
           actions: [
@@ -433,101 +436,104 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         builder: (context, setState) => AlertDialog(
           title: const Text("🔄 تعديل"),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: actionType.value,
-                  items: const [
-                    DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
-                    DropdownMenuItem(
-                        value: 'أجازة عارضة', child: Text('أجازة عارضة')),
-                    DropdownMenuItem(value: 'غياب', child: Text('غياب')),
-                    DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
-                    DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
-                    DropdownMenuItem(value: 'إذن', child: Text('إذن')),
-                    DropdownMenuItem(
-                        value: 'تأمين صحي', child: Text('تأمين صحي')),
-                  ],
-                  onChanged: (v) =>
-                      setState(() => actionType.value = v ?? 'إجازة'),
-                ),
-                TextField(
-                  readOnly: true,
-                  controller: TextEditingController(text: _f(date.value)),
-                  decoration: const InputDecoration(labelText: "📅 التاريخ"),
-                  onTap: () async {
-                    final p = await showDatePicker(
-                      context: context,
-                      initialDate: date.value,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (p != null) setState(() => date.value = p);
-                  },
-                ),
-                if (actionType.value == 'إجازة' ||
-                    actionType.value == 'غياب') ...[
+            child: Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: actionType.value,
+                    items: const [
+                      DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
+                      DropdownMenuItem(
+                          value: 'أجازة عارضة', child: Text('أجازة عارضة')),
+                      DropdownMenuItem(value: 'غياب', child: Text('غياب')),
+                      DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
+                      DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
+                      DropdownMenuItem(value: 'إذن', child: Text('إذن')),
+                      DropdownMenuItem(
+                          value: 'تأمين صحي', child: Text('تأمين صحي')),
+                    ],
+                    onChanged: (v) =>
+                        setState(() => actionType.value = v ?? 'إجازة'),
+                  ),
                   TextField(
-                    controller: daysController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration:
-                        const InputDecoration(labelText: "🔢 عدد الأيام"),
+                    readOnly: true,
+                    controller: TextEditingController(text: _f(date.value)),
+                    decoration: const InputDecoration(labelText: "📅 التاريخ"),
+                    onTap: () async {
+                      final p = await showDatePicker(
+                        context: context,
+                        initialDate: date.value,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (p != null) setState(() => date.value = p);
+                    },
                   ),
-                ] else if (actionType.value == 'مكافئة' ||
-                    actionType.value == 'جزاء') ...[
-                  const SizedBox(height: 8),
-                  ToggleButtons(
-                    borderRadius: BorderRadius.circular(8),
-                    isSelected: [
-                      rewardType.value == 'amount',
-                      rewardType.value == 'days'
-                    ],
-                    onPressed: (int index) => setState(() =>
-                        rewardType.value = index == 0 ? 'amount' : 'days'),
-                    children: const [
-                      Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text("جنيه")),
-                      Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text("أيام")),
-                    ],
-                  ),
-                  if (rewardType.value == 'amount')
+                  if (actionType.value == 'إجازة' ||
+                      actionType.value == 'غياب') ...[
                     TextField(
-                      controller: amountController,
+                      controller: daysController,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(labelText: "💰 المبلغ"),
-                    )
-                  else
-                    DropdownButtonFormField<double>(
-                      initialValue: bonusDays.value,
-                      items: [
-                        const DropdownMenuItem(
-                            value: 0.25, child: Text('¼ يوم')),
-                        const DropdownMenuItem(
-                            value: 0.5, child: Text('½ يوم')),
-                        for (var i = 1; i <= 5; i++)
-                          DropdownMenuItem(
-                              value: i.toDouble(), child: Text('$i يوم')),
-                      ],
-                      onChanged: (v) => setState(() => bonusDays.value = v),
-                      decoration: const InputDecoration(labelText: "📅 الأيام"),
+                      decoration:
+                          const InputDecoration(labelText: "🔢 عدد الأيام"),
                     ),
-                ] else if (actionType.value == 'إذن' ||
-                    actionType.value == 'تأمين صحي') ...[
-                  _buildTimeField("⏰ خروج", startTime, context, setState),
-                  _buildTimeField("🔙 رجوع", endTime, context, setState),
+                  ] else if (actionType.value == 'مكافئة' ||
+                      actionType.value == 'جزاء') ...[
+                    const SizedBox(height: 8),
+                    ToggleButtons(
+                      borderRadius: BorderRadius.circular(8),
+                      isSelected: [
+                        rewardType.value == 'amount',
+                        rewardType.value == 'days'
+                      ],
+                      onPressed: (int index) => setState(() =>
+                          rewardType.value = index == 0 ? 'amount' : 'days'),
+                      children: const [
+                        Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text("جنيه")),
+                        Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text("أيام")),
+                      ],
+                    ),
+                    if (rewardType.value == 'amount')
+                      TextField(
+                        controller: amountController,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: "💰 المبلغ"),
+                      )
+                    else
+                      DropdownButtonFormField<double>(
+                        initialValue: bonusDays.value,
+                        items: [
+                          const DropdownMenuItem(
+                              value: 0.25, child: Text('¼ يوم')),
+                          const DropdownMenuItem(
+                              value: 0.5, child: Text('½ يوم')),
+                          for (var i = 1; i <= 5; i++)
+                            DropdownMenuItem(
+                                value: i.toDouble(), child: Text('$i يوم')),
+                        ],
+                        onChanged: (v) => setState(() => bonusDays.value = v),
+                        decoration: const InputDecoration(labelText: "📅 الأيام"),
+                      ),
+                  ] else if (actionType.value == 'إذن' ||
+                      actionType.value == 'تأمين صحي') ...[
+                    _buildTimeField("⏰ خروج", startTime, context, setState),
+                    _buildTimeField("🔙 رجوع", endTime, context, setState),
+                  ],
+                  TextField(
+                    controller: notesController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(labelText: "📝 ملاحظات"),
+                  ),
                 ],
-                TextField(
-                  controller: notesController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: "📝 ملاحظات"),
-                ),
-              ],
+              ),
             ),
           ),
           actions: [
