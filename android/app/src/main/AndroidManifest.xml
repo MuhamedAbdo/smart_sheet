@@ -66,7 +66,7 @@
             android:launchMode="singleTop"
             android:hardwareAccelerated="true"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustNothing">
 
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"

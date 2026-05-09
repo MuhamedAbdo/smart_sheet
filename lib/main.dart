@@ -23,6 +23,8 @@ import 'package:smart_sheet/screens/backup_restore_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
+import 'package:smart_sheet/screens/qr_scanner_screen.dart';
+import 'package:smart_sheet/screens/factory_link_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 
 // استيراد الموديلات
@@ -39,6 +41,9 @@ import 'package:smart_sheet/models/live_session.dart';
 // استيراد الخدمات والبروفايدر والشاشات
 import 'package:smart_sheet/config/constants.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/utils/asset_error_handler.dart';
+import 'package:smart_sheet/utils/performance_optimizer.dart';
+import 'package:smart_sheet/utils/connection_manager.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -74,12 +79,16 @@ Future<void> main() async {
       _openBackgroundBoxes();
     }
 
-    // 3. تهيئة Supabase والإشعارات
-    await Future.wait([
-      _initializeNotifications(),
-      Supabase.initialize(
-          url: supabaseUrl.trim(), anonKey: supabaseAnonKey.trim()),
-    ]);
+    // 3. تهيئة Supabase والإشعارات مع معالجة الأخطاء
+    try {
+      await Future.wait([
+        _initializeNotifications(),
+        _initializeSupabaseWithRetry(),
+      ]);
+    } catch (e) {
+      debugPrint("⚠️ Supabase initialization failed: $e");
+      // متابعة تشغيل التطبيق حتى لو فشل Supabase
+    }
 
     // تهيئة خدمة المزامنة (ستكتمل فقط إذا كان factory_id محفوظاً)
     await SyncService.instance.initialize();
@@ -109,7 +118,46 @@ Future<void> main() async {
     debugPrint("❌ Critical Initialization Error: $e");
   }
 
-  debugPrint("🚀 Reached runApp()");
+  // تهيئة معالج أخطاء الأصول قبل كل شيء
+    await AssetErrorHandler.handleAssetManifestError();
+    AssetErrorHandler.suppressRepeatedAssetErrors();
+    
+    // معالجة خاصة بمستخدمي Windows
+    await AssetErrorHandler.handleWindowsAssetIssues();
+    
+    // التحقق من صحة PlatformAssetBundle
+    final isValid = await AssetErrorHandler.validatePlatformAssetBundle();
+    if (!isValid) {
+      debugPrint("⚠️ PlatformAssetBundle validation failed, using fallbacks");
+    }
+    
+    // معالجة مشاكل CachingAssetBundle
+    await AssetErrorHandler.handleCachingAssetBundleIssues();
+    AssetErrorHandler.optimizeCachingPerformance();
+
+    // تهيئة محسن الأداء
+    PerformanceOptimizer.initialize();
+    PerformanceOptimizer.monitorPerformance();
+
+    // تهيئة مدير الاتصال
+    ConnectionManager.initialize();
+
+    debugPrint("🚀 Reached runApp()");
+  
+  // معالجة الأخطاء العالمية قبل runApp
+  FlutterError.onError = (FlutterErrorDetails details) {
+    if (details.exception.toString().contains('AssetManifest.bin') ||
+        details.exception.toString().contains('Unable to load asset')) {
+      debugPrint("🔧 Global asset error handler: ${details.exception}");
+      return;
+    }
+    
+    // عرض الأخطاء الأخرى في وضع التصحيح فقط
+    if (kDebugMode) {
+      FlutterError.presentError(details);
+    }
+  };
+  
   // 5. تشغيل التطبيق مع الـ Providers
   runApp(
     MultiProvider(
@@ -160,6 +208,25 @@ void _openBackgroundBoxes() {
   }
 }
 
+Future<void> _initializeSupabaseWithRetry() async {
+  for (int attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await Supabase.initialize(
+        url: supabaseUrl.trim(),
+        anonKey: supabaseAnonKey.trim(),
+      );
+      debugPrint("✅ Supabase initialized successfully on attempt $attempt");
+      return;
+    } catch (e) {
+      debugPrint("❌ Supabase initialization attempt $attempt failed: $e");
+      if (attempt == maxRetries) {
+        rethrow;
+      }
+      await Future.delayed(Duration(seconds: attempt * 2)); // Wait before retry
+    }
+  }
+}
+
 Future<void> _initializeNotifications() async {
   if (kIsWeb || !Platform.isAndroid) return;
   final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -183,7 +250,7 @@ class SmartSheetApp extends StatelessWidget {
       title: 'Smart Sheet',
       debugShowCheckedModeBanner: false,
       theme: themeProvider.theme,
-
+      
       // ✅ دعم اللغات والتقويم (DatePicker) لضمان عدم حدوث خطأ No MaterialLocalizations
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -196,8 +263,36 @@ class SmartSheetApp extends StatelessWidget {
       ],
       locale: const Locale('ar', 'SA'), // اللغة الافتراضية للتطبيق
 
-      // ✅ تطبيق حجم الخط عالمياً والتخطيط المكتبي عبر الـ Builder
+      // ✅ تحسينات الأداء والتمرير
+      scrollBehavior: const ScrollBehavior().copyWith(
+        physics: const ClampingScrollPhysics(),
+        overscroll: false,
+      ),
+      
+      // ✅ تطبيق حجم الخط عالمياً والتخطيط المكتبي ومعالجة أخطاء الأصول
       builder: (context, child) {
+        // معالجة أخطاء الأصول بشكل مباشر
+        ErrorWidget.builder = (FlutterErrorDetails errorDetails) {
+          if (errorDetails.exception.toString().contains('AssetManifest.bin') ||
+              errorDetails.exception.toString().contains('Unable to load asset')) {
+            debugPrint("🔧 Asset error caught by ErrorWidget: ${errorDetails.exception}");
+            return Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Icon(
+                Icons.image_not_supported,
+                color: Colors.grey.shade600,
+                size: 14,
+              ),
+            );
+          }
+          return ErrorWidget(errorDetails.exception);
+        };
+        
         return Scaffold(
           backgroundColor: themeProvider.theme.scaffoldBackgroundColor,
           body: Column(
@@ -246,6 +341,8 @@ class SmartSheetApp extends StatelessWidget {
             boxName: 'store_flexo', title: 'وارد المخزن'),
         '/workers': (_) => const WorkersScreen(
             departmentBoxName: 'workers', departmentTitle: 'طاقم العمل'),
+        '/qr_scanner': (_) => const QRScannerScreen(),
+        '/factory_link': (_) => const FactoryLinkScreen(),
         '/home': (_) => const HomeScreen(),
       },
     );

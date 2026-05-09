@@ -8,12 +8,14 @@ class UserState {
   final String? errorMessage;
   final bool isAuthenticated;
   final String? role;
+  final String? factoryId;
 
   UserState({
     this.user,
     this.isLoading = false,
     this.errorMessage,
     this.role,
+    this.factoryId,
   }) : isAuthenticated = user != null;
 
   // حالة التحميل
@@ -22,12 +24,14 @@ class UserState {
     bool? isLoading,
     String? errorMessage,
     String? role,
+    String? factoryId,
   }) {
     return UserState(
       user: user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
       role: role ?? this.role,
+      factoryId: factoryId ?? this.factoryId,
     );
   }
 
@@ -42,7 +46,7 @@ class UserState {
   }
 
   // حالة مصادق
-  factory UserState.authenticated(User user, {String? role}) {
-    return UserState(user: user, role: role);
+  factory UserState.authenticated(User user, {String? role, String? factoryId}) {
+    return UserState(user: user, role: role, factoryId: factoryId);
   }
 }

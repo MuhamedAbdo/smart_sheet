@@ -11,6 +11,9 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/services/pairing_service.dart';
+import 'package:smart_sheet/screens/qr_scanner_screen.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -728,25 +731,130 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   }
 
   Future<void> _openQRScanner() async {
-    // على سطح المكتب، نستخدم كود الربط المكون من 6 أرقام
+    final String? result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.link, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('ربط جهاز الكمبيوتر'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'اختر طريقة ربط الجهاز:',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            // خيار إدخال الكود
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context, 'manual');
+                },
+                icon: const Icon(Icons.keyboard, size: 24),
+                label: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'إدخال الكود',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'استخدام لوحة المفاتيح',
+                      style: TextStyle(fontSize: 12, color: Colors.white70),
+                    ),
+                  ],
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[700],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // خيار مسح QR Code
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context, 'qr');
+                },
+                icon: const Icon(Icons.qr_code_scanner, size: 24),
+                label: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'مسح QR Code',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'استخدام الكاميرا',
+                      style: TextStyle(fontSize: 12, color: Colors.white70),
+                    ),
+                  ],
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green[600],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      if (result == 'manual') {
+        await _showManualCodeEntry();
+      } else if (result == 'qr') {
+        await _showQRScanner();
+      }
+    }
+  }
+
+  Future<void> _showManualCodeEntry() async {
     final TextEditingController codeController = TextEditingController();
 
     final String? result = await showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-          insetPadding: EdgeInsets.zero,
-          contentPadding: EdgeInsets.zero,
-        title: const Row(
-          children: [
-            Icon(Icons.computer, color: Colors.blue),
-            SizedBox(width: 8),
-            Text('ربط جهاز الكمبيوتر'),
-          ],
-        ),
+      builder: (ctx) => Dialog(
+        alignment: Alignment.topCenter,
+        insetPadding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 16),
+        child: Scaffold(
+          resizeToAvoidBottomInset: false,
+          body: AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.keyboard, color: Colors.blue),
+                SizedBox(width: 8),
+                Text('إدخال كود الربط'),
+              ],
+            ),
         content: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+            padding: const EdgeInsets.all(16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -754,49 +862,55 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                   'أدخل كود الربط المكون من 6 أرقام الذي يظهر في تطبيق الأدمن:',
                   style: TextStyle(fontSize: 14, color: Colors.black87),
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: codeController,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 6,
-                    color: Colors.white,
-                  ),
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.blue, width: 2),
+                const SizedBox(height: 12),
+                Column(
+                  children: [
+                    // Display field
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blue, width: 2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: TextField(
+                        controller: codeController,
+                        keyboardType: TextInputType.none,
+                        maxLength: 6,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 6,
+                          color: Colors.black,
+                        ),
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          hintText: '123456',
+                          hintStyle: TextStyle(
+                            fontSize: 24,
+                            color: Colors.grey[400],
+                            fontWeight: FontWeight.bold,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                        ),
+                        readOnly: true,
+                        showCursor: false,
+                        onTap: () {
+                          // Don't show keyboard
+                          FocusScope.of(context).unfocus();
+                        },
+                      ),
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.blue.shade300, width: 2),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.blue, width: 3),
-                    ),
-                    hintText: '123 456',
-                    hintStyle: const TextStyle(
-                      fontSize: 24,
-                      color: Colors.white70,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                    filled: true,
-                    fillColor: Colors.blue.shade900.withValues(alpha: 0.3),
-                  ),
-                  autofocus: true,
+                    const SizedBox(height: 20),
+                    // Custom number pad
+                    _buildCustomNumberPad(codeController),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'صالح لمدة 5 دقائق فقط',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.white70,
+                    color: Colors.orange,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -815,18 +929,176 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             icon: const Icon(Icons.link),
             label: const Text('ربط الآن'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[900],
+              backgroundColor: Colors.blue[700],
               foregroundColor: Colors.white,
             ),
           ),
         ],
+          ),
+        ),
       ),
     );
 
     if (result != null && result.isNotEmpty) {
-      // إزالة المسافات من الكود قبل التحقق
       final cleanCode = result.replaceAll(' ', '').replaceAll('-', '');
       await _verifyAndLinkWithCode(cleanCode);
+    }
+  }
+
+  Widget _buildCustomNumberPad(TextEditingController controller) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          // Row 1
+          Row(
+            children: [
+              _buildNumberButton('1', controller),
+              _buildNumberButton('2', controller),
+              _buildNumberButton('3', controller),
+            ],
+          ),
+          const SizedBox(height: 1),
+          // Row 2
+          Row(
+            children: [
+              _buildNumberButton('4', controller),
+              _buildNumberButton('5', controller),
+              _buildNumberButton('6', controller),
+            ],
+          ),
+          const SizedBox(height: 1),
+          // Row 3
+          Row(
+            children: [
+              _buildNumberButton('7', controller),
+              _buildNumberButton('8', controller),
+              _buildNumberButton('9', controller),
+            ],
+          ),
+          const SizedBox(height: 1),
+          // Row 4
+          Row(
+            children: [
+              _buildNumberButton('', controller),
+              _buildNumberButton('0', controller),
+              _buildDeleteButton(controller),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNumberButton(String number, TextEditingController controller) {
+    if (number.isEmpty) {
+      return Expanded(
+        child: Container(
+          margin: const EdgeInsets.all(1),
+          child: const SizedBox(),
+        ),
+      );
+    }
+
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.all(1),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              if (controller.text.length < 6) {
+                controller.text += number;
+              }
+            },
+            child: Container(
+              height: 50,
+              alignment: Alignment.center,
+              child: Text(
+                number,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeleteButton(TextEditingController controller) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.all(1),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              if (controller.text.isNotEmpty) {
+                final newText = controller.text.substring(0, controller.text.length - 1);
+                controller.text = newText;
+              }
+            },
+            child: Container(
+              height: 50,
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.backspace_outlined,
+                size: 20,
+                color: Colors.black54,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showQRScanner() async {
+    // التحقق مما إذا كان الجهاز يدعم مسح QR
+    if (kIsWeb || Platform.isWindows) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('قارئ QR Code متاح فقط على الأجهزة المحمولة'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final String? result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const QRScannerScreen(),
+        ),
+      );
+
+      if (result != null && result.isNotEmpty && mounted) {
+        final cleanCode = result.replaceAll(' ', '').replaceAll('-', '');
+        await _verifyAndLinkWithCode(cleanCode);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في فتح قارئ QR: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

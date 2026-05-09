@@ -64,14 +64,16 @@ class AuthService extends ChangeNotifier {
           .maybeSingle();
       
       if (response != null) {
+        String? factoryId;
         if (response['factory_id'] != null) {
-          await storage.write(key: 'factory_id', value: response['factory_id'].toString());
+          factoryId = response['factory_id'].toString();
+          await storage.write(key: 'factory_id', value: factoryId);
         }
         
         final role = response['role']?.toString() ?? 'employee';
         await storage.write(key: 'user_role', value: role);
         
-        _state = _state.copyWith(role: role);
+        _state = _state.copyWith(role: role, factoryId: factoryId);
         notifyListeners();
 
         // تفعيل Real-time channels بعد تخزين factory_id
@@ -92,6 +94,7 @@ class AuthService extends ChangeNotifier {
     const storage = FlutterSecureStorage();
     await storage.delete(key: 'factory_id');
     await storage.delete(key: 'user_role');
+    _state = _state.copyWith(factoryId: null);
     // إلغاء Real-time channels عند تسجيل الخروج
     unawaited(SyncService.instance.dispose());
   }
@@ -277,7 +280,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// �🚪 تسجيل الخروج
+  /// 🚪 تسجيل الخروج
   Future<void> signOut() async {
     _state = _state.copyWith(isLoading: true, errorMessage: null);
     notifyListeners();
@@ -288,6 +291,43 @@ class AuthService extends ChangeNotifier {
       _state = UserState.unauthenticated()
           .copyWith(errorMessage: 'فشل تسجيل الخروج: $e');
       notifyListeners();
+    }
+  }
+
+  /// 🔓 فك الارتباط بالمصنع
+  Future<String?> unlinkFactory() async {
+    _state = _state.copyWith(isLoading: true, errorMessage: null);
+    notifyListeners();
+
+    try {
+      const storage = FlutterSecureStorage();
+      
+      // حذف factory_id من التخزين المحلي
+      await storage.delete(key: 'factory_id');
+      
+      // تحديث الحالة
+      _state = _state.copyWith(isLoading: false, factoryId: null);
+      notifyListeners();
+
+      // إعادة تهيئة SyncService بدون factory_id
+      await SyncService.instance.dispose();
+      
+      return null; // نجاح
+    } catch (e) {
+      _state = _state.copyWith(isLoading: false, errorMessage: 'فشل فك الارتباط: $e');
+      notifyListeners();
+      return 'فشل فك الارتباط: $e';
+    }
+  }
+
+  /// 🔍 الحصول على factory_id من التخزين المحلي
+  Future<String?> getFactoryId() async {
+    try {
+      const storage = FlutterSecureStorage();
+      return await storage.read(key: 'factory_id');
+    } catch (e) {
+      debugPrint('Error getting factory_id: $e');
+      return null;
     }
   }
 }
