@@ -254,7 +254,10 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
 
   Widget _buildChainTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+      padding: EdgeInsets.fromLTRB(
+        16.0, 16.0, 16.0,
+        16.0 + MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Column(
         children: [
           TextField(
@@ -371,7 +374,10 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
 
   Widget _buildAutoTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+      padding: EdgeInsets.fromLTRB(
+        16.0, 16.0, 16.0,
+        16.0 + MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Column(
         children: [
           TextField(
@@ -527,6 +533,7 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        resizeToAvoidBottomInset: true,
         appBar: AppBar(
           title: const Text("ضبط تركيب السيريل"),
           centerTitle: true,

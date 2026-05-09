@@ -272,6 +272,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         iconTheme: IconThemeData(color: appBarIconColor),
         title: _isSearching

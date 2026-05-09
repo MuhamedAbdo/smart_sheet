@@ -124,6 +124,7 @@ class _WorkerFormState extends State<WorkerForm> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text(
           widget.existingWorker == null ? "➕ إضافة عامل" : "✏️ تعديل العامل"),
       content: SingleChildScrollView(

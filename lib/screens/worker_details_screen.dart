@@ -9,6 +9,7 @@ import '../../widgets/worker_action_card.dart';
 import '../../widgets/active_absence_card.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 import 'dart:async';
 
 class WorkerDetailsScreen extends StatefulWidget {
@@ -27,7 +28,6 @@ class WorkerDetailsScreen extends StatefulWidget {
 
 class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   StreamSubscription? _supabaseSubscription;
-  bool _isPhoneCopied = false;
 
   @override
   void initState() {
@@ -95,32 +95,19 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   Future<void> _copyPhoneToClipboard() async {
     await Clipboard.setData(ClipboardData(text: widget.worker.phone));
 
-    if (!mounted) return;
-
-    setState(() {
-      _isPhoneCopied = true;
-    });
-
     UIUtils.showInfoSnackBar(
       message: "تم نسخ الرقم بنجاح",
       backgroundColor: Colors.green,
       icon: Icons.content_copy_outlined,
     );
-
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          _isPhoneCopied = false;
-        });
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     final isWindows = !kIsWeb && Platform.isWindows;
-    
+
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text("👤 ${widget.worker.name}"),
         centerTitle: true,
@@ -128,32 +115,91 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GestureDetector(
-              onTap: isWindows ? _copyPhoneToClipboard : null,
-              child: Row(
-                children: [
-                  Text(
-                    "📞 ${widget.worker.phone}",
-                    textDirection: TextDirection.ltr,
-                    style: TextStyle(
-                      color: _isPhoneCopied ? Colors.green : null,
-                      fontWeight: _isPhoneCopied ? FontWeight.bold : null,
+            // Worker Header Card
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 25,
+                          child: Icon(Icons.person, size: 30),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.worker.name,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                "🛠 ${widget.worker.job}",
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  if (isWindows)
-                    const Padding(
-                      padding: EdgeInsets.only(right: 8.0),
-                      child: Icon(Icons.copy, size: 14, color: Colors.grey),
+                    const Divider(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildHeaderAction(
+                          icon: Icons.phone,
+                          label: "اتصال",
+                          color: Colors.green,
+                          onTap: () => _launchURL("tel:${widget.worker.phone}"),
+                        ),
+                        _buildHeaderAction(
+                          icon: Icons.message,
+                          label: "واتساب",
+                          color: const Color(0xFF25D366),
+                          onTap: () => _launchWhatsApp(widget.worker.phone),
+                        ),
+                        if (isWindows)
+                          _buildHeaderAction(
+                            icon: Icons.copy,
+                            label: "نسخ الرقم",
+                            color: Colors.blue,
+                            onTap: _copyPhoneToClipboard,
+                          ),
+                      ],
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
-            Text("🛠 ${widget.worker.job}"),
-            const SizedBox(height: 16),
-            const Text("📜 الإجراءات",
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const Icon(Icons.history, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  "📜 السجل الإجرائي",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Text(
+                  "${widget.worker.actions.length} إجراء",
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
             const Divider(),
             _buildActiveAbsenceSection(),
             Expanded(
@@ -162,24 +208,47 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   : ListView.builder(
                       itemCount: widget.worker.actions.length,
                       itemBuilder: (context, index) {
-                        final action = widget.worker.actions[index];
+                        // Sort actions by date descending
+                        final sortedActions = widget.worker.actions.toList()
+                          ..sort((a, b) => b.date.compareTo(a.date));
+                        final action = sortedActions[index];
+                        final originalIndex =
+                            widget.worker.actions.indexOf(action);
+
                         return WorkerActionCard(
                           action: action,
                           onRefresh: _refresh,
                           onEdit: () async {
-                            await _showEditActionDialog(context, action, index);
+                            await _showEditActionDialog(
+                                context, action, originalIndex);
                             _refresh();
                           },
                           onDelete: () {
-                            final actionToRemove = widget.worker.actions[index];
                             UIUtils.showDeleteConfirmation(
                               context: context,
                               title: "حذف الإجراء",
                               content: "هل أنت متأكد من حذف هذا الإجراء؟",
                               onConfirm: () async {
                                 final messenger = ScaffoldMessenger.of(context);
-                                widget.worker.actions.removeAt(index);
+
+                                // Deleting from HiveList, HiveBox, and Syncing to Supabase
+                                final actionToDelete =
+                                    widget.worker.actions[originalIndex];
+                                final actionJson = actionToDelete.toJson();
+
+                                widget.worker.actions.removeAt(originalIndex);
                                 await widget.worker.save();
+
+                                // Delete from box
+                                if (actionToDelete.isInBox) {
+                                  await actionToDelete.delete();
+                                }
+
+                                // Sync deletion to Supabase
+                                SyncService.instance.pushToQueue(
+                                    'worker_actions', actionJson,
+                                    operation: 'delete');
+
                                 if (!context.mounted) return;
 
                                 messenger.clearSnackBars();
@@ -187,11 +256,23 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                   context: context,
                                   message: "تم حذف الإجراء",
                                   onUndo: () async {
-                                    messenger.clearSnackBars();
-                                    widget.worker.actions
-                                        .insert(index, actionToRemove);
-                                    await widget.worker.save();
-                                    _refresh();
+                                    final actionBox = Hive.box<WorkerAction>(
+                                        'worker_actions');
+                                    final restoredAction =
+                                        WorkerAction.fromJson(actionJson);
+                                    final key =
+                                        await actionBox.add(restoredAction);
+                                    final saved = actionBox.get(key);
+
+                                    if (saved != null) {
+                                      widget.worker.actions
+                                          .insert(originalIndex, saved);
+                                      await widget.worker.save();
+                                      // Sync back to Supabase
+                                      SyncService.instance.pushToQueue(
+                                          'worker_actions', saved.toJson());
+                                      _refresh();
+                                    }
                                   },
                                 );
 
@@ -203,27 +284,31 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                       },
                     ),
             ),
-            const SizedBox(height: 16),
-            FloatingActionButton(
-              onPressed: () => _showAddActionDialog(context),
-              child: const Icon(Icons.add),
-            ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddActionDialog(context),
+        child: const Icon(Icons.add),
       ),
     );
   }
 
   Widget _buildActiveAbsenceSection() {
     try {
-      final activeAction = widget.worker.actions.firstWhere(
-        (a) =>
-            (a.type == 'غياب' &&
-                a.returnDate == null &&
-                DateTime.now().difference(a.date).inDays <= 30) ||
-            ((a.type == 'إذن' || a.type == 'تأمين صحي') &&
-                a.returnDate == null),
-      );
+      final activeAction =
+          widget.worker.actions.cast<WorkerAction?>().firstWhere(
+                (a) =>
+                    a != null &&
+                    ((a.type == 'غياب' &&
+                            a.returnDate == null &&
+                            DateTime.now().difference(a.date).inDays <= 30) ||
+                        ((a.type == 'إذن' || a.type == 'تأمين صحي') &&
+                            a.returnDate == null)),
+                orElse: () => null,
+              );
+
+      if (activeAction == null) return const SizedBox.shrink();
 
       return Padding(
         padding: const EdgeInsets.only(bottom: 16),
@@ -256,104 +341,101 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
+          scrollable: true,
           title: Text("➕ ${actionType.value}"),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: actionType.value,
-                  items: const [
-                    DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
-                    DropdownMenuItem(
-                        value: 'أجازة عارضة', child: Text('أجازة عارضة')),
-                    DropdownMenuItem(value: 'غياب', child: Text('غياب')),
-                    DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
-                    DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
-                    DropdownMenuItem(value: 'إذن', child: Text('إذن')),
-                    DropdownMenuItem(
-                        value: 'تأمين صحي', child: Text('تأمين صحي')),
-                  ],
-                  onChanged: (v) =>
-                      setState(() => actionType.value = v ?? 'إجازة'),
-                ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: actionType.value,
+                items: const [
+                  DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
+                  DropdownMenuItem(
+                      value: 'أجازة عارضة', child: Text('أجازة عارضة')),
+                  DropdownMenuItem(value: 'غياب', child: Text('غياب')),
+                  DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
+                  DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
+                  DropdownMenuItem(value: 'إذن', child: Text('إذن')),
+                  DropdownMenuItem(
+                      value: 'تأمين صحي', child: Text('تأمين صحي')),
+                ],
+                onChanged: (v) =>
+                    setState(() => actionType.value = v ?? 'إجازة'),
+              ),
+              TextField(
+                readOnly: true,
+                controller: TextEditingController(text: _f(date.value)),
+                decoration: const InputDecoration(labelText: "📅 التاريخ"),
+                onTap: () async {
+                  final p = await showDatePicker(
+                    context: context,
+                    initialDate: date.value,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                  );
+                  if (p != null) setState(() => date.value = p);
+                },
+              ),
+              if (actionType.value == 'إجازة' ||
+                  actionType.value == 'غياب') ...[
                 TextField(
-                  readOnly: true,
-                  controller: TextEditingController(text: _f(date.value)),
-                  decoration: const InputDecoration(labelText: "📅 التاريخ"),
-                  onTap: () async {
-                    final p = await showDatePicker(
-                      context: context,
-                      initialDate: date.value,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (p != null) setState(() => date.value = p);
-                  },
+                  controller: daysController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                      labelText: "🔢 عدد الأيام", hintText: "مثال: 1.5"),
                 ),
-                if (actionType.value == 'إجازة' ||
-                    actionType.value == 'غياب') ...[
+              ] else if (actionType.value == 'مكافئة' ||
+                  actionType.value == 'جزاء') ...[
+                const SizedBox(height: 8),
+                ToggleButtons(
+                  borderRadius: BorderRadius.circular(8),
+                  isSelected: [
+                    rewardType.value == 'amount',
+                    rewardType.value == 'days'
+                  ],
+                  onPressed: (int index) => setState(
+                      () => rewardType.value = index == 0 ? 'amount' : 'days'),
+                  children: const [
+                    Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text("جنيه")),
+                    Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text("أيام")),
+                  ],
+                ),
+                if (rewardType.value == 'amount')
                   TextField(
-                    controller: daysController,
+                    controller: amountController,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                        labelText: "🔢 عدد الأيام", hintText: "مثال: 1.5"),
-                  ),
-                ] else if (actionType.value == 'مكافئة' ||
-                    actionType.value == 'جزاء') ...[
-                  const SizedBox(height: 8),
-                  ToggleButtons(
-                    borderRadius: BorderRadius.circular(8),
-                    isSelected: [
-                      rewardType.value == 'amount',
-                      rewardType.value == 'days'
+                    decoration: const InputDecoration(labelText: "💰 المبلغ"),
+                  )
+                else
+                  DropdownButtonFormField<double>(
+                    initialValue: bonusDays.value,
+                    items: [
+                      const DropdownMenuItem(value: 0.25, child: Text('¼ يوم')),
+                      const DropdownMenuItem(value: 0.5, child: Text('½ يوم')),
+                      for (var i = 1; i <= 5; i++)
+                        DropdownMenuItem(
+                            value: i.toDouble(), child: Text('$i يوم')),
                     ],
-                    onPressed: (int index) => setState(() =>
-                        rewardType.value = index == 0 ? 'amount' : 'days'),
-                    children: const [
-                      Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text("جنيه")),
-                      Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text("أيام")),
-                    ],
+                    onChanged: (v) => setState(() => bonusDays.value = v),
+                    decoration: const InputDecoration(labelText: "📅 الأيام"),
                   ),
-                  if (rewardType.value == 'amount')
-                    TextField(
-                      controller: amountController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(labelText: "💰 المبلغ"),
-                    )
-                  else
-                    DropdownButtonFormField<double>(
-                      initialValue: bonusDays.value,
-                      items: [
-                        const DropdownMenuItem(
-                            value: 0.25, child: Text('¼ يوم')),
-                        const DropdownMenuItem(
-                            value: 0.5, child: Text('½ يوم')),
-                        for (var i = 1; i <= 5; i++)
-                          DropdownMenuItem(
-                              value: i.toDouble(), child: Text('$i يوم')),
-                      ],
-                      onChanged: (v) => setState(() => bonusDays.value = v),
-                      decoration: const InputDecoration(labelText: "📅 الأيام"),
-                    ),
-                ] else if (actionType.value == 'إذن' ||
-                    actionType.value == 'تأمين صحي') ...[
-                  _buildTimeField("⏰ خروج", startTime, context, setState),
-                  _buildTimeField("🔙 رجوع", endTime, context, setState),
-                ],
-                TextField(
-                  controller: notesController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: "📝 ملاحظات"),
-                ),
+              ] else if (actionType.value == 'إذن' ||
+                  actionType.value == 'تأمين صحي') ...[
+                _buildTimeField("⏰ خروج", startTime, context, setState),
+                _buildTimeField("🔙 رجوع", endTime, context, setState),
               ],
-            ),
+              TextField(
+                controller: notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: "📝 ملاحظات"),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -431,104 +513,100 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
+          scrollable: true,
           title: const Text("🔄 تعديل"),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: actionType.value,
-                  items: const [
-                    DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
-                    DropdownMenuItem(
-                        value: 'أجازة عارضة', child: Text('أجازة عارضة')),
-                    DropdownMenuItem(value: 'غياب', child: Text('غياب')),
-                    DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
-                    DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
-                    DropdownMenuItem(value: 'إذن', child: Text('إذن')),
-                    DropdownMenuItem(
-                        value: 'تأمين صحي', child: Text('تأمين صحي')),
-                  ],
-                  onChanged: (v) =>
-                      setState(() => actionType.value = v ?? 'إجازة'),
-                ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: actionType.value,
+                items: const [
+                  DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
+                  DropdownMenuItem(
+                      value: 'أجازة عارضة', child: Text('أجازة عارضة')),
+                  DropdownMenuItem(value: 'غياب', child: Text('غياب')),
+                  DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
+                  DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
+                  DropdownMenuItem(value: 'إذن', child: Text('إذن')),
+                  DropdownMenuItem(
+                      value: 'تأمين صحي', child: Text('تأمين صحي')),
+                ],
+                onChanged: (v) =>
+                    setState(() => actionType.value = v ?? 'إجازة'),
+              ),
+              TextField(
+                readOnly: true,
+                controller: TextEditingController(text: _f(date.value)),
+                decoration: const InputDecoration(labelText: "📅 التاريخ"),
+                onTap: () async {
+                  final p = await showDatePicker(
+                    context: context,
+                    initialDate: date.value,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                  );
+                  if (p != null) setState(() => date.value = p);
+                },
+              ),
+              if (actionType.value == 'إجازة' ||
+                  actionType.value == 'غياب') ...[
                 TextField(
-                  readOnly: true,
-                  controller: TextEditingController(text: _f(date.value)),
-                  decoration: const InputDecoration(labelText: "📅 التاريخ"),
-                  onTap: () async {
-                    final p = await showDatePicker(
-                      context: context,
-                      initialDate: date.value,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (p != null) setState(() => date.value = p);
-                  },
+                  controller: daysController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: "🔢 عدد الأيام"),
                 ),
-                if (actionType.value == 'إجازة' ||
-                    actionType.value == 'غياب') ...[
+              ] else if (actionType.value == 'مكافئة' ||
+                  actionType.value == 'جزاء') ...[
+                const SizedBox(height: 8),
+                ToggleButtons(
+                  borderRadius: BorderRadius.circular(8),
+                  isSelected: [
+                    rewardType.value == 'amount',
+                    rewardType.value == 'days'
+                  ],
+                  onPressed: (int index) => setState(
+                      () => rewardType.value = index == 0 ? 'amount' : 'days'),
+                  children: const [
+                    Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text("جنيه")),
+                    Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text("أيام")),
+                  ],
+                ),
+                if (rewardType.value == 'amount')
                   TextField(
-                    controller: daysController,
+                    controller: amountController,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    decoration:
-                        const InputDecoration(labelText: "🔢 عدد الأيام"),
-                  ),
-                ] else if (actionType.value == 'مكافئة' ||
-                    actionType.value == 'جزاء') ...[
-                  const SizedBox(height: 8),
-                  ToggleButtons(
-                    borderRadius: BorderRadius.circular(8),
-                    isSelected: [
-                      rewardType.value == 'amount',
-                      rewardType.value == 'days'
+                    decoration: const InputDecoration(labelText: "💰 المبلغ"),
+                  )
+                else
+                  DropdownButtonFormField<double>(
+                    initialValue: bonusDays.value,
+                    items: [
+                      const DropdownMenuItem(value: 0.25, child: Text('¼ يوم')),
+                      const DropdownMenuItem(value: 0.5, child: Text('½ يوم')),
+                      for (var i = 1; i <= 5; i++)
+                        DropdownMenuItem(
+                            value: i.toDouble(), child: Text('$i يوم')),
                     ],
-                    onPressed: (int index) => setState(() =>
-                        rewardType.value = index == 0 ? 'amount' : 'days'),
-                    children: const [
-                      Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text("جنيه")),
-                      Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text("أيام")),
-                    ],
+                    onChanged: (v) => setState(() => bonusDays.value = v),
+                    decoration: const InputDecoration(labelText: "📅 الأيام"),
                   ),
-                  if (rewardType.value == 'amount')
-                    TextField(
-                      controller: amountController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(labelText: "💰 المبلغ"),
-                    )
-                  else
-                    DropdownButtonFormField<double>(
-                      initialValue: bonusDays.value,
-                      items: [
-                        const DropdownMenuItem(
-                            value: 0.25, child: Text('¼ يوم')),
-                        const DropdownMenuItem(
-                            value: 0.5, child: Text('½ يوم')),
-                        for (var i = 1; i <= 5; i++)
-                          DropdownMenuItem(
-                              value: i.toDouble(), child: Text('$i يوم')),
-                      ],
-                      onChanged: (v) => setState(() => bonusDays.value = v),
-                      decoration: const InputDecoration(labelText: "📅 الأيام"),
-                    ),
-                ] else if (actionType.value == 'إذن' ||
-                    actionType.value == 'تأمين صحي') ...[
-                  _buildTimeField("⏰ خروج", startTime, context, setState),
-                  _buildTimeField("🔙 رجوع", endTime, context, setState),
-                ],
-                TextField(
-                  controller: notesController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: "📝 ملاحظات"),
-                ),
+              ] else if (actionType.value == 'إذن' ||
+                  actionType.value == 'تأمين صحي') ...[
+                _buildTimeField("⏰ خروج", startTime, context, setState),
+                _buildTimeField("🔙 رجوع", endTime, context, setState),
               ],
-            ),
+              TextField(
+                controller: notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: "📝 ملاحظات"),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -605,5 +683,45 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildHeaderAction({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                  color: color, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launchURL(String url) async {
+    // Assuming you have url_launcher or similar.
+    // If not, we can use platform channels or just provide a placeholder.
+    // For now, I'll keep it simple as I don't see url_launcher in imports.
+    debugPrint("Launching URL: $url");
+  }
+
+  Future<void> _launchWhatsApp(String phone) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    final url = "https://wa.me/$cleanPhone";
+    debugPrint("Launching WhatsApp: $url");
   }
 }

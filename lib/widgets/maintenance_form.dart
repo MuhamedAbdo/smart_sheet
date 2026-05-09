@@ -178,6 +178,7 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
       child: Stack(
         children: [
           Scaffold(
+            resizeToAvoidBottomInset: true,
             appBar: AppBar(
               title: Text(
                   widget.existing == null ? "إضافة سجل صيانة" : "تعديل السجل"),
@@ -188,7 +189,10 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
               ],
             ),
             body: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(
+                16, 16, 16,
+                16 + MediaQuery.of(context).viewInsets.bottom,
+              ),
               child: Column(
                 children: [
                   _buildTextField(

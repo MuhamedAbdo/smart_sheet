@@ -79,4 +79,47 @@ class LiveSession extends HiveObject {
     final totalElapsed = DateTime.now().difference(startTime);
     return totalElapsed - totalDowntime;
   }
+
+  factory LiveSession.fromJson(Map<String, dynamic> json) {
+    return LiveSession(
+      id: (json['id'] ?? json['sync_id'] ?? '').toString(),
+      machineName: json['machine_name'] ?? json['machineName'] ?? '',
+      clientName: json['client_name'] ?? json['clientName'] ?? '',
+      productName: json['product_name'] ?? json['productName'] ?? '',
+      productCode: json['product_code'] ?? json['productCode'] ?? '',
+      orderNumber: json['order_number'] ?? json['orderNumber'] ?? '',
+      technicianName: json['technician_name'] ?? json['technicianName'] ?? '',
+      startTime: DateTime.parse(json['start_time'] ?? json['startTime']),
+      downtimeIntervals: (json['downtime_intervals'] as List? ?? json['downtimeIntervals'] as List? ?? [])
+          .map((i) => DowntimeInterval.fromJson(Map<String, dynamic>.from(i)))
+          .toList(),
+      isRunning: json['is_running'] ?? json['isRunning'] ?? true,
+      lastStateChange: DateTime.parse(json['last_state_change'] ?? json['lastStateChange'] ?? DateTime.now().toIso8601String()),
+      dimensions: json['dimensions'],
+      isSheet: json['is_sheet'] ?? json['isSheet'],
+      imagePaths: (json['image_paths'] as List?)?.map((e) => e.toString()).toList(),
+      factoryId: (json['factory_id'] ?? json['factoryId'])?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'sync_id': id,
+      'machine_name': machineName,
+      'client_name': clientName,
+      'product_name': productName,
+      'product_code': productCode,
+      'order_number': orderNumber,
+      'technician_name': technicianName,
+      'start_time': startTime.toIso8601String(),
+      'downtime_intervals': downtimeIntervals.map((i) => i.toJson()).toList(),
+      'is_running': isRunning,
+      'last_state_change': lastStateChange.toIso8601String(),
+      'dimensions': dimensions,
+      'is_sheet': isSheet,
+      'image_paths': imagePaths,
+      'factory_id': factoryId,
+    };
+  }
 }

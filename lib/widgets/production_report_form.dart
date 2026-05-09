@@ -223,12 +223,16 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
       child: Stack(
         children: [
           Scaffold(
+            resizeToAvoidBottomInset: true,
             appBar: AppBar(
                 title: Text(widget.reportKey == null
                     ? "🆕 إضافة تقرير إنتاج"
                     : "✏️ تعديل تقرير إنتاج")),
             body: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: EdgeInsets.fromLTRB(
+                16.0, 16.0, 16.0,
+                16.0 + MediaQuery.of(context).viewInsets.bottom,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(

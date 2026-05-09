@@ -53,13 +53,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final authLoading = context.watch<AuthService>().state.isLoading;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('نسيت كلمة المرور'),
         centerTitle: true,
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.fromLTRB(
+            24.0, 24.0, 24.0,
+            24.0 + MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: Form(
             key: _formKey,
             child: Column(

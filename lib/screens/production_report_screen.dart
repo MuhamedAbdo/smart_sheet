@@ -316,6 +316,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         iconTheme: IconThemeData(color: appBarIconColor),
         title: _isSearching

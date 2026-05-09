@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/downtime_interval.dart';
 import 'package:smart_sheet/widgets/session_card.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class ActiveSessionsDashboard extends StatelessWidget {
   final Function(LiveSession) onFinishSession;
@@ -16,8 +17,24 @@ class ActiveSessionsDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ التحقق من أن الصندوق مفتوح لتجنب خطأ Box not found
+    if (!Hive.isBoxOpen('flexo_live_sessions')) {
+      return FutureBuilder(
+        future: Hive.openBox<LiveSession>('flexo_live_sessions'),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            return _buildDashboard(context, Hive.box<LiveSession>('flexo_live_sessions'));
+          }
+          return const SizedBox.shrink();
+        },
+      );
+    }
+    return _buildDashboard(context, Hive.box<LiveSession>('flexo_live_sessions'));
+  }
+
+  Widget _buildDashboard(BuildContext context, Box<LiveSession> box) {
     return ValueListenableBuilder(
-      valueListenable: Hive.box<LiveSession>('flexo_live_sessions').listenable(),
+      valueListenable: box.listenable(),
       builder: (context, Box<LiveSession> box, _) {
         if (box.isEmpty) {
           return const SizedBox.shrink();
@@ -85,5 +102,12 @@ class ActiveSessionsDashboard extends StatelessWidget {
     }
     session.lastStateChange = DateTime.now();
     session.save();
+
+    // 📡 إرسال التحديث للسحابة ليعكس العطل على الديسكتوب
+    SyncService.instance.pushToQueue(
+      'live_sessions',
+      session.toJson(),
+      operation: 'upsert',
+    );
   }
 }

@@ -563,7 +563,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
               onPressed: () => _saveSheetSize())
         ],
       ),
-      resizeToAvoidBottomInset: false, // منع الفراغ الأبيض عند ظهور الكيبورد
+      resizeToAvoidBottomInset: true, // السماح للـ Scaffold بالتفاعل مع الكيبورد
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SingleChildScrollView(

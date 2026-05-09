@@ -9,6 +9,7 @@ class MachineManagementScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('إدارة ماكينات الفلكسو'),
         centerTitle: true,
@@ -62,6 +63,7 @@ class MachineManagementScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: const Text('إضافة ماكينة جديدة'),
         content: TextField(
           controller: controller,

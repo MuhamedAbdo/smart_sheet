@@ -62,6 +62,8 @@ class ThemeProvider with ChangeNotifier {
     useMaterial3: true,
     brightness: Brightness.light,
     primaryColor: Colors.blue,
+    scaffoldBackgroundColor: Colors.white,
+    visualDensity: VisualDensity.adaptivePlatformDensity,
     fontFamily: 'Cairo',
   );
 
@@ -69,6 +71,7 @@ class ThemeProvider with ChangeNotifier {
     useMaterial3: true,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: const Color(0xFF121212),
+    visualDensity: VisualDensity.adaptivePlatformDensity,
     fontFamily: 'Cairo',
   );
 }

@@ -84,6 +84,7 @@ class _SheetCountScreenState extends State<SheetCountScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('عدد الشيتات'),
         centerTitle: true,
@@ -91,7 +92,10 @@ class _SheetCountScreenState extends State<SheetCountScreen> {
       body: GestureDetector(
         onTap: _hideKeyboard,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.fromLTRB(
+            16.0, 16.0, 16.0,
+            16.0 + MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: Column(
             children: [
               TextField(

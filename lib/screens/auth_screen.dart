@@ -86,6 +86,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final authLoading = context.watch<AuthService>().state.isLoading;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(_isResetPassword 
             ? 'إعادة تعيين كلمة المرور' 
@@ -94,7 +95,10 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.fromLTRB(
+            24.0, 24.0, 24.0,
+            24.0 + MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: Form(
             key: _formKey,
             child: Column(

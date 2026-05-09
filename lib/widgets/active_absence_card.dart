@@ -192,6 +192,7 @@ class ActiveAbsenceCard extends StatelessWidget {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
+          scrollable: true,
           title: const Row(
             children: [
               Icon(Icons.assignment_turned_in, color: Colors.green),

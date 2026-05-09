@@ -104,6 +104,7 @@ class _StoreEntryFormState extends State<StoreEntryForm> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text(widget.index == null ? "➕ إضافة وارد" : "✏️ تعديل وارد"),
       content: SingleChildScrollView(
         child: Column(
