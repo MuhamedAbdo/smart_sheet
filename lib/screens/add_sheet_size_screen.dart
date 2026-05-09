@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -467,6 +468,36 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     }
   }
 
+  // دالة التقاط صورة بالكاميرا للموبايل
+  Future<void> _captureImage() async {
+    setState(() => _isProcessing = true);
+    try {
+      final picker = ImagePicker();
+      final XFile? photo = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+
+      if (photo != null) {
+        final appDir = await getApplicationDocumentsDirectory();
+        final imageDir = Directory('${appDir.path}/images');
+        if (!await imageDir.exists()) {
+          await imageDir.create(recursive: true);
+        }
+
+        final String fileName =
+            'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final targetPath = '${imageDir.path}/$fileName';
+        final savedFile = await File(photo.path).copy(targetPath);
+        setState(() => _capturedImages.add(savedFile));
+      }
+    } catch (e) {
+      debugPrint("Error capturing image: $e");
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
   // ignore: unused_element — محجوب مؤقتاً مع واجهة العميل المبسطة
   void _calculateSheet() {
     if (_processType != "تفصيل" || isAddingClientOnly) return;
@@ -614,6 +645,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                   isProcessing: _isProcessing,
                   capturedImages: _capturedImages,
                   onPickImages: _pickImages,
+                  onCaptureImage: _captureImage,
                   onRemoveImage: (index) {
                     final removedImage = _capturedImages[index];
                     UIUtils.showDeleteConfirmation(

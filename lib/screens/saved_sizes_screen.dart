@@ -45,19 +45,41 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: const Text("سجل العملاء"),
-        centerTitle: true,
+        title: isSearching
+            ? TextField(
+                autofocus: true,
+                onChanged: (v) => setState(() => searchQuery = v),
+                decoration: const InputDecoration(
+                  hintText: 'البحث باسم أو كود العميل...',
+                  hintStyle: TextStyle(color: Colors.white70),
+                  border: InputBorder.none,
+                ),
+                style: const TextStyle(color: Colors.white),
+                cursorColor: Colors.white,
+              )
+            : const Text("سجل العملاء"),
+        centerTitle: !isSearching,
         actions: [
-          PopupMenuButton<SortType>(
-            icon: const Icon(Icons.sort),
-            onSelected: (val) => setState(() => _currentSort = val),
-            itemBuilder: (ctx) => [
-              const PopupMenuItem(
-                  value: SortType.alphabetical, child: Text("ترتيب أبجدي")),
-              const PopupMenuItem(
-                  value: SortType.newest, child: Text("الأحدث أولاً")),
-            ],
+          IconButton(
+            icon: Icon(isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                isSearching = !isSearching;
+                if (!isSearching) searchQuery = '';
+              });
+            },
           ),
+          if (!isSearching)
+            PopupMenuButton<SortType>(
+              icon: const Icon(Icons.sort),
+              onSelected: (val) => setState(() => _currentSort = val),
+              itemBuilder: (ctx) => [
+                const PopupMenuItem(
+                    value: SortType.alphabetical, child: Text("ترتيب أبجدي")),
+                const PopupMenuItem(
+                    value: SortType.newest, child: Text("الأحدث أولاً")),
+              ],
+            ),
         ],
       ),
       body: SafeArea(
@@ -81,30 +103,13 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
 
             return Column(
               children: [
-                // شريط البحث
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: TextField(
-                    onChanged: (v) => setState(() => searchQuery = v),
-                    decoration: InputDecoration(
-                      hintText: "البحث باسم أو كود العميل...",
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: Theme.of(context).cardColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                    ),
-                  ),
-                ),
-                // قائمة العملاء
+                _buildClientsCountBar(clients.length),
                 Expanded(
                   child: ListView.builder(
                     padding: EdgeInsets.only(
                       left: 10,
                       right: 10,
+                      top: 10,
                       bottom: bottomInset + 100,
                     ),
                     itemCount: clients.length,
@@ -305,6 +310,47 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
       normalized = normalized.replaceAll(arabicNumbers[i], i.toString());
     }
     return normalized;
+  }
+
+  String _getClientCountText(int count) {
+    if (count == 1) return '1 عميل مسجل';
+    if (count == 2) return '2 عميلان مسجلان';
+    if (count >= 3 && count <= 10) return '$count عملاء مسجلون';
+    return '$count عميل مسجل';
+  }
+
+  Widget _buildClientsCountBar(int clientsCount) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade800, Colors.indigo.shade900],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.people_outline, color: Colors.white70, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            _getClientCountText(clientsCount),
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
   }
 }
 

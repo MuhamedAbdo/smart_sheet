@@ -103,8 +103,31 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         return Scaffold(
           resizeToAvoidBottomInset: false,
           appBar: AppBar(
-            title: Text(widget.clientName),
-            centerTitle: true,
+            title: isSearching
+                ? TextField(
+                    autofocus: true,
+                    onChanged: (v) => setState(() => searchQuery = v),
+                    decoration: const InputDecoration(
+                      hintText: 'البحث باسم أو كود الصنف...',
+                      hintStyle: TextStyle(color: Colors.white70),
+                      border: InputBorder.none,
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                    cursorColor: Colors.white,
+                  )
+                : Text(widget.clientName),
+            centerTitle: !isSearching,
+            actions: [
+              IconButton(
+                icon: Icon(isSearching ? Icons.close : Icons.search),
+                onPressed: () {
+                  setState(() {
+                    isSearching = !isSearching;
+                    if (!isSearching) searchQuery = '';
+                  });
+                },
+              ),
+            ],
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () {
@@ -128,24 +151,6 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           body: SafeArea(
             child: Column(
               children: [
-                // شريط البحث المطور خارج الـ AppBar
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: TextField(
-                    onChanged: (v) => setState(() => searchQuery = v),
-                    decoration: InputDecoration(
-                      hintText: "البحث باسم أو كود الصنف...",
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: Theme.of(context).cardColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                    ),
-                  ),
-                ),
                 _buildInfoBar(itemEntries.length, clientCode),
                 Expanded(
                   child: _buildList(allClientRecords, itemEntries.length,
