@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/services/backup_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,6 +10,7 @@ import 'package:smart_sheet/services/auth_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
+import 'package:smart_sheet/services/pairing_service.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -25,12 +27,24 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   String? _message;
   bool _hasBackup = false;
   bool _isAuthenticated = false;
+  String? _factoryId;
 
   @override
   void initState() {
     super.initState();
     _checkAuthenticationStatus();
     _checkBackupExists();
+    _loadFactoryId();
+  }
+
+  Future<void> _loadFactoryId() async {
+    final AuthService authService = AuthService();
+    final factoryId = await authService.getFactoryId();
+    if (mounted) {
+      setState(() {
+        _factoryId = factoryId;
+      });
+    }
   }
 
   Future<void> _checkAuthenticationStatus() async {
@@ -258,7 +272,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = context.watch<AuthService>();
+    final AuthService authService = context.watch<AuthService>();
     final isAdmin = authService.isAdmin;
 
     return Scaffold(
@@ -323,10 +337,11 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ListView(
+            children: [
             // Status Card
             if (_isLoading || _message != null) _buildStatusCard(),
 
@@ -385,7 +400,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             const Divider(),
             const SizedBox(height: 24),
             
-            _buildQRActionSection(isAdmin),
+            _buildQRActionSection(isAdmin, _factoryId),
 
             const SizedBox(height: 32),
 
@@ -398,16 +413,13 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               color: Colors.black12,
-              child: Column(
-                children: [
-                  Text('Debug User ID: ${Supabase.instance.client.auth.currentUser?.id}'),
-                  Text('Debug Role: ${authService.state.role} (isAdmin: ${authService.isAdmin})'),
-                  if (authService.state.errorMessage != null)
-                    Text('Debug Error: ${authService.state.errorMessage}', style: const TextStyle(color: Colors.red)),
-                ],
+              child: Text(
+                authService.isAdmin ? 'مسؤول' : 'مستخدم',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
           ],
+          ),
         ),
       ),
     );
@@ -598,7 +610,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     );
   }
 
-  Widget _buildQRActionSection(bool isAdmin) {
+  Widget _buildQRActionSection(bool isAdmin, String? factoryId) {
     if (!_isAuthenticated) return const SizedBox.shrink();
 
     if (isAdmin) {
@@ -620,11 +632,31 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         ),
       );
     } else {
+      // إذا كان الجهاز مرتبط، اعرض زر فك الارتباط
+      if (factoryId != null && factoryId.isNotEmpty) {
+        return ElevatedButton.icon(
+          onPressed: () => _showUnlinkConfirmation(factoryId),
+          icon: const Icon(Icons.link_off),
+          label: Text(
+            'فك الارتباط بالمصنع ($factoryId)',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 56),
+            backgroundColor: Colors.red.shade700,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+      // إذا لم يكن مرتبط، اعرض زر الربط
       return ElevatedButton.icon(
         onPressed: _openQRScanner,
         icon: const Icon(Icons.qr_code_scanner),
         label: const Text(
-          'ربط بالمصنع عبر QR',
+          'ربط بالمصنع عبر الكود/QR',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         style: ElevatedButton.styleFrom(
@@ -656,142 +688,287 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     if (!mounted) return;
 
+    // توليد كود الربط
+    debugPrint('🔄 Generating pairing code...');
+    final pairingCode = await PairingService().generatePairingCode();
+    debugPrint('📱 Generated pairing code: $pairingCode');
+
+    if (pairingCode == null) {
+      debugPrint('❌ Failed to generate pairing code');
+      UIUtils.showInfoSnackBar(
+        message: "فشل في توليد كود الربط. تأكد من الاتصال بالإنترنت.",
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
+      isDismissible: false,
+      enableDrag: false,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       backgroundColor: Colors.white,
       isScrollControlled: true,
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'ربط جهاز مساعد',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'وجه هاتف المساعد نحو هذا الكود',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: QrImageView(
-                  data: factoryId,
-                  version: QrVersions.auto,
-                  size: 200.0,
-                  backgroundColor: Colors.white,
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: Colors.black87,
-                  ),
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.square,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[900],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text('إغلاق', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
+        return _PairingCodeDialog(
+          factoryId: factoryId,
+          pairingCode: pairingCode,
+          onClose: () {
+            PairingService().cancelCurrentCode();
+            Navigator.pop(context);
+          },
         );
       },
     );
   }
 
   Future<void> _openQRScanner() async {
-    final authService = context.read<AuthService>();
-    // على سطح المكتب، بدلاً من مسح QR، نستخدم الإدخال اليدوي للكود
+    // على سطح المكتب، نستخدم كود الربط المكون من 6 أرقام
     final TextEditingController codeController = TextEditingController();
-    
+
     final String? result = await showDialog<String>(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('ربط بالمصنع'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+          insetPadding: EdgeInsets.zero,
+          contentPadding: EdgeInsets.zero,
+        title: const Row(
           children: [
-            const Text('أدخل معرف المصنع (Factory ID) الذي يزودك به المدير:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: codeController,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'أدخل الكود هنا...',
-              ),
-              autofocus: true,
-            ),
+            Icon(Icons.computer, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('ربط جهاز الكمبيوتر'),
           ],
         ),
+        content: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'أدخل كود الربط المكون من 6 أرقام الذي يظهر في تطبيق الأدمن:',
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: codeController,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 6,
+                    color: Colors.white,
+                  ),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.blue, width: 2),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.blue.shade300, width: 2),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.blue, width: 3),
+                    ),
+                    hintText: '123 456',
+                    hintStyle: const TextStyle(
+                      fontSize: 24,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    filled: true,
+                    fillColor: Colors.blue.shade900.withValues(alpha: 0.3),
+                  ),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'صالح لمدة 5 دقائق فقط',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: MediaQuery.of(context).viewInsets.bottom + 20),
+              ],
+            ),
+          ),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, codeController.text.trim()),
-            child: const Text('ربط الآن'),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, codeController.text.trim()),
+            icon: const Icon(Icons.link),
+            label: const Text('ربط الآن'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[900],
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
     );
 
     if (result != null && result.isNotEmpty) {
-      setState(() {
-        _isLoading = true;
-        _message = 'جاري ربط الحساب بالمصنع...';
-      });
+      // إزالة المسافات من الكود قبل التحقق
+      final cleanCode = result.replaceAll(' ', '').replaceAll('-', '');
+      await _verifyAndLinkWithCode(cleanCode);
+    }
+  }
 
-      final error = await authService.linkToFactory(result);
+  Future<void> _verifyAndLinkWithCode(String code) async {
+    final AuthService authService = AuthService();
+
+    setState(() {
+      _isLoading = true;
+      _message = 'جاري التحقق من الكود...';
+    });
+
+    // التحقق من الكود والربط
+    final verificationResult = await PairingService().verifyAndLink(code);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+      _message = null;
+    });
+
+    if (verificationResult == null) {
+      UIUtils.showInfoSnackBar(
+        message: "حدث خطأ أثناء التحقق من الكود",
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
+      );
+      return;
+    }
+
+    if (verificationResult['success'] == false) {
+      UIUtils.showInfoSnackBar(
+        message: verificationResult['error'] ?? 'الكود غير صحيح',
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
+      );
+      return;
+    }
+
+    // الكود صحيح، نكمل الربط
+    final factoryId = verificationResult['factory_id'] as String;
+
+    setState(() {
+      _isLoading = true;
+      _message = 'جاري ربط الحساب بالمصنع...';
+    });
+
+    final error = await authService.linkToFactory(factoryId);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+      _message = null;
+    });
+
+    if (error == null) {
+      UIUtils.showInfoSnackBar(
+        message: "تم الربط بنجاح! يتم الآن تحديث البيانات.",
+        backgroundColor: Colors.green,
+        icon: Icons.check_circle_outline,
+      );
+      await authService.refreshUserData();
+      await _checkBackupExists();
+      await _loadFactoryId(); // إعادة تحميل factoryId
+      setState(() {}); // تحديث الـ UI فوراً
+    } else {
+      UIUtils.showInfoSnackBar(
+        message: error,
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
+      );
+    }
+  }
+
+  Future<void> _showUnlinkConfirmation(String factoryId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('تأكيد فك الارتباط'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'هل أنت متأكد من فك ارتباط الجهاز بالمصنع؟',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'المصنع: $factoryId',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'بعد فك الارتباط، ستفقد الوصول إلى بيانات المصنع وستحتاج إلى إعادة الربط مرة أخرى.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('فك الارتباط'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final AuthService authService = AuthService();
+      final error = await authService.unlinkFactory();
       
       if (!mounted) return;
-      
-      setState(() {
-        _isLoading = false;
-        _message = null;
-      });
 
       if (error == null) {
         UIUtils.showInfoSnackBar(
-          message: "تم الربط بنجاح! يتم الآن تحديث البيانات.",
+          message: "تم فك الارتباط بنجاح",
           backgroundColor: Colors.green,
           icon: Icons.check_circle_outline,
         );
-        await authService.refreshUserData();
         await _checkBackupExists();
+        setState(() {
+          _factoryId = null; // تحديث factoryId فوراً
+        });
       } else {
         UIUtils.showInfoSnackBar(
           message: error,
@@ -802,3 +979,265 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     }
   }
 }
+
+/// Dialog showing QR code and pairing code with countdown timer
+class _PairingCodeDialog extends StatefulWidget {
+  final String factoryId;
+  final String? pairingCode;
+  final VoidCallback onClose;
+
+  const _PairingCodeDialog({
+    required this.factoryId,
+    required this.pairingCode,
+    required this.onClose,
+  });
+
+  @override
+  State<_PairingCodeDialog> createState() => _PairingCodeDialogState();
+}
+
+class _PairingCodeDialogState extends State<_PairingCodeDialog> {
+  late Timer _timer;
+  int _remainingSeconds = 300; // 5 minutes
+  String? _currentCode;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentCode = widget.pairingCode;
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0) {
+        setState(() {
+          _remainingSeconds--;
+        });
+      } else {
+        timer.cancel();
+        // إعادة توليد الكود تلقائياً
+        _regenerateCode();
+      }
+    });
+  }
+
+  Future<void> _regenerateCode() async {
+    final newCode = await PairingService().generatePairingCode();
+    if (mounted) {
+      setState(() {
+        _currentCode = newCode;
+        _remainingSeconds = 300;
+      });
+      _startTimer();
+    }
+  }
+
+  String _formatTime(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  }
+
+  String _formatCode(String code) {
+    // تنسيق الكود كـ XXX XXX (أول 3 أرقام + مسافة + آخر 3 أرقام)
+    debugPrint('🎨 Formatting code: $code -> part1: ${code.substring(0, 3)} part2: ${code.substring(3)}');
+    if (code.length == 6) {
+      return '${code.substring(0, 3)} ${code.substring(3)}';
+    }
+    return code;
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    
+    
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // العنوان
+          const Text(
+            'ربط جهاز مساعد',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'امسح الكود أو أدخل الكود المكون من 6 أرقام',
+            style: TextStyle(fontSize: 14, color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+
+          // QR Code
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: QrImageView(
+              data: widget.factoryId,
+              version: QrVersions.auto,
+              size: 180.0,
+              backgroundColor: Colors.white,
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.square,
+                color: Colors.black87,
+              ),
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // خط فاصل
+          const Divider(),
+
+          const SizedBox(height: 16),
+
+          // أو استخدم الكود
+          const Text(
+            'أو أدخل هذا الكود في جهاز الكمبيوتر',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // الكود بتنسيق كبير
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade700, Colors.blue.shade900],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Text(
+                    _currentCode != null ? _formatCode(_currentCode!) : '---- --',
+                    style: const TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // العداد التنازلي
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.timer,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _formatTime(_remainingSeconds),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // أزرار التحكم
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _regenerateCode,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('كود جديد'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: widget.onClose,
+                  icon: const Icon(Icons.close),
+                  label: const Text('إغلاق'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[900],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
