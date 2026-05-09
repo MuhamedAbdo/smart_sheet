@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
-import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 
@@ -44,20 +43,11 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
     }
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: isSearching
-            ? SavedSizeSearchBar(
-                onChanged: (v) => setState(() => searchQuery = v))
-            : const Text("سجل العملاء"),
-        centerTitle: !isSearching,
+        title: const Text("سجل العملاء"),
+        centerTitle: true,
         actions: [
-          IconButton(
-            icon: Icon(isSearching ? Icons.close : Icons.search),
-            onPressed: () => setState(() {
-              isSearching = !isSearching;
-              if (!isSearching) searchQuery = "";
-            }),
-          ),
           PopupMenuButton<SortType>(
             icon: const Icon(Icons.sort),
             onSelected: (val) => setState(() => _currentSort = val),
@@ -70,51 +60,84 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
           ),
         ],
       ),
-      body: ValueListenableBuilder(
-        valueListenable: _savedSheetSizesBox.listenable(),
-        builder: (context, Box box, _) {
-          final clients = _getUniqueClients(box);
+      body: SafeArea(
+        child: ValueListenableBuilder(
+          valueListenable: _savedSheetSizesBox.listenable(),
+          builder: (context, Box box, _) {
+            final clients = _getUniqueClients(box);
+            final viewInsets = MediaQuery.of(context).viewInsets;
+            final bottomInset = viewInsets.bottom;
 
-          if (clients.isEmpty) {
-            return Center(
-              child: Text(
-                searchQuery.isEmpty
-                    ? "لا يوجد عملاء مسجلون حالياً"
-                    : "لا توجد نتائج لبحثك",
-                style: const TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            );
-          }
+            if (clients.isEmpty) {
+              return Center(
+                child: Text(
+                  searchQuery.isEmpty
+                      ? "لا يوجد عملاء مسجلون حالياً"
+                      : "لا توجد نتائج لبحثك",
+                  style: const TextStyle(color: Colors.grey, fontSize: 16),
+                ),
+              );
+            }
 
-          return ListView.builder(
-            padding:
-                const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 8),
-            itemCount: clients.length,
-            itemBuilder: (context, index) {
-              final String clientName = clients[index];
-              final int itemCount = box.values
-                  .where((e) =>
-                      e is Map &&
-                      (e['clientName']?.toString().trim() ?? '') ==
-                          clientName &&
-                      e['isClientRecord'] != true)
-                  .length;
-
-              return _ClientCard(
-                clientName: clientName,
-                itemCount: itemCount,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (ctx) => ClientItemsScreen(clientName: clientName),
+            return Column(
+              children: [
+                // شريط البحث
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: TextField(
+                    onChanged: (v) => setState(() => searchQuery = v),
+                    decoration: InputDecoration(
+                      hintText: "البحث باسم أو كود العميل...",
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: Theme.of(context).cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    ),
                   ),
                 ),
-                onEdit: () => _navigateToEditClient(clientName),
-                onDelete: () => _confirmDeleteClient(clientName),
-              );
-            },
-          );
-        },
+                // قائمة العملاء
+                Expanded(
+                  child: ListView.builder(
+                    padding: EdgeInsets.only(
+                      left: 10,
+                      right: 10,
+                      bottom: bottomInset + 100,
+                    ),
+                    itemCount: clients.length,
+                    itemBuilder: (context, index) {
+                      final String clientName = clients[index];
+                      final int itemCount = box.values
+                          .where((e) =>
+                              e is Map &&
+                              (e['clientName']?.toString().trim() ?? '') ==
+                                  clientName &&
+                              e['isClientRecord'] != true)
+                          .length;
+
+                      return _ClientCard(
+                        clientName: clientName,
+                        itemCount: itemCount,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (ctx) =>
+                                ClientItemsScreen(clientName: clientName),
+                          ),
+                        ),
+                        onEdit: () => _navigateToEditClient(clientName),
+                        onDelete: () => _confirmDeleteClient(clientName),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -198,7 +221,8 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
 
     // مزامنة الحذف سحابياً
     for (final payload in syncPayloads) {
-      SyncService.instance.pushToQueue('customers', payload, operation: 'delete');
+      SyncService.instance
+          .pushToQueue('customers', payload, operation: 'delete');
     }
 
     if (mounted) {

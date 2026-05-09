@@ -125,6 +125,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     }
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(widget.title ?? "سجلات الصيانة"),
         centerTitle: true,

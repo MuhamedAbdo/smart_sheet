@@ -48,6 +48,7 @@ class WorkersScreen extends StatelessWidget {
         final Box<Worker> box = snapshot.data!;
 
         return Scaffold(
+          resizeToAvoidBottomInset: true,
           appBar: AppBar(
             title: Text("👷‍♂️ $departmentTitle - العمال"),
             centerTitle: true,

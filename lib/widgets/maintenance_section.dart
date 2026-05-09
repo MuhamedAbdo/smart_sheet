@@ -34,8 +34,10 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
   }
 
   void _addOrEdit({int? index, MaintenanceRecord? existing}) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => MaintenanceForm(
         existing: existing,
         onSave: (record) async {

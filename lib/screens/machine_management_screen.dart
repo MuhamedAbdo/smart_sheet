@@ -60,40 +60,96 @@ class MachineManagementScreen extends StatelessWidget {
 
   void _showAddMachineDialog(BuildContext context) {
     final controller = TextEditingController();
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        title: const Text('إضافة ماكينة جديدة'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'اسم الماكينة',
-            hintText: 'مثلاً: 3 لون، روتاري...',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.9,
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final name = controller.text.trim();
-              if (name.isNotEmpty) {
-                final box = Hive.box<FlexoMachine>('flexo_machines');
-                box.add(FlexoMachine(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  name: name,
-                ));
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('حفظ'),
-          ),
-        ],
+        child: Column(
+          children: [
+            // Handle
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'إضافة ماكينة جديدة',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: controller,
+                      decoration: const InputDecoration(
+                        labelText: 'اسم الماكينة',
+                        hintText: 'مثلاً: 3 لون، روتاري...',
+                        border: OutlineInputBorder(),
+                      ),
+                      autofocus: true,
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('إلغاء'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () {
+                              final name = controller.text.trim();
+                              if (name.isNotEmpty) {
+                                final box =
+                                    Hive.box<FlexoMachine>('flexo_machines');
+                                box.add(FlexoMachine(
+                                  id: DateTime.now()
+                                      .millisecondsSinceEpoch
+                                      .toString(),
+                                  name: name,
+                                ));
+                                Navigator.pop(context);
+                              }
+                            },
+                            child: const Text('حفظ'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

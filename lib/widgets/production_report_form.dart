@@ -218,142 +218,203 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Stack(
-        children: [
-          Scaffold(
-            resizeToAvoidBottomInset: true,
-            appBar: AppBar(
-                title: Text(widget.reportKey == null
-                    ? "🆕 إضافة تقرير إنتاج"
-                    : "✏️ تعديل تقرير إنتاج")),
-            body: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                16.0, 16.0, 16.0,
-                16.0 + MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    _buildTextField(dateController, "📅 التاريخ",
-                        readOnly: true, onTap: _selectDate),
-                    const SizedBox(height: 12),
-                    _buildTextField(orderNumberController, "🔢 رقم أمر التشغيل",
-                        icon: Icons.numbers,
-                        isRequired: false,
-                        keyboardType: TextInputType.number),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(startTimeController, "🕒 وقت البداية",
-                              icon: Icons.access_time,
-                              readOnly: true,
-                              onTap: () => _selectTime(startTimeController),
-                              isRequired: false),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildTextField(endTimeController, "🕒 وقت النهاية",
-                              icon: Icons.access_time,
-                              readOnly: true,
-                              onTap: () => _selectTime(endTimeController),
-                              isRequired: false),
-                        ),
-                      ],
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.9,
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                // Handle
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 12),
-                    _buildTextField(clientNameController, "👤 اسم العميل"),
-                    const SizedBox(height: 12),
-                    _buildTextField(productController, "📦 الصنف"),
-                    const SizedBox(height: 12),
-                    _buildTextField(productCodeController, "كود الصنف", icon: Icons.qr_code, keyboardType: TextInputType.number),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextField(machineNameController, "الماكينة", icon: Icons.precision_manufacturing)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildTextField(technicianNameController, "الفني المسؤول", icon: Icons.engineering)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                            child: _buildTextField(lengthController, "📏 طول",
-                                keyboardType: TextInputType.number)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _buildTextField(widthController, "📏 عرض",
-                                keyboardType: TextInputType.number)),
-                        if (!isSheet) ...[
-                          const SizedBox(width: 8),
-                          Expanded(
-                              child: _buildTextField(
-                                  heightController, "📏 ارتفاع",
-                                  keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-
-                    const SizedBox(height: 20),
-                    _buildColorsSection(),
-                    const SizedBox(height: 12),
-                    _buildTextField(quantityController, "🔢 عدد الشيتات",
-                        keyboardType: TextInputType.number),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(lineWasteController, "📉 هالك الإنتاج",
-                              keyboardType: TextInputType.number, isRequired: false),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildTextField(printWasteController, "📉 هالك الطباعة",
-                              keyboardType: TextInputType.number, isRequired: false),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(downtimeStartController, "⏱️ بداية العطل",
-                              icon: Icons.access_time,
-                              readOnly: true,
-                              onTap: () => _selectTime(downtimeStartController),
-                              isRequired: false),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildTextField(downtimeEndController, "⏱️ نهاية العطل",
-                              icon: Icons.access_time,
-                              readOnly: true,
-                              onTap: () => _selectTime(downtimeEndController),
-                              isRequired: false),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextField(totalDowntimeController, "⏳ إجمالي دقائق التعطل",
-                        icon: Icons.timer_off,
-                        keyboardType: TextInputType.number,
-                        isRequired: false),
-                    const SizedBox(height: 12),
-                    _buildTextField(notesController, "📝 ملاحظات (اختياري)",
-                        maxLines: 3, isRequired: false),
-                    const SizedBox(height: 30),
-                    _buildActionButtons(),
-                  ],
+                  ),
                 ),
-              ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                widget.reportKey == null
+                                    ? "🆕 إضافة تقرير إنتاج"
+                                    : "✏️ تعديل تقرير إنتاج",
+                                style: const TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ],
+                          ),
+                          const Divider(),
+                          _buildTextField(dateController, "📅 التاريخ",
+                              readOnly: true, onTap: _selectDate),
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                              orderNumberController, "🔢 رقم أمر التشغيل",
+                              icon: Icons.numbers,
+                              isRequired: false,
+                              keyboardType: TextInputType.number),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                    startTimeController, "🕒 وقت البداية",
+                                    icon: Icons.access_time,
+                                    readOnly: true,
+                                    onTap: () =>
+                                        _selectTime(startTimeController),
+                                    isRequired: false),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildTextField(
+                                    endTimeController, "🕒 وقت النهاية",
+                                    icon: Icons.access_time,
+                                    readOnly: true,
+                                    onTap: () => _selectTime(endTimeController),
+                                    isRequired: false),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTextField(clientNameController, "👤 اسم العميل"),
+                          const SizedBox(height: 12),
+                          _buildTextField(productController, "📦 الصنف"),
+                          const SizedBox(height: 12),
+                          _buildTextField(productCodeController, "كود الصنف",
+                              icon: Icons.qr_code,
+                              keyboardType: TextInputType.number),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                  child: _buildTextField(
+                                      machineNameController, "الماكينة",
+                                      icon: Icons.precision_manufacturing)),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                  child: _buildTextField(
+                                      technicianNameController, "الفني المسؤول",
+                                      icon: Icons.engineering)),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                  child: _buildTextField(
+                                      lengthController, "📏 طول",
+                                      keyboardType: TextInputType.number)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                  child: _buildTextField(
+                                      widthController, "📏 عرض",
+                                      keyboardType: TextInputType.number)),
+                              if (!isSheet) ...[
+                                const SizedBox(width: 8),
+                                Expanded(
+                                    child: _buildTextField(
+                                        heightController, "📏 ارتفاع",
+                                        keyboardType: TextInputType.number)),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          _buildColorsSection(),
+                          const SizedBox(height: 12),
+                          _buildTextField(quantityController, "🔢 عدد الشيتات",
+                              keyboardType: TextInputType.number),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                    lineWasteController, "📉 هالك الإنتاج",
+                                    keyboardType: TextInputType.number,
+                                    isRequired: false),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildTextField(
+                                    printWasteController, "📉 هالك الطباعة",
+                                    keyboardType: TextInputType.number,
+                                    isRequired: false),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                    downtimeStartController, "⏱️ بداية العطل",
+                                    icon: Icons.access_time,
+                                    readOnly: true,
+                                    onTap: () =>
+                                        _selectTime(downtimeStartController),
+                                    isRequired: false),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildTextField(
+                                    downtimeEndController, "⏱️ نهاية العطل",
+                                    icon: Icons.access_time,
+                                    readOnly: true,
+                                    onTap: () =>
+                                        _selectTime(downtimeEndController),
+                                    isRequired: false),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                              totalDowntimeController, "⏳ إجمالي دقائق التعطل",
+                              icon: Icons.timer_off,
+                              keyboardType: TextInputType.number,
+                              isRequired: false),
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                              notesController, "📝 ملاحظات (اختياري)",
+                              maxLines: 3, isRequired: false),
+                          const SizedBox(height: 30),
+                          _buildActionButtons(),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          if (_isSaving) const Center(child: CircularProgressIndicator()),
-        ],
+            if (_isSaving) const Center(child: CircularProgressIndicator()),
+          ],
+        ),
       ),
     );
   }

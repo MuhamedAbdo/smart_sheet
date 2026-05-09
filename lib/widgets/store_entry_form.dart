@@ -18,12 +18,14 @@ class StoreEntryForm extends StatefulWidget {
 
   static void show(
     BuildContext context, {
-    required String boxName, // ✅ جعل boxName مطلوبًا
+    required String boxName,
     int? index,
     StoreEntry? existing,
   }) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => StoreEntryForm(
         boxName: boxName,
         index: index,
@@ -103,50 +105,152 @@ class _StoreEntryFormState extends State<StoreEntryForm> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      scrollable: true,
-      title: Text(widget.index == null ? "➕ إضافة وارد" : "✏️ تعديل وارد"),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: dateController,
-              readOnly: true,
-              decoration: const InputDecoration(labelText: "📅 التاريخ"),
-              onTap: () => _selectDate(context),
+    final theme = Theme.of(context);
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.9,
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Container(
+              width: 40,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            TextField(
-              controller: productController,
-              decoration: const InputDecoration(labelText: "📦 الصنف"),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        widget.index == null ? "➕ إضافة وارد" : "✏️ تعديل وارد",
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  _buildField(
+                    controller: dateController,
+                    label: "📅 التاريخ",
+                    readOnly: true,
+                    onTap: () => _selectDate(context),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildField(
+                    controller: productController,
+                    label: "📦 الصنف",
+                    icon: Icons.inventory_2_outlined,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildField(
+                    controller: unitController,
+                    label: "📏 الوحدة",
+                    icon: Icons.straighten,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildField(
+                    controller: quantityController,
+                    label: "🔢 العدد",
+                    icon: Icons.numbers,
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildField(
+                    controller: notesController,
+                    label: "📝 الملاحظات",
+                    icon: Icons.notes,
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("إلغاء"),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.primaryColor,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: _save,
+                          child: const Text("حفظ البيانات"),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ),
             ),
-            TextField(
-              controller: unitController,
-              decoration: const InputDecoration(labelText: "📏 الوحدة"),
-            ),
-            TextField(
-              controller: quantityController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: "🔢 العدد"),
-            ),
-            TextField(
-              controller: notesController,
-              maxLines: 2,
-              decoration: const InputDecoration(labelText: "📝 الملاحظات"),
-            ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    IconData? icon,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      readOnly: readOnly,
+      onTap: onTap,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: icon != null ? Icon(icon) : null,
+        filled: true,
+        fillColor: Theme.of(context).brightness == Brightness.dark
+            ? Colors.white10
+            : Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 1),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: Navigator.of(context).pop,
-          child: const Text("❌ إلغاء"),
-        ),
-        ElevatedButton(
-          onPressed: _save,
-          child: const Text("💾 حفظ"),
-        ),
-      ],
     );
   }
 }

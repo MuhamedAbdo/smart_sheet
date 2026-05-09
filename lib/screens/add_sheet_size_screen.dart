@@ -307,7 +307,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
     if (mounted) {
       // مزامنة سحابية عبر Queue (تعمل offline أيضاً)
-      SyncService.instance.pushToQueue('customers', _buildCustomerPayload(newRecord));
+      SyncService.instance
+          .pushToQueue('customers', _buildCustomerPayload(newRecord));
 
       UIUtils.showInfoSnackBar(
         message: "تم حفظ البيانات وتحديث السجلات",
@@ -563,14 +564,14 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
               onPressed: () => _saveSheetSize())
         ],
       ),
-      resizeToAvoidBottomInset: true, // السماح للـ Scaffold بالتفاعل مع الكيبورد
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
+      resizeToAvoidBottomInset: false,
+      body: SafeArea(
         child: SingleChildScrollView(
-          // نُضيف ارتفاع الكيبورد كـ padding سفلي لضمان scroll صحيح
-          padding: EdgeInsets.fromLTRB(
-            16, 16, 16,
-            16 + MediaQuery.of(context).viewInsets.bottom,
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 100,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

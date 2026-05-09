@@ -219,8 +219,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                           action: action,
                           onRefresh: _refresh,
                           onEdit: () async {
-                            await _showEditActionDialog(
-                                context, action, originalIndex);
+                            _editAction(action, originalIndex);
                             _refresh();
                           },
                           onDelete: () {
@@ -326,342 +325,267 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     }
   }
 
-  void _showAddActionDialog(BuildContext context) {
-    final actionType = ValueNotifier<String>('إجازة');
-    final date = ValueNotifier<DateTime>(DateTime.now());
-    final daysController = TextEditingController(text: "1.0");
-    final startTime = ValueNotifier<TimeOfDay?>(null);
-    final endTime = ValueNotifier<TimeOfDay?>(null);
-    final rewardType = ValueNotifier<String>('amount');
-    final amountController = TextEditingController();
-    final bonusDays = ValueNotifier<double?>(null);
-    final notesController = TextEditingController();
+  void _showAddActionDialog(BuildContext context) => _showActionBottomSheet();
 
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          scrollable: true,
-          title: Text("➕ ${actionType.value}"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: actionType.value,
-                items: const [
-                  DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
-                  DropdownMenuItem(
-                      value: 'أجازة عارضة', child: Text('أجازة عارضة')),
-                  DropdownMenuItem(value: 'غياب', child: Text('غياب')),
-                  DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
-                  DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
-                  DropdownMenuItem(value: 'إذن', child: Text('إذن')),
-                  DropdownMenuItem(
-                      value: 'تأمين صحي', child: Text('تأمين صحي')),
-                ],
-                onChanged: (v) =>
-                    setState(() => actionType.value = v ?? 'إجازة'),
-              ),
-              TextField(
-                readOnly: true,
-                controller: TextEditingController(text: _f(date.value)),
-                decoration: const InputDecoration(labelText: "📅 التاريخ"),
-                onTap: () async {
-                  final p = await showDatePicker(
-                    context: context,
-                    initialDate: date.value,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                  );
-                  if (p != null) setState(() => date.value = p);
-                },
-              ),
-              if (actionType.value == 'إجازة' ||
-                  actionType.value == 'غياب') ...[
-                TextField(
-                  controller: daysController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                      labelText: "🔢 عدد الأيام", hintText: "مثال: 1.5"),
-                ),
-              ] else if (actionType.value == 'مكافئة' ||
-                  actionType.value == 'جزاء') ...[
-                const SizedBox(height: 8),
-                ToggleButtons(
-                  borderRadius: BorderRadius.circular(8),
-                  isSelected: [
-                    rewardType.value == 'amount',
-                    rewardType.value == 'days'
-                  ],
-                  onPressed: (int index) => setState(
-                      () => rewardType.value = index == 0 ? 'amount' : 'days'),
-                  children: const [
-                    Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text("جنيه")),
-                    Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text("أيام")),
-                  ],
-                ),
-                if (rewardType.value == 'amount')
-                  TextField(
-                    controller: amountController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: "💰 المبلغ"),
-                  )
-                else
-                  DropdownButtonFormField<double>(
-                    initialValue: bonusDays.value,
-                    items: [
-                      const DropdownMenuItem(value: 0.25, child: Text('¼ يوم')),
-                      const DropdownMenuItem(value: 0.5, child: Text('½ يوم')),
-                      for (var i = 1; i <= 5; i++)
-                        DropdownMenuItem(
-                            value: i.toDouble(), child: Text('$i يوم')),
-                    ],
-                    onChanged: (v) => setState(() => bonusDays.value = v),
-                    decoration: const InputDecoration(labelText: "📅 الأيام"),
-                  ),
-              ] else if (actionType.value == 'إذن' ||
-                  actionType.value == 'تأمين صحي') ...[
-                _buildTimeField("⏰ خروج", startTime, context, setState),
-                _buildTimeField("🔙 رجوع", endTime, context, setState),
-              ],
-              TextField(
-                controller: notesController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: "📝 ملاحظات"),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: Navigator.of(context).pop,
-                child: const Text("❌ إلغاء")),
-            ElevatedButton(
-              onPressed: () async {
-                final actionBox = Hive.box<WorkerAction>('worker_actions');
-                double? amountToSave;
-                double? bonusDaysToSave;
+  void _editAction(WorkerAction action, int index) =>
+      _showActionBottomSheet(existingAction: action, index: index);
 
-                if (actionType.value == 'مكافئة' ||
-                    actionType.value == 'جزاء') {
-                  if (rewardType.value == 'amount') {
-                    amountToSave = double.tryParse(amountController.text);
-                  } else {
-                    bonusDaysToSave = bonusDays.value;
-                  }
-                }
-
-                final newAction = WorkerAction(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  type: actionType.value,
-                  days: (actionType.value == 'إجازة' ||
-                          actionType.value == 'أجازة عارضة' ||
-                          actionType.value == 'غياب')
-                      ? double.tryParse(daysController.text)
-                      : 0,
-                  date: date.value,
-                  notes: notesController.text,
-                  startTimeHour: startTime.value?.hour,
-                  startTimeMinute: startTime.value?.minute,
-                  endTimeHour: endTime.value?.hour,
-                  endTimeMinute: endTime.value?.minute,
-                  amount: amountToSave,
-                  bonusDays: bonusDaysToSave,
-                  factoryId: widget.worker.factoryId,
-                  workerName: widget.worker.name,
-                );
-
-                final key = await actionBox.add(newAction);
-                final saved = actionBox.get(key);
-                if (saved != null) {
-                  widget.worker.actions.add(saved);
-                  await widget.worker.save();
-                  SupabaseManager.pushData('worker_actions', saved.toJson());
-                }
-                if (context.mounted) Navigator.pop(context);
-                _refresh();
-              },
-              child: const Text("✅ حفظ"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showEditActionDialog(
-      BuildContext context, WorkerAction action, int index) async {
-    final actionType = ValueNotifier<String>(action.type);
-    final date = ValueNotifier<DateTime>(action.date);
+  void _showActionBottomSheet({WorkerAction? existingAction, int? index}) {
+    final actionType = ValueNotifier<String>(existingAction?.type ?? 'إجازة');
+    final date = ValueNotifier<DateTime>(existingAction?.date ?? DateTime.now());
     final daysController =
-        TextEditingController(text: action.days?.toString() ?? '');
-    final startTime = ValueNotifier<TimeOfDay?>(action.startTime);
-    final endTime = ValueNotifier<TimeOfDay?>(action.endTime);
-    final rewardType =
-        ValueNotifier<String>(action.amount != null ? 'amount' : 'days');
+        TextEditingController(text: existingAction?.days?.toString() ?? '1.0');
+    final startTime = ValueNotifier<TimeOfDay?>(existingAction?.startTime);
+    final endTime = ValueNotifier<TimeOfDay?>(existingAction?.endTime);
+    final rewardType = ValueNotifier<String>(
+        existingAction?.amount != null ? 'amount' : 'days');
     final amountController =
-        TextEditingController(text: action.amount?.toString() ?? '');
-    final bonusDays = ValueNotifier<double?>(action.bonusDays);
-    final notesController = TextEditingController(text: action.notes ?? '');
+        TextEditingController(text: existingAction?.amount?.toString() ?? '');
+    final bonusDays = ValueNotifier<double?>(existingAction?.bonusDays);
+    final notesController =
+        TextEditingController(text: existingAction?.notes ?? '');
 
-    await showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          scrollable: true,
-          title: const Text("🔄 تعديل"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
+        builder: (context, setState) => Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
             children: [
-              DropdownButtonFormField<String>(
-                initialValue: actionType.value,
-                items: const [
-                  DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
-                  DropdownMenuItem(
-                      value: 'أجازة عارضة', child: Text('أجازة عارضة')),
-                  DropdownMenuItem(value: 'غياب', child: Text('غياب')),
-                  DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
-                  DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
-                  DropdownMenuItem(value: 'إذن', child: Text('إذن')),
-                  DropdownMenuItem(
-                      value: 'تأمين صحي', child: Text('تأمين صحي')),
-                ],
-                onChanged: (v) =>
-                    setState(() => actionType.value = v ?? 'إجازة'),
-              ),
-              TextField(
-                readOnly: true,
-                controller: TextEditingController(text: _f(date.value)),
-                decoration: const InputDecoration(labelText: "📅 التاريخ"),
-                onTap: () async {
-                  final p = await showDatePicker(
-                    context: context,
-                    initialDate: date.value,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                  );
-                  if (p != null) setState(() => date.value = p);
-                },
-              ),
-              if (actionType.value == 'إجازة' ||
-                  actionType.value == 'غياب') ...[
-                TextField(
-                  controller: daysController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: "🔢 عدد الأيام"),
-                ),
-              ] else if (actionType.value == 'مكافئة' ||
-                  actionType.value == 'جزاء') ...[
-                const SizedBox(height: 8),
-                ToggleButtons(
-                  borderRadius: BorderRadius.circular(8),
-                  isSelected: [
-                    rewardType.value == 'amount',
-                    rewardType.value == 'days'
-                  ],
-                  onPressed: (int index) => setState(
-                      () => rewardType.value = index == 0 ? 'amount' : 'days'),
-                  children: const [
-                    Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text("جنيه")),
-                    Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text("أيام")),
-                  ],
-                ),
-                if (rewardType.value == 'amount')
-                  TextField(
-                    controller: amountController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: "💰 المبلغ"),
-                  )
-                else
-                  DropdownButtonFormField<double>(
-                    initialValue: bonusDays.value,
-                    items: [
-                      const DropdownMenuItem(value: 0.25, child: Text('¼ يوم')),
-                      const DropdownMenuItem(value: 0.5, child: Text('½ يوم')),
-                      for (var i = 1; i <= 5; i++)
-                        DropdownMenuItem(
-                            value: i.toDouble(), child: Text('$i يوم')),
-                    ],
-                    onChanged: (v) => setState(() => bonusDays.value = v),
-                    decoration: const InputDecoration(labelText: "📅 الأيام"),
+              // Handle
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-              ] else if (actionType.value == 'إذن' ||
-                  actionType.value == 'تأمين صحي') ...[
-                _buildTimeField("⏰ خروج", startTime, context, setState),
-                _buildTimeField("🔙 رجوع", endTime, context, setState),
-              ],
-              TextField(
-                controller: notesController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: "📝 ملاحظات"),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        existingAction == null
+                            ? "➕ إضافة ${actionType.value}"
+                            : "🔄 تعديل الإجراء",
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const Divider(),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        initialValue: actionType.value,
+                        items: const [
+                          DropdownMenuItem(value: 'إجازة', child: Text('إجازة')),
+                          DropdownMenuItem(
+                              value: 'أجازة عارضة', child: Text('أجازة عارضة')),
+                          DropdownMenuItem(value: 'غياب', child: Text('غياب')),
+                          DropdownMenuItem(value: 'مكافئة', child: Text('مكافئة')),
+                          DropdownMenuItem(value: 'جزاء', child: Text('جزاء')),
+                          DropdownMenuItem(value: 'إذن', child: Text('إذن')),
+                          DropdownMenuItem(
+                              value: 'تأمين صحي', child: Text('تأمين صحي')),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => actionType.value = v ?? 'إجازة'),
+                        decoration:
+                            const InputDecoration(labelText: "نوع الإجراء"),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        readOnly: true,
+                        controller: TextEditingController(text: _f(date.value)),
+                        decoration: const InputDecoration(labelText: "📅 التاريخ"),
+                        onTap: () async {
+                          final p = await showDatePicker(
+                            context: context,
+                            initialDate: date.value,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (p != null) setState(() => date.value = p);
+                        },
+                      ),
+                      if (actionType.value == 'إجازة' ||
+                          actionType.value == 'غياب' ||
+                          actionType.value == 'أجازة عارضة') ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: daysController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          decoration:
+                              const InputDecoration(labelText: "🔢 عدد الأيام"),
+                        ),
+                      ] else if (actionType.value == 'مكافئة' ||
+                          actionType.value == 'جزاء') ...[
+                        const SizedBox(height: 12),
+                        ToggleButtons(
+                          borderRadius: BorderRadius.circular(8),
+                          isSelected: [
+                            rewardType.value == 'amount',
+                            rewardType.value == 'days'
+                          ],
+                          onPressed: (int index) => setState(() =>
+                              rewardType.value = index == 0 ? 'amount' : 'days'),
+                          children: const [
+                            Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                child: Text("جنيه")),
+                            Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                child: Text("أيام")),
+                          ],
+                        ),
+                        if (rewardType.value == 'amount') ...[
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: amountController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
+                            decoration:
+                                const InputDecoration(labelText: "💰 المبلغ"),
+                          ),
+                        ] else ...[
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<double>(
+                            initialValue: bonusDays.value,
+                            items: [
+                              const DropdownMenuItem(
+                                  value: 0.25, child: Text('¼ يوم')),
+                              const DropdownMenuItem(
+                                  value: 0.5, child: Text('½ يوم')),
+                              for (var i = 1; i <= 5; i++)
+                                DropdownMenuItem(
+                                    value: i.toDouble(), child: Text('$i يوم')),
+                            ],
+                            onChanged: (v) => setState(() => bonusDays.value = v),
+                            decoration:
+                                const InputDecoration(labelText: "📅 الأيام"),
+                          ),
+                        ],
+                      ] else if (actionType.value == 'إذن' ||
+                          actionType.value == 'تأمين صحي') ...[
+                        const SizedBox(height: 12),
+                        _buildTimeField("⏰ خروج", startTime, context, setState),
+                        _buildTimeField("🔙 رجوع", endTime, context, setState),
+                      ],
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: notesController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(labelText: "📝 ملاحظات"),
+                      ),
+                      const SizedBox(height: 30),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("❌ إلغاء"),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onPressed: () async {
+                                final actionBox =
+                                    Hive.box<WorkerAction>('worker_actions');
+                                double? amountToSave;
+                                double? bonusDaysToSave;
+
+                                if (actionType.value == 'مكافئة' ||
+                                    actionType.value == 'جزاء') {
+                                  if (rewardType.value == 'amount') {
+                                    amountToSave =
+                                        double.tryParse(amountController.text);
+                                  } else {
+                                    bonusDaysToSave = bonusDays.value;
+                                  }
+                                }
+
+                                final updatedAction = WorkerAction(
+                                  id: existingAction?.id ??
+                                      DateTime.now()
+                                          .millisecondsSinceEpoch
+                                          .toString(),
+                                  type: actionType.value,
+                                  days: (actionType.value == 'إجازة' ||
+                                          actionType.value == 'أجازة عارضة' ||
+                                          actionType.value == 'غياب')
+                                      ? double.tryParse(daysController.text)
+                                      : 0,
+                                  date: date.value,
+                                  notes: notesController.text,
+                                  startTimeHour: startTime.value?.hour,
+                                  startTimeMinute: startTime.value?.minute,
+                                  endTimeHour: endTime.value?.hour,
+                                  endTimeMinute: endTime.value?.minute,
+                                  amount: amountToSave,
+                                  bonusDays: bonusDaysToSave,
+                                  factoryId: widget.worker.factoryId,
+                                  workerName: widget.worker.name,
+                                );
+
+                                if (existingAction == null) {
+                                  final key = await actionBox.add(updatedAction);
+                                  final saved = actionBox.get(key);
+                                  if (saved != null) {
+                                    widget.worker.actions.insert(0, saved);
+                                    await widget.worker.save();
+                                    SupabaseManager.pushData(
+                                        'worker_actions', saved.toJson());
+                                  }
+                                } else if (index != null) {
+                                  final key = (Hive.box<WorkerAction>(
+                                              'worker_actions')
+                                          .keys
+                                          .toList())[Hive.box<WorkerAction>(
+                                              'worker_actions')
+                                          .values
+                                          .toList()
+                                          .indexOf(existingAction)];
+                                  await actionBox.put(key, updatedAction);
+                                  widget.worker.actions[index] = updatedAction;
+                                  await widget.worker.save();
+                                  SupabaseManager.pushData(
+                                      'worker_actions', updatedAction.toJson());
+                                }
+
+                                if (context.mounted) Navigator.pop(context);
+                                _refresh();
+                              },
+                              child: Text(existingAction == null
+                                  ? "✅ إضافة"
+                                  : "✅ حفظ التعديلات"),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-                onPressed: Navigator.of(context).pop,
-                child: const Text("❌ إلغاء")),
-            ElevatedButton(
-              onPressed: () async {
-                final actionBox = Hive.box<WorkerAction>('worker_actions');
-                double? amountToSave;
-                double? bonusDaysToSave;
-
-                if (actionType.value == 'مكافئة' ||
-                    actionType.value == 'جزاء') {
-                  if (rewardType.value == 'amount') {
-                    amountToSave = double.tryParse(amountController.text);
-                  } else {
-                    bonusDaysToSave = bonusDays.value;
-                  }
-                }
-
-                final updatedAction = WorkerAction(
-                  id: action.id ??
-                      DateTime.now().millisecondsSinceEpoch.toString(),
-                  type: actionType.value,
-                  days: (actionType.value == 'إجازة' ||
-                          actionType.value == 'أجازة عارضة' ||
-                          actionType.value == 'غياب')
-                      ? double.tryParse(daysController.text)
-                      : 0,
-                  date: date.value,
-                  notes: notesController.text,
-                  startTimeHour: startTime.value?.hour,
-                  startTimeMinute: startTime.value?.minute,
-                  endTimeHour: endTime.value?.hour,
-                  endTimeMinute: endTime.value?.minute,
-                  amount: amountToSave,
-                  bonusDays: bonusDaysToSave,
-                  factoryId: widget.worker.factoryId,
-                  workerName: widget.worker.name,
-                );
-
-                final key = await actionBox.add(updatedAction);
-                final saved = actionBox.get(key);
-                if (saved != null) {
-                  widget.worker.actions.removeAt(index);
-                  widget.worker.actions.insert(index, saved);
-                  await widget.worker.save();
-                  SupabaseManager.pushData('worker_actions', saved.toJson());
-                }
-                if (context.mounted) Navigator.pop(context);
-                _refresh();
-              },
-              child: const Text("✅ حفظ"),
-            ),
-          ],
         ),
       ),
     );

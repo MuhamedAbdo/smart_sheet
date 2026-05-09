@@ -173,70 +173,144 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Stack(
-        children: [
-          Scaffold(
-            resizeToAvoidBottomInset: true,
-            appBar: AppBar(
-              title: Text(
-                  widget.existing == null ? "إضافة سجل صيانة" : "تعديل السجل"),
-              actions: [
-                if (!_isUploading)
-                  IconButton(
-                      onPressed: _saveRecord, icon: const Icon(Icons.check))
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.9,
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                // Handle
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(
+                      left: 20,
+                      right: 20,
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              widget.existing == null
+                                  ? "🆕 إضافة سجل صيانة"
+                                  : "✏️ تعديل السجل",
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
+                        const Divider(),
+                        const SizedBox(height: 10),
+                        _buildTextField(
+                            machineController, "اسم الماكينة", Icons.settings),
+                        const SizedBox(height: 12),
+                        _buildDateField(
+                            issueDateController, "تاريخ ظهور العطل"),
+                        const SizedBox(height: 12),
+                        _buildTextField(issueDescController, "وصف العطل",
+                            Icons.warning_amber,
+                            maxLines: 2),
+                        const SizedBox(height: 12),
+                        _buildDateField(reportDateController, "تاريخ التبليغ"),
+                        const SizedBox(height: 12),
+                        _buildTextField(reportedToTechnicianController,
+                            "تم التبليغ إلى", Icons.person),
+                        const Divider(height: 32),
+                        _buildTextField(
+                            actionController, "الإجراء المتخذ", Icons.build),
+                        const SizedBox(height: 12),
+                        _buildDateField(actionDateController, "تاريخ التنفيذ"),
+                        const SizedBox(height: 12),
+                        _buildTextField(repairedByController,
+                            "تم الإصلاح بواسطة", Icons.engineering),
+                        const SizedBox(height: 12),
+                        _buildLocationDropdown(),
+                        const SizedBox(height: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isFixed
+                                ? Colors.green.withValues(alpha: 0.1)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: CheckboxListTile(
+                            title: const Text("تم الإصلاح بالكامل؟"),
+                            value: isFixed,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            onChanged: (v) =>
+                                setState(() => isFixed = v ?? false),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        DesktopImagePicker(
+                          isProcessing: _isProcessing,
+                          capturedImages: _imagePaths
+                              .map((p) => p.startsWith('http') ? p : File(p))
+                              .toList(),
+                          onPickImages: _pickImages,
+                          onRemoveImage: (index) =>
+                              setState(() => _imagePaths.removeAt(index)),
+                        ),
+                        const SizedBox(height: 30),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text("إلغاء"),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                onPressed: _saveRecord,
+                                child: const Text("حفظ السجل"),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
-            body: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                16, 16, 16,
-                16 + MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: Column(
-                children: [
-                  _buildTextField(
-                      machineController, "اسم الماكينة", Icons.settings),
-                  const SizedBox(height: 12),
-                  _buildDateField(issueDateController, "تاريخ ظهور العطل"),
-                  const SizedBox(height: 12),
-                  _buildTextField(
-                      issueDescController, "وصف العطل", Icons.warning_amber,
-                      maxLines: 2),
-                  const SizedBox(height: 12),
-                  _buildDateField(reportDateController, "تاريخ التبليغ"),
-                  const SizedBox(height: 12),
-                  _buildTextField(reportedToTechnicianController,
-                      "تم التبليغ إلى", Icons.person),
-                  const Divider(height: 32),
-                  _buildTextField(
-                      actionController, "الإجراء المتخذ", Icons.build),
-                  const SizedBox(height: 12),
-                  _buildDateField(actionDateController, "تاريخ التنفيذ"),
-                  const SizedBox(height: 12),
-                  _buildTextField(repairedByController, "تم الإصلاح بواسطة",
-                      Icons.engineering),
-                  const SizedBox(height: 12),
-                  _buildLocationDropdown(),
-                  CheckboxListTile(
-                    title: const Text("تم الإصلاح بالكامل؟"),
-                    value: isFixed,
-                    onChanged: (v) => setState(() => isFixed = v ?? false),
-                  ),
-                  const SizedBox(height: 20),
-                  DesktopImagePicker(
-                    isProcessing: _isProcessing,
-                    capturedImages: _imagePaths.map((p) => p.startsWith('http') ? p : File(p)).toList(),
-                    onPickImages: _pickImages,
-                    onRemoveImage: (index) => setState(() => _imagePaths.removeAt(index)),
-                  ),
-                  const SizedBox(height: 100),
-                ],
-              ),
-            ),
-          ),
-          if (_isUploading) _buildLoadingOverlay(),
-        ],
+            if (_isUploading) _buildLoadingOverlay(),
+          ],
+        ),
       ),
     );
   }

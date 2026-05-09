@@ -45,99 +45,140 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 16,
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.9,
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              '🚀 بدء أوردر جديد (جلسة حية)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const Divider(),
-            const SizedBox(height: 10),
-            ValueListenableBuilder(
-              valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
-              builder: (context, Box<FlexoMachine> box, _) {
-                final machines = box.values.toList();
-                return DropdownButtonFormField<String>(
-                  initialValue: selectedMachine,
-                  decoration: const InputDecoration(labelText: 'اختر الماكينة', border: OutlineInputBorder()),
-                  items: [
-                    ...machines.map((m) => DropdownMenuItem(value: m.name, child: Text(m.name))),
-                    const DropdownMenuItem(value: 'MANUAL', child: Text('➕ إضافة يدوي')),
-                  ],
-                  onChanged: (val) async {
-                    if (val == 'MANUAL') {
-                      final name = await _showSimplePrompt('اسم الماكينة الجديدة');
-                      if (name != null && name.isNotEmpty) {
-                        box.add(FlexoMachine(id: DateTime.now().millisecondsSinceEpoch.toString(), name: name));
-                        setState(() => selectedMachine = name);
-                      }
-                    } else {
-                      setState(() => selectedMachine = val);
-                    }
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            _buildSimpleField(clientController, 'اسم العميل', Icons.person),
-            const SizedBox(height: 12),
-            _buildSimpleField(productController, 'الصنف', Icons.inventory),
-            const SizedBox(height: 12),
-            _buildSimpleField(productCodeController, 'كود الصنف', Icons.qr_code, keyboardType: TextInputType.number),
-            const SizedBox(height: 12),
-            _buildSimpleField(orderNumberController, 'رقم أمر التشغيل', Icons.numbers, keyboardType: TextInputType.number),
-            const SizedBox(height: 12),
-            _buildWorkerSuggestField(techController),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
+      child: Column(
+        children: [
+          // Header Handle
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Container(
+              width: 40,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10),
               ),
-              onPressed: () {
-                if (selectedMachine == null || clientController.text.isEmpty) {
-                  UIUtils.showInfoSnackBar(message: 'يرجى ملء البيانات الأساسية', backgroundColor: Colors.orange);
-                  return;
-                }
-                
-                final session = LiveSession(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  machineName: selectedMachine!,
-                  clientName: clientController.text.trim(),
-                  productName: productController.text.trim(),
-                  productCode: productCodeController.text.trim(),
-                  orderNumber: orderNumberController.text.trim(),
-                  technicianName: techController.text.trim(),
-                  startTime: DateTime.now(),
-                  downtimeIntervals: [],
-                  lastStateChange: DateTime.now(),
-                  // Fields from initialData
-                  dimensions: widget.initialData?['dimensions'],
-                  isSheet: widget.initialData?['isSheet'] ?? false,
-                  imagePaths: List<String>.from(widget.initialData?['imagePaths'] ?? []),
-                  factoryId: '', // معرف فريد للمصنع (للتأسيس السحابي مستقبلاً)
-                );
-                
-                Hive.box<LiveSession>('flexo_live_sessions').add(session);
-                Navigator.pop(context, true);
-              },
-              child: const Text('ابدأ التشغيل الآن ⚡'),
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    '🚀 بدء أوردر جديد (جلسة حية)',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  ValueListenableBuilder(
+                    valueListenable: Hive.box<FlexoMachine>('flexo_machines')
+                        .listenable(),
+                    builder: (context, Box<FlexoMachine> box, _) {
+                      final machines = box.values.toList();
+                      return DropdownButtonFormField<String>(
+                        initialValue: selectedMachine,
+                        decoration: const InputDecoration(
+                            labelText: 'اختر الماكينة',
+                            border: OutlineInputBorder()),
+                        items: [
+                          ...machines.map((m) => DropdownMenuItem(
+                              value: m.name, child: Text(m.name))),
+                          const DropdownMenuItem(
+                              value: 'MANUAL', child: Text('➕ إضافة يدوي')),
+                        ],
+                        onChanged: (val) async {
+                          if (val == 'MANUAL') {
+                            final name = await _showSimplePrompt(
+                                'اسم الماكينة الجديدة');
+                            if (name != null && name.isNotEmpty) {
+                              box.add(FlexoMachine(
+                                  id: DateTime.now()
+                                      .millisecondsSinceEpoch
+                                      .toString(),
+                                  name: name));
+                              setState(() => selectedMachine = name);
+                            }
+                          } else {
+                            setState(() => selectedMachine = val);
+                          }
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildSimpleField(
+                      clientController, 'اسم العميل', Icons.person),
+                  const SizedBox(height: 12),
+                  _buildSimpleField(
+                      productController, 'الصنف', Icons.inventory),
+                  const SizedBox(height: 12),
+                  _buildSimpleField(
+                      productCodeController, 'كود الصنف', Icons.qr_code,
+                      keyboardType: TextInputType.number),
+                  const SizedBox(height: 12),
+                  _buildSimpleField(orderNumberController, 'رقم أمر التشغيل',
+                      Icons.numbers,
+                      keyboardType: TextInputType.number),
+                  const SizedBox(height: 12),
+                  _buildWorkerSuggestField(techController),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      if (selectedMachine == null ||
+                          clientController.text.isEmpty) {
+                        UIUtils.showInfoSnackBar(
+                            message: 'يرجى ملء البيانات الأساسية',
+                            backgroundColor: Colors.orange);
+                        return;
+                      }
+
+                      final newSession = LiveSession(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        machineName: selectedMachine!,
+                        clientName: clientController.text,
+                        productName: productController.text,
+                        productCode: productCodeController.text,
+                        orderNumber: orderNumberController.text,
+                        technicianName: techController.text,
+                        startTime: DateTime.now(),
+                        downtimeIntervals: [],
+                        lastStateChange: DateTime.now(),
+                        isRunning: true,
+                        dimensions: widget.initialData?['dimensions'],
+                        isSheet: widget.initialData?['isSheet'],
+                        imagePaths: widget.initialData?['imagePaths'] != null
+                            ? List<String>.from(widget.initialData!['imagePaths'])
+                            : null,
+                      );
+
+                      Hive.box<LiveSession>('live_sessions').add(newSession);
+                      Navigator.pop(context, true);
+                    },
+                    child: const Text('✅ ابدأ الجلسة الآن'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -187,26 +228,61 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
   }
 
   Future<String?> _showSimplePrompt(String title) async {
+    final c = TextEditingController();
     String? result;
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
-      builder: (context) {
-        final c = TextEditingController();
-        return AlertDialog(
-          title: Text(title),
-          content: TextField(controller: c, autofocus: true),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-            TextButton(
-              onPressed: () {
-                result = c.text;
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: c,
+              autofocus: true,
+              onSubmitted: (val) {
+                result = val;
                 Navigator.pop(context);
               },
-              child: const Text('إضافة'),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: 'الاسم',
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('إلغاء')),
+                ElevatedButton(
+                  onPressed: () {
+                    result = c.text;
+                    Navigator.pop(context);
+                  },
+                  child: const Text('إضافة'),
+                ),
+              ],
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
     return result;
   }

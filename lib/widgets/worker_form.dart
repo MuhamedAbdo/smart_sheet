@@ -19,8 +19,10 @@ class WorkerForm extends StatefulWidget {
   static void show(BuildContext context,
       {Worker? existingWorker, Box<Worker>? box}) {
     final effectiveBox = box ?? Hive.box<Worker>('workers');
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) =>
           WorkerForm(existingWorker: existingWorker, box: effectiveBox),
     );
@@ -123,47 +125,127 @@ class _WorkerFormState extends State<WorkerForm> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      scrollable: true,
-      title: Text(
-          widget.existingWorker == null ? "➕ إضافة عامل" : "✏️ تعديل العامل"),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: "👤 الاسم")),
-            const SizedBox(height: 10),
-            TextField(
-                controller: phoneController,
-                decoration: InputDecoration(
-                  labelText: "📞 الهاتف",
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.contact_phone, color: Colors.blue),
-                    onPressed: _pickContact,
-                    tooltip: "اختيار من جهات الاتصال",
-                  ),
-                ),
-                keyboardType: TextInputType.phone),
-            const SizedBox(height: 10),
-            DropdownButtonFormField(
-              initialValue: job,
-              items: jobOptions
-                  .map((j) => DropdownMenuItem(value: j, child: Text(j)))
-                  .toList(),
-              onChanged: (v) => setState(() => job = v ?? 'عامل'),
-              decoration: const InputDecoration(labelText: "🛠 الوظيفة"),
-            ),
-          ],
-        ),
+    final theme = Theme.of(context);
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.9,
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("❌ إلغاء")),
-        ElevatedButton(onPressed: _saveWorker, child: const Text("💾 حفظ")),
-      ],
+      child: Column(
+        children: [
+          // Handle
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Container(
+              width: 40,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.existingWorker == null
+                        ? "➕ إضافة عامل جديد"
+                        : "✏️ تعديل بيانات العامل",
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: "👤 اسم العامل",
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.grey.withValues(alpha: 0.05),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: phoneController,
+                    decoration: InputDecoration(
+                      labelText: "📞 رقم الهاتف",
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.grey.withValues(alpha: 0.05),
+                      suffixIcon: IconButton(
+                        icon:
+                            const Icon(Icons.contact_phone, color: Colors.blue),
+                        onPressed: _pickContact,
+                        tooltip: "اختيار من جهات الاتصال",
+                      ),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: job,
+                    items: jobOptions
+                        .map((j) => DropdownMenuItem(value: j, child: Text(j)))
+                        .toList(),
+                    onChanged: (v) => setState(() => job = v ?? 'عامل'),
+                    decoration: InputDecoration(
+                      labelText: "🛠 الوظيفة",
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.grey.withValues(alpha: 0.05),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: const Text("إلغاء",
+                              style: TextStyle(color: Colors.grey)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _saveWorker,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: theme.primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                          child: Text(widget.existingWorker == null
+                              ? "إضافة"
+                              : "حفظ التعديلات"),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

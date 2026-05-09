@@ -6,7 +6,6 @@ import 'package:smart_sheet/screens/production_report_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
-import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 
 /// شاشة تعرض جميع الأصناف والمقاسات المرتبطة بعميل معين
@@ -102,21 +101,10 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         }
 
         return Scaffold(
+          resizeToAvoidBottomInset: false,
           appBar: AppBar(
-            title: isSearching
-                ? SavedSizeSearchBar(
-                    onChanged: (v) => setState(() => searchQuery = v))
-                : Text(widget.clientName),
-            centerTitle: !isSearching,
-            actions: [
-              IconButton(
-                icon: Icon(isSearching ? Icons.close : Icons.search),
-                onPressed: () => setState(() {
-                  isSearching = !isSearching;
-                  if (!isSearching) searchQuery = "";
-                }),
-              )
-            ],
+            title: Text(widget.clientName),
+            centerTitle: true,
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () {
@@ -133,18 +121,49 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text(
               'إضافة صنف',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ),
-          body: _buildBody(allClientRecords, itemEntries.length, filteredEntries, clientCode),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // شريط البحث المطور خارج الـ AppBar
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: TextField(
+                    onChanged: (v) => setState(() => searchQuery = v),
+                    decoration: InputDecoration(
+                      hintText: "البحث باسم أو كود الصنف...",
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: Theme.of(context).cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    ),
+                  ),
+                ),
+                _buildInfoBar(itemEntries.length, clientCode),
+                Expanded(
+                  child: _buildList(allClientRecords, itemEntries.length,
+                      filteredEntries, clientCode),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
   }
 
-  Widget _buildBody(List<MapEntry<dynamic, dynamic>> allClientRecords,
-      int totalItemsCount, List<MapEntry<dynamic, Map<String, dynamic>>> filteredEntries, String clientCode) {
-    
+  Widget _buildList(
+      List<MapEntry<dynamic, dynamic>> allClientRecords,
+      int totalItemsCount,
+      List<MapEntry<dynamic, Map<String, dynamic>>> filteredEntries,
+      String clientCode) {
     // إذا لم يكن هناك أي سجل (حتى السجل الأساسي) - هذا لا يحدث إلا إذا تم الحذف
     if (allClientRecords.isEmpty && searchQuery.isEmpty) {
       return Center(
@@ -158,7 +177,9 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
               "لم يتم إضافة أي صنف لهذا العميل حتى الآن",
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 16, color: Colors.grey, fontWeight: FontWeight.bold),
+                  fontSize: 16,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -167,28 +188,23 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
 
     // إذا كان هناك سجل أساسي ولكن لا توجد أصناف حقيقية
     if (totalItemsCount == 0 && searchQuery.isEmpty) {
-      return Column(
-        children: [
-          _buildInfoBar(totalItemsCount, clientCode),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.inventory_2_outlined,
-                      size: 60, color: Colors.grey.shade400),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "لم يتم إضافة أي صنف لهذا العميل حتى الآن",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 16, color: Colors.grey, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inventory_2_outlined,
+                size: 60, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            const Text(
+              "لم يتم إضافة أي صنف لهذا العميل حتى الآن",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
@@ -202,28 +218,26 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       );
     }
 
-    return Column(
-      children: [
-        _buildInfoBar(totalItemsCount, clientCode),
-
-        // قائمة الأصناف
-        Expanded(
-          child: ListView.builder(
-            itemCount: filteredEntries.length,
-            padding: const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 4),
-            itemBuilder: (context, index) {
-              final entry = filteredEntries[index];
-              return SavedSizeCard(
-                key: ValueKey(entry.key),
-                record: entry.value,
-                onEdit: () => _navigateToEdit(entry.key, entry.value),
-                onDelete: () => _confirmDelete(entry.key),
-                onStartProduction: (data) => _openProductionReportWithSheetData(context, data),
-              );
-            },
-          ),
-        ),
-      ],
+    // قائمة الأصناف
+    return ListView.builder(
+      itemCount: filteredEntries.length,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 150,
+        left: 8,
+        right: 8,
+        top: 4,
+      ),
+      itemBuilder: (context, index) {
+        final entry = filteredEntries[index];
+        return SavedSizeCard(
+          key: ValueKey(entry.key),
+          record: entry.value,
+          onEdit: () => _navigateToEdit(entry.key, entry.value),
+          onDelete: () => _confirmDelete(entry.key),
+          onStartProduction: (data) =>
+              _openProductionReportWithSheetData(context, data),
+        );
+      },
     );
   }
 
