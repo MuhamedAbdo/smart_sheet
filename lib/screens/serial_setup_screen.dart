@@ -253,42 +253,111 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
   }
 
   Widget _buildChainTab() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        16.0, 16.0, 16.0,
-        16.0 + MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Column(
-        children: [
-          TextField(
-            controller: lengthController,
-            decoration: const InputDecoration(
-              labelText: 'أدخل الطول',
-              border: OutlineInputBorder(),
+    return GestureDetector(
+      onTap: hideKeyboard,
+      behavior: HitTestBehavior.translucent,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          16.0, 16.0, 16.0,
+          16.0 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          children: [
+            TextField(
+              controller: lengthController,
+              decoration: InputDecoration(
+                labelText: 'أدخل الطول',
+                prefixIcon: const Icon(Icons.straighten),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade600
+                        : Colors.grey.shade400,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey.shade800
+                    : Colors.grey.shade50,
+              ),
+              keyboardType: TextInputType.number,
+              onSubmitted: (_) => calculateValues(),
             ),
-            keyboardType: TextInputType.number,
-            onSubmitted: (_) => calculateValues(),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: widthController,
-            decoration: const InputDecoration(
-              labelText: 'أدخل العرض',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 16),
+            TextField(
+              controller: widthController,
+              decoration: InputDecoration(
+                labelText: 'أدخل العرض',
+                prefixIcon: const Icon(Icons.width_normal),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade600
+                        : Colors.grey.shade400,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey.shade800
+                    : Colors.grey.shade50,
+              ),
+              keyboardType: TextInputType.number,
+              onSubmitted: (_) => calculateValues(),
             ),
-            keyboardType: TextInputType.number,
-            onSubmitted: (_) => calculateValues(),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: bladeController,
-            decoration: const InputDecoration(
-              labelText: 'أدخل السلاح الأول',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 16),
+            TextField(
+              controller: bladeController,
+              decoration: InputDecoration(
+                labelText: 'أدخل السلاح الأول',
+                prefixIcon: const Icon(Icons.cut),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade600
+                        : Colors.grey.shade400,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey.shade800
+                    : Colors.grey.shade50,
+              ),
+              keyboardType: TextInputType.number,
+              onSubmitted: (_) => calculateValues(),
             ),
-            keyboardType: TextInputType.number,
-            onSubmitted: (_) => calculateValues(),
-          ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -369,36 +438,84 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildAutoTab() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        16.0, 16.0, 16.0,
-        16.0 + MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Column(
-        children: [
-          TextField(
-            controller: autoLengthController,
-            decoration: const InputDecoration(
-              labelText: 'أدخل الطول',
-              border: OutlineInputBorder(),
+    return GestureDetector(
+      onTap: hideKeyboard,
+      behavior: HitTestBehavior.translucent,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          16.0, 16.0, 16.0,
+          16.0 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          children: [
+            TextField(
+              controller: autoLengthController,
+              decoration: InputDecoration(
+                labelText: 'أدخل الطول',
+                prefixIcon: const Icon(Icons.straighten),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade600
+                        : Colors.grey.shade400,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey.shade800
+                    : Colors.grey.shade50,
+              ),
+              keyboardType: TextInputType.number,
+              onSubmitted: (_) => calculateAutoValues(),
             ),
-            keyboardType: TextInputType.number,
-            onSubmitted: (_) => calculateAutoValues(),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: autoWidthController,
-            decoration: const InputDecoration(
-              labelText: 'أدخل العرض',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 16),
+            TextField(
+              controller: autoWidthController,
+              decoration: InputDecoration(
+                labelText: 'أدخل العرض',
+                prefixIcon: const Icon(Icons.width_normal),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade600
+                        : Colors.grey.shade400,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey.shade800
+                    : Colors.grey.shade50,
+              ),
+              keyboardType: TextInputType.number,
+              onSubmitted: (_) => calculateAutoValues(),
             ),
-            keyboardType: TextInputType.number,
-            onSubmitted: (_) => calculateAutoValues(),
-          ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -508,7 +625,8 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildDividers(BuildContext context) {
@@ -533,7 +651,7 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        resizeToAvoidBottomInset: true,
+        resizeToAvoidBottomInset: false,
         appBar: AppBar(
           title: const Text("ضبط تركيب السيريل"),
           centerTitle: true,
@@ -546,14 +664,11 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
             labelStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),
-        body: GestureDetector(
-          onTap: hideKeyboard,
-          child: TabBarView(
-            children: [
-              _buildChainTab(),
-              _buildAutoTab(),
-            ],
-          ),
+        body: TabBarView(
+          children: [
+            _buildChainTab(),
+            _buildAutoTab(),
+          ],
         ),
       ),
     );
