@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/worker_action_model.dart';
 import '../../models/worker_model.dart';
 import '../../widgets/worker_action_card.dart';
@@ -666,15 +667,71 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   }
 
   Future<void> _launchURL(String url) async {
-    // Assuming you have url_launcher or similar.
-    // If not, we can use platform channels or just provide a placeholder.
-    // For now, I'll keep it simple as I don't see url_launcher in imports.
-    debugPrint("Launching URL: $url");
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('لا يمكن فتح تطبيق الهاتف'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _launchWhatsApp(String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-    final url = "https://wa.me/$cleanPhone";
-    debugPrint("Launching WhatsApp: $url");
+    try {
+      // Clean phone number - remove all non-digit characters
+      String cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+      
+      // Add country code if not present (assuming Egypt +20 as default)
+      if (!cleanPhone.startsWith('20') && cleanPhone.length == 10 && cleanPhone.startsWith('0')) {
+        cleanPhone = '20${cleanPhone.substring(1)}';
+      } else if (!cleanPhone.startsWith('+') && !cleanPhone.startsWith('20') && cleanPhone.length == 10) {
+        cleanPhone = '20$cleanPhone';
+      }
+      
+      // Default message in Arabic
+      const defaultMessage = 'السلام عليكم';
+      final encodedMessage = Uri.encodeComponent(defaultMessage);
+      final url = "https://wa.me/$cleanPhone?text=$encodedMessage";
+      
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('لا يمكن فتح تطبيق الواتساب'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
