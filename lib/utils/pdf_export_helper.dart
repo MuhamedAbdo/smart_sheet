@@ -323,10 +323,10 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
     final int totalPages = (records.length / recordsPerPage).ceil();
 
     // Width calculation: Total 810
-    // Fixed columns: م(20), الفني(70), التاريخ(55), كود(48), المقاس(60), أمر(45), إنتاج(35), تشغيل(70), هالك(50), أعطال(70) = 523
-    // Remaining: 810 - 523 = 287
-    // Flexible: العميل, الصنف, ملاحظات (287 / 3 = 95.0)
-    final double flexibleColWidth = ((810 - 523) / 3).floorToDouble();
+    // Fixed columns: م(20), الفني(50), التاريخ(55), كود(48), المقاس(60), أمر(45), إنتاج(35), تشغيل(70), هالك(50), أعطال(70) = 503
+    // Remaining: 810 - 503 = 307
+    // Flexible: العميل, الصنف, ملاحظات (307 / 3 = 102.0)
+    final double flexibleColWidth = ((810 - 503) / 3).floorToDouble();
 
     for (int page = 0; page < totalPages; page++) {
       final int startIndex = page * recordsPerPage;
@@ -339,14 +339,12 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
 
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
-        final String mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '---';
         final String tName = (record['technicianName'] ?? record['technician_name'])?.toString() ?? '---';
-        final String techMachine = '$tName - $mName';
 
         pageRows.add(
           pw.Row(children: [
             buildTableDataCell('${startIndex + i + 1}', 20.0, arabicFont, isRightMost: true),
-            buildTableDataCell(techMachine, 70.0, arabicFont),
+            buildTableDataCell(tName, 50.0, arabicFont),
             buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 55.0, arabicFont),
             buildTableDataCell(record['clientName']?.toString() ?? '---', flexibleColWidth, arabicFont),
             buildTableDataCell(record['product']?.toString() ?? '---', flexibleColWidth, arabicFont),
@@ -365,15 +363,29 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
         );
       }
 
+      // Get unique machine names for this page
+      final Set<String> pageMachineNames = {};
+      for (var record in pageRecords) {
+        final machineName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
+        if (machineName.isNotEmpty) {
+          pageMachineNames.add(machineName);
+        }
+      }
+      
       pdf.addPage(pw.Page(
         pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(12),
         build: (context) => pw.Directionality(
           textDirection: pw.TextDirection.rtl,
           child: pw.Column(children: [
-            pw.Text(ArabicPDFHelper.fixArabic('تقرير الإنتاج لقسم الفلكسو'),
+            pw.Text(ArabicPDFHelper.fixArabic('قسم الفلكسو'),
               style: pw.TextStyle(font: arabicBoldFont, fontSize: 16)),
-            pw.SizedBox(height: 10),
+            pw.SizedBox(height: 4),
+            pw.Text(ArabicPDFHelper.fixArabic(pageMachineNames.length == 1 
+                ? 'تقرير الإنتاج لماكينة: ${pageMachineNames.first}'
+                : 'تقرير الإنتاج للماكينات: ${pageMachineNames.join(', ')}'),
+              style: pw.TextStyle(font: arabicBoldFont, fontSize: 14)),
+            pw.SizedBox(height: 6),
             _buildProductionHeader(flexibleWidth: flexibleColWidth, font: arabicBoldFont),
             pw.Column(children: pageRows),
           ]),
@@ -391,7 +403,7 @@ pw.Widget _buildProductionHeader({required double flexibleWidth, required pw.Fon
   return pw.Row(
     children: [
       _buildSpannedHeader('م', 20.0, font, isRightMost: true),
-      _buildSpannedHeader('الفني - الماكينة', 70.0, font),
+      _buildSpannedHeader('الفني', 50.0, font),
       _buildSpannedHeader('التاريخ', 55.0, font),
       _buildSpannedHeader('إسم العميل', flexibleWidth, font),
       _buildSpannedHeader('الصنف', flexibleWidth, font),
@@ -416,30 +428,38 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
     final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
     final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
 
-    // استخراج الألوان الفريدة للتقرير
-    final Set<String> uniqueColorsSet = {};
+    // استخراج الحد الأقصى لعدد الألوان في أي أوردر واحد
+    int maxColorsCount = 0;
+    List<String> colorHeaders = [];
+    
     for (var record in records) {
       final List<dynamic> colors = record['colors'] ?? [];
-      for (var c in colors) {
-        final colorData = c is Map ? c : {};
-        final colorName = colorData['color']?.toString() ?? '';
-        if (colorName.isNotEmpty && colorName != '---') {
-          uniqueColorsSet.add(colorName);
-        }
+      if (colors.length > maxColorsCount) {
+        maxColorsCount = colors.length;
+        // إنشاء عناوين الألوان بناءً على أكبر عدد
+        colorHeaders = colors.map((c) {
+          final colorData = c is Map ? c : {};
+          return colorData['color']?.toString() ?? '---';
+        }).toList();
       }
     }
-    final List<String> uniqueColors = uniqueColorsSet.toList()..sort();
+    
+    final List<String> uniqueColors = colorHeaders.take(maxColorsCount).toList();
 
     final pdf = pw.Document();
     const int recordsPerPage = 13;
     final int totalPages = (records.length / recordsPerPage).ceil();
 
     // Width calculation: Total 810
-    // Fixed columns: م(20), التاريخ(55), المقاس(60), العدد(40) = 175
+    // Fixed columns: م(20), الفني(50), التاريخ(55), العدد(40), الملاحظات(flexible) = 165 + flexibleColWidth
+    // Dynamic columns: المقاس(60 + extra), الصنف(flexible + extra), العميل(flexible + extra)
     // Colors width: uniqueColors.length * 35.0
-    // Remaining = 810 - 175 - (colorsWidth)
+    // Remaining space = 810 - 165 - (colorsWidth) - (flexibleColWidth for notes) = 645 - colorsWidth - flexibleColWidth
+    // Distribute remaining to: العميل, الصنف, المقاس (3 columns)
     final double colorsWidth = uniqueColors.length * 35.0;
-    final double flexibleColWidth = ((810 - 175 - colorsWidth) / 3).floorToDouble();
+    const double notesWidth = 80.0; // Fixed width for notes
+    final double remainingSpace = 810 - 165 - colorsWidth - notesWidth; // 165 = م+الفني+التاريخ+العدد
+    final double flexibleColWidth = (remainingSpace / 3).floorToDouble(); // For العميل, الصنف, المقاس
 
     for (int page = 0; page < totalPages; page++) {
       final int startIndex = page * recordsPerPage;
@@ -452,16 +472,18 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
 
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
+        final String tName = (record['technicianName'] ?? record['technician_name'])?.toString() ?? '---';
         
         pageRows.add(
           pw.Row(children: [
             buildTableDataCell('${startIndex + i + 1}', 20.0, arabicFont, isRightMost: true),
+            buildTableDataCell(tName, 50.0, arabicFont),
             buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 55.0, arabicFont),
             buildTableDataCell(record['clientName']?.toString() ?? '---', flexibleColWidth, arabicFont),
             buildTableDataCell(record['product']?.toString() ?? '---', flexibleColWidth, arabicFont),
-            buildTableDataCell(_getDimensionsOnly(record), 60.0, arabicFont),
+            buildTableDataCell(_getDimensionsOnly(record), flexibleColWidth, arabicFont),
             
-            // الأحبار المقسمة
+            // الأحبار المقسمة (ديناميكية بناءً على الحد الأقصى)
             ...List.generate(uniqueColors.length, (j) {
               final recordColors = record['colors'] as List? ?? [];
               String displayedName = '---';
@@ -483,21 +505,35 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
             }),
             
             buildTableDataCell(record['quantity']?.toString() ?? '---', 40.0, arabicFont),
-            buildTableDataCell(record['notes']?.toString() ?? '---', flexibleColWidth, arabicFont),
+            buildTableDataCell(record['notes']?.toString() ?? '---', notesWidth, arabicFont),
           ]),
         );
       }
 
+      // Get unique machine names for this page
+      final Set<String> pageMachineNames = {};
+      for (var record in pageRecords) {
+        final machineName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
+        if (machineName.isNotEmpty) {
+          pageMachineNames.add(machineName);
+        }
+      }
+      
       pdf.addPage(pw.Page(
         pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(12),
         build: (context) => pw.Directionality(
           textDirection: pw.TextDirection.rtl,
           child: pw.Column(children: [
-            pw.Text(ArabicPDFHelper.fixArabic('تقرير إنتاج الطباعة'),
+            pw.Text(ArabicPDFHelper.fixArabic('قسم الفلكسو'),
               style: pw.TextStyle(font: arabicBoldFont, fontSize: 16)),
-            pw.SizedBox(height: 10),
-            _buildPrintingHeader(uniqueColors: uniqueColors, flexibleWidth: flexibleColWidth, font: arabicBoldFont),
+            pw.SizedBox(height: 4),
+            pw.Text(ArabicPDFHelper.fixArabic(pageMachineNames.length == 1 
+                ? 'تقرير الطباعة لماكينة: ${pageMachineNames.first}'
+                : 'تقرير الطباعة للماكينات: ${pageMachineNames.join(', ')}'),
+              style: pw.TextStyle(font: arabicBoldFont, fontSize: 14)),
+            pw.SizedBox(height: 6),
+            _buildPrintingHeader(uniqueColors: uniqueColors, flexibleWidth: flexibleColWidth, notesWidth: notesWidth, font: arabicBoldFont),
             pw.Column(children: pageRows),
           ]),
         ),
@@ -510,18 +546,25 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
   }
 }
 
-pw.Widget _buildPrintingHeader({required List<String> uniqueColors, required double flexibleWidth, required pw.Font font}) {
+pw.Widget _buildPrintingHeader({required List<String> uniqueColors, required double flexibleWidth, required double notesWidth, required pw.Font font}) {
   return pw.Row(
     children: [
       _buildSpannedHeader('م', 20.0, font, isRightMost: true),
+      _buildSpannedHeader('الفني', 50.0, font),
       _buildSpannedHeader('التاريخ', 55.0, font),
       _buildSpannedHeader('إسم العميل', flexibleWidth, font),
       _buildSpannedHeader('الصنف', flexibleWidth, font),
-      _buildSpannedHeader('المقاس', 60.0, font),
+      _buildSpannedHeader('المقاس', flexibleWidth, font),
+      
+      // الأحبار الديناميكية - عرض كل لون في عمود منفصل
       if (uniqueColors.isNotEmpty)
-        _buildSpannedHeader('كمية الحبر بالليتر', uniqueColors.length * 35.0, font, isSectionEnd: true),
+        ...List.generate(uniqueColors.length, (j) {
+          final colorName = j < uniqueColors.length ? uniqueColors[j] : '---';
+          return _buildSpannedHeader(colorName, 35.0, font, isSectionEnd: j == uniqueColors.length - 1);
+        }),
+      
       _buildSpannedHeader('العدد', 40.0, font),
-      _buildSpannedHeader('الملاحظات', flexibleWidth, font),
+      _buildSpannedHeader('الملاحظات', notesWidth, font),
     ],
   );
 }

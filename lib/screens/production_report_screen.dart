@@ -8,6 +8,7 @@ import 'package:smart_sheet/screens/flexo_archive_screen.dart';
 import 'package:smart_sheet/widgets/production_report_form.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
 import 'package:smart_sheet/models/live_session.dart';
+import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/widgets/active_sessions_dashboard.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import '../../../utils/pdf_export_helper.dart';
@@ -24,12 +25,14 @@ class ProductionReportScreen extends StatefulWidget {
 
 class _ProductionReportScreenState extends State<ProductionReportScreen> {
   Box? _productionReportBox;
+  Box<FlexoMachine>? _machinesBox;
   bool _isBoxLoading = true;
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSearching = false;
   String? _selectedDate;
+  String? _selectedMachine;
   bool _sortDescending = true;
 
   @override
@@ -44,9 +47,11 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
   Future<void> _openBoxSafe() async {
     try {
       if (!Hive.isBoxOpen('inkReports')) await Hive.openBox('inkReports');
+      if (!Hive.isBoxOpen('flexo_machines')) await Hive.openBox<FlexoMachine>('flexo_machines');
       if (mounted) {
         setState(() {
           _productionReportBox = Hive.box('inkReports');
+          _machinesBox = Hive.box<FlexoMachine>('flexo_machines');
           _isBoxLoading = false;
         });
 
@@ -259,8 +264,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               ListTile(
                 leading: const Icon(Icons.all_inclusive, color: Colors.green),
                 title: const Text("عرض الكل",
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, color: Colors.green)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
                 onTap: () {
                   setState(() => _selectedDate = null);
                   Navigator.pop(context);
@@ -300,6 +305,87 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                     },
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMachineFilterDialog() {
+    if (_machinesBox == null || _machinesBox!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لا توجد ماكينات مسجلة'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: EdgeInsets.zero,
+        title: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            color: Colors.green,
+            borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.settings, color: Colors.white),
+              SizedBox(width: 10),
+              Text("اختر الماكينة",
+                  style: TextStyle(color: Colors.white, fontSize: 18)),
+            ],
+          ),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.all_inclusive, color: Colors.green),
+                title: const Text("جميع الماكينات",
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                onTap: () {
+                  setState(() => _selectedMachine = null);
+                  Navigator.pop(context);
+                },
+              ),
+              const Divider(),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _machinesBox!.length,
+                  itemBuilder: (ctx, index) {
+                    final machine = _machinesBox!.getAt(index);
+                    if (machine == null) return const SizedBox();
+                    final isSelected = _selectedMachine == machine.name;
+                    return ListTile(
+                      leading: Icon(Icons.settings,
+                          color: isSelected ? Colors.green : Colors.grey),
+                      title: Text(machine.name,
+                          style: TextStyle(
+                              color: isSelected ? Colors.green : null,
+                              fontWeight: isSelected ? FontWeight.bold : null)),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_circle, color: Colors.green)
+                          : null,
+                      onTap: () {
+                        setState(() => _selectedMachine = machine.name);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
             ],
           ),
         ),
@@ -358,6 +444,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 setState(() => _isSearching = true);
               } else if (value == 'filter') {
                 _showDateFilterDialog();
+              } else if (value == 'machine_filter') {
+                _showMachineFilterDialog();
               } else if (value == 'archive_move') {
                 _moveToArchive();
               } else if (value == 'archive_open') {
@@ -405,6 +493,11 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   child: ListTile(
                       leading: Icon(Icons.calendar_month),
                       title: Text('تصفية بالتاريخ'))),
+              const PopupMenuItem(
+                  value: 'machine_filter',
+                  child: ListTile(
+                      leading: Icon(Icons.settings),
+                      title: Text('تصفية بالماكينة'))),
               const PopupMenuItem(
                   value: 'archive_move',
                   child: ListTile(
@@ -476,6 +569,23 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                           const Spacer(),
                           TextButton(
                               onPressed: () => setState(() => _selectedDate = null),
+                              child: const Text("إلغاء"))
+                        ],
+                      ),
+                    ),
+                  if (_selectedMachine != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: Colors.green.withValues(alpha: 0.1),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.settings, size: 16, color: Colors.green),
+                          const SizedBox(width: 8),
+                          Text("تصفية بالماكينة: $_selectedMachine",
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                          const Spacer(),
+                          TextButton(
+                              onPressed: () => setState(() => _selectedMachine = null),
                               child: const Text("إلغاء"))
                         ],
                       ),
@@ -616,10 +726,21 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         .where((e) {
           final r = e.value;
           final q = query.toLowerCase();
-          return (r['clientName']?.toString() ?? '')
+          
+          // Text search filter
+          bool textMatch = (r['clientName']?.toString() ?? '')
                   .toLowerCase()
                   .contains(q) ||
               (r['product']?.toString() ?? '').toLowerCase().contains(q);
+          
+          // Machine filter
+          bool machineMatch = true;
+          if (_selectedMachine != null) {
+            final machineName = (r['machineName'] ?? r['machine_name'])?.toString() ?? '';
+            machineMatch = machineName == _selectedMachine;
+          }
+          
+          return textMatch && machineMatch;
         })
         .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
         .toList();
