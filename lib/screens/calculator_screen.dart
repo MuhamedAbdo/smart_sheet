@@ -122,9 +122,11 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         title: const Text("الآلة الحاسبة"),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      body: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
           children: [
             // النتيجة
             Expanded(
@@ -137,7 +139,11 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                       ? Colors.grey.shade900
                       : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade300
+                        : Colors.grey.shade400,
+                  ),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -177,7 +183,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildRow(List<String> buttons, {bool isLastRow = false}) {
