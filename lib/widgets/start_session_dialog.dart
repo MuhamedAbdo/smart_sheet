@@ -169,7 +169,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                             : null,
                       );
 
-                      Hive.box<LiveSession>('live_sessions').add(newSession);
+                      Hive.box<LiveSession>('flexo_live_sessions').add(newSession);
                       Navigator.pop(context, true);
                     },
                     child: const Text('✅ ابدأ الجلسة الآن'),
