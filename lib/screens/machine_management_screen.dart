@@ -52,6 +52,7 @@ class MachineManagementScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: "machine_management_fab",
         onPressed: () => _showAddMachineDialog(context),
         child: const Icon(Icons.add),
       ),

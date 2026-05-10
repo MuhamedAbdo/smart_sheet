@@ -290,6 +290,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: "worker_details_fab",
         onPressed: () => _showAddActionDialog(context),
         child: const Icon(Icons.add),
       ),
@@ -311,6 +312,11 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
           worker: widget.worker,
           action: activeAction,
           onRefresh: _refresh,
+          onEdit: () {
+            // Find index of this action to allow editing
+            final idx = widget.worker.actions.indexOf(activeAction);
+            _editAction(activeAction, idx);
+          },
         ),
       ),
     );
@@ -324,8 +330,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   void _showActionBottomSheet({WorkerAction? existingAction, int? index}) {
     final actionType = ValueNotifier<String>(existingAction?.type ?? 'إجازة');
     final date = ValueNotifier<DateTime>(existingAction?.date ?? DateTime.now());
-    final daysController =
-        TextEditingController(text: existingAction?.days?.toString() ?? '1.0');
+    final calculatedDays = ValueNotifier<double>(existingAction?.days ?? 1.0);
     final startTime = ValueNotifier<TimeOfDay?>(existingAction?.startTime);
     final endTime = ValueNotifier<TimeOfDay?>(existingAction?.endTime);
     final rewardType = ValueNotifier<String>(
@@ -335,6 +340,32 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     final bonusDays = ValueNotifier<double?>(existingAction?.bonusDays);
     final notesController =
         TextEditingController(text: existingAction?.notes ?? '');
+    final returnDate = ValueNotifier<DateTime?>(existingAction?.returnDate);
+
+    void updateCalculatedDays() {
+      if (returnDate.value != null) {
+        final start = DateTime(date.value.year, date.value.month, date.value.day);
+        final end = DateTime(returnDate.value!.year, returnDate.value!.month, returnDate.value!.day);
+        // We add 0.0 as default, but if dates are different, calculate the difference.
+        // Some users might want "inclusive" days (e.g. 21 to 24 is 4 days), 
+        // but standard difference is 3. Looking at the screenshot 13 to 17 is 3.0? 
+        // Wait, 17 - 13 = 4. If it shows 3.0, maybe it's exclusive of the last day?
+        // Actually, 17 - 13 is 4. Let's stick to standard difference for now or match the 3.0 example.
+        // Re-reading screenshot: 13 to 17 is 3.0 days. 17-13=4. So it's probably diff.
+        // Wait, if it says 3.0 for 13 to 17, then it's diff. 
+        // Let's use diff.toDouble().toStringAsFixed(1).
+        final diff = end.difference(start).inDays;
+        calculatedDays.value = diff.toDouble();
+      }
+    }
+
+    // Initial check if we are editing an existing action
+    if (existingAction != null && (existingAction.days == 0 || existingAction.days == null) && existingAction.returnDate != null) {
+       final start = DateTime(existingAction.date.year, existingAction.date.month, existingAction.date.day);
+       final end = DateTime(existingAction.returnDate!.year, existingAction.returnDate!.month, existingAction.returnDate!.day);
+       final diff = end.difference(start).inDays;
+       calculatedDays.value = diff.toDouble();
+    }
 
     showModalBottomSheet(
       context: context,
@@ -397,34 +428,65 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                         decoration:
                             const InputDecoration(labelText: "نوع الإجراء"),
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        readOnly: true,
-                        controller: TextEditingController(text: _f(date.value)),
-                        decoration: const InputDecoration(labelText: "📅 التاريخ"),
-                        onTap: () async {
-                          final p = await showDatePicker(
-                            context: context,
-                            initialDate: date.value,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
-                          );
-                          if (p != null) setState(() => date.value = p);
-                        },
-                      ),
                       if (actionType.value == 'إجازة' ||
                           actionType.value == 'غياب' ||
-                          actionType.value == 'أجازة عارضة') ...[
+                          actionType.value == 'أجازة عارضة' ||
+                          actionType.value == 'إذن' ||
+                          actionType.value == 'تأمين صحي') ...[
                         const SizedBox(height: 12),
-                        TextField(
-                          controller: daysController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          decoration:
-                              const InputDecoration(labelText: "🔢 عدد الأيام"),
+                        // Row 1: Start Date & Time
+                        Row(
+                          children: [
+                            Expanded(child: _buildDateField("📅 تاريخ القيام", date as ValueNotifier<DateTime?>, context, setState, updateCalculatedDays: updateCalculatedDays)),
+                            const SizedBox(width: 12),
+                            Expanded(child: _buildTimeField("⏰ وقت القيام", startTime, context, setState)),
+                          ],
                         ),
+                        const SizedBox(height: 16),
+                        // Row 2: Return Date & Time
+                        Row(
+                          children: [
+                            Expanded(child: _buildDateField("🔙 تاريخ العودة", returnDate, context, setState, isOptional: true, updateCalculatedDays: updateCalculatedDays)),
+                            const SizedBox(width: 12),
+                            Expanded(child: _buildTimeField("🕒 وقت العودة", endTime, context, setState)),
+                          ],
+                        ),
+                        if (actionType.value == 'إجازة' ||
+                            actionType.value == 'غياب' ||
+                            actionType.value == 'أجازة عارضة') ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.calculate_outlined, color: Colors.grey, size: 20),
+                                    SizedBox(width: 8),
+                                    Text("عدد الأيام المحسوب:", style: TextStyle(color: Colors.grey)),
+                                  ],
+                                ),
+                                ValueListenableBuilder<double>(
+                                  valueListenable: calculatedDays,
+                                  builder: (context, val, _) => Text(
+                                    "$val يوم",
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ] else if (actionType.value == 'مكافئة' ||
                           actionType.value == 'جزاء') ...[
+                        const SizedBox(height: 12),
+                        _buildDateField("📅 التاريخ", date as ValueNotifier<DateTime?>, context, setState),
                         const SizedBox(height: 12),
                         ToggleButtons(
                           borderRadius: BorderRadius.circular(8),
@@ -470,11 +532,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                 const InputDecoration(labelText: "📅 الأيام"),
                           ),
                         ],
-                      ] else if (actionType.value == 'إذن' ||
-                          actionType.value == 'تأمين صحي') ...[
-                        const SizedBox(height: 12),
-                        _buildTimeField("⏰ خروج", startTime, context, setState),
-                        _buildTimeField("🔙 رجوع", endTime, context, setState),
                       ],
                       const SizedBox(height: 12),
                       TextField(
@@ -482,7 +539,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                         maxLines: 2,
                         decoration: const InputDecoration(labelText: "📝 ملاحظات"),
                       ),
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 12),
+                                            const SizedBox(height: 30),
                       Row(
                         children: [
                           Expanded(
@@ -513,30 +571,27 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                   }
                                 }
 
-                                final updatedAction = WorkerAction(
-                                  id: existingAction?.id ??
-                                      DateTime.now()
-                                          .millisecondsSinceEpoch
-                                          .toString(),
-                                  type: actionType.value,
-                                  days: (actionType.value == 'إجازة' ||
-                                          actionType.value == 'أجازة عارضة' ||
-                                          actionType.value == 'غياب')
-                                      ? double.tryParse(daysController.text)
-                                      : 0,
-                                  date: date.value,
-                                  notes: notesController.text,
-                                  startTimeHour: startTime.value?.hour,
-                                  startTimeMinute: startTime.value?.minute,
-                                  endTimeHour: endTime.value?.hour,
-                                  endTimeMinute: endTime.value?.minute,
-                                  amount: amountToSave,
-                                  bonusDays: bonusDaysToSave,
-                                  factoryId: widget.worker.factoryId,
-                                  workerName: widget.worker.name,
-                                );
-
                                 if (existingAction == null) {
+                                  final updatedAction = WorkerAction(
+                                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                                    type: actionType.value,
+                                    days: (actionType.value == 'إجازة' ||
+                                            actionType.value == 'أجازة عارضة' ||
+                                            actionType.value == 'غياب')
+                                        ? calculatedDays.value
+                                        : 0,
+                                    date: date.value,
+                                    returnDate: returnDate.value,
+                                    notes: notesController.text,
+                                    startTimeHour: startTime.value?.hour,
+                                    startTimeMinute: startTime.value?.minute,
+                                    endTimeHour: endTime.value?.hour,
+                                    endTimeMinute: endTime.value?.minute,
+                                    amount: amountToSave,
+                                    bonusDays: bonusDaysToSave,
+                                    factoryId: widget.worker.factoryId,
+                                    workerName: widget.worker.name,
+                                  );
                                   final key = await actionBox.add(updatedAction);
                                   final saved = actionBox.get(key);
                                   if (saved != null) {
@@ -545,20 +600,28 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                     SupabaseManager.pushData(
                                         'worker_actions', saved.toJson());
                                   }
-                                } else if (index != null) {
-                                  final key = (Hive.box<WorkerAction>(
-                                              'worker_actions')
-                                          .keys
-                                          .toList())[Hive.box<WorkerAction>(
-                                              'worker_actions')
-                                          .values
-                                          .toList()
-                                          .indexOf(existingAction)];
-                                  await actionBox.put(key, updatedAction);
-                                  widget.worker.actions[index] = updatedAction;
+                                } else {
+                                  // Edit existing action via mutation
+                                  existingAction.type = actionType.value;
+                                  existingAction.days = (actionType.value == 'إجازة' ||
+                                          actionType.value == 'أجازة عارضة' ||
+                                          actionType.value == 'غياب')
+                                      ? calculatedDays.value
+                                      : 0;
+                                  existingAction.date = date.value;
+                                  existingAction.returnDate = returnDate.value;
+                                  existingAction.notes = notesController.text;
+                                  existingAction.startTimeHour = startTime.value?.hour;
+                                  existingAction.startTimeMinute = startTime.value?.minute;
+                                  existingAction.endTimeHour = endTime.value?.hour;
+                                  existingAction.endTimeMinute = endTime.value?.minute;
+                                  existingAction.amount = amountToSave;
+                                  existingAction.bonusDays = bonusDaysToSave;
+                                  
+                                  await existingAction.save();
                                   await widget.worker.save();
                                   SupabaseManager.pushData(
-                                      'worker_actions', updatedAction.toJson());
+                                      'worker_actions', existingAction.toJson());
                                 }
 
                                 if (context.mounted) Navigator.pop(context);
@@ -582,24 +645,100 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     );
   }
 
-  Widget _buildTimeField(String label, ValueNotifier<TimeOfDay?> timeNotifier,
-      BuildContext context, StateSetter setState) {
-    return Row(
+  Widget _buildDateField(String label, ValueNotifier<DateTime?> dateNotifier,
+      BuildContext context, StateSetter setState, {bool isOptional = false, VoidCallback? updateCalculatedDays}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: Text(label)),
-        TextButton(
-          onPressed: () async {
-            final picked = await showTimePicker(
-                context: context,
-                initialTime: timeNotifier.value ?? TimeOfDay.now());
-            if (picked != null) setState(() => timeNotifier.value = picked);
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        InkWell(
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: dateNotifier.value ?? DateTime.now(),
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+            );
+            if (picked != null) {
+              setState(() => dateNotifier.value = picked);
+              if (updateCalculatedDays != null) updateCalculatedDays();
+            }
           },
-          child: Text(timeNotifier.value?.format(context) ?? "اختر الوقت"),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  dateNotifier.value != null ? _f(dateNotifier.value!) : "لم يحدد",
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+                if (isOptional && dateNotifier.value != null)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 16),
+                    onPressed: () {
+                      setState(() => dateNotifier.value = null);
+                      if (updateCalculatedDays != null) updateCalculatedDays();
+                    },
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  )
+                else
+                  const Icon(Icons.calendar_month, size: 16, color: Colors.blue),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
 
+  Widget _buildTimeField(String label, ValueNotifier<TimeOfDay?> timeNotifier,
+      BuildContext context, StateSetter setState) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        InkWell(
+          onTap: () async {
+            final picked = await showTimePicker(
+                context: context,
+                initialTime: timeNotifier.value ?? TimeOfDay.now());
+            if (picked != null) setState(() => timeNotifier.value = picked);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  timeNotifier.value?.format(context) ?? "لم يحدد",
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+                if (timeNotifier.value != null)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 16),
+                    onPressed: () => setState(() => timeNotifier.value = null),
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  )
+                else
+                  const Icon(Icons.access_time, size: 16, color: Colors.blue),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  
   Widget _buildWorkerStatusChip() {
     final activeAction = widget.worker.activeAction;
     final isPresent = activeAction == null;
@@ -695,20 +834,32 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
   Future<void> _launchWhatsApp(String phone) async {
     try {
-      // Clean phone number - remove all non-digit characters
-      String cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+      // Clean phone number - remove all non-digit characters and spaces
+      String cleanPhone = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
       
-      // Add country code if not present (assuming Egypt +20 as default)
-      if (!cleanPhone.startsWith('20') && cleanPhone.length == 10 && cleanPhone.startsWith('0')) {
-        cleanPhone = '20${cleanPhone.substring(1)}';
-      } else if (!cleanPhone.startsWith('+') && !cleanPhone.startsWith('20') && cleanPhone.length == 10) {
+      // Remove leading zeros and add country code if needed
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = cleanPhone.substring(1);
+      }
+      
+      // Add Egypt country code if not present
+      if (!cleanPhone.startsWith('20') && !cleanPhone.startsWith('+20')) {
         cleanPhone = '20$cleanPhone';
       }
+      
+      // Remove + if present to ensure clean format for wa.me
+      if (cleanPhone.startsWith('+')) {
+        cleanPhone = cleanPhone.substring(1);
+      }
+      
+      debugPrint('Cleaned phone for WhatsApp: $cleanPhone');
       
       // Default message in Arabic
       const defaultMessage = 'السلام عليكم';
       final encodedMessage = Uri.encodeComponent(defaultMessage);
       final url = "https://wa.me/$cleanPhone?text=$encodedMessage";
+      
+      debugPrint('WhatsApp URL: $url');
       
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
@@ -717,18 +868,21 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('لا يمكن فتح تطبيق الواتساب'),
+              content: Text('لا يمكن فتح تطبيق الواتساب. يرجى التأكد من تثبيت التطبيق'),
               backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
             ),
           );
         }
       }
     } catch (e) {
+      debugPrint('WhatsApp launch error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('حدث خطأ: $e'),
+            content: Text('حدث خطأ عند فتح الواتساب: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }

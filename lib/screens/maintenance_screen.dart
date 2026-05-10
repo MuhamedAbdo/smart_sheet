@@ -146,6 +146,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: "maintenance_fab",
         onPressed: () => _addOrEdit(),
         child: const Icon(Icons.add),
       ),

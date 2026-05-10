@@ -24,6 +24,7 @@ class StoreEntryScreen extends StatelessWidget {
       ),
       body: StoreEntryList(boxName: boxName),
       floatingActionButton: FloatingActionButton(
+        heroTag: "store_entry_fab",
         onPressed: () => StoreEntryForm.show(context, boxName: boxName),
         child: const Icon(Icons.add),
       ),

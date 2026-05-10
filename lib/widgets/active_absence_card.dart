@@ -7,12 +7,14 @@ class ActiveAbsenceCard extends StatelessWidget {
   final Worker worker;
   final WorkerAction action;
   final VoidCallback onRefresh;
+  final VoidCallback? onEdit;
 
   const ActiveAbsenceCard({
     super.key,
     required this.worker,
     required this.action,
     required this.onRefresh,
+    this.onEdit,
   });
 
   int get elapsedDays {
@@ -88,6 +90,16 @@ class ActiveAbsenceCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                    foregroundColor: Colors.blue,
+                  ),
+                  tooltip: 'تعديل الإجراء',
                 ),
                 const SizedBox(width: 8),
                 IconButton(
@@ -386,15 +398,12 @@ class ActiveAbsenceCard extends StatelessWidget {
     final DateTime initialReturnDate = DateTime(now.year, now.month, now.day);
     
     final returnDateNotifier = ValueNotifier<DateTime>(initialReturnDate);
-    final daysController = TextEditingController();
 
     int calcDays() {
       final startDate = DateTime(start.year, start.month, start.day);
       final rDate = DateTime(returnDateNotifier.value.year, returnDateNotifier.value.month, returnDateNotifier.value.day);
       return rDate.difference(startDate).inDays;
     }
-
-    daysController.text = calcDays().toString();
 
     await showModalBottomSheet(
       context: context,
@@ -461,22 +470,33 @@ class ActiveAbsenceCard extends StatelessWidget {
                           if (picked != null) {
                             setState(() {
                               returnDateNotifier.value = picked;
-                              daysController.text = calcDays().toString();
                             });
                           }
                         },
                       ),
                       const SizedBox(height: 16),
-                      TextField(
-                        controller: daysController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: InputDecoration(
-                          labelText: "عدد الأيام النهائي",
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          prefixIcon: const Icon(Icons.calculate_outlined),
-                          suffixText: "يوم",
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.calculate_outlined, color: Colors.grey, size: 20),
+                                SizedBox(width: 12),
+                                Text("عدد الأيام المحسوب:", style: TextStyle(color: Colors.grey)),
+                              ],
+                            ),
+                            Text(
+                              "${calcDays()} يوم",
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 30),
@@ -498,9 +518,7 @@ class ActiveAbsenceCard extends StatelessWidget {
                                     const EdgeInsets.symmetric(vertical: 12),
                               ),
                               onPressed: () async {
-                                final finalDays =
-                                    double.tryParse(daysController.text) ??
-                                        calcDays().toDouble();
+                                final finalDays = calcDays().toDouble();
 
                                 action.returnDate = returnDateNotifier.value;
                                 action.days = finalDays;

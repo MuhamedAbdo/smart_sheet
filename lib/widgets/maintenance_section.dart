@@ -83,6 +83,7 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
             onDelete: _delete,
           ),
           floatingActionButton: FloatingActionButton(
+            heroTag: "maintenance_section_fab",
             onPressed: () => _addOrEdit(),
             child: const Icon(Icons.add),
           ),

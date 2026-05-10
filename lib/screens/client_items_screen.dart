@@ -130,6 +130,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
             ],
           ),
           floatingActionButton: FloatingActionButton.extended(
+            heroTag: "client_items_fab",
             onPressed: () {
               Navigator.push(
                 context,

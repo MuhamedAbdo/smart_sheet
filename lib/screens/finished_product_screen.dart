@@ -433,6 +433,7 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: "finished_product_fab",
         onPressed: () => _showAddEditDialog(),
         child: const Icon(Icons.add),
       ),

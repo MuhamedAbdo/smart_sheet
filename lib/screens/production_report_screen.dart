@@ -606,6 +606,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: "production_fab",
         onPressed: () => _showStartSessionDialog(),
         child: const Icon(Icons.play_arrow),
       ),

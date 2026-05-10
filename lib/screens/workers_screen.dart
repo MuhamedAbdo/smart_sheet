@@ -60,6 +60,7 @@ class WorkersScreen extends StatelessWidget {
             ],
           ),
           floatingActionButton: FloatingActionButton(
+            heroTag: "workers_fab",
             onPressed: () => WorkerForm.show(context, box: box),
             child: const Icon(Icons.add),
           ),

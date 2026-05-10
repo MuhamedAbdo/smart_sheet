@@ -20,7 +20,7 @@ class WorkerAction extends HiveObject {
   DateTime date;
 
   @HiveField(3)
-  final String? notes;
+  String? notes;
 
   @HiveField(4)
   DateTime? returnDate;
@@ -35,16 +35,16 @@ class WorkerAction extends HiveObject {
   int? endTimeMinute;
 
   @HiveField(9)
-  final double? amount; // للمكافأة/الجزاء (جنيه)
+  double? amount; // للمكافأة/الجزاء (جنيه)
 
   @HiveField(10)
-  final double? bonusDays; // للمكافأة/الجزاء (أيام)
+  double? bonusDays; // للمكافأة/الجزاء (أيام)
 
   @HiveField(11)
-  final String? factoryId;
+  String? factoryId;
 
   @HiveField(13)
-  final String? workerName;
+  String? workerName;
 
   WorkerAction({
     this.id,
@@ -67,7 +67,12 @@ class WorkerAction extends HiveObject {
   /// (i.e. a leave/absence/permission/insurance action without a registered return date).
   bool get isActive {
     const liveTypes = ['إجازة', 'أجازة عارضة', 'غياب', 'إذن', 'تأمين صحي'];
-    return liveTypes.contains(type) && returnDate == null;
+    final isTypeActive = liveTypes.contains(type) && returnDate == null;
+    if (!isTypeActive) return false;
+
+    // Consider actions older than 30 days as inactive (Presence)
+    final diff = DateTime.now().difference(date).inDays;
+    return diff <= 30;
   }
 
   /// Returns true if this action type is time-based (permission/insurance)
