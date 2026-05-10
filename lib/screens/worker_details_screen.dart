@@ -150,6 +150,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                   fontSize: 14,
                                 ),
                               ),
+                              const SizedBox(height: 4),
+                              _buildWorkerStatusChip(),
                             ],
                           ),
                         ),
@@ -294,35 +296,23 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   }
 
   Widget _buildActiveAbsenceSection() {
-    try {
-      final activeAction =
-          widget.worker.actions.cast<WorkerAction?>().firstWhere(
-                (a) =>
-                    a != null &&
-                    ((a.type == 'غياب' &&
-                            a.returnDate == null &&
-                            DateTime.now().difference(a.date).inDays <= 30) ||
-                        ((a.type == 'إذن' || a.type == 'تأمين صحي') &&
-                            a.returnDate == null)),
-                orElse: () => null,
-              );
-
-      if (activeAction == null) return const SizedBox.shrink();
-
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: SizedBox(
-          height: 190,
-          child: ActiveAbsenceCard(
-            worker: widget.worker,
-            action: activeAction,
-            onRefresh: _refresh,
-          ),
-        ),
-      );
-    } catch (_) {
+    final activeAction = widget.worker.activeAction;
+    // Skip old actions (more than 30 days ago) to keep the view clean
+    if (activeAction == null || DateTime.now().difference(activeAction.date).inDays > 30) {
       return const SizedBox.shrink();
     }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: SizedBox(
+        height: 190,
+        child: ActiveAbsenceCard(
+          worker: widget.worker,
+          action: activeAction,
+          onRefresh: _refresh,
+        ),
+      ),
+    );
   }
 
   void _showAddActionDialog(BuildContext context) => _showActionBottomSheet();
@@ -606,6 +596,45 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
           child: Text(timeNotifier.value?.format(context) ?? "اختر الوقت"),
         ),
       ],
+    );
+  }
+
+  Widget _buildWorkerStatusChip() {
+    final activeAction = widget.worker.activeAction;
+    final isPresent = activeAction == null;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: isPresent ? Colors.green.shade50 : Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isPresent ? Colors.green.shade200 : Colors.orange.shade200,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isPresent ? Icons.check_circle : Icons.timer,
+            size: 14,
+            color: isPresent ? Colors.green : Colors.orange,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isPresent
+                ? "متواجد"
+                : (activeAction.isTimeBased
+                    ? "خارج العمل (${activeAction.type})"
+                    : "في ${activeAction.type}"),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isPresent ? Colors.green.shade700 : Colors.orange.shade800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

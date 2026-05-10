@@ -113,6 +113,7 @@ class _WorkerCardState extends State<WorkerCard> {
                     ),
                   ),
                 ),
+                _buildStatusDot(),
               ],
             ),
             const SizedBox(height: 14),
@@ -257,6 +258,28 @@ class _WorkerCardState extends State<WorkerCard> {
               child: Icon(Icons.copy, size: 14, color: Colors.grey),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatusDot() {
+    final isOut = widget.worker.isOut;
+    return Tooltip(
+      message: isOut ? 'خارج العمل' : 'متواجد',
+      child: Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(
+          color: isOut ? Colors.orange : Colors.green,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: (isOut ? Colors.orange : Colors.green).withValues(alpha: 0.4),
+              blurRadius: 4,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -51,6 +51,22 @@ class Worker extends HiveObject {
     }
   }
 
+  /// Returns the currently active live-session action (leave/absence/permission/etc
+  /// with no returnDate), or null if the worker is present.
+  WorkerAction? get activeAction {
+    try {
+      return actions.cast<WorkerAction?>().firstWhere(
+        (a) => a != null && a.isActive,
+        orElse: () => null,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Returns true if the worker is currently out (on leave, absence, etc.).
+  bool get isOut => activeAction != null;
+
   Map<String, dynamic> toJson() {
     return {
       'name': name,

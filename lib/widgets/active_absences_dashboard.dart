@@ -20,12 +20,12 @@ class ActiveAbsencesDashboard extends StatelessWidget {
         for (var worker in box.values) {
           try {
             final activeAction = worker.actions.firstWhere(
-              (a) => (a.type == 'غياب' && a.returnDate == null &&
-                     DateTime.now().difference(a.date).inDays <= 30) ||
-                     ((a.type == 'إذن') && a.returnDate == null &&
-                     DateTime.now().difference(a.date).inHours <= 24) ||
-                     (a.type == 'تأمين صحي' && a.returnDate == null &&
-                     DateTime.now().difference(a.date).inHours <= 48),
+              (a) => a.isActive && (
+                     (a.type == 'غياب' && DateTime.now().difference(a.date).inDays <= 30) ||
+                     ((a.type == 'إذن') && DateTime.now().difference(a.date).inHours <= 24) ||
+                     (a.type == 'تأمين صحي' && DateTime.now().difference(a.date).inHours <= 48) ||
+                     ((a.type == 'إجازة' || a.type == 'أجازة عارضة') && DateTime.now().difference(a.date).inDays <= 30)
+              ),
             );
             activeAbsences.add(MapEntry(worker, activeAction));
           } catch (_) {
@@ -50,7 +50,7 @@ class ActiveAbsencesDashboard extends StatelessWidget {
                     const Icon(Icons.history_toggle_off, color: Colors.red, size: 20),
                     const SizedBox(width: 8),
                     const Text(
-                      'الغيابات الجارية حالياً',
+                      'الجلسات الحية',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,

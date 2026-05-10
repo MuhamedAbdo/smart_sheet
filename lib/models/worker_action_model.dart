@@ -17,7 +17,7 @@ class WorkerAction extends HiveObject {
   double? days;
 
   @HiveField(2)
-  final DateTime date;
+  DateTime date;
 
   @HiveField(3)
   final String? notes;
@@ -26,9 +26,9 @@ class WorkerAction extends HiveObject {
   DateTime? returnDate;
 
   @HiveField(5)
-  final int? startTimeHour;
+  int? startTimeHour;
   @HiveField(6)
-  final int? startTimeMinute;
+  int? startTimeMinute;
   @HiveField(7)
   int? endTimeHour;
   @HiveField(8)
@@ -62,6 +62,16 @@ class WorkerAction extends HiveObject {
     this.factoryId,
     this.workerName,
   });
+
+  /// Returns true if this action is considered an ongoing/live session
+  /// (i.e. a leave/absence/permission/insurance action without a registered return date).
+  bool get isActive {
+    const liveTypes = ['إجازة', 'أجازة عارضة', 'غياب', 'إذن', 'تأمين صحي'];
+    return liveTypes.contains(type) && returnDate == null;
+  }
+
+  /// Returns true if this action type is time-based (permission/insurance)
+  bool get isTimeBased => type == 'إذن' || type == 'تأمين صحي';
 
   TimeOfDay? get startTime {
     if (startTimeHour == null || startTimeMinute == null) return null;
