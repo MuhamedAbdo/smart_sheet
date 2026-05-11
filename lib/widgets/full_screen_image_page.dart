@@ -3,6 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:gal/gal.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:http/http.dart' as http;
+import 'dart:typed_data';
 
 class FullScreenImagePage extends StatefulWidget {
   // تم التغيير إلى String لدعم الروابط والمسارات معاً
@@ -22,12 +28,104 @@ class FullScreenImagePage extends StatefulWidget {
 class _FullScreenImagePageState extends State<FullScreenImagePage> {
   late PageController _pageController;
   late int _currentIndex;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: widget.initialIndex);
     _currentIndex = widget.initialIndex;
+  }
+
+  Future<void> _downloadImage() async {
+    setState(() => _isSaving = true);
+    try {
+      final String path = widget.imagesPaths[_currentIndex];
+      final bool isNetwork = path.startsWith('http');
+      Uint8List? bytes;
+      String? localFilePath;
+
+      if (isNetwork) {
+        final response = await http.get(Uri.parse(path));
+        if (response.statusCode == 200) {
+          bytes = response.bodyBytes;
+        } else {
+          throw Exception("فشل تحميل الصورة من الرابط");
+        }
+      } else {
+        final file = File(path);
+        if (await file.exists()) {
+          localFilePath = path;
+          bytes = await file.readAsBytes();
+        } else {
+          throw Exception("الملف غير موجود");
+        }
+      }
+
+      if (Platform.isAndroid) {
+        if (await Permission.storage.request().isGranted ||
+            await Permission.photos.request().isGranted ||
+            await Gal.requestAccess()) {
+          if (isNetwork) {
+            await Gal.putImageBytes(bytes);
+          } else {
+            await Gal.putImage(localFilePath!);
+          }
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم حفظ الصورة في معرض الصور بنجاح'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          throw Exception("لم يتم منح صلاحية التخزين");
+        }
+      } else if (Platform.isWindows) {
+        String fileName = isNetwork ? "image_${DateTime.now().millisecondsSinceEpoch}.jpg" : p.basename(path);
+        if (!fileName.toLowerCase().endsWith('.jpg') &&
+            !fileName.toLowerCase().endsWith('.png')) {
+          fileName += '.jpg';
+        }
+
+        String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: 'اختر مكان حفظ الصورة',
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'png'],
+        );
+
+        if (outputFile != null) {
+          if (!outputFile.toLowerCase().endsWith('.jpg') &&
+              !outputFile.toLowerCase().endsWith('.png')) {
+            outputFile += '.jpg';
+          }
+          final file = File(outputFile);
+          await file.writeAsBytes(bytes);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم حفظ الصورة بنجاح'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ أثناء الحفظ: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -48,6 +146,28 @@ class _FullScreenImagePageState extends State<FullScreenImagePage> {
           style: const TextStyle(color: Colors.white),
         ),
         centerTitle: true,
+        actions: [
+          if (_isSaving)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.download),
+              onPressed: _downloadImage,
+              tooltip: 'تحميل الصورة',
+            ),
+        ],
       ),
       body: PageView.builder(
         controller: _pageController,

@@ -2,6 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:gal/gal.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
 
 class SavedSizeCard extends StatelessWidget {
   final Map<String, dynamic> record;
@@ -371,12 +375,85 @@ class _FullScreenImageGallery extends StatefulWidget {
 class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
   late PageController _pageController;
   late int _currentIndex;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  Future<void> _downloadImage() async {
+    setState(() => _isSaving = true);
+    try {
+      final String imagePath = widget.images[_currentIndex];
+      final File imageFile = File(imagePath);
+
+      if (!await imageFile.exists()) {
+        throw Exception("الملف غير موجود");
+      }
+
+      if (Platform.isAndroid) {
+        // طلب الصلاحيات للأندرويد
+        if (await Permission.storage.request().isGranted ||
+            await Permission.photos.request().isGranted ||
+            await Gal.requestAccess()) {
+          await Gal.putImage(imagePath);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم حفظ الصورة في معرض الصور بنجاح'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          throw Exception("لم يتم منح صلاحية التخزين");
+        }
+      } else if (Platform.isWindows) {
+        String fileName = p.basename(imagePath);
+        if (!fileName.toLowerCase().endsWith('.jpg') &&
+            !fileName.toLowerCase().endsWith('.png')) {
+          fileName += '.jpg';
+        }
+
+        String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: 'اختر مكان حفظ الصورة',
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'png'],
+        );
+
+        if (outputFile != null) {
+          // التأكد من وجود الملحق إذا نسيه المستخدم
+          if (!outputFile.toLowerCase().endsWith('.jpg') &&
+              !outputFile.toLowerCase().endsWith('.png')) {
+            outputFile += '.jpg';
+          }
+          await imageFile.copy(outputFile);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم حفظ الصورة بنجاح'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ أثناء الحفظ: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -387,6 +464,28 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
         title: Text("صورة ${_currentIndex + 1} من ${widget.images.length}"),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        actions: [
+          if (_isSaving)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.download),
+              onPressed: _downloadImage,
+              tooltip: 'تحميل الصورة',
+            ),
+        ],
       ),
       body: PageView.builder(
         controller: _pageController,
