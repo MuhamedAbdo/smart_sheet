@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
+import 'package:smart_sheet/screens/auth_screen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,9 +24,26 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     try {
-      Navigator.pushReplacementNamed(context, '/home');
+      // إضافة تأخير إضافي لضمان اكتمال جميع عمليات الحذف
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // القراءة مباشرة من التخزين الآمن لتجنب الكاش
+      const storage = FlutterSecureStorage();
+      final factoryId = await storage.read(key: 'factory_id');
+
+      debugPrint("🔍 Direct storage read: factoryId = $factoryId");
+
+      if (factoryId == null || factoryId.isEmpty) {
+        debugPrint("🔗 No factory_id found, redirecting to auth screen");
+        Navigator.pushReplacementNamed(context, AuthScreen.routeName);
+      } else {
+        debugPrint("✅ Factory found: $factoryId, navigating to home");
+        Navigator.pushReplacementNamed(context, '/home');
+      }
     } catch (e) {
       debugPrint("Navigation Error: $e");
+      // في حالة الخطأ، توجه إلى شاشة تسجيل الدخول كخيار آمن
+      Navigator.pushReplacementNamed(context, AuthScreen.routeName);
     }
   }
 

@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:smart_sheet/screens/qr_scanner_screen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/services/auth_service.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class FactoryLinkScreen extends StatefulWidget {
   const FactoryLinkScreen({super.key});
@@ -39,9 +43,8 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
     });
 
     try {
-      // محاكاة عملية الربط (يمكن استبدالها بالمنطق الحقيقي)
-      await Future.delayed(const Duration(seconds: 2));
-      
+      await _saveFactoryLink(code);
+
       if (mounted) {
         _showSuccessSnackBar('تم ربط الجهاز بنجاح!');
         Navigator.pop(context);
@@ -77,7 +80,7 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
         _scannedCode = result;
         _codeController.text = result;
       });
-      
+
       // التحقق من صحة الكود الممسوح تلقائياً
       await _validateAndLink(result);
     }
@@ -89,15 +92,14 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
     });
 
     try {
-      // محاكاة التحقق من الكود (يمكن استبدالها بالمنطق الحقيقي)
-      await Future.delayed(const Duration(seconds: 1));
-      
       // التحقق من أن الكود مكون من 6 أرقام
       final cleanCode = code.replaceAll(RegExp(r'[^0-9]'), '');
       if (cleanCode.length != 6) {
         _showErrorSnackBar('كود QR غير صالح. يجب أن يكون 6 أرقام.');
         return;
       }
+
+      await _saveFactoryLink(cleanCode);
 
       if (mounted) {
         _showSuccessSnackBar('تم ربط الجهاز بنجاح!');
@@ -114,6 +116,32 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
         });
       }
     }
+  }
+
+  /// حفظ بيانات ربط المصنع
+  Future<void> _saveFactoryLink(String factoryCode) async {
+    const storage = FlutterSecureStorage();
+
+    // حفظ في التخزين الآمن
+    await storage.write(key: 'factory_id', value: factoryCode);
+
+    // حفظ في صندوق الإعدادات كنسخة احتياطية
+    if (Hive.isBoxOpen('settings')) {
+      final settingsBox = Hive.box('settings');
+      await settingsBox.put('factoryId', factoryCode);
+      await settingsBox.put('linkedFactoryCode', factoryCode);
+      await settingsBox.put(
+          'factory_linked_at', DateTime.now().toIso8601String());
+    }
+
+    // تحديث AuthService باستخدام الطريقة العامة
+    final authService = AuthService();
+    authService.updateFactoryId(factoryCode);
+
+    // إعادة تعيين حالة فك الارتباط في SyncService
+    SyncService.instance.resetUnlinkStatus();
+
+    debugPrint('✅ Factory linked successfully with code: $factoryCode');
   }
 
   void _showErrorSnackBar(String message) {
@@ -237,7 +265,8 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
             borderRadius: BorderRadius.circular(8),
             onTap: () {
               if (_codeController.text.isNotEmpty) {
-                final newText = _codeController.text.substring(0, _codeController.text.length - 1);
+                final newText = _codeController.text
+                    .substring(0, _codeController.text.length - 1);
                 _codeController.text = newText;
                 _onCodeChanged(newText);
               }
@@ -259,206 +288,243 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('ربط جهاز الكمبيوتر'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Column(
-        children: [
-          // البطاقة الرئيسية
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.grey[850],
-              borderRadius: BorderRadius.circular(16),
+    return WillPopScope(
+      onWillPop: () async {
+        // عند الضغط على الرجوع، توجه للشاشة الرئيسية بدلاً من الخروج من التطبيق
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/home',
+            (route) => false,
+          );
+        }
+        return false; // منع الخروج التلقائي
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
+          title: const Text('ربط جهاز الكمبيوتر'),
+          backgroundColor: Theme.of(context).primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        body: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  MediaQuery.of(context).padding.bottom -
+                  kToolbarHeight,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // العنوان
-                const Text(
-                  'ربط جهاز الكمبيوتر',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                // التعليمات
-                const Text(
-                  'أدخل كود الربط المكون من 6 أرقام الذي يظهر في تطبيق الأدمن:',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.right,
-                ),
-                const SizedBox(height: 20),
-                
-                // حقل إدخال الكود
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _scannedCode != null ? Colors.green : Colors.grey[300]!,
-                      width: 2,
+            child: IntrinsicHeight(
+              child: Column(
+                children: [
+                  // البطاقة الرئيسية
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[850],
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                  ),
-                  child: TextField(
-                    controller: _codeController,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 8,
-                    ),
-                    maxLength: 6,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      hintText: '000000',
-                      hintStyle: TextStyle(
-                        color: Colors.grey[400],
-                        letterSpacing: 8,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 16,
-                      ),
-                      counterText: '',
-                    ),
-                    onChanged: _onCodeChanged,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                
-                // عداد الأرقام
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${_codeController.text.length}/6',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const Text(
-                      'صالح لمدة 5 دقائق فقط',
-                      style: TextStyle(
-                        color: Colors.orange,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                
-                // الأزرار
-                Row(
-                  children: [
-                    // زر إلغاء
-                    Expanded(
-                      child: TextButton(
-                        onPressed: _isLoading ? null : () => Navigator.pop(context),
-                        child: const Text(
-                          'إلغاء',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // العنوان
+                        const Text(
+                          'ربط جهاز الكمبيوتر',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // التعليمات
+                        const Text(
+                          'أدخل كود الربط المكون من 6 أرقام الذي يظهر في تطبيق الأدمن:',
                           style: TextStyle(
                             color: Colors.white70,
-                            fontSize: 16,
+                            fontSize: 14,
                           ),
+                          textAlign: TextAlign.right,
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // زر ربط الآن
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _linkWithCode,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                        const SizedBox(height: 20),
+
+                        // حقل إدخال الكود
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _scannedCode != null
+                                  ? Colors.green
+                                  : Colors.grey[300]!,
+                              width: 2,
+                            ),
                           ),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.link, size: 18),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'ربط الآن',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                ],
+                          child: TextField(
+                            controller: _codeController,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 8,
+                            ),
+                            maxLength: 6,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              hintText: '000000',
+                              hintStyle: TextStyle(
+                                color: Colors.grey[400],
+                                letterSpacing: 8,
                               ),
-                      ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 16,
+                              ),
+                              counterText: '',
+                            ),
+                            onChanged: _onCodeChanged,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // عداد الأرقام
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${_codeController.text.length}/6',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const Text(
+                              'صالح لمدة 5 دقائق فقط',
+                              style: TextStyle(
+                                color: Colors.orange,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // الأزرار
+                        Row(
+                          children: [
+                            // زر إلغاء
+                            Expanded(
+                              child: TextButton(
+                                onPressed: _isLoading
+                                    ? null
+                                    : () => Navigator.pop(context),
+                                child: const Text(
+                                  'إلغاء',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            // زر ربط الآن
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _linkWithCode,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).primaryColor,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.link, size: 18),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'ربط الآن',
+                                            style: TextStyle(fontSize: 16),
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          
-          // قسم الخيارات
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildOptionCard(
-                    icon: Icons.keyboard,
-                    title: 'إدخال الكود',
-                    subtitle: 'استخدام لوحة المفاتيح',
-                    onTap: () {
-                      // التركيز على حقل الإدخال
-                      FocusScope.of(context).requestFocus(FocusNode());
-                    },
-                    isSelected: true,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildOptionCard(
-                    icon: Icons.qr_code_scanner,
-                    title: 'مسح QR Code',
-                    subtitle: 'استخدام الكاميرا',
-                    onTap: _scanQRCode,
-                    isSelected: false,
+
+                  const SizedBox(height: 16),
+
+                  // قسم الخيارات
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildOptionCard(
+                            icon: Icons.keyboard,
+                            title: 'إدخال الكود',
+                            subtitle: 'استخدام لوحة المفاتيح',
+                            onTap: () {
+                              // التركيز على حقل الإدخال
+                              FocusScope.of(context).requestFocus(FocusNode());
+                            },
+                            isSelected: true,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildOptionCard(
+                            icon: Icons.qr_code_scanner,
+                            title: 'مسح QR Code',
+                            subtitle: 'استخدام الكاميرا',
+                            onTap: _scanQRCode,
+                            isSelected: false,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+
+                  const SizedBox(height: 16),
+
+                  // لوحة المفاتيح الرقمية
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _buildNumberPad(),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          
-          // لوحة المفاتيح الرقمية
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: _buildNumberPad(),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -478,7 +544,8 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
           color: isSelected ? Theme.of(context).primaryColor : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? Theme.of(context).primaryColor : Colors.grey[300]!,
+            color:
+                isSelected ? Theme.of(context).primaryColor : Colors.grey[300]!,
           ),
         ),
         child: Column(

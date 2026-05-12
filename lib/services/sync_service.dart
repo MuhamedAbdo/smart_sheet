@@ -18,8 +18,59 @@ import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 
 class SyncService {
-  static final SyncService instance = SyncService._internal();
+  static SyncService? _instance;
+
+  // ✅ متغير static يبقى حتى بعد reset() لمنع إعادة التهيئة عن طريق الحدث النظام
+  static bool _wasUnlinked = false;
+
+  factory SyncService() {
+    _instance ??= SyncService._internal();
+    return _instance!;
+  }
   SyncService._internal();
+
+  // ✅ آمن: لا يرمي Null error بعد reset()
+  static SyncService? get instanceOrNull => _instance;
+
+  // احتفظنا به للتوافقية مع الكود القديم لكن بشكل آمن
+  static SyncService get instance {
+    if (_instance == null) {
+      throw StateError('SyncService has been reset. Call SyncService() to create a new instance.');
+    }
+    return _instance!;
+  }
+
+  static void reset() {
+    _instance = null;
+    // ❗ لا نعيد _wasUnlinked إلى false هنا، سيتم إعادة تعيينه فقط عند الربط بمصنع جديد
+  }
+
+  // ✅ إعادة ضبط كامل (isUnlinked + instance) عند الربط بمصنع جديد
+  static void resetForNewLink() {
+    _wasUnlinked = false;
+    _instance = null;
+  }
+
+  // صحيح: يمنع أي تهيئة حتى بعد reset()
+  static bool get isUnlinked => _wasUnlinked || (_instance?._isUnlinked ?? false);
+
+  /// Safe method to mark as unlinked without throwing errors
+  static Future<void> safeMarkAsUnlinked() async {
+    _wasUnlinked = true; // ✅ تسجيل على المستوى الثابت أولاً
+    if (_instance != null) {
+      try {
+        await _instance!.markAsUnlinked();
+      } catch (e) {
+        debugPrint('⚠️ Error in safeMarkAsUnlinked: $e');
+      }
+    }
+  }
+
+  bool _isUnlinked = false;
+
+  // Store all subscriptions to cancel them properly
+  StreamSubscription? _authSubscription;
+  final List<StreamSubscription> _additionalSubscriptions = [];
 
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -36,6 +87,12 @@ class SyncService {
 
   Future<void> initialize() async {
     try {
+      // منع إعادة التهيئة بعد فك الارتباط
+      if (_isUnlinked) {
+        debugPrint('🚫 SyncService: تم فك الارتباط، لا يمكن إعادة التهيئة');
+        return;
+      }
+
       _queueBox = Hive.isBoxOpen('sync_queue')
           ? Hive.box('sync_queue')
           : await Hive.openBox('sync_queue');
@@ -57,8 +114,56 @@ class SyncService {
   }
 
   Future<void> dispose() async {
+    // إلغاء جميع الاشتراكات
+    await _cancelAllSubscriptions();
+
+    // إغلاق جميع القنوات
     await _tearDownChannels();
-    debugPrint('🔄 SyncService: تم الإغلاق.');
+
+    // إغلاق صندوق قائمة الانتظار
+    if (_queueBox != null && _queueBox!.isOpen) {
+      await _queueBox!.close();
+      _queueBox = null;
+    }
+
+    debugPrint('🔄 SyncService: تم الإغلاق الكامل.');
+  }
+
+  Future<void> _cancelAllSubscriptions() async {
+    try {
+      // إلغاء اشتراك المصادقة
+      if (_authSubscription != null) {
+        await _authSubscription!.cancel();
+        _authSubscription = null;
+      }
+
+      // إلغاء جميع الاشتراكات الإضافية
+      for (final subscription in _additionalSubscriptions) {
+        await subscription.cancel();
+      }
+      _additionalSubscriptions.clear();
+
+      debugPrint('🚫 SyncService: تم إلغاء جميع الاشتراكات');
+    } catch (e) {
+      debugPrint('❌ Error cancelling subscriptions: $e');
+    }
+  }
+
+  /// استدعاء هذه الطريقة عند فك الارتباط لمنع إعادة التهيئة
+  Future<void> markAsUnlinked() async {
+    _isUnlinked = true;
+
+    // إيقاف جميع العمليات
+    await dispose();
+
+    debugPrint('🚫 SyncService: تم وضع علامة فك الارتباط وإيقاف جميع العمليات');
+  }
+
+  /// إعادة تعيين حالة فك الارتباط (للاستخدام عند إعادة الربط)
+  void resetUnlinkStatus() {
+    _isUnlinked = false;
+    _wasUnlinked = false; // ✅ أيضاً مسح المتغير الثابت
+    debugPrint('✅ SyncService: تم إعادة تعيين حالة فك الارتباط');
   }
 
   Future<void> pushToQueue(
@@ -109,14 +214,14 @@ class SyncService {
           },
         )
         .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('✅ SUBSCRIBED → customers (factory: $factoryId)');
-          } else if (status == RealtimeSubscribeStatus.channelError) {
-            debugPrint('❌ CHANNEL ERROR → customers: $error');
-          } else {
-            debugPrint('📡 customers: $status ${error ?? ""}');
-          }
-        });
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        debugPrint('✅ SUBSCRIBED → customers (factory: $factoryId)');
+      } else if (status == RealtimeSubscribeStatus.channelError) {
+        debugPrint('❌ CHANNEL ERROR → customers: $error');
+      } else {
+        debugPrint('📡 customers: $status ${error ?? ""}');
+      }
+    });
 
     // ─── 2. production_reports ───────────────────────────────────
     _productionChannel = _supabase
@@ -134,14 +239,14 @@ class SyncService {
           },
         )
         .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('✅ SUBSCRIBED → production_reports (factory: $factoryId)');
-          } else if (status == RealtimeSubscribeStatus.channelError) {
-            debugPrint('❌ CHANNEL ERROR → production_reports: $error');
-          } else {
-            debugPrint('📡 production_reports: $status ${error ?? ""}');
-          }
-        });
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        debugPrint('✅ SUBSCRIBED → production_reports (factory: $factoryId)');
+      } else if (status == RealtimeSubscribeStatus.channelError) {
+        debugPrint('❌ CHANNEL ERROR → production_reports: $error');
+      } else {
+        debugPrint('📡 production_reports: $status ${error ?? ""}');
+      }
+    });
 
     // ─── 3. workers ──────────────────────────────────────────────
     _workersChannel = _supabase
@@ -159,14 +264,14 @@ class SyncService {
           },
         )
         .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('✅ SUBSCRIBED → workers (factory: $factoryId)');
-          } else if (status == RealtimeSubscribeStatus.channelError) {
-            debugPrint('❌ CHANNEL ERROR → workers: $error');
-          } else {
-            debugPrint('📡 workers: $status ${error ?? ""}');
-          }
-        });
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        debugPrint('✅ SUBSCRIBED → workers (factory: $factoryId)');
+      } else if (status == RealtimeSubscribeStatus.channelError) {
+        debugPrint('❌ CHANNEL ERROR → workers: $error');
+      } else {
+        debugPrint('📡 workers: $status ${error ?? ""}');
+      }
+    });
   }
 
   Future<void> _tearDownChannels() async {
@@ -203,7 +308,8 @@ class SyncService {
       final record = isDelete ? payload.oldRecord : payload.newRecord;
 
       if (record.isEmpty) {
-        debugPrint('⚠️ [customers] payload فارغ! تحقق من Replica Identity في Supabase.');
+        debugPrint(
+            '⚠️ [customers] payload فارغ! تحقق من Replica Identity في Supabase.');
         return;
       }
 
@@ -222,7 +328,8 @@ class SyncService {
 
       if (isDelete) {
         final clientName = record['client_name']?.toString() ?? '';
-        final syncId = record['sync_id']?.toString() ?? record['id']?.toString();
+        final syncId =
+            record['sync_id']?.toString() ?? record['id']?.toString();
         debugPrint('🗑️ [customers] وصل طلب حذف: $clientName');
         if (syncId != null) {
           await _deleteFromBoxBySyncId(box, syncId);
@@ -233,12 +340,14 @@ class SyncService {
       } else {
         final clientName = record['client_name']?.toString() ?? '';
         // FIX: sync_id اختياري — نولِّد fallback إذا لم يكن عمود sync_id موجوداً
-        final rawSyncId = record['sync_id']?.toString() ?? record['id']?.toString();
+        final rawSyncId =
+            record['sync_id']?.toString() ?? record['id']?.toString();
         final syncId = rawSyncId ??
             '${clientName}_${myFactoryId}_${record['product_code'] ?? ''}';
 
         // DEBUG: الرسالة المطلوبة
-        debugPrint('🌟 وصلت بيانات جديدة: $clientName (factory: $recordFactoryId) key=$syncId');
+        debugPrint(
+            '🌟 وصلت بيانات جديدة: $clientName (factory: $recordFactoryId) key=$syncId');
 
         final hiveRecord = _customerToHive(record);
         hiveRecord['sync_id'] = syncId; // ضمان وجود sync_id دائماً
@@ -262,7 +371,8 @@ class SyncService {
       final record = isDelete ? payload.oldRecord : payload.newRecord;
 
       if (record.isEmpty) {
-        debugPrint('⚠️ [production_reports] payload فارغ! تحقق من Replica Identity.');
+        debugPrint(
+            '⚠️ [production_reports] payload فارغ! تحقق من Replica Identity.');
         return;
       }
 
@@ -291,7 +401,8 @@ class SyncService {
         }
 
         final clientName = record['client_name'] ?? record['clientName'] ?? '';
-        debugPrint('🌟 وصلت بيانات جديدة [production_reports]: $clientName (id: $id)');
+        debugPrint(
+            '🌟 وصلت بيانات جديدة [production_reports]: $clientName (id: $id)');
 
         // FIX: box.put(id) كـ key ثابت — يمنع التكرار
         await box.put(id, Map<String, dynamic>.from(record));
@@ -440,7 +551,8 @@ class SyncService {
   Future<bool> _checkInternet() async {
     try {
       final socket = await Socket.connect(
-        'supabase.com', 443,
+        'supabase.com',
+        443,
         timeout: const Duration(seconds: 3),
       );
       socket.destroy();

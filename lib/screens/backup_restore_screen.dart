@@ -187,7 +187,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         }
         return;
       }
-      
+
       final restorePath = '$factoryId.zip';
       final result = await _backupService.downloadAndRestore(restorePath);
 
@@ -302,16 +302,16 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                       setState(() {
                         _isRefreshing = true;
                       });
-                      
+
                       await _checkBackupExists();
                       final result = await authService.refreshUserData();
-                      
+
                       if (!context.mounted) return;
-                      
+
                       setState(() {
                         _isRefreshing = false;
                       });
-                      
+
                       if (result != null) {
                         UIUtils.showInfoSnackBar(
                           message: result,
@@ -319,7 +319,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                           icon: Icons.warning_amber_rounded,
                         );
                         if (result.contains("تم تسجيل الخروج")) {
-                          Navigator.pushReplacementNamed(context, AuthScreen.routeName);
+                          Navigator.pushReplacementNamed(
+                              context, AuthScreen.routeName);
                         }
                       } else {
                         UIUtils.showInfoSnackBar(
@@ -345,83 +346,85 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           padding: const EdgeInsets.all(16.0),
           child: ListView(
             children: [
-            // Status Card
-            if (_isLoading || _message != null) _buildStatusCard(),
+              // Status Card
+              if (_isLoading || _message != null) _buildStatusCard(),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // Backup Status Indicator
-            _buildBackupStatusCard(),
+              // Backup Status Indicator
+              _buildBackupStatusCard(),
 
-            const SizedBox(height: 30),
+              const SizedBox(height: 30),
 
-            // Main Action Buttons (Cloud)
-            const Text("النسخ السحابي", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
-            _buildUploadButton(),
-            const SizedBox(height: 12),
-            _buildRestoreButton(),
+              // Main Action Buttons (Cloud)
+              const Text("النسخ السحابي",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              _buildUploadButton(),
+              const SizedBox(height: 12),
+              _buildRestoreButton(),
 
-            const SizedBox(height: 24),
-            const Divider(),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 24),
 
-            // Local Backup Buttons
-            const Text("النسخ المحلي", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _handleLocalBackup,
-                    icon: const Icon(Icons.save),
-                    label: const Text('حفظ نسخة محلية'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueGrey,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+              // Local Backup Buttons
+              const Text("النسخ المحلي",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _handleLocalBackup,
+                      icon: const Icon(Icons.save),
+                      label: const Text('حفظ نسخة محلية'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueGrey,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _handleLocalRestore,
-                    icon: const Icon(Icons.restore),
-                    label: const Text('استعادة نسخة محلية'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _handleLocalRestore,
+                      icon: const Icon(Icons.restore),
+                      label: const Text('استعادة نسخة محلية'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-            const Divider(),
-            const SizedBox(height: 24),
-            
-            _buildQRActionSection(isAdmin, _factoryId),
-
-            const SizedBox(height: 32),
-
-            // Info Section
-            _buildInfoSection(),
-            
-            const SizedBox(height: 16),
-            
-            // Debug Section
-            Container(
-              padding: const EdgeInsets.all(8),
-              color: Colors.black12,
-              child: Text(
-                authService.isAdmin ? 'مسؤول' : 'مستخدم',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ],
               ),
-            ),
-          ],
+
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 24),
+
+              _buildQRActionSection(isAdmin, _factoryId),
+
+              const SizedBox(height: 32),
+
+              // Info Section
+              _buildInfoSection(),
+
+              const SizedBox(height: 16),
+
+              // Debug Section
+              Container(
+                padding: const EdgeInsets.all(8),
+                color: Colors.black12,
+                child: Text(
+                  authService.isAdmin ? 'مسؤول' : 'مستخدم',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -763,7 +766,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                   children: [
                     Text(
                       'إدخال الكود',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     Text(
                       'استخدام لوحة المفاتيح',
@@ -795,7 +799,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                   children: [
                     Text(
                       'مسح QR Code',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     Text(
                       'استخدام الكاميرا',
@@ -841,7 +846,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       barrierDismissible: false,
       builder: (ctx) => Dialog(
         alignment: Alignment.topCenter,
-        insetPadding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 16),
+        insetPadding:
+            const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 16),
         child: Scaffold(
           resizeToAvoidBottomInset: false,
           body: AlertDialog(
@@ -852,88 +858,91 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                 Text('إدخال كود الربط'),
               ],
             ),
-        content: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'أدخل كود الربط المكون من 6 أرقام الذي يظهر في تطبيق الأدمن:',
-                  style: TextStyle(fontSize: 14, color: Colors.black87),
-                ),
-                const SizedBox(height: 12),
-                Column(
+            content: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Display field
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.blue, width: 2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: TextField(
-                        controller: codeController,
-                        keyboardType: TextInputType.none,
-                        maxLength: 6,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 6,
-                          color: Colors.black,
-                        ),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: '123456',
-                          hintStyle: TextStyle(
-                            fontSize: 24,
-                            color: Colors.grey[400],
-                            fontWeight: FontWeight.bold,
+                    const Text(
+                      'أدخل كود الربط المكون من 6 أرقام الذي يظهر في تطبيق الأدمن:',
+                      style: TextStyle(fontSize: 14, color: Colors.black87),
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      children: [
+                        // Display field
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.blue, width: 2),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                          child: TextField(
+                            controller: codeController,
+                            keyboardType: TextInputType.none,
+                            maxLength: 6,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 6,
+                              color: Colors.black,
+                            ),
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              hintText: '123456',
+                              hintStyle: TextStyle(
+                                fontSize: 24,
+                                color: Colors.grey[400],
+                                fontWeight: FontWeight.bold,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 16, horizontal: 20),
+                            ),
+                            readOnly: true,
+                            showCursor: false,
+                            onTap: () {
+                              // Don't show keyboard
+                              FocusScope.of(context).unfocus();
+                            },
+                          ),
                         ),
-                        readOnly: true,
-                        showCursor: false,
-                        onTap: () {
-                          // Don't show keyboard
-                          FocusScope.of(context).unfocus();
-                        },
+                        const SizedBox(height: 20),
+                        // Custom number pad
+                        _buildCustomNumberPad(codeController),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'صالح لمدة 5 دقائق فقط',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    // Custom number pad
-                    _buildCustomNumberPad(codeController),
+                    SizedBox(
+                        height: MediaQuery.of(context).viewInsets.bottom + 20),
                   ],
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'صالح لمدة 5 دقائق فقط',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.orange,
-                    fontWeight: FontWeight.w500,
-                  ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('إلغاء'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () =>
+                    Navigator.pop(context, codeController.text.trim()),
+                icon: const Icon(Icons.link),
+                label: const Text('ربط الآن'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[700],
+                  foregroundColor: Colors.white,
                 ),
-                SizedBox(height: MediaQuery.of(context).viewInsets.bottom + 20),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(context, codeController.text.trim()),
-            icon: const Icon(Icons.link),
-            label: const Text('ربط الآن'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[700],
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
+              ),
+            ],
           ),
         ),
       ),
@@ -1045,7 +1054,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             borderRadius: BorderRadius.circular(8),
             onTap: () {
               if (controller.text.isNotEmpty) {
-                final newText = controller.text.substring(0, controller.text.length - 1);
+                final newText =
+                    controller.text.substring(0, controller.text.length - 1);
                 controller.text = newText;
               }
             },
@@ -1187,24 +1197,72 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'هل أنت متأكد من فك ارتباط الجهاز بالمصنع؟',
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'المصنع: $factoryId',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.factory, color: Colors.blue.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'المصنع: $factoryId',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             const Text(
-              'بعد فك الارتباط، ستفقد الوصول إلى بيانات المصنع وستحتاج إلى إعادة الربط مرة أخرى.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              '⚠️ تحذير: هذا الإجراء سيقوم بالآتي:',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.orange,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...const [
+              '• مسح جميع بيانات المصنع المحلية',
+              '• حذف معرف المصنع من الجهاز',
+              '• إيقاف المزامنة التلقائية',
+              '• إغلاق جميع الصناديق المرتبطة بالمصنع',
+              '• فقدان الوصول للبيانات حتى إعادة الربط',
+            ].map((warning) => Padding(
+                  padding: const EdgeInsets.only(right: 16, bottom: 4),
+                  child: Text(
+                    warning,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    textAlign: TextAlign.right,
+                  ),
+                )),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                '💡 ملاحظة: يمكنك دائماً إعادة ربط الجهاز بنفس المصنع أو بمصنع آخر باستخدام كود الربط.',
+                style: TextStyle(fontSize: 11, color: Colors.red),
+              ),
             ),
           ],
         ),
@@ -1226,10 +1284,20 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     );
 
     if (confirmed == true) {
+      // إظهار مؤشر التحميل
+      setState(() {
+        _isLoading = true;
+      });
+
       final AuthService authService = AuthService();
       final error = await authService.unlinkFactory();
-      
+
       if (!mounted) return;
+
+      // إخفاء مؤشر التحميل
+      setState(() {
+        _isLoading = false;
+      });
 
       if (error == null) {
         UIUtils.showInfoSnackBar(
@@ -1237,10 +1305,21 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           backgroundColor: Colors.green,
           icon: Icons.check_circle_outline,
         );
+
+        // تحديث الواجهة فوراً
         await _checkBackupExists();
         setState(() {
-          _factoryId = null; // تحديث factoryId فوراً
+          _factoryId = null;
         });
+
+        // إعادة تشغيل التطبيق من الصفر (Clean Start)
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/factory_link',
+            (route) => false,
+          );
+        }
       } else {
         UIUtils.showInfoSnackBar(
           message: error,
@@ -1313,7 +1392,8 @@ class _PairingCodeDialogState extends State<_PairingCodeDialog> {
 
   String _formatCode(String code) {
     // تنسيق الكود كـ XXX XXX (أول 3 أرقام + مسافة + آخر 3 أرقام)
-    debugPrint('🎨 Formatting code: $code -> part1: ${code.substring(0, 3)} part2: ${code.substring(3)}');
+    debugPrint(
+        '🎨 Formatting code: $code -> part1: ${code.substring(0, 3)} part2: ${code.substring(3)}');
     if (code.length == 6) {
       return '${code.substring(0, 3)} ${code.substring(3)}';
     }
@@ -1328,9 +1408,6 @@ class _PairingCodeDialogState extends State<_PairingCodeDialog> {
 
   @override
   Widget build(BuildContext context) {
-    
-    
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Column(
@@ -1425,7 +1502,9 @@ class _PairingCodeDialogState extends State<_PairingCodeDialog> {
                 Directionality(
                   textDirection: TextDirection.ltr,
                   child: Text(
-                    _currentCode != null ? _formatCode(_currentCode!) : '---- --',
+                    _currentCode != null
+                        ? _formatCode(_currentCode!)
+                        : '---- --',
                     style: const TextStyle(
                       fontSize: 42,
                       fontWeight: FontWeight.bold,
@@ -1494,22 +1573,3 @@ class _PairingCodeDialogState extends State<_PairingCodeDialog> {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

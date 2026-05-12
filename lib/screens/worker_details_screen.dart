@@ -12,6 +12,8 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'dart:async';
+import 'package:provider/provider.dart';
+import 'package:smart_sheet/providers/theme_provider.dart';
 
 class WorkerDetailsScreen extends StatefulWidget {
   final Worker worker;
@@ -343,19 +345,56 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     final returnDate = ValueNotifier<DateTime?>(existingAction?.returnDate);
 
     void updateCalculatedDays() {
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      final shiftStart = themeProvider.shiftStart;
+      final shiftEnd = themeProvider.shiftEnd;
+
+      // Calculate shift duration in hours
+      double shiftHours = shiftEnd.hour + shiftEnd.minute / 60.0 - (shiftStart.hour + shiftStart.minute / 60.0);
+      if (shiftHours <= 0) shiftHours += 24;
+
       if (returnDate.value != null) {
-        final start = DateTime(date.value.year, date.value.month, date.value.day);
-        final end = DateTime(returnDate.value!.year, returnDate.value!.month, returnDate.value!.day);
-        // We add 0.0 as default, but if dates are different, calculate the difference.
-        // Some users might want "inclusive" days (e.g. 21 to 24 is 4 days), 
-        // but standard difference is 3. Looking at the screenshot 13 to 17 is 3.0? 
-        // Wait, 17 - 13 = 4. If it shows 3.0, maybe it's exclusive of the last day?
-        // Actually, 17 - 13 is 4. Let's stick to standard difference for now or match the 3.0 example.
-        // Re-reading screenshot: 13 to 17 is 3.0 days. 17-13=4. So it's probably diff.
-        // Wait, if it says 3.0 for 13 to 17, then it's diff. 
-        // Let's use diff.toDouble().toStringAsFixed(1).
-        final diff = end.difference(start).inDays;
-        calculatedDays.value = diff.toDouble();
+        final start = DateTime(date.value.year, date.value.month, date.value.day, 
+            startTime.value?.hour ?? shiftStart.hour, startTime.value?.minute ?? shiftStart.minute);
+        final end = DateTime(returnDate.value!.year, returnDate.value!.month, returnDate.value!.day, 
+            endTime.value?.hour ?? shiftEnd.hour, endTime.value?.minute ?? shiftEnd.minute);
+        
+        final diffMinutes = end.difference(start).inMinutes;
+        if (diffMinutes <= 0) {
+          calculatedDays.value = 0.0;
+          return;
+        }
+
+        final totalHours = diffMinutes / 60.0;
+        final fullDays = (totalHours / 24).floor();
+        final remainingHours = totalHours % 24;
+
+        double partialDay = 0.0;
+        if (remainingHours >= shiftHours - 1) {
+          partialDay = 1.0;
+        } else if (remainingHours >= (shiftHours / 2) - 1 && remainingHours <= (shiftHours / 2) + 1.5) {
+          // توسيع النطاق قليلاً ليشمل 3 و 4 و 5 ساعات إذا كانت الوردية 8 ساعات
+          partialDay = 0.5;
+        } else if (remainingHours > (shiftHours / 2) + 1.5) {
+          // إذا كانت أكثر من نصف الوردية بوضوح ولكن لم تصل للوردية الكاملة
+          partialDay = 0.5; 
+        }
+
+        calculatedDays.value = fullDays + partialDay;
+      } else if (startTime.value != null && endTime.value != null) {
+        // Same day partial absence (Permission/إذن)
+        double duration = endTime.value!.hour + endTime.value!.minute / 60.0 - (startTime.value!.hour + startTime.value!.minute / 60.0);
+        if (duration < 0) duration += 24;
+
+        if (duration >= shiftHours - 1) {
+          calculatedDays.value = 1.0;
+        } else if (duration >= (shiftHours / 2) - 1 && duration <= (shiftHours / 2) + 1.5) {
+          calculatedDays.value = 0.5;
+        } else if (duration > (shiftHours / 2) + 1.5) {
+          calculatedDays.value = 0.5;
+        } else {
+          calculatedDays.value = 0.0;
+        }
       }
     }
 
@@ -423,8 +462,10 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                           DropdownMenuItem(
                               value: 'تأمين صحي', child: Text('تأمين صحي')),
                         ],
-                        onChanged: (v) =>
-                            setState(() => actionType.value = v ?? 'إجازة'),
+                        onChanged: (v) {
+                          setState(() => actionType.value = v ?? 'إجازة');
+                          updateCalculatedDays();
+                        },
                         decoration:
                             const InputDecoration(labelText: "نوع الإجراء"),
                       ),
@@ -439,7 +480,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                           children: [
                             Expanded(child: _buildDateField("📅 تاريخ القيام", date as ValueNotifier<DateTime?>, context, setState, updateCalculatedDays: updateCalculatedDays)),
                             const SizedBox(width: 12),
-                            Expanded(child: _buildTimeField("⏰ وقت القيام", startTime, context, setState)),
+                            Expanded(child: _buildTimeField("⏰ وقت القيام", startTime, context, setState, updateCalculatedDays: updateCalculatedDays)),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -448,7 +489,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                           children: [
                             Expanded(child: _buildDateField("🔙 تاريخ العودة", returnDate, context, setState, isOptional: true, updateCalculatedDays: updateCalculatedDays)),
                             const SizedBox(width: 12),
-                            Expanded(child: _buildTimeField("🕒 وقت العودة", endTime, context, setState)),
+                            Expanded(child: _buildTimeField("🕒 وقت العودة", endTime, context, setState, updateCalculatedDays: updateCalculatedDays)),
                           ],
                         ),
                         if (actionType.value == 'إجازة' ||
@@ -697,7 +738,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   }
 
   Widget _buildTimeField(String label, ValueNotifier<TimeOfDay?> timeNotifier,
-      BuildContext context, StateSetter setState) {
+      BuildContext context, StateSetter setState, {VoidCallback? updateCalculatedDays}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -707,7 +748,10 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             final picked = await showTimePicker(
                 context: context,
                 initialTime: timeNotifier.value ?? TimeOfDay.now());
-            if (picked != null) setState(() => timeNotifier.value = picked);
+            if (picked != null) {
+              setState(() => timeNotifier.value = picked);
+              if (updateCalculatedDays != null) updateCalculatedDays();
+            }
           },
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 8),

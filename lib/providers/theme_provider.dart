@@ -6,13 +6,21 @@ import 'package:hive_flutter/hive_flutter.dart';
 class ThemeProvider with ChangeNotifier {
   static const String _themeKey = 'isDarkTheme';
   static const String _fontScaleKey = 'fontScale';
+  static const String _shiftStartHourKey = 'shiftStartHour';
+  static const String _shiftStartMinuteKey = 'shiftStartMinute';
+  static const String _shiftEndHourKey = 'shiftEndHour';
+  static const String _shiftEndMinuteKey = 'shiftEndMinute';
   static const String _boxName = 'settings';
 
   bool _isDarkTheme = false;
   double _fontScale = 1.0;
+  TimeOfDay _shiftStart = const TimeOfDay(hour: 8, minute: 0);
+  TimeOfDay _shiftEnd = const TimeOfDay(hour: 16, minute: 0);
 
   bool get isDarkTheme => _isDarkTheme;
   double get fontScale => _fontScale;
+  TimeOfDay get shiftStart => _shiftStart;
+  TimeOfDay get shiftEnd => _shiftEnd;
 
   ThemeProvider() {
     _loadSettings();
@@ -27,6 +35,14 @@ class ThemeProvider with ChangeNotifier {
       _isDarkTheme = box.get(_themeKey, defaultValue: false);
       _fontScale =
           (box.get(_fontScaleKey, defaultValue: 1.0) as num).toDouble();
+
+      final startH = box.get(_shiftStartHourKey, defaultValue: 8) as int;
+      final startM = box.get(_shiftStartMinuteKey, defaultValue: 0) as int;
+      _shiftStart = TimeOfDay(hour: startH, minute: startM);
+
+      final endH = box.get(_shiftEndHourKey, defaultValue: 16) as int;
+      final endM = box.get(_shiftEndMinuteKey, defaultValue: 0) as int;
+      _shiftEnd = TimeOfDay(hour: endH, minute: endM);
 
       notifyListeners();
     } catch (e) {
@@ -53,6 +69,30 @@ class ThemeProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error setting font scale: $e');
+    }
+  }
+
+  Future<void> setShiftStart(TimeOfDay time) async {
+    try {
+      _shiftStart = time;
+      final box = await Hive.openBox(_boxName);
+      await box.put(_shiftStartHourKey, time.hour);
+      await box.put(_shiftStartMinuteKey, time.minute);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error setting shift start: $e');
+    }
+  }
+
+  Future<void> setShiftEnd(TimeOfDay time) async {
+    try {
+      _shiftEnd = time;
+      final box = await Hive.openBox(_boxName);
+      await box.put(_shiftEndHourKey, time.hour);
+      await box.put(_shiftEndMinuteKey, time.minute);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error setting shift end: $e');
     }
   }
 

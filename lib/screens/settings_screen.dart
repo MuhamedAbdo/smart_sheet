@@ -35,6 +35,8 @@ class SettingsScreen extends StatelessWidget {
                   Expanded(child: _buildAppearanceCard(themeProvider)),
                   const SizedBox(width: 16),
                   Expanded(child: _buildDataCard(context)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildFactorySettingsCard(themeProvider, context)),
                 ],
               )
             : Column(
@@ -42,6 +44,8 @@ class SettingsScreen extends StatelessWidget {
                   _buildAppearanceCard(themeProvider),
                   const SizedBox(height: 16),
                   _buildDataCard(context),
+                  const SizedBox(height: 16),
+                  _buildFactorySettingsCard(themeProvider, context),
                 ],
               ),
       ),
@@ -128,6 +132,76 @@ class SettingsScreen extends StatelessWidget {
                       builder: (context) => const BackupRestoreScreen()),
                 );
               },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFactorySettingsCard(ThemeProvider themeProvider, BuildContext context) {
+    final shiftStart = themeProvider.shiftStart;
+    final shiftEnd = themeProvider.shiftEnd;
+
+    // Calculate total hours
+    double totalHours = shiftEnd.hour + shiftEnd.minute / 60.0 - (shiftStart.hour + shiftStart.minute / 60.0);
+    if (totalHours < 0) totalHours += 24;
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("إعدادات المصنع والوردية",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.access_time, color: Colors.orange),
+              title: const Text("بداية الوردية"),
+              subtitle: Text(shiftStart.format(context)),
+              trailing: const Icon(Icons.edit, size: 18),
+              onTap: () async {
+                final picked = await showTimePicker(
+                  context: context,
+                  initialTime: shiftStart,
+                );
+                if (picked != null) {
+                  themeProvider.setShiftStart(picked);
+                }
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.access_time_filled, color: Colors.deepOrange),
+              title: const Text("نهاية الوردية"),
+              subtitle: Text(shiftEnd.format(context)),
+              trailing: const Icon(Icons.edit, size: 18),
+              onTap: () async {
+                final picked = await showTimePicker(
+                  context: context,
+                  initialTime: shiftEnd,
+                );
+                if (picked != null) {
+                  themeProvider.setShiftEnd(picked);
+                }
+              },
+            ),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 16, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Text(
+                    "إجمالي ساعات الوردية: ${totalHours.toStringAsFixed(1)} ساعة",
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

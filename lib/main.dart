@@ -18,6 +18,7 @@ import 'package:smart_sheet/widgets/desktop_title_bar.dart';
 import 'package:smart_sheet/widgets/desktop_sidebar.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
 import 'package:smart_sheet/screens/forgot_password_screen.dart';
+import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/screens/update_password_screen.dart';
 import 'package:smart_sheet/screens/backup_restore_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
@@ -65,13 +66,19 @@ Future<void> main() async {
       await Hive.initFlutter();
       _registerAdapters();
       await Hive.openBox('settings');
-      
-      // فتح صناديق العلاقات الأساسية
+
+      // فتح صندوق worker_actions أولاً وقبل كل شيء
       await Hive.openBox<WorkerAction>('worker_actions');
+
+      // فتح صناديق العمال التي تعتمد على worker_actions
       await Future.wait([
         Hive.openBox<Worker>('workers'),
         Hive.openBox<Worker>('workers_flexo'),
         Hive.openBox<Worker>('workers_production'),
+      ]);
+
+      // فتح باقي الصناديق
+      await Future.wait([
         Hive.openBox<FinishedProduct>('finished_products'),
         Hive.openBox<LiveSession>('flexo_live_sessions'),
         Hive.openBox('sync_queue'), // قائمة انتظار المزامنة
@@ -90,14 +97,26 @@ Future<void> main() async {
       // متابعة تشغيل التطبيق حتى لو فشل Supabase
     }
 
-    // تهيئة خدمة المزامنة (ستكتمل فقط إذا كان factory_id محفوظاً)
-    await SyncService.instance.initialize();
+    // تهيئة خدمة المزامنة (ستكتمل فقط إذا كان factory_id محفوظاً وصحيحاً)
+    try {
+      final factoryId = await SupabaseManager.getFactoryId();
+      // ✅ فقط إذا: 1) factory_id موجود, 2) لم يتم فك الارتباط
+      if (factoryId != null && factoryId.isNotEmpty && !SyncService.isUnlinked) {
+        await SyncService().initialize(); // SyncService() يُنشئ instance جديد إذا لزم
+        debugPrint('✅ SyncService initialized for factory: $factoryId');
+      } else {
+        debugPrint(
+            '⏳ No factory_id found or unlinked, skipping SyncService initialization');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error initializing SyncService in main: $e');
+    }
 
     // 4. تهيئة نافذة سطح المكتب
     if (!kIsWeb && Platform.isWindows) {
       try {
         await windowManager.ensureInitialized();
-        
+
         WindowOptions windowOptions = const WindowOptions(
           size: Size(1280, 720),
           center: true,
@@ -119,31 +138,31 @@ Future<void> main() async {
   }
 
   // تهيئة معالج أخطاء الأصول قبل كل شيء
-    await AssetErrorHandler.handleAssetManifestError();
-    AssetErrorHandler.suppressRepeatedAssetErrors();
-    
-    // معالجة خاصة بمستخدمي Windows
-    await AssetErrorHandler.handleWindowsAssetIssues();
-    
-    // التحقق من صحة PlatformAssetBundle
-    final isValid = await AssetErrorHandler.validatePlatformAssetBundle();
-    if (!isValid) {
-      debugPrint("⚠️ PlatformAssetBundle validation failed, using fallbacks");
-    }
-    
-    // معالجة مشاكل CachingAssetBundle
-    await AssetErrorHandler.handleCachingAssetBundleIssues();
-    AssetErrorHandler.optimizeCachingPerformance();
+  await AssetErrorHandler.handleAssetManifestError();
+  AssetErrorHandler.suppressRepeatedAssetErrors();
 
-    // تهيئة محسن الأداء
-    PerformanceOptimizer.initialize();
-    PerformanceOptimizer.monitorPerformance();
+  // معالجة خاصة بمستخدمي Windows
+  await AssetErrorHandler.handleWindowsAssetIssues();
 
-    // تهيئة مدير الاتصال
-    ConnectionManager.initialize();
+  // التحقق من صحة PlatformAssetBundle
+  final isValid = await AssetErrorHandler.validatePlatformAssetBundle();
+  if (!isValid) {
+    debugPrint("⚠️ PlatformAssetBundle validation failed, using fallbacks");
+  }
 
-    debugPrint("🚀 Reached runApp()");
-  
+  // معالجة مشاكل CachingAssetBundle
+  await AssetErrorHandler.handleCachingAssetBundleIssues();
+  AssetErrorHandler.optimizeCachingPerformance();
+
+  // تهيئة محسن الأداء
+  PerformanceOptimizer.initialize();
+  PerformanceOptimizer.monitorPerformance();
+
+  // تهيئة مدير الاتصال
+  ConnectionManager.initialize();
+
+  debugPrint("🚀 Reached runApp()");
+
   // معالجة الأخطاء العالمية قبل runApp
   FlutterError.onError = (FlutterErrorDetails details) {
     if (details.exception.toString().contains('AssetManifest.bin') ||
@@ -151,13 +170,13 @@ Future<void> main() async {
       debugPrint("🔧 Global asset error handler: ${details.exception}");
       return;
     }
-    
+
     // عرض الأخطاء الأخرى في وضع التصحيح فقط
     if (kDebugMode) {
       FlutterError.presentError(details);
     }
   };
-  
+
   // 5. تشغيل التطبيق مع الـ Providers
   runApp(
     MultiProvider(
@@ -183,9 +202,15 @@ void _registerAdapters() {
     Hive.registerAdapter(MaintenanceRecordAdapter());
   }
   if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(StoreEntryAdapter());
-  if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(ProductionReportAdapter());
-  if (!Hive.isAdapterRegistered(15)) Hive.registerAdapter(FlexoMachineAdapter());
-  if (!Hive.isAdapterRegistered(16)) Hive.registerAdapter(DowntimeIntervalAdapter());
+  if (!Hive.isAdapterRegistered(3)) {
+    Hive.registerAdapter(ProductionReportAdapter());
+  }
+  if (!Hive.isAdapterRegistered(15)) {
+    Hive.registerAdapter(FlexoMachineAdapter());
+  }
+  if (!Hive.isAdapterRegistered(16)) {
+    Hive.registerAdapter(DowntimeIntervalAdapter());
+  }
   if (!Hive.isAdapterRegistered(17)) Hive.registerAdapter(LiveSessionAdapter());
 }
 
@@ -245,12 +270,13 @@ class SmartSheetApp extends StatelessWidget {
 
     return MaterialApp(
       scaffoldMessengerKey: scaffoldMessengerKey,
-      navigatorKey: Provider.of<AuthService>(context, listen: false).navigatorKey,
+      navigatorKey:
+          Provider.of<AuthService>(context, listen: false).navigatorKey,
       navigatorObservers: [routeObserver],
       title: 'Smart Sheet',
       debugShowCheckedModeBanner: false,
       theme: themeProvider.theme,
-      
+
       // ✅ دعم اللغات والتقويم (DatePicker) لضمان عدم حدوث خطأ No MaterialLocalizations
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -268,14 +294,17 @@ class SmartSheetApp extends StatelessWidget {
         physics: const ClampingScrollPhysics(),
         overscroll: false,
       ),
-      
+
       // ✅ تطبيق حجم الخط عالمياً والتخطيط المكتبي ومعالجة أخطاء الأصول
       builder: (context, child) {
         // معالجة أخطاء الأصول بشكل مباشر
         ErrorWidget.builder = (FlutterErrorDetails errorDetails) {
           if (errorDetails.exception.toString().contains('AssetManifest.bin') ||
-              errorDetails.exception.toString().contains('Unable to load asset')) {
-            debugPrint("🔧 Asset error caught by ErrorWidget: ${errorDetails.exception}");
+              errorDetails.exception
+                  .toString()
+                  .contains('Unable to load asset')) {
+            debugPrint(
+                "🔧 Asset error caught by ErrorWidget: ${errorDetails.exception}");
             return Container(
               width: 24,
               height: 24,
@@ -292,7 +321,7 @@ class SmartSheetApp extends StatelessWidget {
           }
           return ErrorWidget(errorDetails.exception);
         };
-        
+
         return Scaffold(
           backgroundColor: themeProvider.theme.scaffoldBackgroundColor,
           body: Column(
@@ -305,7 +334,8 @@ class SmartSheetApp extends StatelessWidget {
                       ValueListenableBuilder<String?>(
                         valueListenable: currentRouteNotifier,
                         builder: (context, routeName, child) {
-                          if (routeName == '/' || routeName == AuthScreen.routeName) {
+                          if (routeName == '/' ||
+                              routeName == AuthScreen.routeName) {
                             return const SizedBox.shrink();
                           }
                           return const DesktopSidebar();
@@ -314,7 +344,8 @@ class SmartSheetApp extends StatelessWidget {
                     Expanded(
                       child: MediaQuery(
                         data: MediaQuery.of(context).copyWith(
-                          textScaler: TextScaler.linear(themeProvider.fontScale),
+                          textScaler:
+                              TextScaler.linear(themeProvider.fontScale),
                         ),
                         child: child!,
                       ),
@@ -330,7 +361,6 @@ class SmartSheetApp extends StatelessWidget {
       home: const SplashScreen(),
       routes: {
         SettingsScreen.routeName: (_) => const SettingsScreen(),
-
         AuthScreen.routeName: (_) => const AuthScreen(),
         ForgotPasswordScreen.routeName: (_) => const ForgotPasswordScreen(),
         UpdatePasswordScreen.routeName: (_) => const UpdatePasswordScreen(),

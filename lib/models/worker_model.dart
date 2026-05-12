@@ -33,21 +33,46 @@ class Worker extends HiveObject {
     this.hasMedicalInsurance = false,
     this.factoryId,
   }) {
+    _initializeActions(actions);
+  }
+
+  void _initializeActions(List<WorkerAction>? actions) {
     if (Hive.isBoxOpen('worker_actions')) {
-      final box = Hive.box<WorkerAction>('worker_actions');
-      // ignore: experimental_member_use
-      this.actions = HiveList(box, objects: actions ?? []);
+      try {
+        final box = Hive.box<WorkerAction>('worker_actions');
+        // ignore: experimental_member_use
+        this.actions = HiveList(box, objects: actions ?? []);
+      } catch (e) {
+        debugPrint("⚠️ Error initializing HiveList: $e");
+        // Create empty list as fallback
+        // ignore: experimental_member_use
+        this.actions = HiveList(Hive.box<WorkerAction>('worker_actions'));
+      }
     } else {
-      // تجنب حدوث خطأ إذا لم يفتح الصندوق بعد
-      debugPrint("⚠️ Warning: worker_actions box is not open yet.");
+      // This should not happen if boxes are opened in correct order
+      debugPrint(
+          "⚠️ Critical: worker_actions box is not open during Worker initialization");
+      // Try to open it as fallback
+      try {
+        // ignore: experimental_member_use
+        this.actions = HiveList(Hive.box<WorkerAction>('worker_actions'));
+      } catch (e) {
+        debugPrint("❌ Failed to create HiveList fallback: $e");
+      }
     }
   }
 
   void reconnectActionsBox() {
     if (Hive.isBoxOpen('worker_actions')) {
-      final box = Hive.box<WorkerAction>('worker_actions');
-      // ignore: experimental_member_use
-      actions = HiveList(box, objects: actions.toList());
+      try {
+        final box = Hive.box<WorkerAction>('worker_actions');
+        // ignore: experimental_member_use
+        actions = HiveList(box, objects: actions.toList());
+      } catch (e) {
+        debugPrint("⚠️ Error reconnecting actions box: $e");
+      }
+    } else {
+      debugPrint("⚠️ Cannot reconnect: worker_actions box is not open");
     }
   }
 
@@ -56,9 +81,9 @@ class Worker extends HiveObject {
   WorkerAction? get activeAction {
     try {
       return actions.cast<WorkerAction?>().firstWhere(
-        (a) => a != null && a.isActive,
-        orElse: () => null,
-      );
+            (a) => a != null && a.isActive,
+            orElse: () => null,
+          );
     } catch (_) {
       return null;
     }
