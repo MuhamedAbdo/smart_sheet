@@ -65,25 +65,33 @@ Future<void> main() async {
     if (!kIsWeb) {
       await Hive.initFlutter();
       _registerAdapters();
+      
+      // 1. فتح الإعدادات أولاً
       await Hive.openBox('settings');
 
-      // فتح صندوق worker_actions أولاً وقبل كل شيء
+      // 2. فتح صندوق worker_actions (ضروري جداً قبل صناديق العمال)
+      debugPrint('📦 Opening worker_actions box...');
       await Hive.openBox<WorkerAction>('worker_actions');
+      if (!Hive.isBoxOpen('worker_actions')) {
+        debugPrint('❌ Failed to open worker_actions box!');
+      }
 
-      // فتح صناديق العمال التي تعتمد على worker_actions
-      await Future.wait([
-        Hive.openBox<Worker>('workers'),
-        Hive.openBox<Worker>('workers_flexo'),
-        Hive.openBox<Worker>('workers_production'),
-      ]);
+      // 3. فتح صناديق العمال التي تعتمد على worker_actions بشكل متسلسل لضمان الاستقرار
+      debugPrint('📦 Opening workers boxes...');
+      await Hive.openBox<Worker>('workers');
+      await Hive.openBox<Worker>('workers_flexo');
+      await Hive.openBox<Worker>('workers_production');
 
-      // فتح باقي الصناديق
+      // 4. فتح باقي الصناديق الأساسية
       await Future.wait([
         Hive.openBox<FinishedProduct>('finished_products'),
         Hive.openBox<LiveSession>('flexo_live_sessions'),
-        Hive.openBox('sync_queue'), // قائمة انتظار المزامنة
+        Hive.openBox('sync_queue'),
       ]);
-      _openBackgroundBoxes();
+
+      // 5. فتح صناديق الخلفية (الآن ننتظر اكتمالها)
+      await _openBackgroundBoxes();
+      debugPrint('✅ All Hive boxes initialized');
     }
 
     // 3. تهيئة Supabase والإشعارات مع معالجة الأخطاء
@@ -214,23 +222,16 @@ void _registerAdapters() {
   if (!Hive.isAdapterRegistered(17)) Hive.registerAdapter(LiveSessionAdapter());
 }
 
-void _openBackgroundBoxes() {
-  Hive.openBox<StoreEntry>('store_flexo');
-  Hive.openBox<MaintenanceRecord>('maintenance_records_main');
-  Hive.openBox<FlexoMachine>('flexo_machines');
-
-  final otherBoxes = [
-    'savedSheetSizes',
-    'inkReports',
-    'flexoArchive',
-    'serial_setup_state',
-  ];
-  for (var box in otherBoxes) {
-    Hive.openBox(box).then(
-      (_) => {}, // Success case - do nothing
-      onError: (e) => debugPrint("⚠️ Failed to open $box: $e"),
-    );
-  }
+Future<void> _openBackgroundBoxes() async {
+  await Future.wait([
+    Hive.openBox<StoreEntry>('store_flexo'),
+    Hive.openBox<MaintenanceRecord>('maintenance_records_main'),
+    Hive.openBox<FlexoMachine>('flexo_machines'),
+    Hive.openBox('savedSheetSizes'),
+    Hive.openBox('inkReports'),
+    Hive.openBox('flexoArchive'),
+    Hive.openBox('serial_setup_state'),
+  ]);
 }
 
 Future<void> _initializeSupabaseWithRetry() async {

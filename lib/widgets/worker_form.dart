@@ -93,7 +93,25 @@ class _WorkerFormState extends State<WorkerForm> {
   }
 
   void _saveWorker() async {
-    if (nameController.text.trim().isEmpty) return;
+    final name = nameController.text.trim();
+    final phone = phoneController.text.trim();
+
+    if (name.isEmpty) return;
+
+    // 1. التحقق من التكرار عند إضافة عامل جديد
+    if (widget.existingWorker == null) {
+      final isDuplicate = widget.box.values.any((w) =>
+          w.name.trim() == name && w.phone.trim() == phone);
+
+      if (isDuplicate) {
+        UIUtils.showInfoSnackBar(
+          message: "⚠️ هذا العامل موجود بالفعل (الاسم ورقم الهاتف متطابقان)",
+          backgroundColor: Colors.orange,
+          icon: Icons.warning_amber_rounded,
+        );
+        return;
+      }
+    }
 
     // جلب factory_id من التخزين الآمن
     const storage = FlutterSecureStorage();
@@ -101,8 +119,8 @@ class _WorkerFormState extends State<WorkerForm> {
 
     if (widget.existingWorker == null) {
       final worker = Worker(
-        name: nameController.text.trim(),
-        phone: phoneController.text.trim(),
+        name: name,
+        phone: phone,
         job: job,
         actions: [],
         factoryId: factoryId,
@@ -112,8 +130,8 @@ class _WorkerFormState extends State<WorkerForm> {
       SyncService.instance.pushToQueue('workers', worker.toJson());
     } else {
       final w = widget.existingWorker!;
-      w.name = nameController.text.trim();
-      w.phone = phoneController.text.trim();
+      w.name = name;
+      w.phone = phone;
       w.job = job;
       w.factoryId ??= factoryId;
       await w.save();

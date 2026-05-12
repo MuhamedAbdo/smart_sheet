@@ -4,6 +4,7 @@ import 'package:smart_sheet/widgets/worker_list.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/widgets/active_absences_dashboard.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class WorkersScreen extends StatelessWidget {
   final String departmentBoxName;
@@ -52,6 +53,13 @@ class WorkersScreen extends StatelessWidget {
           appBar: AppBar(
             title: Text("👷‍♂️ $departmentTitle - العمال"),
             centerTitle: true,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.auto_fix_high, color: Colors.blueAccent),
+                tooltip: "حذف التكرارات",
+                onPressed: () => _cleanDuplicates(context, box),
+              ),
+            ],
           ),
           body: Column(
             children: [
@@ -67,5 +75,58 @@ class WorkersScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  void _cleanDuplicates(BuildContext context, Box<Worker> box) async {
+    final Map<String, Worker> uniqueWorkers = {};
+    final List<dynamic> keysToDelete = [];
+
+    // تحديد العمال الفريدين (الاسم + الهاتف)
+    for (int i = 0; i < box.length; i++) {
+      final worker = box.getAt(i);
+      if (worker == null) continue;
+
+      final identifier = "${worker.name.trim()}_${worker.phone.trim()}";
+
+      if (uniqueWorkers.containsKey(identifier)) {
+        // إذا وجدنا تكراراً، نضيف مفتاحه للحذف
+        keysToDelete.add(box.keyAt(i));
+      } else {
+        uniqueWorkers[identifier] = worker;
+      }
+    }
+
+    if (keysToDelete.isEmpty) {
+      if (context.mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "✅ لا يوجد تكرارات لحذفها",
+          backgroundColor: Colors.green,
+          icon: Icons.check_circle,
+        );
+      }
+      return;
+    }
+
+    // تأكيد الحذف
+    if (context.mounted) {
+      UIUtils.showDeleteConfirmation(
+        context: context,
+        title: "حذف التكرارات",
+        content: "تم العثور على ${keysToDelete.length} سجل مكرر. هل تريد حذفهم؟",
+        confirmLabel: "حذف الكل",
+        onConfirm: () async {
+          for (final key in keysToDelete) {
+            await box.delete(key);
+          }
+          if (context.mounted) {
+            UIUtils.showInfoSnackBar(
+              message: "✅ تم حذف التكرارات بنجاح",
+              backgroundColor: Colors.blue,
+              icon: Icons.cleaning_services,
+            );
+          }
+        },
+      );
+    }
   }
 }

@@ -679,8 +679,10 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   children: [
                     const Text("📉 الهالك: ",
                         style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(
-                        "إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
+                    Expanded(
+                      child: Text(
+                          "إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
+                    ),
                   ],
                 ),
               ),
@@ -781,7 +783,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           const SizedBox(width: 8),
           Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(width: 8),
-          Text(value),
+          Expanded(child: Text(value)),
         ],
       ),
     );
@@ -792,7 +794,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         child: Row(children: [
           Text(l, style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(width: 8),
-          Text(v)
+          Expanded(child: Text(v)),
         ]),
       );
 
@@ -812,10 +814,12 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         children: [
           const Text("📏 المقاس: ",
               style: TextStyle(fontWeight: FontWeight.bold)),
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: Text(displayText,
-                style: const TextStyle(color: Colors.blueGrey)),
+          Flexible(
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: Text(displayText,
+                  style: const TextStyle(color: Colors.blueGrey)),
+            ),
           ),
         ],
       ),

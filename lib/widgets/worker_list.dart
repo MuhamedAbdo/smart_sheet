@@ -27,6 +27,7 @@ class WorkerList extends StatelessWidget {
           itemBuilder: (context, index) {
             final worker = box.getAt(index)!;
             return WorkerCard(
+              key: ValueKey(worker.id),
               worker: worker,
               onEdit: () => WorkerForm.show(context,
                   existingWorker: worker, box: box), // ✅ تمرير الصندوق

@@ -94,7 +94,7 @@ class ProductionReportList extends StatelessWidget {
                       children: [
                         const Text("📏 المقاسات: ",
                             style: TextStyle(fontWeight: FontWeight.bold)),
-                        _buildDimensionsText(record['dimensions']),
+                        Expanded(child: _buildDimensionsText(record['dimensions'])),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -108,7 +108,7 @@ class ProductionReportList extends StatelessWidget {
                         child: Row(
                           children: [
                             const Text("📉 الهالك: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text("إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
+                            Expanded(child: Text("إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}")),
                           ],
                         ),
                       ),

@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:smart_sheet/screens/qr_scanner_screen.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/services/auth_service.dart';
-import 'package:smart_sheet/services/sync_service.dart';
+import 'package:provider/provider.dart';
 
 class FactoryLinkScreen extends StatefulWidget {
   const FactoryLinkScreen({super.key});
@@ -120,28 +118,17 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
 
   /// حفظ بيانات ربط المصنع
   Future<void> _saveFactoryLink(String factoryCode) async {
-    const storage = FlutterSecureStorage();
+    final authService = Provider.of<AuthService>(context, listen: false);
 
-    // حفظ في التخزين الآمن
-    await storage.write(key: 'factory_id', value: factoryCode);
+    // استخدام الدالة الموحدة في AuthService لضمان المزامنة والتخزين الصحيح
+    final error = await authService.linkToFactory(factoryCode);
 
-    // حفظ في صندوق الإعدادات كنسخة احتياطية
-    if (Hive.isBoxOpen('settings')) {
-      final settingsBox = Hive.box('settings');
-      await settingsBox.put('factoryId', factoryCode);
-      await settingsBox.put('linkedFactoryCode', factoryCode);
-      await settingsBox.put(
-          'factory_linked_at', DateTime.now().toIso8601String());
+    if (error != null) {
+      throw Exception(error);
     }
 
-    // تحديث AuthService باستخدام الطريقة العامة
-    final authService = AuthService();
-    authService.updateFactoryId(factoryCode);
-
-    // إعادة تعيين حالة فك الارتباط في SyncService
-    SyncService.instance.resetUnlinkStatus();
-
-    debugPrint('✅ Factory linked successfully with code: $factoryCode');
+    debugPrint(
+        '✅ Factory linked successfully via AuthService with code: $factoryCode');
   }
 
   void _showErrorSnackBar(String message) {
@@ -288,9 +275,12 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        // عند الضغط على الرجوع، توجه للشاشة الرئيسية بدلاً من الخروج من التطبيق
+    return PopScope(
+      canPop: false, // منع الخروج التلقائي
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
+        // عند محاولة الرجوع، توجه للشاشة الرئيسية بدلاً من الخروج من التطبيق
         if (mounted) {
           Navigator.pushNamedAndRemoveUntil(
             context,
@@ -298,7 +288,6 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
             (route) => false,
           );
         }
-        return false; // منع الخروج التلقائي
       },
       child: Scaffold(
         backgroundColor: Colors.grey[50],

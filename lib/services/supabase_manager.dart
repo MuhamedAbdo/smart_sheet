@@ -7,7 +7,7 @@ class SupabaseManager {
   static final SupabaseClient _supabase = Supabase.instance.client;
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
+      // encryptedSharedPreferences is deprecated and handled automatically by the library now
     ),
   );
 

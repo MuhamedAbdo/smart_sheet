@@ -441,17 +441,22 @@ class SyncService {
       final workerName = record['name']?.toString() ?? '';
 
       if (isDelete) {
-        await _deleteWorkerFromBox(box, workerName, myFactoryId);
-        debugPrint('🗑️ [workers] حُذف محلياً: $workerName');
+        final workerId = record['id']?.toString();
+        if (workerId != null) {
+          await _deleteWorkerFromBoxById(box, workerId);
+          debugPrint('🗑️ [workers] حُذف محلياً: $workerId');
+        }
       } else {
         debugPrint('🌟 وصلت بيانات جديدة [workers]: $workerName');
 
+        final workerId = record['id']?.toString();
         int? existingIndex;
-        for (int i = 0; i < box.length; i++) {
-          final w = box.getAt(i);
-          if (w?.name == workerName && w?.factoryId == myFactoryId) {
-            existingIndex = i;
-            break;
+        if (workerId != null) {
+          for (int i = 0; i < box.length; i++) {
+            if (box.getAt(i)?.id == workerId) {
+              existingIndex = i;
+              break;
+            }
           }
         }
 
@@ -596,14 +601,12 @@ class SyncService {
     }
   }
 
-  Future<void> _deleteWorkerFromBox(
+  Future<void> _deleteWorkerFromBoxById(
     Box<Worker> box,
-    String name,
-    String factoryId,
+    String id,
   ) async {
     for (int i = 0; i < box.length; i++) {
-      final w = box.getAt(i);
-      if (w?.name == name && w?.factoryId == factoryId) {
+      if (box.getAt(i)?.id == id) {
         await box.deleteAt(i);
         return;
       }

@@ -79,7 +79,7 @@ class AuthService extends ChangeNotifier {
   // ✅ مخزن موحد: يجب استخدام نفس AndroidOptions في كل مكان حتى يكون المخزن واحداً
   static const _secureStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
+      // encryptedSharedPreferences is deprecated and handled automatically by the library now
     ),
   );
 

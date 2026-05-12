@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:smart_sheet/services/supabase_manager.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -24,17 +25,19 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     try {
-      // إضافة تأخير إضافي لضمان اكتمال جميع عمليات الحذف
+      // إضافة تأخير إضافي لضمان اكتمال جميع عمليات الحذف/التهيئة
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // القراءة مباشرة من التخزين الآمن لتجنب الكاش
-      const storage = FlutterSecureStorage();
-      final factoryId = await storage.read(key: 'factory_id');
+      // ✅ استخدام المسار الموحد للقراءة (يتعامل مع التشفير وتدوير المفاتيح)
+      final factoryId = await SupabaseManager.getFactoryId();
 
-      debugPrint("🔍 Direct storage read: factoryId = $factoryId");
+      debugPrint("🔍 Splash: FactoryId read = $factoryId");
 
-      if (factoryId == null || factoryId.isEmpty) {
-        debugPrint("🔗 No factory_id found, redirecting to auth screen");
+      if (!mounted) return;
+
+      // تحقق إضافي من حالة فك الارتباط
+      if (factoryId == null || factoryId.isEmpty || SyncService.isUnlinked) {
+        debugPrint("🔗 No factory_id found or unlinked, redirecting to auth screen");
         Navigator.pushReplacementNamed(context, AuthScreen.routeName);
       } else {
         debugPrint("✅ Factory found: $factoryId, navigating to home");
@@ -42,8 +45,10 @@ class _SplashScreenState extends State<SplashScreen> {
       }
     } catch (e) {
       debugPrint("Navigation Error: $e");
-      // في حالة الخطأ، توجه إلى شاشة تسجيل الدخول كخيار آمن
-      Navigator.pushReplacementNamed(context, AuthScreen.routeName);
+      if (mounted) {
+        // في حالة الخطأ، توجه إلى شاشة تسجيل الدخول كخيار آمن
+        Navigator.pushReplacementNamed(context, AuthScreen.routeName);
+      }
     }
   }
 

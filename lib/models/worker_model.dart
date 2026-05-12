@@ -25,7 +25,11 @@ class Worker extends HiveObject {
   @HiveField(5)
   late String? factoryId;
 
+  @HiveField(6)
+  late String? id; // Unique ID for Supabase sync
+
   Worker({
+    this.id,
     required this.name,
     required this.phone,
     required this.job,
@@ -33,46 +37,35 @@ class Worker extends HiveObject {
     this.hasMedicalInsurance = false,
     this.factoryId,
   }) {
+    // Generate ID if not provided and not yet assigned
+    id ??= DateTime.now().millisecondsSinceEpoch.toString();
     _initializeActions(actions);
   }
 
   void _initializeActions(List<WorkerAction>? actions) {
-    if (Hive.isBoxOpen('worker_actions')) {
-      try {
+    try {
+      if (Hive.isBoxOpen('worker_actions')) {
         final box = Hive.box<WorkerAction>('worker_actions');
         // ignore: experimental_member_use
         this.actions = HiveList(box, objects: actions ?? []);
-      } catch (e) {
-        debugPrint("⚠️ Error initializing HiveList: $e");
-        // Create empty list as fallback
-        // ignore: experimental_member_use
-        this.actions = HiveList(Hive.box<WorkerAction>('worker_actions'));
+      } else {
+        debugPrint(
+            "⚠️ Warning: worker_actions box is not open during Worker initialization. Actions list will be empty.");
       }
-    } else {
-      // This should not happen if boxes are opened in correct order
-      debugPrint(
-          "⚠️ Critical: worker_actions box is not open during Worker initialization");
-      // Try to open it as fallback
-      try {
-        // ignore: experimental_member_use
-        this.actions = HiveList(Hive.box<WorkerAction>('worker_actions'));
-      } catch (e) {
-        debugPrint("❌ Failed to create HiveList fallback: $e");
-      }
+    } catch (e) {
+      debugPrint("⚠️ Error initializing actions: $e");
     }
   }
 
   void reconnectActionsBox() {
-    if (Hive.isBoxOpen('worker_actions')) {
-      try {
+    try {
+      if (Hive.isBoxOpen('worker_actions')) {
         final box = Hive.box<WorkerAction>('worker_actions');
         // ignore: experimental_member_use
         actions = HiveList(box, objects: actions.toList());
-      } catch (e) {
-        debugPrint("⚠️ Error reconnecting actions box: $e");
       }
-    } else {
-      debugPrint("⚠️ Cannot reconnect: worker_actions box is not open");
+    } catch (e) {
+      debugPrint("⚠️ Error reconnecting actions box: $e");
     }
   }
 
@@ -94,6 +87,7 @@ class Worker extends HiveObject {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'name': name,
       'phone': phone,
       'job': job,
@@ -110,6 +104,7 @@ class Worker extends HiveObject {
         actionsList.map((a) => WorkerAction.fromJson(a)).toList();
 
     return Worker(
+      id: map['id']?.toString(),
       name: map['name'] ?? '',
       phone: map['phone'] ?? '',
       job: map['job'] ?? '',
