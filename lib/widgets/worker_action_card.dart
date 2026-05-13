@@ -58,14 +58,28 @@ class WorkerActionCard extends StatelessWidget {
                 labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                 valueColor: textTheme.bodyMedium?.color,
               ),
-              if (action.type == 'غياب' || action.type == 'أجازة عارضة')
+              if (action.startTime != null)
+                _buildInfoRow(
+                  '⏰ وقت القيام:',
+                  action.startTime!.format(context),
+                  labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: textTheme.bodyMedium?.color,
+                ),
+              if (action.type == 'إجازة' || action.type == 'غياب' || action.type == 'أجازة عارضة')
                 _buildInfoRow(
                   '🔙 تاريخ العودة:',
-                  action.returnDate != null ? _f(action.returnDate!) : 'قيد الغياب',
+                  action.returnDate != null ? _f(action.returnDate!) : (action.type == 'إجازة' ? 'قيد الإجازة' : 'قيد الغياب'),
                   labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: action.returnDate != null 
-                      ? textTheme.bodyMedium?.color 
+                  valueColor: action.returnDate != null
+                      ? textTheme.bodyMedium?.color
                       : Colors.orange,
+                ),
+              if (action.endTime != null)
+                _buildInfoRow(
+                  '🕒 وقت العودة:',
+                  action.endTime!.format(context),
+                  labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: textTheme.bodyMedium?.color,
                 ),
               _buildInfoRow(
                 '🔢 عدد الأيام:',

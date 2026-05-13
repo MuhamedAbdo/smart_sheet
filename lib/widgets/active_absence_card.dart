@@ -7,12 +7,14 @@ class ActiveAbsenceCard extends StatelessWidget {
   final Worker worker;
   final WorkerAction action;
   final VoidCallback onRefresh;
+  final VoidCallback? onEdit;
 
   const ActiveAbsenceCard({
     super.key,
     required this.worker,
     required this.action,
     required this.onRefresh,
+    this.onEdit,
   });
 
   int get elapsedDays {
@@ -28,9 +30,14 @@ class ActiveAbsenceCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bool isTimeBased = action.type == 'إذن' || action.type == 'تأمين صحي';
     
-    final Color primaryColor = action.type == 'غياب' 
-        ? Colors.red 
-        : (action.type == 'إذن' ? Colors.blue : Colors.teal);
+    final Color primaryColor = switch (action.type) {
+      'غياب' => Colors.red,
+      'إذن' => Colors.blue,
+      'تأمين صحي' => Colors.purple,
+      'إجازة' => Colors.orange,
+      'أجازة عارضة' => Colors.amber.shade700,
+      _ => Colors.teal,
+    };
 
     return Card(
       elevation: 6,
@@ -84,6 +91,26 @@ class ActiveAbsenceCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                    foregroundColor: Colors.blue,
+                  ),
+                  tooltip: 'تعديل الإجراء',
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => _showDeleteConfirmation(context),
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.red.withValues(alpha: 0.1),
+                    foregroundColor: Colors.red,
+                  ),
+                  tooltip: 'إلغاء الإجراء',
+                ),
               ],
             ),
             const Divider(height: 16),
@@ -106,8 +133,8 @@ class ActiveAbsenceCard extends StatelessWidget {
               height: 40,
               child: ElevatedButton.icon(
                 onPressed: () => isTimeBased ? _showTimeReturnDialog(context) : _showReturnDialog(context),
-                icon: Icon(isTimeBased ? Icons.timer_outlined : Icons.login, size: 18),
-                label: Text(isTimeBased ? "تسجيل عودة" : "إنهاء الغياب", style: const TextStyle(fontSize: 13)),
+                icon: const Icon(Icons.check_circle, size: 18),
+                label: const Text("تسجيل العودة ✅", style: TextStyle(fontSize: 13)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,
@@ -128,6 +155,8 @@ class ActiveAbsenceCard extends StatelessWidget {
     switch (action.type) {
       case 'إذن': return Icons.access_time;
       case 'تأمين صحي': return Icons.medical_services_outlined;
+      case 'إجازة': return Icons.beach_access;
+      case 'أجازة عارضة': return Icons.wb_sunny;
       default: return Icons.person_off;
     }
   }
@@ -152,24 +181,215 @@ class ActiveAbsenceCard extends StatelessWidget {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
+  Future<void> _showDeleteConfirmation(BuildContext context) async {
+    UIUtils.showDeleteConfirmation(
+      context: context,
+      title: "إلغاء الإجراء",
+      content: "هل أنت متأكد من إلغاء ${action.type} لـ ${worker.name}؟ سيتم حذف الإجراء بالكامل.",
+      onConfirm: () async {
+        // Remove from worker's actions list
+        worker.actions.remove(action);
+        await worker.save();
+        
+        // Delete from Hive box
+        if (action.isInBox) {
+          await action.delete();
+        }
+        
+        onRefresh();
+        
+        if (context.mounted) {
+          UIUtils.showInfoSnackBar(
+            message: "تم إلغاء ${action.type} بنجاح",
+            backgroundColor: Colors.red,
+            icon: Icons.delete_outline,
+          );
+        }
+      },
+    );
+  }
+
   Future<void> _showTimeReturnDialog(BuildContext context) async {
-    final DateTime now = DateTime.now();
-    
-    action.returnDate = now;
-    action.endTimeHour = now.hour;
-    action.endTimeMinute = now.minute;
-    await action.save();
-    await worker.save();
-    
-    onRefresh();
-    
-    if (context.mounted) {
-      UIUtils.showInfoSnackBar(
-        message: "تم تسجيل عودة ${worker.name} بنجاح",
-        backgroundColor: Colors.blue,
-        icon: Icons.check_circle,
-      );
-    }
+    final dateNotifier = ValueNotifier<DateTime>(action.date);
+    final returnDateNotifier = ValueNotifier<DateTime>(
+        action.returnDate ?? DateTime.now());
+    final startTimeNotifier = ValueNotifier<TimeOfDay>(
+        action.startTime ?? TimeOfDay.now());
+    final endTimeNotifier = ValueNotifier<TimeOfDay>(
+        action.endTime ?? TimeOfDay.now());
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        "تعديل ${action.type}",
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const Divider(),
+                      const SizedBox(height: 10),
+                      // Start Date
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text("تاريخ الذهاب", style: TextStyle(fontSize: 14)),
+                        subtitle: Text(_formatDate(dateNotifier.value),
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing: const Icon(Icons.calendar_month, color: Colors.blue),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: dateNotifier.value,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setState(() => dateNotifier.value = picked);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      // Start Time
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text("وقت الذهاب", style: TextStyle(fontSize: 14)),
+                        subtitle: Text(startTimeNotifier.value.format(context),
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing: const Icon(Icons.access_time, color: Colors.blue),
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: startTimeNotifier.value,
+                          );
+                          if (picked != null) {
+                            setState(() => startTimeNotifier.value = picked);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      // Return Date
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text("تاريخ العودة", style: TextStyle(fontSize: 14)),
+                        subtitle: Text(_formatDate(returnDateNotifier.value),
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing: const Icon(Icons.calendar_month, color: Colors.green),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: returnDateNotifier.value,
+                            firstDate: dateNotifier.value,
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setState(() => returnDateNotifier.value = picked);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      // End Time
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text("وقت العودة", style: TextStyle(fontSize: 14)),
+                        subtitle: Text(endTimeNotifier.value.format(context),
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing: const Icon(Icons.access_time, color: Colors.green),
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: endTimeNotifier.value,
+                          );
+                          if (picked != null) {
+                            setState(() => endTimeNotifier.value = picked);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 30),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("❌ إلغاء"),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onPressed: () async {
+                                // Update action with new values
+                                action.date = dateNotifier.value;
+                                action.returnDate = returnDateNotifier.value;
+                                action.startTimeHour = startTimeNotifier.value.hour;
+                                action.startTimeMinute = startTimeNotifier.value.minute;
+                                action.endTimeHour = endTimeNotifier.value.hour;
+                                action.endTimeMinute = endTimeNotifier.value.minute;
+                                
+                                await action.save();
+                                await worker.save();
+                                
+                                if (context.mounted) Navigator.pop(context);
+                                onRefresh();
+                                
+                                if (context.mounted) {
+                                  UIUtils.showInfoSnackBar(
+                                    message: "تم تحديث ${action.type} بنجاح",
+                                    backgroundColor: Colors.green,
+                                    icon: Icons.check_circle,
+                                  );
+                                }
+                              },
+                              child: const Text("✅ حفظ التعديلات"),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _showReturnDialog(BuildContext context) async {
@@ -178,7 +398,6 @@ class ActiveAbsenceCard extends StatelessWidget {
     final DateTime initialReturnDate = DateTime(now.year, now.month, now.day);
     
     final returnDateNotifier = ValueNotifier<DateTime>(initialReturnDate);
-    final daysController = TextEditingController();
 
     int calcDays() {
       final startDate = DateTime(start.year, start.month, start.day);
@@ -186,92 +405,149 @@ class ActiveAbsenceCard extends StatelessWidget {
       return rDate.difference(startDate).inDays;
     }
 
-    daysController.text = calcDays().toString();
-
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Row(
+        builder: (context, setState) => Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
             children: [
-              Icon(Icons.assignment_turned_in, color: Colors.green),
-              SizedBox(width: 10),
-              Text("تسجيل عودة"),
+              // Handle
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                  ),
+                  child: Column(
+                    children: [
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.assignment_turned_in, color: Colors.green),
+                          SizedBox(width: 10),
+                          Text("تسجيل عودة",
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const Divider(),
+                      const SizedBox(height: 10),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text("تاريخ العودة",
+                            style: TextStyle(fontSize: 14)),
+                        subtitle: Text(_formatDate(returnDateNotifier.value),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing:
+                            const Icon(Icons.calendar_month, color: Colors.blue),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: returnDateNotifier.value,
+                            firstDate: action.date,
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              returnDateNotifier.value = picked;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.calculate_outlined, color: Colors.grey, size: 20),
+                                SizedBox(width: 12),
+                                Text("عدد الأيام المحسوب:", style: TextStyle(color: Colors.grey)),
+                              ],
+                            ),
+                            Text(
+                              "${calcDays()} يوم",
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("❌ إلغاء"),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onPressed: () async {
+                                final finalDays = calcDays().toDouble();
+
+                                action.returnDate = returnDateNotifier.value;
+                                action.days = finalDays;
+                                await action.save();
+                                await worker.save();
+
+                                if (context.mounted) Navigator.pop(context);
+                                onRefresh();
+
+                                if (context.mounted) {
+                                  UIUtils.showInfoSnackBar(
+                                    message: "تم تسجيل عودة ${worker.name} (${action.type}) بنجاح",
+                                    backgroundColor: Colors.green,
+                                    icon: Icons.check_circle,
+                                  );
+                                }
+                              },
+                              child: const Text("✅ تأكيد وحفظ"),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
-          content: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text("تاريخ العودة", style: TextStyle(fontSize: 14)),
-                    subtitle: Text(_formatDate(returnDateNotifier.value), style: const TextStyle(fontWeight: FontWeight.bold)),
-                    trailing: const Icon(Icons.calendar_month, color: Colors.blue),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: returnDateNotifier.value,
-                        firstDate: action.date,
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          returnDateNotifier.value = picked;
-                          daysController.text = calcDays().toString();
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: daysController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: "عدد الأيام النهائي",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      prefixIcon: const Icon(Icons.calculate_outlined),
-                      suffixText: "يوم",
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("إلغاء"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final finalDays = double.tryParse(daysController.text) ?? calcDays().toDouble();
-                
-                action.returnDate = returnDateNotifier.value;
-                action.days = finalDays;
-                await action.save();
-                await worker.save();
-                
-                if (context.mounted) Navigator.pop(context);
-                onRefresh();
-                
-                if (context.mounted) {
-                  UIUtils.showInfoSnackBar(
-                    message: "تم إغلاق غياب ${worker.name} بنجاح",
-                    backgroundColor: Colors.green,
-                    icon: Icons.check_circle,
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text("تأكيد وحفظ"),
-            ),
-          ],
         ),
       ),
     );

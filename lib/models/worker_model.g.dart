@@ -23,14 +23,13 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       actions: (fields[3] as List?)?.cast<WorkerAction>(),
       hasMedicalInsurance: fields[4] as bool,
       factoryId: fields[5] as String?,
-      syncId: fields[6] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Worker obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -42,9 +41,7 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       ..writeByte(4)
       ..write(obj.hasMedicalInsurance)
       ..writeByte(5)
-      ..write(obj.factoryId)
-      ..writeByte(6)
-      ..write(obj.syncId);
+      ..write(obj.factoryId);
   }
 
   @override

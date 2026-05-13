@@ -4,8 +4,9 @@ import 'package:smart_sheet/widgets/worker_list.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/widgets/active_absences_dashboard.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
-class WorkersScreen extends StatefulWidget {
+class WorkersScreen extends StatelessWidget {
   final String departmentBoxName;
   final String departmentTitle;
 
@@ -16,80 +17,49 @@ class WorkersScreen extends StatefulWidget {
   });
 
   @override
-  State<WorkersScreen> createState() => _WorkersScreenState();
-}
-
-class _WorkersScreenState extends State<WorkersScreen> {
-  Box<Worker>? _box;
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _openBox();
-  }
-
-  Future<void> _openBox() async {
-    try {
-      final box = Hive.isBoxOpen(widget.departmentBoxName)
-          ? Hive.box<Worker>(widget.departmentBoxName)
-          : await Hive.openBox<Worker>(widget.departmentBoxName);
-      if (mounted) {
-        setState(() {
-          _box = box;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+    return FutureBuilder<Box<Worker>>(
+      // الفحص يمنع حدوث "Already open with different type"
+      future: Hive.isBoxOpen(departmentBoxName)
+          ? Future.value(Hive.box<Worker>(departmentBoxName))
+          : Hive.openBox<Worker>(departmentBoxName),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    if (_errorMessage != null || _box == null) {
-      return Scaffold(
-        appBar: AppBar(title: Text(widget.departmentTitle)),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Text(
-              "❌ خطأ: ${_errorMessage ?? 'فشل فتح الصندوق.'}\nيرجى إعادة تشغيل التطبيق.",
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.red),
+        if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(title: Text(departmentTitle)),
+            body: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: Text(
+                  "❌ خطأ: الصندوق مفتوح بنوع مختلف.\nيرجى إعادة تشغيل التطبيق.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
             ),
-          ),
-        ),
-      );
-    }
+          );
+        }
 
-    // ✅ ValueListenableBuilder يراقب الـ Box مباشرةً
-    // فور وصول أي تغيير من SyncService (مثل 'محمود السيد') تُعاد بناء الشاشة تلقائياً
-    return ValueListenableBuilder<Box<Worker>>(
-      valueListenable: _box!.listenable(),
-      builder: (context, box, _) {
+        final Box<Worker> box = snapshot.data!;
+
         return Scaffold(
+          resizeToAvoidBottomInset: true,
           appBar: AppBar(
-            title: Text("👷‍♂️ ${widget.departmentTitle} - العمال (${box.length})"),
+            title: Text("👷‍♂️ $departmentTitle - العمال"),
             centerTitle: true,
-            leading: Navigator.canPop(context)
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                  )
-                : null,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.auto_fix_high, color: Colors.blueAccent),
+                tooltip: "حذف التكرارات",
+                onPressed: () => _cleanDuplicates(context, box),
+              ),
+            ],
           ),
           body: Column(
             children: [
@@ -98,11 +68,65 @@ class _WorkersScreenState extends State<WorkersScreen> {
             ],
           ),
           floatingActionButton: FloatingActionButton(
+            heroTag: "workers_fab",
             onPressed: () => WorkerForm.show(context, box: box),
             child: const Icon(Icons.add),
           ),
         );
       },
     );
+  }
+
+  void _cleanDuplicates(BuildContext context, Box<Worker> box) async {
+    final Map<String, Worker> uniqueWorkers = {};
+    final List<dynamic> keysToDelete = [];
+
+    // تحديد العمال الفريدين (الاسم + الهاتف)
+    for (int i = 0; i < box.length; i++) {
+      final worker = box.getAt(i);
+      if (worker == null) continue;
+
+      final identifier = "${worker.name.trim()}_${worker.phone.trim()}";
+
+      if (uniqueWorkers.containsKey(identifier)) {
+        // إذا وجدنا تكراراً، نضيف مفتاحه للحذف
+        keysToDelete.add(box.keyAt(i));
+      } else {
+        uniqueWorkers[identifier] = worker;
+      }
+    }
+
+    if (keysToDelete.isEmpty) {
+      if (context.mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "✅ لا يوجد تكرارات لحذفها",
+          backgroundColor: Colors.green,
+          icon: Icons.check_circle,
+        );
+      }
+      return;
+    }
+
+    // تأكيد الحذف
+    if (context.mounted) {
+      UIUtils.showDeleteConfirmation(
+        context: context,
+        title: "حذف التكرارات",
+        content: "تم العثور على ${keysToDelete.length} سجل مكرر. هل تريد حذفهم؟",
+        confirmLabel: "حذف الكل",
+        onConfirm: () async {
+          for (final key in keysToDelete) {
+            await box.delete(key);
+          }
+          if (context.mounted) {
+            UIUtils.showInfoSnackBar(
+              message: "✅ تم حذف التكرارات بنجاح",
+              backgroundColor: Colors.blue,
+              icon: Icons.cleaning_services,
+            );
+          }
+        },
+      );
+    }
   }
 }

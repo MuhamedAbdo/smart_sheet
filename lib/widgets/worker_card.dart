@@ -1,11 +1,6 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/worker_model.dart';
-import '../../utils/ui_utils.dart';
 
 class WorkerCard extends StatefulWidget {
   final Worker worker;
@@ -26,66 +21,14 @@ class WorkerCard extends StatefulWidget {
 }
 
 class _WorkerCardState extends State<WorkerCard> {
-  bool _isPhoneCopied = false;
 
-  // دالة إجراء المكالمة
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    // تعطيل الاتصال على ويندوز
-    if (!kIsWeb && Platform.isWindows) {
-      _copyPhoneToClipboard();
-      return;
-    }
 
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
-    try {
-      if (await canLaunchUrl(launchUri)) {
-        await launchUrl(launchUri);
-      } else {
-        throw 'Could not launch $launchUri';
-      }
-    } catch (e) {
-      UIUtils.showInfoSnackBar(
-        message: "تعذر فتح تطبيق الاتصال",
-        backgroundColor: Colors.red,
-        icon: Icons.phone_disabled_outlined,
-      );
-    }
-  }
-
-  // دالة نسخ الرقم
-  Future<void> _copyPhoneToClipboard() async {
-    await Clipboard.setData(ClipboardData(text: widget.worker.phone));
-
-    if (!mounted) return;
-
-    setState(() {
-      _isPhoneCopied = true;
-    });
-
-    UIUtils.showInfoSnackBar(
-      message: "تم نسخ الرقم بنجاح",
-      backgroundColor: Colors.green,
-      icon: Icons.content_copy_outlined,
-    );
-
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          _isPhoneCopied = false;
-        });
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
-    final isWindows = !kIsWeb && Platform.isWindows;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -113,33 +56,10 @@ class _WorkerCardState extends State<WorkerCard> {
                     ),
                   ),
                 ),
+                _buildStatusDot(),
               ],
             ),
-            const SizedBox(height: 14),
-
-            // عنوان قسم التواصل
-            _buildSectionTitle(
-              isWindows ? '📞 بيانات التواصل' : '📞 التواصل (اضغط للاتصال)',
-              color: colorScheme.primary,
-              underline: !isWindows,
-              onTap: isWindows ? null : () => _makePhoneCall(widget.worker.phone),
-            ),
-
-            // صف الرقم
-            GestureDetector(
-              onTap: isWindows ? _copyPhoneToClipboard : null,
-              onLongPress: !isWindows ? _copyPhoneToClipboard : null,
-              child: _buildInfoRow(
-                'الهاتف:',
-                widget.worker.phone,
-                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                valueColor: _isPhoneCopied ? Colors.green : null,
-                textColor: textTheme.bodyMedium?.color,
-                showCopyHint: isWindows,
-                textDirection: TextDirection.ltr,
-              ),
-            ),
-
+            
             _buildInfoRow(
               'الوظيفة:',
               widget.worker.job,
@@ -194,24 +114,6 @@ class _WorkerCardState extends State<WorkerCard> {
     );
   }
 
-  Widget _buildSectionTitle(String title,
-      {required Color color, bool underline = true, VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          title,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: color,
-            decoration: underline ? TextDecoration.underline : null,
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildInfoRow(
     String label,
@@ -257,6 +159,28 @@ class _WorkerCardState extends State<WorkerCard> {
               child: Icon(Icons.copy, size: 14, color: Colors.grey),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatusDot() {
+    final isOut = widget.worker.isOut;
+    return Tooltip(
+      message: isOut ? 'خارج العمل' : 'متواجد',
+      child: Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(
+          color: isOut ? Colors.orange : Colors.green,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: (isOut ? Colors.orange : Colors.green).withValues(alpha: 0.4),
+              blurRadius: 4,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
       ),
     );
   }

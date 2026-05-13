@@ -6,7 +6,6 @@ import 'package:smart_sheet/providers/theme_provider.dart';
 
 import 'package:smart_sheet/widgets/theme_toggle_button.dart';
 import 'package:smart_sheet/screens/backup_restore_screen.dart';
-import 'package:smart_sheet/services/sync_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   static const String routeName = '/settings';
@@ -23,12 +22,6 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text("🔧 الإعدادات"),
         centerTitle: true,
-        leading: Navigator.canPop(context)
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.pop(context),
-              )
-            : null,
         actions: const [
           ThemeToggleButton(), // زر تبديل الثيم في الزاوية
         ],
@@ -42,6 +35,8 @@ class SettingsScreen extends StatelessWidget {
                   Expanded(child: _buildAppearanceCard(themeProvider)),
                   const SizedBox(width: 16),
                   Expanded(child: _buildDataCard(context)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildFactorySettingsCard(themeProvider, context)),
                 ],
               )
             : Column(
@@ -49,6 +44,8 @@ class SettingsScreen extends StatelessWidget {
                   _buildAppearanceCard(themeProvider),
                   const SizedBox(height: 16),
                   _buildDataCard(context),
+                  const SizedBox(height: 16),
+                  _buildFactorySettingsCard(themeProvider, context),
                 ],
               ),
       ),
@@ -136,66 +133,78 @@ class SettingsScreen extends StatelessWidget {
                 );
               },
             ),
-            const Divider(),
-            // ─── زر مسح قائمة المزامنة التالفة ─────────────────
-            ListTile(
-              leading: const Icon(Icons.cleaning_services_rounded,
-                  color: Colors.orange),
-              title: const Text("مسح قائمة المزامنة (sync_queue)"),
-              subtitle: const Text(
-                "استخدم هذا فقط لتنظيف السجلات التالفة بعد تحديث النظام",
-                style: TextStyle(color: Colors.orange),
-              ),
-              trailing: const Icon(Icons.delete_sweep, color: Colors.orange),
-              onTap: () => _confirmClearQueue(context),
-            ),
           ],
         ),
       ),
     );
   }
 
-  void _confirmClearQueue(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
+  Widget _buildFactorySettingsCard(ThemeProvider themeProvider, BuildContext context) {
+    final shiftStart = themeProvider.shiftStart;
+    final shiftEnd = themeProvider.shiftEnd;
+
+    // Calculate total hours
+    double totalHours = shiftEnd.hour + shiftEnd.minute / 60.0 - (shiftStart.hour + shiftStart.minute / 60.0);
+    if (totalHours < 0) totalHours += 24;
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange),
-            SizedBox(width: 8),
-            Text("تأكيد المسح"),
+            const Text("إعدادات المصنع والوردية",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.access_time, color: Colors.orange),
+              title: const Text("بداية الوردية"),
+              subtitle: Text(shiftStart.format(context)),
+              trailing: const Icon(Icons.edit, size: 18),
+              onTap: () async {
+                final picked = await showTimePicker(
+                  context: context,
+                  initialTime: shiftStart,
+                );
+                if (picked != null) {
+                  themeProvider.setShiftStart(picked);
+                }
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.access_time_filled, color: Colors.deepOrange),
+              title: const Text("نهاية الوردية"),
+              subtitle: Text(shiftEnd.format(context)),
+              trailing: const Icon(Icons.edit, size: 18),
+              onTap: () async {
+                final picked = await showTimePicker(
+                  context: context,
+                  initialTime: shiftEnd,
+                );
+                if (picked != null) {
+                  themeProvider.setShiftEnd(picked);
+                }
+              },
+            ),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 16, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Text(
+                    "إجمالي ساعات الوردية: ${totalHours.toStringAsFixed(1)} ساعة",
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-        content: const Text(
-          "سيتم حذف جميع العمليات المعلقة في قائمة المزامنة.\n"
-          "تأكد أن كل البيانات المهمة قد رُفعت بالفعل قبل المتابعة.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("إلغاء"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await SyncService.instance.clearSyncQueue();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ تم مسح قائمة المزامنة بنجاح'),
-                    backgroundColor: Colors.green,
-                    duration: Duration(seconds: 3),
-                  ),
-                );
-              }
-            },
-            child: const Text("مسح القائمة"),
-          ),
-        ],
       ),
     );
   }
