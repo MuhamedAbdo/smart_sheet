@@ -3,9 +3,11 @@
 // نظام المزامنة المركزي – Offline-First + Supabase Real-time
 //
 // الجداول المُزامَنة:
-//   customers          ↔ savedSheetSizes  (Box)
-//   production_reports ↔ inkReports       (Box)
-//   workers            ↔ workers_flexo    (Box<Worker>)
+//   customers          ↔ savedSheetSizes   (Box)
+//   production_reports ↔ inkReports        (Box)
+//   workers            ↔ workers_flexo     (Box<Worker>)
+//   machines           ↔ flexo_machines    (Box<FlexoMachine>)
+//   worker_actions     ↔ worker_actions    (Box<WorkerAction>)  [= attendance_logs]
 
 import 'dart:async';
 import 'dart:io';
@@ -17,6 +19,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/live_session.dart';
+import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:uuid/uuid.dart';
 
@@ -30,6 +33,8 @@ class SyncService {
   RealtimeChannel? _productionChannel;
   RealtimeChannel? _workersChannel;
   RealtimeChannel? _liveSessionsChannel;
+  RealtimeChannel? _machinesChannel;
+  RealtimeChannel? _attendanceLogsChannel;
 
   // ─── Auto-Reconnect ───────────────────────────────────────────
   int _reconnectAttempts = 0;
@@ -180,6 +185,78 @@ class SyncService {
         }
         debugPrint('✅ SyncService: تم استرجاع ${res.length} production_reports.');
       } catch (e) { debugPrint('❌ SyncService.initialize(production_reports): $e'); }
+
+      // 5. المزامنة المبدئية لـ machines
+      try {
+        final res = await _supabase.from('machines').select().eq('factory_id', factoryId);
+        final box = Hive.isBoxOpen('flexo_machines')
+            ? Hive.box<FlexoMachine>('flexo_machines')
+            : await Hive.openBox<FlexoMachine>('flexo_machines');
+
+        for (final r in res) {
+          final stableKey = r['sync_id']?.toString() ?? r['id']?.toString();
+          if (stableKey == null) continue;
+          // منع التكرار: نتحقق أولاً
+          dynamic existingKey = stableKey;
+          for (var i = 0; i < box.length; i++) {
+            final m = box.getAt(i);
+            if (m != null && m.id == stableKey) {
+              existingKey = box.keyAt(i);
+              break;
+            }
+          }
+          final machine = FlexoMachine(
+            id: stableKey,
+            name: r['name']?.toString() ?? '',
+          );
+          await box.put(existingKey, machine);
+        }
+        debugPrint('✅ SyncService: تم استرجاع ${res.length} machines.');
+      } catch (e) { debugPrint('❌ SyncService.initialize(machines): $e'); }
+
+      // 6. المزامنة المبدئية لـ worker_actions (= attendance_logs)
+      // FIX: نمسح الـ box أولاً ونعيد بناءه من Supabase بمفاتيح ثابتة (Supabase id)
+      // هذا يحل مشكلة الإجراءات المحلية ذات الـ id المختلف التي تسبب التكرار
+      try {
+        final res = await _supabase.from('worker_actions').select().eq('factory_id', factoryId);
+        final box = Hive.isBoxOpen('worker_actions')
+            ? Hive.box<WorkerAction>('worker_actions')
+            : await Hive.openBox<WorkerAction>('worker_actions');
+
+        // مسح الـ box وإعادة بنائه بمفاتيح ثابتة من Supabase لإزالة أي إدخالات محلية بـ id مختلف
+        await box.clear();
+        for (final r in res) {
+          final stableKey = r['id']?.toString();
+          if (stableKey == null) continue;
+          final action = WorkerAction.fromJson(Map<String, dynamic>.from(r));
+          await box.put(stableKey, action);
+        }
+
+        // ربط الإجراءات بـ HiveList العمال في جميع boxes
+        final allWorkerBoxNames = ['workers_flexo', 'workers_production', 'workers_staple', 'workers'];
+        for (final boxName in allWorkerBoxNames) {
+          if (!Hive.isBoxOpen(boxName)) continue;
+          final workerBox = Hive.box<Worker>(boxName);
+          for (var i = 0; i < workerBox.length; i++) {
+            final w = workerBox.getAt(i);
+            if (w == null) continue;
+            try {
+              w.actions.clear();
+              for (final r in res) {
+                if (r['worker_name']?.toString() != w.name) continue;
+                final stableKey = r['id']?.toString();
+                if (stableKey == null) continue;
+                final savedAction = box.get(stableKey);
+                if (savedAction != null) w.actions.add(savedAction);
+              }
+              await w.save();
+            } catch (e) {
+              debugPrint('⚠️ SyncService.init: خطأ عند ربط إجراءات العامل ${w.name}: $e');
+            }
+          }
+        }
+        debugPrint('✅ SyncService: تم استرجاع ${res.length} worker_actions وربطها بالعمال.');
+      } catch (e) { debugPrint('❌ SyncService.initialize(worker_actions): $e'); }
 
       // إعداد قنوات Real-time بعد التحميل المبدئي بنجاح
       _setupChannels(factoryId);
@@ -421,6 +498,66 @@ class SyncService {
             debugPrint('📡 live_sessions: $status ${error ?? ""}');
           }
         });
+
+    // ─── 5. machines ──────────────────────────────────────────────
+    _machinesChannel = _supabase
+        .channel('rt_machines_${factoryId}_v1')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'machines',
+          callback: (payload) {
+            debugPrint(
+              '📥 [machines] event=${payload.eventType} '
+              'new=${payload.newRecord} old=${payload.oldRecord}',
+            );
+            _onMachineChange(payload, factoryId);
+          },
+        )
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            debugPrint('✅ SUBSCRIBED → machines (factory: $factoryId)');
+            _reconnectAttempts = 0;
+          } else if (status == RealtimeSubscribeStatus.timedOut) {
+            debugPrint('⏱️ TIMEOUT → machines — جدولة إعادة الاتصال...');
+            _scheduleReconnect();
+          } else if (status == RealtimeSubscribeStatus.channelError) {
+            debugPrint('❌ CHANNEL ERROR → machines: $error');
+            _scheduleReconnect();
+          } else {
+            debugPrint('📡 machines: $status ${error ?? ""}');
+          }
+        });
+
+    // ─── 6. worker_actions (= attendance_logs) ────────────────────
+    _attendanceLogsChannel = _supabase
+        .channel('rt_worker_actions_${factoryId}_v1')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'worker_actions',
+          callback: (payload) {
+            debugPrint(
+              '📥 [worker_actions] event=${payload.eventType} '
+              'new=${payload.newRecord} old=${payload.oldRecord}',
+            );
+            _onAttendanceLogChange(payload, factoryId);
+          },
+        )
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            debugPrint('✅ SUBSCRIBED → worker_actions/attendance_logs (factory: $factoryId)');
+            _reconnectAttempts = 0;
+          } else if (status == RealtimeSubscribeStatus.timedOut) {
+            debugPrint('⏱️ TIMEOUT → worker_actions — جدولة إعادة الاتصال...');
+            _scheduleReconnect();
+          } else if (status == RealtimeSubscribeStatus.channelError) {
+            debugPrint('❌ CHANNEL ERROR → worker_actions: $error');
+            _scheduleReconnect();
+          } else {
+            debugPrint('📡 worker_actions: $status ${error ?? ""}');
+          }
+        });
   }
 
   Future<void> _tearDownChannels() async {
@@ -443,6 +580,14 @@ class SyncService {
       if (_liveSessionsChannel != null) {
         await _supabase.removeChannel(_liveSessionsChannel!);
         _liveSessionsChannel = null;
+      }
+      if (_machinesChannel != null) {
+        await _supabase.removeChannel(_machinesChannel!);
+        _machinesChannel = null;
+      }
+      if (_attendanceLogsChannel != null) {
+        await _supabase.removeChannel(_attendanceLogsChannel!);
+        _attendanceLogsChannel = null;
       }
       debugPrint('🔄 SyncService: تم إغلاق الـ channels.');
     } catch (e) {
@@ -785,6 +930,226 @@ class SyncService {
       }
     } catch (e) {
       debugPrint('❌ _onLiveSessionChange: $e');
+    }
+  }
+
+  // ─── machines → flexo_machines ────────────────────────────────
+  void _onMachineChange(
+    PostgresChangePayload payload,
+    String myFactoryId,
+  ) async {
+    try {
+      final isDelete = payload.eventType == PostgresChangeEvent.delete;
+      final record = isDelete ? payload.oldRecord : payload.newRecord;
+
+      if (record.isEmpty) {
+        debugPrint('⚠️ [machines] payload فارغ! تحقق من Replica Identity.');
+        return;
+      }
+
+      final recordFactoryId = record['factory_id']?.toString();
+      if (!isDelete && recordFactoryId != myFactoryId) {
+        debugPrint('⏭️ [machines] تجاهل: factory مختلف ($recordFactoryId)');
+        return;
+      }
+
+      if (!Hive.isBoxOpen('flexo_machines')) {
+        await Hive.openBox<FlexoMachine>('flexo_machines');
+      }
+      final box = Hive.box<FlexoMachine>('flexo_machines');
+
+      // المفتاح الثابت: sync_id أولاً ثم id
+      final stableKey = record['sync_id']?.toString() ?? record['id']?.toString();
+      if (stableKey == null) {
+        debugPrint('⚠️ [machines] لا يوجد sync_id أو id!');
+        return;
+      }
+
+      if (isDelete) {
+        // حذف: بحث عن الماكينة بـ id
+        dynamic existingKey;
+        for (var i = 0; i < box.length; i++) {
+          final m = box.getAt(i);
+          if (m != null && m.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+        if (existingKey != null) {
+          await box.delete(existingKey);
+          debugPrint('🗑️ [machines] حُذفت محلياً: $stableKey');
+        } else if (box.containsKey(stableKey)) {
+          await box.delete(stableKey);
+          debugPrint('🗑️ [machines] حُذفت بالمفتاح المباشر: $stableKey');
+        } else {
+          debugPrint('⚠️ [machines] لم يُعثر على الماكينة للحذف: $stableKey');
+        }
+      } else {
+        final machineName = record['name']?.toString() ?? '';
+        debugPrint('🌟 [machines] وصلت ماكينة جديدة: $machineName (key=$stableKey, factory=$recordFactoryId)');
+
+        // Upsert: نبحث عن مفتاح موجود أولاً
+        dynamic existingKey = stableKey;
+        for (var i = 0; i < box.length; i++) {
+          final m = box.getAt(i);
+          if (m != null && m.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+
+        final machine = FlexoMachine(
+          id: stableKey,
+          name: machineName,
+        );
+        await box.put(existingKey, machine);
+        debugPrint('✅ [machines] تم حفظ/تحديث محلياً: $machineName (key=$existingKey)');
+      }
+    } catch (e) {
+      debugPrint('❌ _onMachineChange: $e');
+    }
+  }
+
+  // ─── worker_actions → worker_actions (attendance_logs) ────────
+  void _onAttendanceLogChange(
+    PostgresChangePayload payload,
+    String myFactoryId,
+  ) async {
+    try {
+      final isDelete = payload.eventType == PostgresChangeEvent.delete;
+      final record = isDelete ? payload.oldRecord : payload.newRecord;
+
+      if (record.isEmpty) {
+        debugPrint('⚠️ [worker_actions] payload فارغ! تحقق من Replica Identity.');
+        return;
+      }
+
+      final recordFactoryId = record['factory_id']?.toString();
+      if (!isDelete && recordFactoryId != myFactoryId) {
+        debugPrint('⏭️ [worker_actions] تجاهل: factory مختلف ($recordFactoryId)');
+        return;
+      }
+
+      if (!Hive.isBoxOpen('worker_actions')) {
+        await Hive.openBox<WorkerAction>('worker_actions');
+      }
+      final box = Hive.box<WorkerAction>('worker_actions');
+
+      final stableKey = record['id']?.toString();
+      if (stableKey == null) {
+        debugPrint('⚠️ [worker_actions] لا يوجد id في payload!');
+        return;
+      }
+
+      if (isDelete) {
+        dynamic existingKey;
+        for (var i = 0; i < box.length; i++) {
+          final a = box.getAt(i);
+          if (a != null && a.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+        if (existingKey != null) {
+          await box.delete(existingKey);
+          debugPrint('🗑️ [worker_actions] حُذف محلياً: $stableKey');
+        } else if (box.containsKey(stableKey)) {
+          await box.delete(stableKey);
+          debugPrint('🗑️ [worker_actions] حُذف بالمفتاح المباشر: $stableKey');
+        } else {
+          debugPrint('⚠️ [worker_actions] لم يُعثر على السجل للحذف: $stableKey');
+        }
+      } else {
+        final workerName = record['worker_name']?.toString() ?? '';
+        final actionType = record['type']?.toString() ?? '';
+        final actionDate = DateTime.tryParse(record['date']?.toString() ?? '') ?? DateTime.now();
+        debugPrint('🌟 [worker_actions] وصل إجراء جديد: $actionType للعامل $workerName (id=$stableKey)');
+
+        final allWorkerBoxNames = ['workers_flexo', 'workers_production', 'workers_staple', 'workers'];
+
+        // ② Upsert في worker_actions box
+        // FIX: نبحث بـ Supabase id أولاً، ثم بالمطابقة الدلالية للإجراءات المحلية
+        // (الإجراء المحلي يُحفظ بـ millisecondsSinceEpoch كـ id، بينما Supabase يعطيه id مختلفاً)
+        final action = WorkerAction.fromJson(Map<String, dynamic>.from(record));
+        dynamic existingKey = stableKey;
+        dynamic oldLocalKey; // مفتاح الإجراء المحلي القديم إن وُجد
+
+        // البحث بـ Supabase id أولاً
+        for (var i = 0; i < box.length; i++) {
+          final a = box.getAt(i);
+          if (a != null && a.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+
+        // إذا لم نجد مطابقاً بالـ id، نبحث دلالياً (نفس العامل + النوع + التاريخ خلال ساعة)
+        // هذا يكتشف الإجراءات المحلية التي أُنشئت بـ id مختلف قبل المزامنة
+        if (existingKey == stableKey) {
+          for (var i = 0; i < box.length; i++) {
+            final a = box.getAt(i);
+            if (a != null &&
+                a.workerName == workerName &&
+                a.type == actionType &&
+                a.date.difference(actionDate).abs().inHours < 1) {
+              oldLocalKey = box.keyAt(i);
+              debugPrint('🔍 [worker_actions] وُجد إجراء محلي مطابق دلالياً (key=$oldLocalKey) سيُستبدل بالنسخة المزامَنة');
+              break;
+            }
+          }
+        }
+
+        // حفظ الإجراء المزامَن بمفتاح Supabase الثابت
+        await box.put(existingKey, action);
+
+        // حذف الإجراء المحلي القديم من الـ box (تجنب التكرار)
+        if (oldLocalKey != null && oldLocalKey != existingKey) {
+          await box.delete(oldLocalKey);
+          debugPrint('🧹 [worker_actions] حُذف الإجراء المحلي القديم (key=$oldLocalKey) بعد استبداله بالمزامَن');
+        }
+
+        debugPrint('✅ [worker_actions] تم حفظ/تحديث محلياً: $actionType - $workerName (key=$existingKey)');
+
+        // ③ تحديث HiveList العمال
+        for (final boxName in allWorkerBoxNames) {
+          if (!Hive.isBoxOpen(boxName)) continue;
+          final workerBox = Hive.box<Worker>(boxName);
+          for (var i = 0; i < workerBox.length; i++) {
+            final w = workerBox.getAt(i);
+            if (w == null || w.name != workerName) continue;
+            try {
+              // تحقق بـ Supabase id أولاً
+              final exactMatch = w.actions.any((a) => a.id == stableKey);
+              if (exactMatch) {
+                debugPrint('⏭️ [worker_actions] الإجراء موجود بالـ id في $boxName');
+                continue;
+              }
+
+              // FIX: إزالة أي إجراء محلي مطابق دلالياً (بـ id مختلف) قبل إضافة المزامَن
+              final localIdx = w.actions.indexWhere((a) =>
+                  a.workerName == workerName &&
+                  a.type == actionType &&
+                  a.date.difference(actionDate).abs().inHours < 1 &&
+                  a.id != stableKey);
+              if (localIdx != -1) {
+                w.actions.removeAt(localIdx);
+                debugPrint('🧹 [worker_actions] أُزيل الإجراء المحلي القديم من HiveList في $boxName');
+              }
+
+              final savedAction = box.get(existingKey);
+              if (savedAction != null) {
+                w.actions.add(savedAction);
+                await w.save();
+                debugPrint('✅ [worker_actions] تم إضافة الإجراء لعامل "$workerName" في box: $boxName');
+              }
+            } catch (we) {
+              debugPrint('⚠️ [worker_actions] خطأ عند تحديث HiveList في $boxName: $we');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ _onAttendanceLogChange: $e');
     }
   }
 

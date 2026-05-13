@@ -32,6 +32,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
   bool _isSearching = false;
   String? _selectedDate;
   bool _sortDescending = true;
+  // ─── حارس منع الضغطة المزدوجة على زر إنهاء الجلسة ───
+  bool _isFinishingSession = false;
 
   @override
   void initState() {
@@ -719,17 +721,31 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
 
 
   void _finishSession(LiveSession session) {
+    // ─── حماية #1: منع تكرار الاستدعاء عند الضغطة المزدوجة ───
+    if (_isFinishingSession) {
+      debugPrint('⏭️ _finishSession: تم تجاهل الضغطة المكررة — الجلسة جارٍ إنهاؤها.');
+      return;
+    }
+    // ─── حماية #2: الجلسة يجب أن تكون موجودة في Hive ───
+    if (!session.isInBox) {
+      debugPrint('⚠️ _finishSession: الجلسة غير موجودة في Hive (ربما تم حذفها مسبقاً). تم الخروج.');
+      return;
+    }
+
+    _isFinishingSession = true;
+    debugPrint('🟢 _finishSession: بدء إنهاء جلسة: ${session.machineName}');
+
     final now = DateTime.now();
     final startTimeStr = "${session.startTime.hour.toString().padLeft(2, '0')}:${session.startTime.minute.toString().padLeft(2, '0')}";
     final endTimeStr = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
-    // If session was in downtime, close the last interval
+    // إغلاق آخر فترة عطل مفتوحة إن وجدت
     if (!session.isRunning && session.downtimeIntervals.isNotEmpty) {
       final last = session.downtimeIntervals.last;
       last.end ??= now;
     }
 
-    // Correct Downtime Mapping (First Start -> Last End)
+    // تحديد أوقات العطل (أول بداية → آخر نهاية)
     String dStart = "";
     String dEnd = "";
     if (session.downtimeIntervals.isNotEmpty) {
@@ -740,6 +756,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     }
 
     final totalDowntimeMin = session.totalDowntime.inMinutes;
+    final sessionId = session.id; // نحتفظ بالـ id قبل الحذف
 
     final initialData = {
       'date': "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
@@ -757,38 +774,62 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       'dimensions': session.dimensions,
       'isSheet': session.isSheet,
       'imagePaths': session.imagePaths,
-      'notes': "", // Total was moved to dedicated field
+      'notes': "",
     };
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (c) => ProductionReportForm(
-        initialData: initialData,
-        onSave: (r) async {
-          final syncId = const Uuid().v4();
-          r['sync_id'] = syncId;
-          r['id'] = syncId; // لحماية التوافق مع الكود القديم
-          
-          // حفظ محلي باستخدام المفتاح الثابت لمنع التكرار
-          await _productionReportBox!.put(syncId, r);
+    // ─── الترتيب الصحيح: احذف الجلسة أولاً ثم افتح نموذج التقرير ───
+    // هذا يضمن أن الجلسة لن تتكرر حتى لو أغلق المستخدم نموذج التقرير بدون حفظ
+    session.delete().then((_) {
+      SyncService.instance.pushToQueue(
+        'live_sessions',
+        {'sync_id': sessionId, 'id': sessionId},
+        operation: 'delete',
+      );
+      debugPrint('✅ _finishSession: تم حذف الجلسة محلياً ومزامنتها مع Supabase (id=$sessionId)');
 
-          // تنقية البيانات باستخدام الموديل قبل إرسالها للسحابة (لإزالة الحقول المحسوبة)
-          final reportObj = ProductionReport.fromJson(r);
-          SyncService.instance.pushToQueue('production_reports', reportObj.toJson());
-          
-          final sessionId = session.id;
-          await session.delete();
-          SyncService.instance.pushToQueue(
-            'live_sessions',
-            {'sync_id': sessionId, 'id': sessionId},
-            operation: 'delete',
-          );
-          
-          if (mounted) Navigator.of(context).pop();
-        },
-      ),
-    );
+      if (!mounted) {
+        _isFinishingSession = false;
+        return;
+      }
+
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        isDismissible: true,
+        builder: (c) => ProductionReportForm(
+          initialData: initialData,
+          onSave: (r) async {
+            try {
+              final syncId = const Uuid().v4();
+              r['sync_id'] = syncId;
+              r['id'] = syncId;
+
+              // حفظ محلي بمفتاح ثابت لمنع التكرار
+              await _productionReportBox!.put(syncId, r);
+
+              // مزامنة فورية مع Supabase
+              final reportObj = ProductionReport.fromJson(r);
+              SyncService.instance.pushToQueue('production_reports', reportObj.toJson());
+
+              debugPrint('✅ _finishSession: تم حفظ التقرير ورفعه للمزامنة (sync_id=$syncId)');
+
+              if (c.mounted) Navigator.of(c).pop();
+            } catch (saveError) {
+              debugPrint('❌ _finishSession.onSave: فشل حفظ التقرير: $saveError');
+              // الجلسة تم حذفها بالفعل — لا خطر من التكرار
+              if (c.mounted) Navigator.of(c).pop();
+            }
+          },
+        ),
+      ).whenComplete(() {
+        // تحرير الحارس بعد إغلاق النموذج (سواء بالحفظ أو بالإغلاق)
+        _isFinishingSession = false;
+        debugPrint('🔓 _finishSession: تم تحرير الحارس. جاهز لجلسة جديدة.');
+      });
+    }).catchError((e) {
+      debugPrint('❌ _finishSession: فشل حذف الجلسة: $e');
+      _isFinishingSession = false; // فشل — نعيد تفعيل الزر
+    });
   }
 
   void _cancelSession(LiveSession session) {

@@ -50,6 +50,8 @@ class MyHttpOverrides extends HttpOverrides {
 }
 
 Future<void> main() async {
+  bool initSuccess = false;
+
   try {
     // 1. التأكد من تهيئة نظام Flutter
     WidgetsFlutterBinding.ensureInitialized();
@@ -59,7 +61,16 @@ Future<void> main() async {
     if (!kIsWeb) {
       await Hive.initFlutter();
       _registerAdapters();
-      await Hive.openBox('settings');
+
+      // ─── محاولة فتح settings مع retry للتعامل مع lock file ───
+      // يحدث عند وجود نسخة سابقة من التطبيق لم تُغلق بعد
+      try {
+        await Hive.openBox('settings');
+      } catch (lockError) {
+        debugPrint('⚠️ settings.lock محجوز، انتظار 1 ثانية وإعادة المحاولة: $lockError');
+        await Future.delayed(const Duration(seconds: 1));
+        await Hive.openBox('settings'); // إذا فشلت المرة الثانية → ستُرفع للـ catch الخارجي
+      }
 
       // فتح صناديق العلاقات الأساسية
       await Hive.openBox<WorkerAction>('worker_actions');
@@ -115,21 +126,27 @@ Future<void> main() async {
         debugPrint("⚠️ Window Manager Initialization Failed: $e");
       }
     }
+
+    initSuccess = true; // ✅ نجح كل شيء
   } catch (e) {
     debugPrint("❌ Critical Initialization Error: $e");
+    // لا نكمل — نُظهر شاشة خطأ واضحة بدلاً من الـ crash الصامت
   }
 
-  debugPrint("🚀 Reached runApp()");
+  debugPrint("🚀 Reached runApp() | initSuccess=$initSuccess");
+
   // 5. تشغيل التطبيق مع الـ Providers
   runApp(
-    MultiProvider(
-      providers: [
-        // سيقوم ThemeProvider الآن بالعثور على صندوق settings مفتوحاً وجاهزاً
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => AuthService()),
-      ],
-      child: const SmartSheetApp(),
-    ),
+    initSuccess
+        ? MultiProvider(
+            providers: [
+              // سيقوم ThemeProvider الآن بالعثور على صندوق settings مفتوحاً وجاهزاً
+              ChangeNotifierProvider(create: (_) => ThemeProvider()),
+              ChangeNotifierProvider(create: (_) => AuthService()),
+            ],
+            child: const SmartSheetApp(),
+          )
+        : const _InitErrorApp(),
   );
 }
 
@@ -267,6 +284,64 @@ class SmartSheetApp extends StatelessWidget {
             departmentBoxName: 'workers', departmentTitle: 'طاقم العمل'),
         '/home': (_) => const HomeScreen(),
       },
+    );
+  }
+}
+
+// ─── شاشة الخطأ الحرج ─────────────────────────────────────────
+// تُعرض عوضاً عن الـ crash الصامت عند فشل التهيئة
+// السبب الأكثر شيوعاً: ملف settings.lock محجوز بسبب نسخة سابقة من التطبيق
+class _InitErrorApp extends StatelessWidget {
+  const _InitErrorApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF1A1A2E),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, color: Color(0xFFE94560), size: 72),
+                const SizedBox(height: 24),
+                const Text(
+                  'فشل تشغيل التطبيق',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textDirection: TextDirection.rtl,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'تأكد من إغلاق أي نسخة أخرى من التطبيق تعمل في الخلفية، ثم أعد التشغيل.',
+                  style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 14, height: 1.6),
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.rtl,
+                ),
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE94560),
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.refresh, color: Colors.white),
+                  label: const Text('تحقق من اللوجات', style: TextStyle(color: Colors.white)),
+                  onPressed: () {
+                    debugPrint('🔄 _InitErrorApp: المستخدم طلب مراجعة اللوجات.');
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
