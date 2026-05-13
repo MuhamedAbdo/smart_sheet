@@ -138,7 +138,30 @@ class SyncService {
         for (var key in workersMap.keys) {
           await box.put(key, workersMap[key]!);
         }
-        debugPrint('✅ SyncService: تم استرجاع ${res.length} workers.');
+
+        // نشر نفس البيانات في جميع boxes الأقسام لإطلاق ValueListenableBuilder في كل شاشة
+        final otherWorkerBoxNames = ['workers_production', 'workers_staple', 'workers'];
+        for (final boxName in otherWorkerBoxNames) {
+          try {
+            final otherBox = Hive.isBoxOpen(boxName)
+                ? Hive.box<Worker>(boxName)
+                : await Hive.openBox<Worker>(boxName);
+            for (var key in workersMap.keys) {
+              final r = res.firstWhere(
+                (item) => (item['sync_id'] ?? item['id']) == key,
+                orElse: () => <String, dynamic>{},
+              );
+              if (r.isEmpty) continue;
+              final dataCopy = Map<String, dynamic>.from(r);
+              dataCopy['actions'] = [];
+              await otherBox.put(key, Worker.fromJson(dataCopy));
+            }
+          } catch (e) {
+            debugPrint('⚠️ SyncService.init: خطأ عند نسخ العمال لـ $boxName: $e');
+          }
+        }
+
+        debugPrint('✅ SyncService: تم استرجاع ${res.length} workers ونشرهم في جميع boxes الأقسام.');
       } catch (e) { debugPrint('❌ SyncService.initialize(workers): $e'); }
 
       // 4. المزامنة المبدئية لـ production_reports
@@ -631,63 +654,77 @@ class SyncService {
         return;
       }
 
-      if (!Hive.isBoxOpen('workers_flexo')) {
-        debugPrint('⚠️ [workers] Box workers_flexo مغلق!');
+      // ─── جميع boxes العمال التي يجب تحديثها فوراً لإطلاق ValueListenableBuilder ───
+      // الأسباب: كل قسم (فلكسو، دبوس، خط إنتاج) يستخدم box مختلف
+      // لكن SyncService يستقبل التحديثات مرة واحدة → يجب إشعار جميع الـ boxes
+      final allWorkerBoxNames = ['workers_flexo', 'workers_production', 'workers_staple', 'workers'];
+      final List<Box<Worker>> allWorkerBoxes = allWorkerBoxNames
+          .where((name) => Hive.isBoxOpen(name))
+          .map((name) => Hive.box<Worker>(name))
+          .toList();
+
+      if (allWorkerBoxes.isEmpty) {
+        debugPrint('⚠️ [workers] لا توجد boxes عمال مفتوحة!');
         return;
       }
-      final box = Hive.box<Worker>('workers_flexo');
       final workerName = record['name']?.toString() ?? '';
 
       if (isDelete) {
-        // استخدام sync_id أو id للحذف المباشر (أكثر موثوقية من الاسم)
         final syncId = record['sync_id']?.toString() ?? record['id']?.toString();
         if (syncId != null && syncId.isNotEmpty) {
-          await _deleteWorkerBySyncId(box, syncId);
-          debugPrint('🗑️ [workers] حُذف محلياً بـ sync_id: $syncId ($workerName)');
+          for (final workerBox in allWorkerBoxes) {
+            await _deleteWorkerBySyncId(workerBox, syncId);
+          }
+          debugPrint('🗑️ [workers] حُذف محلياً من ${allWorkerBoxes.length} boxes (sync_id=$syncId) ($workerName)');
         } else {
-          // fallback: الحذف بالاسم إذا لم يكن sync_id موجوداً
-          await _deleteWorkerFromBox(box, workerName, myFactoryId);
-          debugPrint('🗑️ [workers] حُذف محلياً بالاسم (fallback): $workerName');
+          for (final workerBox in allWorkerBoxes) {
+            await _deleteWorkerFromBox(workerBox, workerName, myFactoryId);
+          }
+          debugPrint('🗑️ [workers] حُذف محلياً من ${allWorkerBoxes.length} boxes بالاسم: $workerName');
         }
       } else {
-        debugPrint('🌟 وصلت بيانات جديدة [workers]: $workerName');
+        debugPrint('🌟 وصلت بيانات جديدة [workers]: $workerName → سيتم حفظها في ${allWorkerBoxes.length} boxes');
 
         try {
           final actionsList = record['actions'] as List? ?? [];
-          final workerData = Map<String, dynamic>.from(record);
-          workerData['actions'] = [];
-          
-          final worker = Worker.fromJson(workerData);
-          
-          if (Hive.isBoxOpen('worker_actions')) {
-            final actionsBox = Hive.box<WorkerAction>('worker_actions');
-            for (final a in actionsList) {
-              final action = WorkerAction.fromJson(Map<String, dynamic>.from(a));
-              await actionsBox.add(action);
-              worker.actions.add(action);
-            }
-          }
-
-          // FIX: استخدام مفتاح ثابت = sync_id من Supabase أو name+factoryId كـ fallback
-          // هذا يمنع تكرار العامل مع كل تحديث Real-time
           final stableKey = record['sync_id']?.toString() ??
               record['id']?.toString() ??
               '${workerName}_$myFactoryId';
 
-          // FIX: البحث عن السجل لمنع التكرار (Double Entry)
-          dynamic existingKey = stableKey;
-          for (var i = 0; i < box.length; i++) {
-            final item = box.getAt(i);
-            if (item != null && item.syncId == stableKey) {
-              existingKey = box.keyAt(i);
-              break;
+          // الكتابة في جميع boxes لإطلاق ValueListenableBuilder في كل شاشة قسم
+          for (final workerBox in allWorkerBoxes) {
+            try {
+              final workerData = Map<String, dynamic>.from(record);
+              workerData['actions'] = [];
+              final worker = Worker.fromJson(workerData);
+
+              if (Hive.isBoxOpen('worker_actions')) {
+                final actionsBox = Hive.box<WorkerAction>('worker_actions');
+                for (final a in actionsList) {
+                  final action = WorkerAction.fromJson(Map<String, dynamic>.from(a));
+                  await actionsBox.add(action);
+                  worker.actions.add(action);
+                }
+              }
+
+              // البحث عن مفتاح موجود لمنع التكرار
+              dynamic existingKey = stableKey;
+              for (var i = 0; i < workerBox.length; i++) {
+                final item = workerBox.getAt(i);
+                if (item != null && item.syncId == stableKey) {
+                  existingKey = workerBox.keyAt(i);
+                  break;
+                }
+              }
+
+              await workerBox.put(existingKey, worker);
+            } catch (boxError) {
+              debugPrint('❌ [workers] خطأ عند الكتابة في ${workerBox.name}: $boxError');
             }
           }
-
-          await box.put(existingKey, worker);
-          debugPrint('✅ [workers] تم حفظ/تحديث محلياً بمفتاح ثابت: $workerName ($stableKey)');
+          debugPrint('✅ [workers] تم حفظ $workerName في ${allWorkerBoxes.length} boxes (key=$stableKey)');
         } catch (workerError) {
-          debugPrint('❌ [workers] فشل تحويل payload إلى Worker: $workerError');
+          debugPrint('❌ [workers] فشل تحويل payload: $workerError');
         }
       }
     } catch (e) {

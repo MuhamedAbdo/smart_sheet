@@ -67,6 +67,7 @@ Future<void> main() async {
         Hive.openBox<Worker>('workers'),
         Hive.openBox<Worker>('workers_flexo'),
         Hive.openBox<Worker>('workers_production'),
+        Hive.openBox<Worker>('workers_staple'),
         Hive.openBox<FinishedProduct>('finished_products'),
         Hive.openBox<LiveSession>('flexo_live_sessions'),
         Hive.openBox('sync_queue'), // قائمة انتظار المزامنة
