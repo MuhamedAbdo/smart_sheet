@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:smart_sheet/services/backup_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,13 +9,12 @@ import 'package:provider/provider.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter/services.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'dart:math';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/services/pairing_service.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -779,145 +779,49 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     setState(() => _isLoading = true);
 
-    // توليد كود عشوائي من 6 أرقام
-    final random = Random();
-    final String shortCode = (100000 + random.nextInt(900000)).toString();
-
-    // حفظ الكود في جدول pairing_codes بصلاحية 5 دقائق
     try {
-      await Supabase.instance.client.from('pairing_codes').insert({
-        'factory_id': factoryId,
-        'pairing_code': shortCode,
-        'expires_at': DateTime.now().add(const Duration(minutes: 5)).toIso8601String(),
-      });
+      final code = await PairingService().generatePairingCode();
+      
+      setState(() => _isLoading = false);
+
+      if (code == null) {
+        if (mounted) {
+          UIUtils.showInfoSnackBar(
+            message: "فشل توليد كود الربط، تحقق من الاتصال بالإنترنت.",
+            backgroundColor: Colors.red,
+            icon: Icons.error_outline,
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        backgroundColor: Colors.white,
+        isScrollControlled: true,
+        builder: (context) {
+          return _PairingCodeDialog(
+            factoryId: factoryId,
+            pairingCode: code,
+            onClose: () => Navigator.pop(context),
+          );
+        },
+      );
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
         UIUtils.showInfoSnackBar(
-          message: "فشل توليد كود الربط، تحقق من الاتصال بالإنترنت.",
+          message: "حدث خطأ غير متوقع: $e",
           backgroundColor: Colors.red,
           icon: Icons.error_outline,
         );
       }
-      return;
     }
-
-    setState(() => _isLoading = false);
-
-    if (!mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'ربط جهاز مساعد',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'وجه هاتف المساعد نحو الكود، أو أعطه كود الربط اليدوي',
-                style: TextStyle(fontSize: 15, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: QrImageView(
-                  data: factoryId,
-                  version: QrVersions.auto,
-                  size: 180.0,
-                  backgroundColor: Colors.white,
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: Colors.black87,
-                  ),
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.square,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text('كود الربط اليدوي:', style: TextStyle(color: Colors.grey, fontSize: 13)),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      shortCode,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 4,
-                        color: Colors.blue,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.blue),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: shortCode));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('تم نسخ الكود')),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[900],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text('إغلاق', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   Future<void> _openQRScanner() async {
@@ -997,5 +901,228 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         );
       }
     }
+  }
+}
+
+/// Dialog showing QR code and pairing code with countdown timer
+class _PairingCodeDialog extends StatefulWidget {
+  final String factoryId;
+  final String? pairingCode;
+  final VoidCallback onClose;
+
+  const _PairingCodeDialog({
+    required this.factoryId,
+    required this.pairingCode,
+    required this.onClose,
+  });
+
+  @override
+  State<_PairingCodeDialog> createState() => _PairingCodeDialogState();
+}
+
+class _PairingCodeDialogState extends State<_PairingCodeDialog> {
+  late Timer _timer;
+  int _remainingSeconds = 300; // 5 minutes
+  String? _currentCode;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentCode = widget.pairingCode;
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0) {
+        setState(() {
+          _remainingSeconds--;
+        });
+      } else {
+        timer.cancel();
+        _regenerateCode();
+      }
+    });
+  }
+
+  Future<void> _regenerateCode() async {
+    final newCode = await PairingService().generatePairingCode();
+    if (mounted) {
+      setState(() {
+        _currentCode = newCode;
+        _remainingSeconds = 300;
+      });
+      _startTimer();
+    }
+  }
+
+  String _formatTime(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  }
+
+  String _formatCode(String code) {
+    if (code.length == 6) {
+      return '${code.substring(0, 3)} ${code.substring(3)}';
+    }
+    return code;
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'ربط جهاز مساعد',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'امسح الكود أو أدخل الكود المكون من 6 أرقام',
+            style: TextStyle(fontSize: 14, color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: QrImageView(
+              data: widget.factoryId,
+              version: QrVersions.auto,
+              size: 180.0,
+              backgroundColor: Colors.white,
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.square,
+                color: Colors.black87,
+              ),
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 16),
+          const Text(
+            'أو أدخل هذا الكود في جهاز الكمبيوتر',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade700, Colors.blue.shade900],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Text(
+                    _currentCode != null
+                        ? _formatCode(_currentCode!)
+                        : '---- --',
+                    style: const TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.timer,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _formatTime(_remainingSeconds),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _regenerateCode,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('كود جديد'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: widget.onClose,
+                  icon: const Icon(Icons.close),
+                  label: const Text('إغلاق'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[900],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

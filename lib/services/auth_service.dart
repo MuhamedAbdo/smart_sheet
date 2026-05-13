@@ -4,6 +4,8 @@ import '../models/user_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/services/pairing_service.dart';
+
 class AuthService extends ChangeNotifier {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
   UserState _state = UserState.unauthenticated();
@@ -187,24 +189,15 @@ class AuthService extends ChangeNotifier {
 
       String factoryId = inputCode.trim();
 
-      // إذا كان الكود قصيراً (6 خانات)، نتحقق من جدول الأكواد المؤقتة pairing_codes
-      if (factoryId.length == 6) {
-        final resolution = await _supabaseClient
-            .from('pairing_codes')
-            .select('factory_id, expires_at')
-            .eq('pairing_code', factoryId)
-            .limit(1)
-            .maybeSingle();
-            
-        if (resolution != null) {
-          final expiresAt = DateTime.parse(resolution['expires_at'].toString());
-          if (DateTime.now().isAfter(expiresAt)) {
-             throw Exception('انتهت صلاحية الكود، اطلب كوداً جديداً من المدير');
-          }
-          factoryId = resolution['factory_id'];
-          debugPrint('✅ Resolved short code $inputCode to $factoryId');
+      // إذا كان الكود قصيراً (6 خانات أو أقل)، نتحقق من خدمة الربط
+      if (factoryId.length <= 6) {
+        final pairingResult = await PairingService().verifyAndLink(factoryId);
+        
+        if (pairingResult != null && pairingResult['success'] == true) {
+          factoryId = pairingResult['factory_id'];
+          debugPrint('✅ Resolved pairing code $inputCode to $factoryId');
         } else {
-          throw Exception('كود الربط غير صحيح أو غير موجود');
+          throw Exception(pairingResult?['error'] ?? 'كود الربط غير صحيح أو منتهي الصلاحية');
         }
       }
 
