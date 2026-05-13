@@ -26,15 +26,19 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     final List<Barcode> barcodes = capture.barcodes;
     for (final barcode in barcodes) {
       if (barcode.rawValue != null) {
+        // تنظيف الكود تماماً (أبجدي رقمي) كما طلب المستخدم
+        final String rawResult = barcode.rawValue!;
+        final String cleanedResult = rawResult.trim().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+        
         setState(() {
-          _scannedCode = barcode.rawValue!;
+          _scannedCode = cleanedResult;
           _isScanning = false;
         });
         
-        // إرجاع الكود الممسوح للشاشة السابقة
-        Navigator.pop(context, barcode.rawValue);
+        // إرجاع الكود المنظف للشاشة السابقة
+        Navigator.pop(context, cleanedResult);
         
-        // إعادة تفعيل المسح بعد فترة قصيرة
+        // إعادة تفعيل المسح بعد فترة قصيرة (إذا عاد المستخدم لهذه الشاشة)
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) {
             setState(() {

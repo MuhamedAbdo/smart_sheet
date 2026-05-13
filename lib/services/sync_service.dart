@@ -5,17 +5,18 @@
 // الجداول المُزامَنة:
 //   customers          ↔ savedSheetSizes  (Box)
 //   production_reports ↔ inkReports       (Box)
-//   workers            ↔ workers_flexo    (Box<Worker>)
+//   workers            ↔ workers          (Box<Worker>)
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
+import 'package:smart_sheet/services/realtime_sync_manager.dart';
 
 class SyncService {
   static SyncService? _instance;
@@ -74,9 +75,7 @@ class SyncService {
 
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  RealtimeChannel? _customersChannel;
-  RealtimeChannel? _productionChannel;
-  RealtimeChannel? _workersChannel;
+  RealtimeSyncManager? _realtimeManager;
 
   Box? _queueBox;
   bool _isProcessingQueue = false;
@@ -103,8 +102,10 @@ class SyncService {
         return;
       }
 
-      await _tearDownChannels();
-      _setupChannels(factoryId);
+      await _tearDownRealtime();
+      _realtimeManager = RealtimeSyncManager(factoryId: factoryId);
+      _realtimeManager!.initialize();
+      
       unawaited(_processQueue());
 
       debugPrint('✅ SyncService: تم التهيئة للمصنع: $factoryId');
@@ -117,8 +118,8 @@ class SyncService {
     // إلغاء جميع الاشتراكات
     await _cancelAllSubscriptions();
 
-    // إغلاق جميع القنوات
-    await _tearDownChannels();
+    // إغلاق قنوات المزامنة الفورية
+    await _tearDownRealtime();
 
     // إغلاق صندوق قائمة الانتظار
     if (_queueBox != null && _queueBox!.isOpen) {
@@ -195,286 +196,15 @@ class SyncService {
   // Real-time Channel Setup
   // ==============================================================
 
-  void _setupChannels(String factoryId) {
-    debugPrint('📡 SyncService: إعداد الـ channels لـ factory: $factoryId');
-
-    // ─── 1. customers ────────────────────────────────────────────
-    _customersChannel = _supabase
-        .channel('rt_customers_${factoryId}_v2')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'customers',
-          callback: (payload) {
-            debugPrint(
-              '📥 [customers] event=${payload.eventType} '
-              'new=${payload.newRecord} old=${payload.oldRecord}',
-            );
-            _onCustomerChange(payload, factoryId);
-          },
-        )
-        .subscribe((status, error) {
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        debugPrint('✅ SUBSCRIBED → customers (factory: $factoryId)');
-      } else if (status == RealtimeSubscribeStatus.channelError) {
-        debugPrint('❌ CHANNEL ERROR → customers: $error');
-      } else {
-        debugPrint('📡 customers: $status ${error ?? ""}');
-      }
-    });
-
-    // ─── 2. production_reports ───────────────────────────────────
-    _productionChannel = _supabase
-        .channel('rt_production_reports_${factoryId}_v2')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'production_reports',
-          callback: (payload) {
-            debugPrint(
-              '📥 [production_reports] event=${payload.eventType} '
-              'new=${payload.newRecord} old=${payload.oldRecord}',
-            );
-            _onProductionReportChange(payload, factoryId);
-          },
-        )
-        .subscribe((status, error) {
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        debugPrint('✅ SUBSCRIBED → production_reports (factory: $factoryId)');
-      } else if (status == RealtimeSubscribeStatus.channelError) {
-        debugPrint('❌ CHANNEL ERROR → production_reports: $error');
-      } else {
-        debugPrint('📡 production_reports: $status ${error ?? ""}');
-      }
-    });
-
-    // ─── 3. workers ──────────────────────────────────────────────
-    _workersChannel = _supabase
-        .channel('rt_workers_${factoryId}_v2')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'workers',
-          callback: (payload) {
-            debugPrint(
-              '📥 [workers] event=${payload.eventType} '
-              'new=${payload.newRecord} old=${payload.oldRecord}',
-            );
-            _onWorkerChange(payload, factoryId);
-          },
-        )
-        .subscribe((status, error) {
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        debugPrint('✅ SUBSCRIBED → workers (factory: $factoryId)');
-      } else if (status == RealtimeSubscribeStatus.channelError) {
-        debugPrint('❌ CHANNEL ERROR → workers: $error');
-      } else {
-        debugPrint('📡 workers: $status ${error ?? ""}');
-      }
-    });
-  }
-
-  Future<void> _tearDownChannels() async {
+  Future<void> _tearDownRealtime() async {
     try {
-      if (_customersChannel != null) {
-        await _supabase.removeChannel(_customersChannel!);
-        _customersChannel = null;
+      if (_realtimeManager != null) {
+        await _realtimeManager!.dispose();
+        _realtimeManager = null;
       }
-      if (_productionChannel != null) {
-        await _supabase.removeChannel(_productionChannel!);
-        _productionChannel = null;
-      }
-      if (_workersChannel != null) {
-        await _supabase.removeChannel(_workersChannel!);
-        _workersChannel = null;
-      }
-      debugPrint('🔄 SyncService: تم إغلاق الـ channels.');
+      debugPrint('🔄 SyncService: تم إغلاق الـ RealtimeSyncManager.');
     } catch (e) {
-      debugPrint('❌ _tearDownChannels: $e');
-    }
-  }
-
-  // ==============================================================
-  // Real-time Callbacks
-  // ==============================================================
-
-  // ─── customers → savedSheetSizes ─────────────────────────────
-  void _onCustomerChange(
-    PostgresChangePayload payload,
-    String myFactoryId,
-  ) async {
-    try {
-      final isDelete = payload.eventType == PostgresChangeEvent.delete;
-      final record = isDelete ? payload.oldRecord : payload.newRecord;
-
-      if (record.isEmpty) {
-        debugPrint(
-            '⚠️ [customers] payload فارغ! تحقق من Replica Identity في Supabase.');
-        return;
-      }
-
-      // فلترة factory_id داخل الـ callback (أكثر موثوقية من channel filter)
-      final recordFactoryId = record['factory_id']?.toString();
-      if (recordFactoryId != myFactoryId) {
-        debugPrint('⏭️ [customers] تجاهل: factory مختلف ($recordFactoryId)');
-        return;
-      }
-
-      if (!Hive.isBoxOpen('savedSheetSizes')) {
-        debugPrint('⚠️ [customers] Box savedSheetSizes مغلق!');
-        return;
-      }
-      final box = Hive.box('savedSheetSizes');
-
-      if (isDelete) {
-        final clientName = record['client_name']?.toString() ?? '';
-        final syncId =
-            record['sync_id']?.toString() ?? record['id']?.toString();
-        debugPrint('🗑️ [customers] وصل طلب حذف: $clientName');
-        if (syncId != null) {
-          await _deleteFromBoxBySyncId(box, syncId);
-        } else {
-          await _deleteFromBoxByClientName(box, clientName);
-        }
-        debugPrint('🗑️ [customers] حُذف محلياً: $clientName');
-      } else {
-        final clientName = record['client_name']?.toString() ?? '';
-        // FIX: sync_id اختياري — نولِّد fallback إذا لم يكن عمود sync_id موجوداً
-        final rawSyncId =
-            record['sync_id']?.toString() ?? record['id']?.toString();
-        final syncId = rawSyncId ??
-            '${clientName}_${myFactoryId}_${record['product_code'] ?? ''}';
-
-        // DEBUG: الرسالة المطلوبة
-        debugPrint(
-            '🌟 وصلت بيانات جديدة: $clientName (factory: $recordFactoryId) key=$syncId');
-
-        final hiveRecord = _customerToHive(record);
-        hiveRecord['sync_id'] = syncId; // ضمان وجود sync_id دائماً
-
-        // FIX: box.put(key) بدلاً من box.add() — يمنع التكرار ويُطلق ValueListenable
-        await box.put(syncId, hiveRecord);
-        debugPrint('✅ [customers] تم حفظ محلياً: $clientName');
-      }
-    } catch (e) {
-      debugPrint('❌ _onCustomerChange: $e');
-    }
-  }
-
-  // ─── production_reports → inkReports ─────────────────────────
-  void _onProductionReportChange(
-    PostgresChangePayload payload,
-    String myFactoryId,
-  ) async {
-    try {
-      final isDelete = payload.eventType == PostgresChangeEvent.delete;
-      final record = isDelete ? payload.oldRecord : payload.newRecord;
-
-      if (record.isEmpty) {
-        debugPrint(
-            '⚠️ [production_reports] payload فارغ! تحقق من Replica Identity.');
-        return;
-      }
-
-      final recordFactoryId = record['factory_id']?.toString();
-      if (recordFactoryId != myFactoryId) {
-        debugPrint('⏭️ [production_reports] تجاهل: factory مختلف');
-        return;
-      }
-
-      if (!Hive.isBoxOpen('inkReports')) {
-        debugPrint('⚠️ [production_reports] Box inkReports مغلق!');
-        return;
-      }
-      final box = Hive.box('inkReports');
-
-      if (isDelete) {
-        final id = record['id']?.toString();
-        if (id == null) return;
-        await _deleteFromBoxById(box, id);
-        debugPrint('🗑️ [production_reports] حُذف محلياً: $id');
-      } else {
-        final id = record['id']?.toString();
-        if (id == null) {
-          debugPrint('⚠️ [production_reports] لا يوجد id!');
-          return;
-        }
-
-        final clientName = record['client_name'] ?? record['clientName'] ?? '';
-        debugPrint(
-            '🌟 وصلت بيانات جديدة [production_reports]: $clientName (id: $id)');
-
-        // FIX: box.put(id) كـ key ثابت — يمنع التكرار
-        await box.put(id, Map<String, dynamic>.from(record));
-        debugPrint('✅ [production_reports] تم حفظ محلياً: $id');
-      }
-    } catch (e) {
-      debugPrint('❌ _onProductionReportChange: $e');
-    }
-  }
-
-  // ─── workers → workers_flexo ─────────────────────────────────
-  void _onWorkerChange(
-    PostgresChangePayload payload,
-    String myFactoryId,
-  ) async {
-    try {
-      final isDelete = payload.eventType == PostgresChangeEvent.delete;
-      final record = isDelete ? payload.oldRecord : payload.newRecord;
-
-      if (record.isEmpty) {
-        debugPrint('⚠️ [workers] payload فارغ! تحقق من Replica Identity.');
-        return;
-      }
-
-      final recordFactoryId = record['factory_id']?.toString();
-      if (recordFactoryId != myFactoryId) {
-        debugPrint('⏭️ [workers] تجاهل: factory مختلف');
-        return;
-      }
-
-      if (!Hive.isBoxOpen('workers_flexo')) {
-        debugPrint('⚠️ [workers] Box workers_flexo مغلق!');
-        return;
-      }
-      final box = Hive.box<Worker>('workers_flexo');
-      final workerName = record['name']?.toString() ?? '';
-
-      if (isDelete) {
-        final workerId = record['id']?.toString();
-        if (workerId != null) {
-          await _deleteWorkerFromBoxById(box, workerId);
-          debugPrint('🗑️ [workers] حُذف محلياً: $workerId');
-        }
-      } else {
-        debugPrint('🌟 وصلت بيانات جديدة [workers]: $workerName');
-
-        final workerId = record['id']?.toString();
-        int? existingIndex;
-        if (workerId != null) {
-          for (int i = 0; i < box.length; i++) {
-            if (box.getAt(i)?.id == workerId) {
-              existingIndex = i;
-              break;
-            }
-          }
-        }
-
-        try {
-          final worker = Worker.fromJson(Map<String, dynamic>.from(record));
-          if (existingIndex != null) {
-            await box.putAt(existingIndex, worker);
-            debugPrint('✏️ [workers] حُدِّث محلياً: $workerName');
-          } else {
-            await box.add(worker);
-            debugPrint('➕ [workers] أُضيف محلياً: $workerName');
-          }
-        } catch (workerError) {
-          debugPrint('❌ [workers] فشل تحويل payload إلى Worker: $workerError');
-        }
-      }
-    } catch (e) {
-      debugPrint('❌ _onWorkerChange: $e');
+      debugPrint('❌ _tearDownRealtime: $e');
     }
   }
 
@@ -524,12 +254,80 @@ class SyncService {
         if (operation == 'delete') {
           final id = payload['id'] ?? payload['sync_id'];
           if (id != null) {
-            await _supabase.from(table).delete().eq('id', id.toString());
+            try {
+              await _supabase.from(table).delete().eq('id', id.toString());
+            } catch (e) {
+              if (e is PostgrestException && e.code == 'PGRST204') {
+                // Fallback to sync_id for deletion if id column fails
+                await _supabase.from(table).delete().eq('sync_id', id.toString());
+              } else {
+                rethrow;
+              }
+            }
             debugPrint('✅ Queue: حذف من $table [id=$id]');
           }
         } else {
-          await _supabase.from(table).upsert(payload);
-          debugPrint('✅ Queue: رُفع إلى $table');
+          try {
+            await _supabase.from(table).upsert(payload);
+            debugPrint('✅ Queue: رُفع إلى $table');
+            } catch (e) {
+              // Handle specific case where Supabase table doesn't have an 'id' column (PGRST204)
+              if (e is PostgrestException &&
+                  e.code == 'PGRST204' &&
+                  payload.containsKey('id') &&
+                  payload.containsKey('sync_id')) {
+                debugPrint(
+                    '⚠️ Queue: Schema mismatch (PGRST204). Retrying without "id" column...');
+                final retryPayload = Map<String, dynamic>.from(payload);
+                retryPayload.remove('id');
+                await _supabase.from(table).upsert(retryPayload);
+                debugPrint('✅ Queue: رُفع إلى $table (Retry success)');
+              } else if (e is PostgrestException &&
+                  e.code == '22P02' &&
+                  payload.containsKey('id')) {
+                // 🛠️ إصلاح تلقائي للمعرفات غير الصالحة (UUID Repair)
+                final oldId = payload['id'].toString();
+                if (!oldId.contains('-')) {
+                  debugPrint(
+                      '⚠️ Queue: مُعرف غير صالح ($oldId). جارِ إصلاحه...');
+                  final newId = _generateV4Uuid();
+                  payload['id'] = newId;
+                  payload['sync_id'] = newId;
+
+                  // تحديث المعرف في Hive لضمان التطابق
+                  final boxName = _getBoxNameForTable(table);
+                  if (boxName != null && Hive.isBoxOpen(boxName)) {
+                    final box = Hive.box(boxName);
+                    // البحث عن السجل القديم وتحديثه
+                    for (var key in box.keys) {
+                      final val = box.get(key);
+                      if (val is HiveObject &&
+                          (val as dynamic).id == oldId) {
+                        (val as dynamic).id = newId;
+                        await val.save();
+                        debugPrint(
+                            '✨ Queue: تم تحديث المعرف محلياً في $boxName');
+                        break;
+                      } else if (val is Map && val['id'] == oldId) {
+                        val['id'] = newId;
+                        await box.put(key, val);
+                        debugPrint(
+                            '✨ Queue: تم تحديث المعرف محلياً (Map) في $boxName');
+                        break;
+                      }
+                    }
+                  }
+
+                  // إعادة محاولة الرفع بالمعرف الجديد
+                  await _supabase.from(table).upsert(payload);
+                  debugPrint('✅ Queue: رُفع بمُعرف جديد: $newId');
+                } else {
+                  rethrow;
+                }
+              } else {
+                rethrow;
+              }
+            }
         }
 
         keysToDelete.add(key);
@@ -567,67 +365,31 @@ class SyncService {
     }
   }
 
-  Future<void> _deleteFromBoxById(Box box, String id) async {
-    for (int i = 0; i < box.length; i++) {
-      final v = box.getAt(i);
-      if (v is Map && v['id']?.toString() == id) {
-        await box.deleteAt(i);
-        return;
-      }
+  static String? _getBoxNameForTable(String table) {
+    switch (table) {
+      case 'customers':
+        return 'savedSheetSizes';
+      case 'production_reports':
+        return 'inkReports';
+      case 'workers':
+        return 'workers';
+      case 'worker_actions':
+        return 'worker_actions';
+      default:
+        return null;
     }
   }
 
-  Future<void> _deleteFromBoxBySyncId(Box box, String syncId) async {
-    for (int i = 0; i < box.length; i++) {
-      final v = box.getAt(i);
-      if (v is Map && v['sync_id']?.toString() == syncId) {
-        await box.deleteAt(i);
-        return;
-      }
+  static String _generateV4Uuid() {
+    final Random random = Random();
+    final List<int> values = List<int>.generate(16, (i) => random.nextInt(256));
+    values[6] = (values[6] & 0x0f) | 0x40; // version 4
+    values[8] = (values[8] & 0x3f) | 0x80; // variant 10
+    final StringBuffer buffer = StringBuffer();
+    for (int i = 0; i < 16; i++) {
+      if (i == 4 || i == 6 || i == 8 || i == 10) buffer.write('-');
+      buffer.write(values[i].toRadixString(16).padLeft(2, '0'));
     }
-  }
-
-  Future<void> _deleteFromBoxByClientName(Box box, String clientName) async {
-    final keysToDelete = [];
-    for (int i = 0; i < box.length; i++) {
-      final v = box.getAt(i);
-      if (v is Map &&
-          (v['clientName']?.toString().trim() ?? '') == clientName.trim()) {
-        keysToDelete.add(box.keyAt(i));
-      }
-    }
-    for (final k in keysToDelete) {
-      await box.delete(k);
-    }
-  }
-
-  Future<void> _deleteWorkerFromBoxById(
-    Box<Worker> box,
-    String id,
-  ) async {
-    for (int i = 0; i < box.length; i++) {
-      if (box.getAt(i)?.id == id) {
-        await box.deleteAt(i);
-        return;
-      }
-    }
-  }
-
-  Map<String, dynamic> _customerToHive(Map<String, dynamic> r) {
-    return {
-      'sync_id': r['sync_id'],
-      'processType': r['process_type'] ?? 'تفصيل',
-      'clientName': r['client_name'] ?? '',
-      'productName': r['product_name'] ?? '',
-      'productCode': r['product_code'] ?? '',
-      'length': r['length']?.toString() ?? '',
-      'width': r['width']?.toString() ?? '',
-      'height': r['height']?.toString() ?? '',
-      'isSheet': r['is_sheet'] ?? false,
-      'date': r['date'] ?? DateTime.now().toIso8601String(),
-      'factory_id': r['factory_id'],
-      'imagePaths': r['image_paths'] ?? [],
-      'isClientRecord': r['is_client_record'] ?? false,
-    };
+    return buffer.toString();
   }
 }

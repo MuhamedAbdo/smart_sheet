@@ -14,4 +14,11 @@ class FlexoMachine extends HiveObject {
     required this.id,
     required this.name,
   });
+
+  factory FlexoMachine.fromJson(Map<String, dynamic> json) {
+    return FlexoMachine(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+    );
+  }
 }

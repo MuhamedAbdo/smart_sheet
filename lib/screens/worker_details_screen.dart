@@ -614,7 +614,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
                                 if (existingAction == null) {
                                   final updatedAction = WorkerAction(
-                                    id: DateTime.now().millisecondsSinceEpoch.toString(),
                                     type: actionType.value,
                                     days: (actionType.value == 'إجازة' ||
                                             actionType.value == 'أجازة عارضة' ||
@@ -632,6 +631,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                     bonusDays: bonusDaysToSave,
                                     factoryId: widget.worker.factoryId,
                                     workerName: widget.worker.name,
+                                    workerId: widget.worker.id,
                                   );
                                   final key = await actionBox.add(updatedAction);
                                   final saved = actionBox.get(key);

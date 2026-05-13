@@ -90,10 +90,11 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
     });
 
     try {
-      // التحقق من أن الكود مكون من 6 أرقام
-      final cleanCode = code.replaceAll(RegExp(r'[^0-9]'), '');
-      if (cleanCode.length != 6) {
-        _showErrorSnackBar('كود QR غير صالح. يجب أن يكون 6 أرقام.');
+      // تنظيف الكود تماماً (أبجدي رقمي) كما طلب المستخدم
+      final cleanCode = code.trim().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      
+      if (cleanCode.isEmpty) {
+        _showErrorSnackBar('كود QR غير صالح.');
         return;
       }
 
@@ -296,6 +297,23 @@ class _FactoryLinkScreenState extends State<FactoryLinkScreen> {
           backgroundColor: Theme.of(context).primaryColor,
           foregroundColor: Colors.white,
           elevation: 0,
+          leading: (kIsWeb || (Platform.isWindows))
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: 'رجوع',
+                  onPressed: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/home',
+                        (route) => false,
+                      );
+                    }
+                  },
+                )
+              : null,
         ),
         body: SingleChildScrollView(
           child: ConstrainedBox(

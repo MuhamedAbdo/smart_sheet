@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_native_contact_picker/model/contact.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -97,6 +98,11 @@ class _WorkerFormState extends State<WorkerForm> {
     final phone = phoneController.text.trim();
 
     if (name.isEmpty) return;
+
+    // التأكد من فتح صندوق الحركات قبل البدء لتجنب أخطاء late initialization
+    if (!Hive.isBoxOpen('worker_actions')) {
+      await Hive.openBox<WorkerAction>('worker_actions');
+    }
 
     // 1. التحقق من التكرار عند إضافة عامل جديد
     if (widget.existingWorker == null) {

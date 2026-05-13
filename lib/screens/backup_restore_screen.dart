@@ -949,7 +949,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     );
 
     if (result != null && result.isNotEmpty) {
-      final cleanCode = result.replaceAll(' ', '').replaceAll('-', '');
+      // تنظيف الكود تماماً (أبجدي رقمي) كما طلب المستخدم
+      final cleanCode = result.trim().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
       await _verifyAndLinkWithCode(cleanCode);
     }
   }
@@ -1097,7 +1098,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       );
 
       if (result != null && result.isNotEmpty && mounted) {
-        final cleanCode = result.replaceAll(' ', '').replaceAll('-', '');
+        // تنظيف الكود تماماً (أبجدي رقمي) كما طلب المستخدم
+        final cleanCode = result.trim().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
         await _verifyAndLinkWithCode(cleanCode);
       }
     } catch (e) {

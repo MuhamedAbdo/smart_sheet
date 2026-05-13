@@ -1,5 +1,6 @@
 // lib/models/production_report.dart
 
+import 'dart:math';
 import 'package:hive_flutter/hive_flutter.dart';
 
 part 'production_report.g.dart';
@@ -64,7 +65,7 @@ class ProductionReport extends HiveObject {
   final String? factoryId;
 
   ProductionReport({
-    required this.id,
+    String? id,
     required this.date,
     required this.clientName,
     required this.product,
@@ -83,7 +84,20 @@ class ProductionReport extends HiveObject {
     this.machineName,
     this.technicianName,
     this.factoryId,
-  });
+  }) : id = (id == null || !id.contains('-')) ? _generateV4Uuid() : id;
+
+  static String _generateV4Uuid() {
+    final Random random = Random();
+    final List<int> values = List<int>.generate(16, (i) => random.nextInt(256));
+    values[6] = (values[6] & 0x0f) | 0x40; // version 4
+    values[8] = (values[8] & 0x3f) | 0x80; // variant 10
+    final StringBuffer buffer = StringBuffer();
+    for (int i = 0; i < 16; i++) {
+      if (i == 4 || i == 6 || i == 8 || i == 10) buffer.write('-');
+      buffer.write(values[i].toRadixString(16).padLeft(2, '0'));
+    }
+    return buffer.toString();
+  }
 
   Map<String, dynamic> toJson() {
     return {

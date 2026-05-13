@@ -102,8 +102,8 @@ class PairingService {
   /// التحقق من صحة الكود وربط الجهاز
   Future<Map<String, dynamic>?> verifyAndLink(String code) async {
     try {
-      // تنظيف الكود من المسافات والشرطات
-      final cleanCode = code.replaceAll(' ', '').replaceAll('-', '');
+      // تنظيف الكود تماماً (أبجدي رقمي) كما طلب المستخدم
+      final cleanCode = code.trim().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
       final currentFactoryId = await _storage.read(key: 'factory_id');
       debugPrint('🔍 Verifying pairing code: $cleanCode (current factory: $currentFactoryId)');
       
