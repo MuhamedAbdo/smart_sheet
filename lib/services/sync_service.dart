@@ -483,9 +483,10 @@ class SyncService {
         return;
       }
 
-      // فلترة factory_id داخل الـ callback (أكثر موثوقية من channel filter)
+      // فلترة factory_id داخل الـ callback — نتجاهل الفحص في حالة DELETE
+      // لأن Supabase يُرسل oldRecord بدون factory_id في أحداث الحذف
       final recordFactoryId = record['factory_id']?.toString();
-      if (recordFactoryId != myFactoryId) {
+      if (!isDelete && recordFactoryId != myFactoryId) {
         debugPrint('⏭️ [customers] تجاهل: factory مختلف ($recordFactoryId)');
         return;
       }
@@ -498,14 +499,16 @@ class SyncService {
 
       if (isDelete) {
         final clientName = record['client_name']?.toString() ?? '';
-        final syncId = record['sync_id']?.toString() ?? record['id']?.toString();
-        debugPrint('🗑️ [customers] وصل طلب حذف: $clientName');
-        if (syncId != null) {
-          await _deleteFromBoxBySyncId(box, syncId);
-        } else {
+        // Supabase يُرسل في DELETE: sync_id قد يكون null ولكن id دائماً موجود
+        final syncId  = record['sync_id']?.toString();
+        final remoteId = record['id']?.toString();
+        debugPrint('🗑️ [customers] وصل طلب حذف: $clientName (sync_id=$syncId, id=$remoteId)');
+        final deleted = await _deleteFromBoxByAnyId(box, syncId: syncId, remoteId: remoteId);
+        if (!deleted) {
+          // آخر محاولة: بالاسم
           await _deleteFromBoxByClientName(box, clientName);
         }
-        debugPrint('🗑️ [customers] حُذف محلياً: $clientName');
+        debugPrint('🗑️ [customers] اكتمل الحذف المحلي: $clientName');
       } else {
         final clientName = record['client_name']?.toString() ?? '';
         // FIX: sync_id اختياري — نولِّد fallback إذا لم يكن عمود sync_id موجوداً
@@ -568,16 +571,11 @@ class SyncService {
       final stableKey = record['sync_id']?.toString() ?? record['id']?.toString();
 
       if (isDelete) {
-        if (stableKey == null) return;
-        // بحث O(1) إذا كان السجل محفوظاً بالمفتاح الجديد
-        if (box.containsKey(stableKey)) {
-          await box.delete(stableKey);
-          debugPrint('🗑️ [production_reports] حُذف محلياً: $stableKey');
-        } else {
-          // fallback: بحث خطي للسجلات القديمة
-          await _deleteFromBoxById(box, stableKey);
-          debugPrint('🗑️ [production_reports] حُذف (fallback): $stableKey');
-        }
+        final syncId   = record['sync_id']?.toString();
+        final remoteId = record['id']?.toString();
+        if (syncId == null && remoteId == null) return;
+        await _deleteFromBoxByAnyId(box, syncId: syncId, remoteId: remoteId);
+        debugPrint('🗑️ [production_reports] تم الحذف المحلي (sync_id=$syncId | id=$remoteId)');
       } else {
         if (stableKey == null) {
           debugPrint('⚠️ [production_reports] لا يوجد sync_id أو id!');
@@ -625,8 +623,10 @@ class SyncService {
         return;
       }
 
+      // فلترة factory_id — نتجاهل الفحص في حالة DELETE
+      // لأن Supabase يُرسل oldRecord بدون factory_id في أحداث الحذف
       final recordFactoryId = record['factory_id']?.toString();
-      if (recordFactoryId != myFactoryId) {
+      if (!isDelete && recordFactoryId != myFactoryId) {
         debugPrint('⏭️ [workers] تجاهل: factory مختلف');
         return;
       }
@@ -639,8 +639,16 @@ class SyncService {
       final workerName = record['name']?.toString() ?? '';
 
       if (isDelete) {
-        await _deleteWorkerFromBox(box, workerName, myFactoryId);
-        debugPrint('🗑️ [workers] حُذف محلياً: $workerName');
+        // استخدام sync_id أو id للحذف المباشر (أكثر موثوقية من الاسم)
+        final syncId = record['sync_id']?.toString() ?? record['id']?.toString();
+        if (syncId != null && syncId.isNotEmpty) {
+          await _deleteWorkerBySyncId(box, syncId);
+          debugPrint('🗑️ [workers] حُذف محلياً بـ sync_id: $syncId ($workerName)');
+        } else {
+          // fallback: الحذف بالاسم إذا لم يكن sync_id موجوداً
+          await _deleteWorkerFromBox(box, workerName, myFactoryId);
+          debugPrint('🗑️ [workers] حُذف محلياً بالاسم (fallback): $workerName');
+        }
       } else {
         debugPrint('🌟 وصلت بيانات جديدة [workers]: $workerName');
 
@@ -860,33 +868,48 @@ class SyncService {
     }
   }
 
-  Future<void> _deleteFromBoxById(Box box, String id) async {
+
+  /// دالة الحذف الموحدة — تبحث بثلاث طرق بالأولوية:
+  /// 1. المفتاح المباشر (sync_id)   → O(1)
+  /// 2. حقل sync_id داخل السجل     → O(n)
+  /// 3. حقل id (Supabase UUID)       → O(n)
+  /// تُعيد true إذا نجح الحذف
+  Future<bool> _deleteFromBoxByAnyId(
+    Box box, {
+    String? syncId,
+    String? remoteId,
+  }) async {
+    // ① مفتاح مباشر بـ sync_id
+    if (syncId != null && box.containsKey(syncId)) {
+      await box.delete(syncId);
+      debugPrint('🗑️ [box] ✅ حُذف بالمفتاح المباشر (sync_id): $syncId');
+      return true;
+    }
+    // ② مفتاح مباشر بـ remoteId
+    if (remoteId != null && box.containsKey(remoteId)) {
+      await box.delete(remoteId);
+      debugPrint('🗑️ [box] ✅ حُذف بالمفتاح المباشر (id): $remoteId');
+      return true;
+    }
+    // ③ بحث خطي: sync_id الداخلي أو id المخزون
     for (int i = 0; i < box.length; i++) {
       final v = box.getAt(i);
-      if (v is Map && v['id']?.toString() == id) {
-        await box.deleteAt(i);
-        return;
+      if (v is! Map) continue;
+      final vSyncId  = v['sync_id']?.toString();
+      final vId      = v['id']?.toString();
+      final matched  = (syncId  != null && vSyncId  == syncId) ||
+                       (remoteId != null && vSyncId  == remoteId) ||
+                       (remoteId != null && vId      == remoteId) ||
+                       (syncId  != null && vId      == syncId);
+      if (matched) {
+        final matchKey = box.keyAt(i);
+        await box.delete(matchKey);
+        debugPrint('🗑️ [box] ✅ حُذف بالبحث الخطي (sync_id=$vSyncId | id=$vId)');
+        return true;
       }
     }
-  }
-
-  Future<void> _deleteFromBoxBySyncId(Box box, String syncId) async {
-    // FIX: sync_id هو مفتاح الـ box مباشرةً → O(1) بدلاً من O(n)
-    if (box.containsKey(syncId)) {
-      await box.delete(syncId);
-      debugPrint('🗑️ [box] حُذف السجل بالمفتاح: $syncId');
-    } else {
-      // fallback: بحث خطي للسجلات القديمة التي قد تكون حُفظت بـ add()
-      for (int i = 0; i < box.length; i++) {
-        final v = box.getAt(i);
-        if (v is Map && v['sync_id']?.toString() == syncId) {
-          await box.deleteAt(i);
-          debugPrint('🗑️ [box] حُذف السجل القديم (fallback) بـ sync_id: $syncId');
-          return;
-        }
-      }
-      debugPrint('⚠️ [box] لم يُعثر على sync_id للحذف: $syncId');
-    }
+    debugPrint('⚠️ [box] ❌ لم يُعثر على السجل للحذف (sync_id=$syncId | id=$remoteId)');
+    return false;
   }
 
   Future<void> _deleteFromBoxByClientName(Box box, String clientName) async {
@@ -901,6 +924,26 @@ class SyncService {
     for (final k in keysToDelete) {
       await box.delete(k);
     }
+  }
+
+  /// حذف عامل بـ sync_id — O(1) إذا كان المفتاح هو sync_id، وإلا بحث خطي
+  Future<void> _deleteWorkerBySyncId(Box<Worker> box, String syncId) async {
+    // محاولة O(1) أولاً: المفتاح المباشر هو sync_id
+    if (box.containsKey(syncId)) {
+      await box.delete(syncId);
+      debugPrint('🗑️ [workers] حُذف بالمفتاح المباشر: $syncId');
+      return;
+    }
+    // fallback: بحث خطي عبر syncId الداخلي
+    for (int i = 0; i < box.length; i++) {
+      final w = box.getAt(i);
+      if (w != null && w.syncId == syncId) {
+        await box.deleteAt(i);
+        debugPrint('🗑️ [workers] حُذف بالبحث الخطي (syncId): $syncId');
+        return;
+      }
+    }
+    debugPrint('⚠️ [workers] لم يُعثر على العامل للحذف (syncId=$syncId)');
   }
 
   Future<void> _deleteWorkerFromBox(
@@ -919,18 +962,19 @@ class SyncService {
 
   Map<String, dynamic> _customerToHive(Map<String, dynamic> r) {
     return {
-      'sync_id': r['sync_id'],
-      'processType': r['process_type'] ?? 'تفصيل',
-      'clientName': r['client_name'] ?? '',
-      'productName': r['product_name'] ?? '',
-      'productCode': r['product_code'] ?? '',
-      'length': r['length']?.toString() ?? '',
-      'width': r['width']?.toString() ?? '',
-      'height': r['height']?.toString() ?? '',
-      'isSheet': r['is_sheet'] ?? false,
-      'date': r['date'] ?? DateTime.now().toIso8601String(),
-      'factory_id': r['factory_id'],
-      'imagePaths': r['image_paths'] ?? [],
+      'id':             r['id'],          // Supabase UUID — مطلوب لمطابقة حدث DELETE
+      'sync_id':        r['sync_id'],
+      'processType':    r['process_type'] ?? 'تفصيل',
+      'clientName':     r['client_name'] ?? '',
+      'productName':    r['product_name'] ?? '',
+      'productCode':    r['product_code'] ?? '',
+      'length':         r['length']?.toString() ?? '',
+      'width':          r['width']?.toString() ?? '',
+      'height':         r['height']?.toString() ?? '',
+      'isSheet':        r['is_sheet'] ?? false,
+      'date':           r['date'] ?? DateTime.now().toIso8601String(),
+      'factory_id':     r['factory_id'],
+      'imagePaths':     r['image_paths'] ?? [],
       'isClientRecord': r['is_client_record'] ?? false,
     };
   }
