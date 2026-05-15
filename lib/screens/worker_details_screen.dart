@@ -60,45 +60,63 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   Future<void> _setupSupabaseStream() async {
     final stream =
         await SupabaseManager.streamData('worker_actions', primaryKey: ['id']);
+    if (stream == null) return;
 
-    if (stream != null) {
-      _supabaseSubscription = stream.listen((data) async {
-        if (!Hive.isBoxOpen('worker_actions')) return;
-        final actionBox = Hive.box<WorkerAction>('worker_actions');
-        bool updated = false;
+    _supabaseSubscription = stream.listen((data) async {
+      if (!Hive.isBoxOpen('worker_actions')) return;
+      final actionBox = Hive.box<WorkerAction>('worker_actions');
+      bool updated = false;
 
-        for (var record in data) {
-          if (record['worker_name'] != widget.worker.name) continue;
+      // 1. استخراج الـ IDs الموجودة حالياً في السيرفر لهذا العامل
+      final List<String> serverIds = data
+          .where((record) => record['worker_name'] == widget.worker.name)
+          .map((record) => record['id'].toString())
+          .toList();
 
-          final action = WorkerAction.fromJson(record);
-          if (action.id == null) continue;
+      // 2. مزامنة الحذف: مسح أي أكشن محلي تم حذفه من السيرفر
+      // نستخدم نسخة للتكرار الآمن وتصفية العناصر الفارغة (ghost keys)
+      final localActions =
+          widget.worker.actions.whereType<WorkerAction>().toList();
 
-          // الفحص الصارم بالـ ID لمنع التكرار (Double Entry)
-          final localIndex =
-              widget.worker.actions.indexWhere((a) => a.id == action.id);
+      for (var localAction in localActions) {
+        if (localAction.id != null && !serverIds.contains(localAction.id)) {
+          widget.worker.actions.remove(localAction);
+          if (localAction.isInBox) await localAction.delete();
+          updated = true;
+        }
+      }
 
-          if (localIndex == -1) {
-            // حالة إجراء جديد: نحفظه في الـ Box باستخدام الـ id النصي كمفتاح ثابت
-            await actionBox.put(action.id, action);
-            final saved = actionBox.get(action.id);
-            if (saved != null) {
-              widget.worker.actions.add(saved);
-              updated = true;
-            }
-          } else {
-            // حالة تحديث إجراء موجود: نكتفي بتحديث البيانات في الـ Box
-            // الـ HiveList ستعكس التحديث تلقائياً لأنها مرتبطة بنفس الـ Key
-            await actionBox.put(action.id, action);
+      // 3. مزامنة الإضافة والتحديث (Upsert)
+      for (var record in data) {
+        if (record['worker_name'] != widget.worker.name) continue;
+
+        final action = WorkerAction.fromJson(record);
+        if (action.id == null) continue;
+
+        final localIndex =
+            widget.worker.actions.indexWhere((a) => (a as WorkerAction?)?.id == action.id);
+
+        if (localIndex == -1) {
+          // حالة إجراء جديد: نحفظه في الـ Box ونضيفه لقائمة العامل
+          await actionBox.put(action.id, action);
+          final saved = actionBox.get(action.id);
+          if (saved != null) {
+            widget.worker.actions.add(saved);
             updated = true;
           }
+        } else {
+          // حالة تحديث إجراء موجود: نكتفي بتحديث البيانات في الـ Box
+          // الـ HiveList ستعكس التحديث تلقائياً لأنها مرتبطة بنفس الـ Key
+          await actionBox.put(action.id, action);
+          updated = true;
         }
+      }
 
-        if (updated) {
-          await widget.worker.save();
-          if (mounted) _refresh(); // تحديث الواجهة فوراً وتنظيف التكرار
-        }
-      });
-    }
+      if (updated) {
+        await widget.worker.save();
+        if (mounted) _refresh(); // لتختفي البطاقات المحذوفة أو تظهر التحديثات فوراً
+      }
+    });
   }
 
   void _refresh() => setState(() {});
