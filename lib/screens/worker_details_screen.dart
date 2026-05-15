@@ -39,10 +39,16 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     _setupSupabaseStream();
   }
 
+  @override
+  void dispose() {
+    _supabaseSubscription?.cancel();
+    super.dispose();
+  }
+
   void _cleanupActions() async {
     // Remove ghost/null keys from HiveList that cause RangeErrors
     final initialCount = widget.worker.actions.length;
-    final validList = widget.worker.actions.where((a) => a != null).toList();
+    final validList = widget.worker.actions.whereType<WorkerAction>().toList();
     if (validList.length != initialCount) {
       widget.worker.actions.clear();
       widget.worker.actions.addAll(validList);
@@ -62,20 +68,17 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         bool updated = false;
 
         for (var record in data) {
-          // فلترة الأكشنز الخاصة بهذا العامل فقط
           if (record['worker_name'] != widget.worker.name) continue;
 
           final action = WorkerAction.fromJson(record);
           if (action.id == null) continue;
 
-          // 1. البحث عن الأكشن في قائمة العامل الحالية (بالـ ID النصي)
-          final localAction = widget.worker.actions.cast<WorkerAction?>().firstWhere(
-            (a) => a?.id == action.id,
-            orElse: () => null,
-          );
+          // الفحص الصارم بالـ ID لمنع التكرار (Double Entry)
+          final localIndex =
+              widget.worker.actions.indexWhere((a) => a.id == action.id);
 
-          if (localAction == null) {
-            // حالة: أكشن جديد -> نستخدم الـ ID كمفتاح في Hive لمنع التكرار
+          if (localIndex == -1) {
+            // حالة إجراء جديد: نحفظه في الـ Box باستخدام الـ id النصي كمفتاح ثابت
             await actionBox.put(action.id, action);
             final saved = actionBox.get(action.id);
             if (saved != null) {
@@ -83,28 +86,16 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
               updated = true;
             }
           } else {
-            // حالة: تحديث أكشن موجود -> نحدثه في البوكس
-            // إذا كان الكي مختلف (مثلاً int) نقوم بحذف القديم لتوحيد المفاتيح
-            if (localAction.key != action.id) {
-              if (localAction.isInBox) await localAction.delete();
-              widget.worker.actions.remove(localAction);
-              
-              await actionBox.put(action.id, action);
-              final saved = actionBox.get(action.id);
-              if (saved != null) {
-                widget.worker.actions.add(saved);
-              }
-            } else {
-              await actionBox.put(action.id, action);
-            }
+            // حالة تحديث إجراء موجود: نكتفي بتحديث البيانات في الـ Box
+            // الـ HiveList ستعكس التحديث تلقائياً لأنها مرتبطة بنفس الـ Key
+            await actionBox.put(action.id, action);
             updated = true;
           }
         }
 
-        // حفظ التغييرات وتحديث الواجهة
         if (updated) {
           await widget.worker.save();
-          if (mounted) setState(() {});
+          if (mounted) _refresh(); // تحديث الواجهة فوراً وتنظيف التكرار
         }
       });
     }
@@ -231,8 +222,10 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             Expanded(
               child: Builder(
                 builder: (context) {
-                  // Filter out ghost keys (nulls) that might exist in HiveList
-                  final validActions = widget.worker.actions.toList();
+                  // Filter out ghost keys (nulls) and ensure stability
+                  final validActions = widget.worker.actions
+                      .whereType<WorkerAction>()
+                      .toList();
 
                   if (validActions.isEmpty) {
                     return const Center(
@@ -240,19 +233,20 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   }
 
                   // Sort actions by date descending
-                  final sortedActions = validActions
+                  final sortedActions = List<WorkerAction>.from(validActions)
                     ..sort((a, b) => b.date.compareTo(a.date));
 
                   return ListView.builder(
                     itemCount: sortedActions.length,
                     itemBuilder: (context, index) {
+                      if (index >= sortedActions.length) return const SizedBox.shrink();
                       final displayedAction = sortedActions[index];
                       
                       // Find original index using ID for reliability
                       int originalIndex = -1;
                       if (displayedAction.id != null) {
                         originalIndex = widget.worker.actions.indexWhere(
-                            (a) => a.id == displayedAction.id);
+                            (a) => (a as WorkerAction?)?.id == displayedAction.id);
                       }
                       if (originalIndex == -1) {
                         originalIndex = widget.worker.actions.indexOf(displayedAction);
@@ -275,33 +269,28 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                             onConfirm: () async {
                               final messenger = ScaffoldMessenger.of(context);
 
-                              // Fallback for missing index or out of bounds
-                              if (originalIndex < 0 || originalIndex >= widget.worker.actions.length) {
-                                if (displayedAction.id != null) {
-                                  final box = Hive.box<WorkerAction>('worker_actions');
-                                  await box.delete(displayedAction.id);
-                                  
-                                  // Sync deletion to Supabase
-                                  SyncService.instance.pushToQueue(
-                                      'worker_actions', displayedAction.toJson(),
-                                      operation: 'delete');
-                                      
-                                  // Clean up the actions list just in case
-                                  final toRemove = widget.worker.actions.where((a) => a.id == displayedAction.id).toList();
-                                  for (var item in toRemove) {
-                                    widget.worker.actions.remove(item);
-                                  }
-                                  await widget.worker.save();
-                                  _refresh();
-                                }
+                              // Safely capture action to delete before any awaits
+                              // Use ID search for maximum reliability in case of list shifts
+                              final String? targetId = displayedAction.id;
+                              
+                              if (targetId == null) return;
+
+                              // Re-locate the action safely
+                              final actionToDelete = widget.worker.actions.cast<WorkerAction?>().firstWhere(
+                                (a) => a?.id == targetId,
+                                orElse: () => null,
+                              );
+
+                              if (actionToDelete == null) {
+                                // Already deleted or shifted
+                                _refresh();
                                 return;
                               }
 
-                              // Deleting from HiveList, HiveBox, and Syncing to Supabase
-                              final actionToDelete = widget.worker.actions[originalIndex];
                               final actionJson = actionToDelete.toJson();
 
-                              widget.worker.actions.removeAt(originalIndex);
+                              // Deleting from HiveList, HiveBox, and Syncing to Supabase
+                              widget.worker.actions.remove(actionToDelete);
                               await widget.worker.save();
 
                               // Delete from box

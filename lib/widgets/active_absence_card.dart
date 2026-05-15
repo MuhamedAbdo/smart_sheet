@@ -189,15 +189,26 @@ class ActiveAbsenceCard extends StatelessWidget {
       title: "إلغاء الإجراء",
       content: "هل أنت متأكد من إلغاء ${action.type} لـ ${worker.name}؟ سيتم حذف الإجراء بالكامل.",
       onConfirm: () async {
-        // Remove from worker's actions list
+        final factoryId = await SupabaseManager.getFactoryId();
+
+        // 1. Take a copy of the data before deletion from Hive
+        final actionJson = action.toJson();
+        actionJson['factory_id'] = factoryId; // Ensure factory_id is present for matching on other devices
+
+        // 2. Local deletion from Flutter and Hive
         worker.actions.remove(action);
         await worker.save();
-        
-        // Delete from Hive box
         if (action.isInBox) {
           await action.delete();
         }
-        
+
+        // 3. Send delete command to the central sync queue to upload to Supabase
+        SyncService.instance.pushToQueue(
+          'worker_actions',
+          actionJson,
+          operation: 'delete', // Ensures the record is deleted from cloud and other devices immediately
+        );
+
         onRefresh();
         
         if (context.mounted) {
