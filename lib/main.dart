@@ -86,9 +86,17 @@ Future<void> main() async {
       _openBackgroundBoxes();
     }
 
-    // 3. تهيئة Supabase (دائماً مطلوبة)
-    await Supabase.initialize(
-        url: supabaseUrl.trim(), anonKey: supabaseAnonKey.trim());
+    // 3. تهيئة Supabase بذكاء (بدون تعطيل التطبيق)
+    try {
+      await Supabase.initialize(
+        url: supabaseUrl.trim(),
+        anonKey: supabaseAnonKey.trim(),
+        authOptions: const FlutterAuthClientOptions(authFlowType: AuthFlowType.pkce),
+      ).timeout(const Duration(seconds: 5));
+      debugPrint("✅ Supabase initialized successfully");
+    } catch (e) {
+      debugPrint("⚠️ Supabase Initialization failed (Offline Mode): $e");
+    }
 
     // 3b. تهيئة الإشعارات — مغلّفة بـ try/catch لمنع MissingPluginException
     //     من إيقاف التطبيق (تحدث على المحاكي أو عند التشغيل بعد Clean Build)
