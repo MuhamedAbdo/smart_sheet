@@ -20,6 +20,8 @@ import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/flexo_machine.dart';
+import 'package:smart_sheet/models/finished_product_model.dart';
+import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:uuid/uuid.dart';
 
@@ -35,6 +37,8 @@ class SyncService {
   RealtimeChannel? _liveSessionsChannel;
   RealtimeChannel? _machinesChannel;
   RealtimeChannel? _attendanceLogsChannel;
+  RealtimeChannel? _customerProductsChannel;
+  RealtimeChannel? _machineReportsChannel;
 
   // ─── Auto-Reconnect ───────────────────────────────────────────
   int _reconnectAttempts = 0;
@@ -258,6 +262,36 @@ class SyncService {
         debugPrint('✅ SyncService: تم استرجاع ${res.length} worker_actions وربطها بالعمال.');
       } catch (e) { debugPrint('❌ SyncService.initialize(worker_actions): $e'); }
 
+      // 7. المزامنة المبدئية لـ customer_products
+      try {
+        final res = await _supabase.from('customer_products').select().eq('factory_id', factoryId);
+        final box = Hive.isBoxOpen('finished_products') 
+            ? Hive.box<FinishedProduct>('finished_products') 
+            : await Hive.openBox<FinishedProduct>('finished_products');
+        
+        await box.clear();
+        for (final r in res) {
+          final product = FinishedProduct.fromJson(r);
+          await box.put(product.id, product);
+        }
+        debugPrint('✅ SyncService: تم استرجاع ${res.length} customer_products.');
+      } catch (e) { debugPrint('❌ SyncService.initialize(customer_products): $e'); }
+
+      // 8. المزامنة المبدئية لـ machine_reports
+      try {
+        final res = await _supabase.from('machine_reports').select().eq('factory_id', factoryId);
+        final box = Hive.isBoxOpen('maintenance_records_main') 
+            ? Hive.box<MaintenanceRecord>('maintenance_records_main') 
+            : await Hive.openBox<MaintenanceRecord>('maintenance_records_main');
+        
+        await box.clear();
+        for (final r in res) {
+          final record = MaintenanceRecord.fromJson(r);
+          await box.put(record.id, record);
+        }
+        debugPrint('✅ SyncService: تم استرجاع ${res.length} machine_reports.');
+      } catch (e) { debugPrint('❌ SyncService.initialize(machine_reports): $e'); }
+
       // إعداد قنوات Real-time بعد التحميل المبدئي بنجاح
       _setupChannels(factoryId);
 
@@ -379,6 +413,12 @@ class SyncService {
     _currentFactoryId = factoryId;
     debugPrint('📡 SyncService: إعداد الـ channels لـ factory: $factoryId (محاولة #$_reconnectAttempts)');
 
+    final filter = PostgresChangeFilter(
+      type: PostgresChangeFilterType.eq,
+      column: 'factory_id',
+      value: factoryId,
+    );
+
     // ─── 1. customers ────────────────────────────────────────────
     _customersChannel = _supabase
         .channel('rt_customers_${factoryId}_v2')
@@ -386,6 +426,7 @@ class SyncService {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'customers',
+          filter: filter,
           callback: (payload) {
             debugPrint(
               '📥 [customers] event=${payload.eventType} '
@@ -416,6 +457,7 @@ class SyncService {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'production_reports',
+          filter: filter,
           callback: (payload) {
             debugPrint(
               '📥 [production_reports] event=${payload.eventType} '
@@ -446,6 +488,7 @@ class SyncService {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'workers',
+          filter: filter,
           callback: (payload) {
             debugPrint(
               '📥 [workers] event=${payload.eventType} '
@@ -476,6 +519,7 @@ class SyncService {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'live_sessions',
+          filter: filter,
           callback: (payload) {
             debugPrint(
               '📥 [live_sessions] event=${payload.eventType} '
@@ -506,6 +550,7 @@ class SyncService {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'machines',
+          filter: filter,
           callback: (payload) {
             debugPrint(
               '📥 [machines] event=${payload.eventType} '
@@ -536,6 +581,7 @@ class SyncService {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'worker_actions',
+          filter: filter,
           callback: (payload) {
             debugPrint(
               '📥 [worker_actions] event=${payload.eventType} '
@@ -556,6 +602,68 @@ class SyncService {
             _scheduleReconnect();
           } else {
             debugPrint('📡 worker_actions: $status ${error ?? ""}');
+          }
+        });
+
+    // ─── 7. customer_products ─────────────────────────────────────
+    _customerProductsChannel = _supabase
+        .channel('rt_customer_products_${factoryId}_v1')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'customer_products',
+          filter: filter,
+          callback: (payload) {
+            debugPrint(
+              '📥 [customer_products] event=${payload.eventType} '
+              'new=${payload.newRecord} old=${payload.oldRecord}',
+            );
+            _onCustomerProductChange(payload, factoryId);
+          },
+        )
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            debugPrint('✅ SUBSCRIBED → customer_products (factory: $factoryId)');
+            _reconnectAttempts = 0;
+          } else if (status == RealtimeSubscribeStatus.timedOut) {
+            debugPrint('⏱️ TIMEOUT → customer_products — جدولة إعادة الاتصال...');
+            _scheduleReconnect();
+          } else if (status == RealtimeSubscribeStatus.channelError) {
+            debugPrint('❌ CHANNEL ERROR → customer_products: $error');
+            _scheduleReconnect();
+          } else {
+            debugPrint('📡 customer_products: $status ${error ?? ""}');
+          }
+        });
+
+    // ─── 8. machine_reports ───────────────────────────────────────
+    _machineReportsChannel = _supabase
+        .channel('rt_machine_reports_${factoryId}_v1')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'machine_reports',
+          filter: filter,
+          callback: (payload) {
+            debugPrint(
+              '📥 [machine_reports] event=${payload.eventType} '
+              'new=${payload.newRecord} old=${payload.oldRecord}',
+            );
+            _onMachineReportChange(payload, factoryId);
+          },
+        )
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            debugPrint('✅ SUBSCRIBED → machine_reports (factory: $factoryId)');
+            _reconnectAttempts = 0;
+          } else if (status == RealtimeSubscribeStatus.timedOut) {
+            debugPrint('⏱️ TIMEOUT → machine_reports — جدولة إعادة الاتصال...');
+            _scheduleReconnect();
+          } else if (status == RealtimeSubscribeStatus.channelError) {
+            debugPrint('❌ CHANNEL ERROR → machine_reports: $error');
+            _scheduleReconnect();
+          } else {
+            debugPrint('📡 machine_reports: $status ${error ?? ""}');
           }
         });
   }
@@ -588,6 +696,14 @@ class SyncService {
       if (_attendanceLogsChannel != null) {
         await _supabase.removeChannel(_attendanceLogsChannel!);
         _attendanceLogsChannel = null;
+      }
+      if (_customerProductsChannel != null) {
+        await _supabase.removeChannel(_customerProductsChannel!);
+        _customerProductsChannel = null;
+      }
+      if (_machineReportsChannel != null) {
+        await _supabase.removeChannel(_machineReportsChannel!);
+        _machineReportsChannel = null;
       }
       debugPrint('🔄 SyncService: تم إغلاق الـ channels.');
     } catch (e) {
@@ -1150,6 +1266,110 @@ class SyncService {
       }
     } catch (e) {
       debugPrint('❌ _onAttendanceLogChange: $e');
+    }
+  }
+
+  // ─── customer_products → finished_products ─────────────────────
+  void _onCustomerProductChange(
+    PostgresChangePayload payload,
+    String myFactoryId,
+  ) async {
+    try {
+      final isDelete = payload.eventType == PostgresChangeEvent.delete;
+      final record = isDelete ? payload.oldRecord : payload.newRecord;
+
+      if (record.isEmpty) return;
+
+      if (!Hive.isBoxOpen('finished_products')) {
+        await Hive.openBox<FinishedProduct>('finished_products');
+      }
+      final box = Hive.box<FinishedProduct>('finished_products');
+      
+      final stableKey = record['sync_id']?.toString() ?? record['id']?.toString();
+      if (stableKey == null) return;
+
+      if (isDelete) {
+        dynamic existingKey = stableKey;
+        for (var i = 0; i < box.length; i++) {
+          final item = box.getAt(i);
+          if (item != null && item.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+        if (existingKey != null && box.containsKey(existingKey)) {
+          await box.delete(existingKey);
+        } else if (box.containsKey(stableKey)) {
+          await box.delete(stableKey);
+        }
+        debugPrint('🗑️ [customer_products] حُذف محلياً: $stableKey');
+      } else {
+        final product = FinishedProduct.fromJson(record);
+        dynamic existingKey = stableKey;
+        for (var i = 0; i < box.length; i++) {
+          final item = box.getAt(i);
+          if (item != null && item.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+        await box.put(existingKey, product);
+        debugPrint('✅ [customer_products] تم حفظ/تحديث محلياً: $stableKey');
+      }
+    } catch (e) {
+      debugPrint('❌ _onCustomerProductChange: $e');
+    }
+  }
+
+  // ─── machine_reports → maintenance_records_main ────────────────
+  void _onMachineReportChange(
+    PostgresChangePayload payload,
+    String myFactoryId,
+  ) async {
+    try {
+      final isDelete = payload.eventType == PostgresChangeEvent.delete;
+      final record = isDelete ? payload.oldRecord : payload.newRecord;
+
+      if (record.isEmpty) return;
+
+      if (!Hive.isBoxOpen('maintenance_records_main')) {
+        await Hive.openBox<MaintenanceRecord>('maintenance_records_main');
+      }
+      final box = Hive.box<MaintenanceRecord>('maintenance_records_main');
+      
+      final stableKey = record['id']?.toString();
+      if (stableKey == null) return;
+
+      if (isDelete) {
+        dynamic existingKey = stableKey;
+        for (var i = 0; i < box.length; i++) {
+          final item = box.getAt(i);
+          if (item != null && item.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+        if (existingKey != null && box.containsKey(existingKey)) {
+          await box.delete(existingKey);
+        } else if (box.containsKey(stableKey)) {
+          await box.delete(stableKey);
+        }
+        debugPrint('🗑️ [machine_reports] حُذف محلياً: $stableKey');
+      } else {
+        final maintenanceRecord = MaintenanceRecord.fromJson(record);
+        dynamic existingKey = stableKey;
+        for (var i = 0; i < box.length; i++) {
+          final item = box.getAt(i);
+          if (item != null && item.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
+        }
+        await box.put(existingKey, maintenanceRecord);
+        debugPrint('✅ [machine_reports] تم حفظ/تحديث محلياً: $stableKey');
+      }
+    } catch (e) {
+      debugPrint('❌ _onMachineReportChange: $e');
     }
   }
 

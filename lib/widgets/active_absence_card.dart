@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/services/supabase_manager.dart';
 
 class ActiveAbsenceCard extends StatelessWidget {
   final Worker worker;
@@ -361,8 +363,15 @@ class ActiveAbsenceCard extends StatelessWidget {
                                 action.endTimeHour = endTimeNotifier.value.hour;
                                 action.endTimeMinute = endTimeNotifier.value.minute;
                                 
+                                final factoryId = await SupabaseManager.getFactoryId();
+                                action.factoryId = factoryId ?? action.factoryId;
+                                
                                 await action.save();
                                 await worker.save();
+                                
+                                final actionData = action.toJson();
+                                actionData['factory_id'] = factoryId;
+                                SyncService.instance.pushToQueue('worker_actions', actionData);
                                 
                                 if (context.mounted) Navigator.pop(context);
                                 onRefresh();
@@ -522,8 +531,16 @@ class ActiveAbsenceCard extends StatelessWidget {
 
                                 action.returnDate = returnDateNotifier.value;
                                 action.days = finalDays;
+                                
+                                final factoryId = await SupabaseManager.getFactoryId();
+                                action.factoryId = factoryId ?? action.factoryId;
+                                
                                 await action.save();
                                 await worker.save();
+                                
+                                final actionData = action.toJson();
+                                actionData['factory_id'] = factoryId;
+                                SyncService.instance.pushToQueue('worker_actions', actionData);
 
                                 if (context.mounted) Navigator.pop(context);
                                 onRefresh();

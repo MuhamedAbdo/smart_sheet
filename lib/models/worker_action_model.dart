@@ -180,4 +180,12 @@ class WorkerAction extends HiveObject {
       workerId: (map['worker_id'] ?? map['workerId'])?.toString(),
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WorkerAction && id != null && id == other.id;
+
+  @override
+  int get hashCode => id?.hashCode ?? 0;
 }
