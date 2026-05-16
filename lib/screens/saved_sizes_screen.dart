@@ -48,41 +48,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         title: isSearching
             ? SavedSizeSearchBar(
                 onChanged: (v) => setState(() => searchQuery = v))
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text("سجل العملاء"),
-                  const SizedBox(width: 8),
-                  ValueListenableBuilder(
-                    valueListenable: _savedSheetSizesBox.listenable(),
-                    builder: (context, Box box, _) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .primaryColor
-                              .withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Theme.of(context)
-                                .primaryColor
-                                .withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Text(
-                          "${box.length}",
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).primaryColor,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
+            : const Text("سجل العملاء"),
         centerTitle: true,
         actions: [
           IconButton(
@@ -120,35 +86,78 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             );
           }
 
-          return ListView.builder(
-            padding:
-                const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 8),
-            itemCount: clients.length,
-            itemBuilder: (context, index) {
-              final String clientName = clients[index];
-              final int itemCount = box.values
-                  .where((e) =>
-                      e is Map &&
-                      (e['clientName']?.toString().trim() ?? '') ==
-                          clientName &&
-                      e['isClientRecord'] != true)
-                  .length;
+          return Column(
+            children: [
+              _buildClientsCountBar(clients.length),
+              Expanded(
+                child: ListView.builder(
+                  padding:
+                      const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 4),
+                  itemCount: clients.length,
+                  itemBuilder: (context, index) {
+                    final String clientName = clients[index];
+                    final int itemCount = box.values
+                        .where((e) =>
+                            e is Map &&
+                            (e['clientName']?.toString().trim() ?? '') ==
+                                clientName &&
+                            e['isClientRecord'] != true)
+                        .length;
 
-              return _ClientCard(
-                clientName: clientName,
-                itemCount: itemCount,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (ctx) => ClientItemsScreen(clientName: clientName),
-                  ),
+                    return _ClientCard(
+                      clientName: clientName,
+                      itemCount: itemCount,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (ctx) => ClientItemsScreen(clientName: clientName),
+                        ),
+                      ),
+                      onEdit: () => _navigateToEditClient(clientName),
+                      onDelete: () => _confirmDeleteClient(clientName),
+                    );
+                  },
                 ),
-                onEdit: () => _navigateToEditClient(clientName),
-                onDelete: () => _confirmDeleteClient(clientName),
-              );
-            },
+              ),
+            ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildClientsCountBar(int totalClients) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade800, Colors.indigo.shade900],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.people_alt_outlined,
+              color: Colors.white70, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            '$totalClients عميل مسجل',
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold),
+          ),
+        ],
       ),
     );
   }

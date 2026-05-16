@@ -49,16 +49,16 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     // Remove ghost/null keys from HiveList and remove duplicates by ID
     final initialCount = widget.worker.actions.length;
     final rawActions = widget.worker.actions.whereType<WorkerAction>().toList();
-    
+
     final uniqueMap = <String, WorkerAction>{};
     for (var action in rawActions) {
       if (action.id != null) {
         uniqueMap[action.id!] = action;
       }
     }
-    
+
     final validList = uniqueMap.values.toList();
-    
+
     if (validList.length != initialCount) {
       widget.worker.actions.clear();
       widget.worker.actions.addAll(validList);
@@ -77,54 +77,55 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       final actionBox = Hive.box<WorkerAction>('worker_actions');
       bool updated = false;
 
-      // تأمين الحذف العكسي: لا تحذف محلياً إلا لو السيرفر باعت داتا مستقرة ونظيفة
       if (data.isNotEmpty) {
-        final List<String> serverIds = data
-            .where((record) => record['worker_name'] == widget.worker.name)
-            .map((record) => record['id'].toString())
-            .toList();
+        for (var record in data) {
+          if (record['worker_name'] != widget.worker.name) continue;
 
-        final localActions = List<WorkerAction>.from(widget.worker.actions);
-        for (var localAction in localActions) {
-          // شرط إضافي: لا تحذف إذا كان الـ id الخاص بالسيرفر فارغاً تماماً للعامل 
-          // وتأكد أن العنصر ممسوح فعلياً وليس مجرد تأخر في التحميل
-          if (localAction.id != null && serverIds.isNotEmpty && !serverIds.contains(localAction.id)) {
-            widget.worker.actions.remove(localAction);
-            if (localAction.isInBox) await localAction.delete();
+          final action = WorkerAction.fromJson(record);
+          if (action.id == null) continue;
+
+          // البحث عن الإجراء محلياً باستخدام الـ ID
+          final localIndex = widget.worker.actions
+              .indexWhere((a) => (a as WorkerAction?)?.id == action.id);
+
+          if (localIndex == -1) {
+            // إجراء جديد تماماً قادم من جهاز آخر -> يتم إضافته للحفاظ على التزامن
+            await actionBox.put(action.id, action);
+            final saved = actionBox.get(action.id);
+            if (saved != null) {
+              widget.worker.actions.add(saved);
+              updated = true;
+            }
+          } else {
+            // إجراء موجود بالفعل -> نقوم بتحديث خصائصه مباشرة للحفاظ على ارتباطه بقائمة HiveList
+            final existingAction = widget.worker.actions[localIndex];
+            existingAction.type = action.type;
+            existingAction.days = action.days;
+            existingAction.date = action.date;
+            existingAction.notes = action.notes;
+            existingAction.returnDate = action.returnDate;
+            existingAction.startTimeHour = action.startTimeHour;
+            existingAction.startTimeMinute = action.startTimeMinute;
+            existingAction.endTimeHour = action.endTimeHour;
+            existingAction.endTimeMinute = action.endTimeMinute;
+            existingAction.amount = action.amount;
+            existingAction.bonusDays = action.bonusDays;
+            existingAction.factoryId = action.factoryId;
+            existingAction.workerName = action.workerName;
+            existingAction.workerId = action.workerId;
+
+            await existingAction.save();
             updated = true;
           }
-        }
-      }
-
-      // 3. مزامنة الإضافة والتحديث (Upsert)
-      for (var record in data) {
-        if (record['worker_name'] != widget.worker.name) continue;
-
-        final action = WorkerAction.fromJson(record);
-        if (action.id == null) continue;
-
-        final localIndex =
-            widget.worker.actions.indexWhere((a) => (a as WorkerAction?)?.id == action.id);
-
-        if (localIndex == -1) {
-          // حالة إجراء جديد: نحفظه في الـ Box ونضيفه لقائمة العامل
-          await actionBox.put(action.id, action);
-          final saved = actionBox.get(action.id);
-          if (saved != null) {
-            widget.worker.actions.add(saved);
-            updated = true;
-          }
-        } else {
-          // حالة تحديث إجراء موجود: نكتفي بتحديث البيانات في الـ Box
-          // الـ HiveList ستعكس التحديث تلقائياً لأنها مرتبطة بنفس الـ Key
-          await actionBox.put(action.id, action);
-          updated = true;
         }
       }
 
       if (updated) {
         await widget.worker.save();
-        if (mounted) _refresh(); // لتختفي البطاقات المحذوفة أو تظهر التحديثات فوراً
+        if (mounted) {
+          setState(
+              () {}); // تحديث الواجهة مع بقاء التقارير التاريخية والجديدة كاملة ومحمية
+        }
       }
     });
   }
@@ -239,16 +240,16 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
-                Builder(
-                  builder: (context) {
-                    final rawActions = widget.worker.actions.whereType<WorkerAction>().toList();
-                    final uniqueCount = rawActions.map((a) => a.id).toSet().length;
-                    return Text(
-                      "$uniqueCount إجراء",
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    );
-                  }
-                ),
+                Builder(builder: (context) {
+                  final rawActions =
+                      widget.worker.actions.whereType<WorkerAction>().toList();
+                  final uniqueCount =
+                      rawActions.map((a) => a.id).toSet().length;
+                  return Text(
+                    "$uniqueCount إجراء",
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  );
+                }),
               ],
             ),
             const Divider(),
@@ -257,9 +258,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
               child: Builder(
                 builder: (context) {
                   // Filter out ghost keys (nulls) and ensure stability
-                  final rawActions = widget.worker.actions
-                      .whereType<WorkerAction>()
-                      .toList();
+                  final rawActions =
+                      widget.worker.actions.whereType<WorkerAction>().toList();
 
                   // تنظيف القائمة لمنع التكرار (Unique filter by ID)
                   final uniqueActionsMap = <String, WorkerAction>{};
@@ -282,17 +282,20 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   return ListView.builder(
                     itemCount: sortedActions.length,
                     itemBuilder: (context, index) {
-                      if (index >= sortedActions.length) return const SizedBox.shrink();
+                      if (index >= sortedActions.length) {
+                        return const SizedBox.shrink();
+                      }
                       final displayedAction = sortedActions[index];
-                      
+
                       // Find original index using ID for reliability
                       int originalIndex = -1;
                       if (displayedAction.id != null) {
-                        originalIndex = widget.worker.actions.indexWhere(
-                            (a) => (a as WorkerAction?)?.id == displayedAction.id);
+                        originalIndex = widget.worker.actions.indexWhere((a) =>
+                            (a as WorkerAction?)?.id == displayedAction.id);
                       }
                       if (originalIndex == -1) {
-                        originalIndex = widget.worker.actions.indexOf(displayedAction);
+                        originalIndex =
+                            widget.worker.actions.indexOf(displayedAction);
                       }
 
                       return WorkerActionCard(
@@ -300,7 +303,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                         onRefresh: _refresh,
                         onEdit: () async {
                           if (originalIndex != -1) {
-                            _editAction(widget.worker.actions[originalIndex], originalIndex);
+                            _editAction(widget.worker.actions[originalIndex],
+                                originalIndex);
                             _refresh();
                           }
                         },
@@ -315,14 +319,16 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                               // Safely capture action to delete before any awaits
                               // Use ID search for maximum reliability in case of list shifts
                               final String? targetId = displayedAction.id;
-                              
+
                               if (targetId == null) return;
 
                               // Re-locate the action safely
-                              final actionToDelete = widget.worker.actions.cast<WorkerAction?>().firstWhere(
-                                (a) => a?.id == targetId,
-                                orElse: () => null,
-                              );
+                              final actionToDelete = widget.worker.actions
+                                  .cast<WorkerAction?>()
+                                  .firstWhere(
+                                    (a) => a?.id == targetId,
+                                    orElse: () => null,
+                                  );
 
                               if (actionToDelete == null) {
                                 // Already deleted or shifted
@@ -353,18 +359,23 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                 context: context,
                                 message: "تم حذف الإجراء",
                                 onUndo: () async {
-                                  final actionBox = Hive.box<WorkerAction>('worker_actions');
-                                  final restoredAction = WorkerAction.fromJson(actionJson);
-                                  
+                                  final actionBox =
+                                      Hive.box<WorkerAction>('worker_actions');
+                                  final restoredAction =
+                                      WorkerAction.fromJson(actionJson);
+
                                   // Use put with ID instead of add
-                                  await actionBox.put(restoredAction.id, restoredAction);
-                                  final saved = actionBox.get(restoredAction.id);
+                                  await actionBox.put(
+                                      restoredAction.id, restoredAction);
+                                  final saved =
+                                      actionBox.get(restoredAction.id);
 
                                   if (saved != null) {
                                     widget.worker.actions.add(saved);
                                     await widget.worker.save();
                                     // Sync back to Supabase
-                                    SyncService.instance.pushToQueue('worker_actions', saved.toJson());
+                                    SyncService.instance.pushToQueue(
+                                        'worker_actions', saved.toJson());
                                     _refresh();
                                   }
                                 },
@@ -781,9 +792,10 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                     workerName: widget.worker.name,
                                     workerId: widget.worker.id,
                                   );
-                                  
+
                                   // Use put with ID instead of add to maintain key consistency
-                                  await actionBox.put(updatedAction.id, updatedAction);
+                                  await actionBox.put(
+                                      updatedAction.id, updatedAction);
                                   final saved = actionBox.get(updatedAction.id);
                                   if (saved != null) {
                                     widget.worker.actions.add(saved);
