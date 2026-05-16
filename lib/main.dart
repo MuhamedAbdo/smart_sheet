@@ -108,10 +108,12 @@ Future<void> main() async {
           '⚠️ Notifications: تعذّرت التهيئة (MissingPluginException مقبول): $e');
     }
 
-    // تهيئة خدمة المزامنة (ستكتمل فقط إذا كان factory_id محفوظاً)
-    await SyncService.instance.initialize();
+    // تشغيل المزامنة السحابية في الخلفية دون حظر التطبيق (Background execution)
+    SyncService.instance.initialize().catchError((e) {
+      debugPrint("⚠️ سيرفر Supabase غير متاح حالياً، التطبيق يعمل في وضع الأوفلاين: $e");
+    });
     debugPrint(
-        '✅ SyncService: تم استدعاء initialize() بعد تجاوز عقبة الإشعارات.');
+        '✅ SyncService: تم استدعاء initialize() للعمل في الخلفية.');
 
     // 4. تهيئة نافذة سطح المكتب
     if (!kIsWeb && Platform.isWindows) {

@@ -46,9 +46,19 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   }
 
   void _cleanupActions() async {
-    // Remove ghost/null keys from HiveList that cause RangeErrors
+    // Remove ghost/null keys from HiveList and remove duplicates by ID
     final initialCount = widget.worker.actions.length;
-    final validList = widget.worker.actions.whereType<WorkerAction>().toList();
+    final rawActions = widget.worker.actions.whereType<WorkerAction>().toList();
+    
+    final uniqueMap = <String, WorkerAction>{};
+    for (var action in rawActions) {
+      if (action.id != null) {
+        uniqueMap[action.id!] = action;
+      }
+    }
+    
+    final validList = uniqueMap.values.toList();
+    
     if (validList.length != initialCount) {
       widget.worker.actions.clear();
       widget.worker.actions.addAll(validList);
@@ -229,9 +239,15 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
-                Text(
-                  "${widget.worker.actions.length} إجراء",
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                Builder(
+                  builder: (context) {
+                    final rawActions = widget.worker.actions.whereType<WorkerAction>().toList();
+                    final uniqueCount = rawActions.map((a) => a.id).toSet().length;
+                    return Text(
+                      "$uniqueCount إجراء",
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    );
+                  }
                 ),
               ],
             ),
@@ -241,9 +257,18 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
               child: Builder(
                 builder: (context) {
                   // Filter out ghost keys (nulls) and ensure stability
-                  final validActions = widget.worker.actions
+                  final rawActions = widget.worker.actions
                       .whereType<WorkerAction>()
                       .toList();
+
+                  // تنظيف القائمة لمنع التكرار (Unique filter by ID)
+                  final uniqueActionsMap = <String, WorkerAction>{};
+                  for (var action in rawActions) {
+                    if (action.id != null) {
+                      uniqueActionsMap[action.id!] = action;
+                    }
+                  }
+                  final validActions = uniqueActionsMap.values.toList();
 
                   if (validActions.isEmpty) {
                     return const Center(
