@@ -77,22 +77,22 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       final actionBox = Hive.box<WorkerAction>('worker_actions');
       bool updated = false;
 
-      // 1. استخراج الـ IDs الموجودة حالياً في السيرفر لهذا العامل
-      final List<String> serverIds = data
-          .where((record) => record['worker_name'] == widget.worker.name)
-          .map((record) => record['id'].toString())
-          .toList();
+      // تأمين الحذف العكسي: لا تحذف محلياً إلا لو السيرفر باعت داتا مستقرة ونظيفة
+      if (data.isNotEmpty) {
+        final List<String> serverIds = data
+            .where((record) => record['worker_name'] == widget.worker.name)
+            .map((record) => record['id'].toString())
+            .toList();
 
-      // 2. مزامنة الحذف: مسح أي أكشن محلي تم حذفه من السيرفر
-      // نستخدم نسخة للتكرار الآمن وتصفية العناصر الفارغة (ghost keys)
-      final localActions =
-          widget.worker.actions.whereType<WorkerAction>().toList();
-
-      for (var localAction in localActions) {
-        if (localAction.id != null && !serverIds.contains(localAction.id)) {
-          widget.worker.actions.remove(localAction);
-          if (localAction.isInBox) await localAction.delete();
-          updated = true;
+        final localActions = List<WorkerAction>.from(widget.worker.actions);
+        for (var localAction in localActions) {
+          // شرط إضافي: لا تحذف إذا كان الـ id الخاص بالسيرفر فارغاً تماماً للعامل 
+          // وتأكد أن العنصر ممسوح فعلياً وليس مجرد تأخر في التحميل
+          if (localAction.id != null && serverIds.isNotEmpty && !serverIds.contains(localAction.id)) {
+            widget.worker.actions.remove(localAction);
+            if (localAction.isInBox) await localAction.delete();
+            updated = true;
+          }
         }
       }
 
