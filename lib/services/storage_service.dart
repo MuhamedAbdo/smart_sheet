@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 
 class StorageService {
   static final _supabase = Supabase.instance.client;
@@ -13,8 +14,9 @@ class StorageService {
       final file = File(localPath);
       if (!await file.exists()) return null;
 
-      final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${p.basename(localPath)}';
+      final extension = p.extension(localPath);
+      final uniqueId = const Uuid().v4();
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_$uniqueId$extension';
       final pathInBucket = 'uploads/$fileName';
 
       await _supabase.storage.from(bucketName).upload(

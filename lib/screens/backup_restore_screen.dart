@@ -934,6 +934,11 @@ class _PairingCodeDialogState extends State<_PairingCodeDialog> {
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      
       if (_remainingSeconds > 0) {
         setState(() {
           _remainingSeconds--;

@@ -105,14 +105,21 @@ class SyncService {
         final res = await _supabase.from('customers').select().eq('factory_id', factoryId);
         final box = Hive.isBoxOpen('savedSheetSizes') ? Hive.box('savedSheetSizes') : await Hive.openBox('savedSheetSizes');
         
-        final Map<dynamic, dynamic> customersMap = {};
         for (final r in res) {
           final hiveRecord = _customerToHive(r);
-          hiveRecord['sync_id'] = r['sync_id'] ?? r['id'];
-          customersMap[hiveRecord['sync_id']] = hiveRecord;
-        }
-        for (var key in customersMap.keys) {
-          await box.put(key, customersMap[key]);
+          final syncId = r['sync_id'] ?? r['id'];
+          hiveRecord['sync_id'] = syncId;
+          
+          dynamic existingKey = syncId;
+          for (var i = 0; i < box.length; i++) {
+            final item = box.getAt(i);
+            if (item is Map && item['sync_id'] == syncId) {
+              existingKey = box.keyAt(i);
+              _mergeLocalCustomerFields(hiveRecord, item);
+              break;
+            }
+          }
+          await box.put(existingKey, hiveRecord);
         }
         debugPrint('✅ SyncService: تم استرجاع ${res.length} customers.');
       } catch (e) { debugPrint('❌ SyncService.initialize(customers): $e'); }
@@ -812,6 +819,7 @@ class SyncService {
           final item = box.getAt(i);
           if (item is Map && item['sync_id'] == syncId) {
             existingKey = box.keyAt(i);
+            _mergeLocalCustomerFields(hiveRecord, item);
             break;
           }
         }
@@ -1452,7 +1460,14 @@ class SyncService {
         } else {
           // FIX 22P02: تنظيف الـ payload من القيم الفارغة والأرقام الخاطئة
           final cleanPayload = _sanitizePayload(payload);
-          await _supabase.from(table).upsert(cleanPayload);
+          
+          // حل مشكلة التكرار (Unique Constraint) بفرض الاستبدال بناءً على المفتاح الفريد
+          if (table == 'customers' || table == 'production_reports' || table == 'workers') {
+            await _supabase.from(table).upsert(cleanPayload, onConflict: 'sync_id');
+          } else {
+            await _supabase.from(table).upsert(cleanPayload);
+          }
+          
           debugPrint('✅ Queue: رُفع إلى $table');
         }
 
@@ -1599,6 +1614,22 @@ class SyncService {
       'imagePaths':     r['image_paths'] ?? [],
       'isClientRecord': r['is_client_record'] ?? false,
     };
+  }
+
+  /// دمج الحقول المحلية التي لا تتوفر في Supabase (مثل نتائج الحسابات والخيارات)
+  void _mergeLocalCustomerFields(Map<String, dynamic> newRecord, Map<dynamic, dynamic> existingRecord) {
+    const localFields = [
+      'isOverFlap', 'isFlap', 'isOneFlap', 'isTwoFlap', 'addTwoMm',
+      'isFullSize', 'isQuarterSize', 'isQuarterWidth',
+      'sheetLengthResult', 'sheetWidthResult',
+      'productionWidth1', 'productionHeight', 'productionWidth2',
+      'sheetLengthManual', 'sheetWidthManual', 'cuttingType'
+    ];
+    for (var field in localFields) {
+      if (existingRecord.containsKey(field)) {
+        newRecord[field] = existingRecord[field];
+      }
+    }
   }
 
   Map<String, dynamic> _reportToHive(Map<String, dynamic> r) {
