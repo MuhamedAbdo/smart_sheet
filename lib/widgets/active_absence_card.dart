@@ -31,7 +31,7 @@ class ActiveAbsenceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bool isTimeBased = action.type == 'إذن' || action.type == 'تأمين صحي';
-    
+
     final Color primaryColor = switch (action.type) {
       'غياب' => Colors.red,
       'إذن' => Colors.blue,
@@ -52,7 +52,10 @@ class ActiveAbsenceCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
             colors: isDark
-                ? [primaryColor.withValues(alpha: 0.3), primaryColor.withValues(alpha: 0.1)]
+                ? [
+                    primaryColor.withValues(alpha: 0.3),
+                    primaryColor.withValues(alpha: 0.1)
+                  ]
                 : [primaryColor.withValues(alpha: 0.05), Colors.white],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -95,7 +98,14 @@ class ActiveAbsenceCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  onPressed: onEdit,
+                  onPressed: () {
+                    // 🔑 فحص حماية للمزامنة الخارجية عند التعديل
+                    if (action.box == null || !action.isInBox) {
+                      _showSyncWarning(context);
+                      return;
+                    }
+                    if (onEdit != null) onEdit!();
+                  },
                   icon: const Icon(Icons.edit_outlined, size: 20),
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.blue.withValues(alpha: 0.1),
@@ -105,7 +115,14 @@ class ActiveAbsenceCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  onPressed: () => _showDeleteConfirmation(context),
+                  onPressed: () {
+                    // 🔑 فحص حماية للمزامنة الخارجية عند الإلغاء المحلي
+                    if (action.box == null || !action.isInBox) {
+                      _showSyncWarning(context);
+                      return;
+                    }
+                    _showDeleteConfirmation(context);
+                  },
                   icon: const Icon(Icons.delete_outline, size: 20),
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.red.withValues(alpha: 0.1),
@@ -120,13 +137,12 @@ class ActiveAbsenceCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildInfoColumn(
-                  isTimeBased ? "وقت الخروج" : "بدأ في", 
-                  isTimeBased ? (action.startTime?.format(context) ?? "--") : _formatDate(action.date)
-                ),
+                    isTimeBased ? "وقت الخروج" : "بدأ في",
+                    isTimeBased
+                        ? (action.startTime?.format(context) ?? "--")
+                        : _formatDate(action.date)),
                 _buildInfoColumn(
-                  "المدة", 
-                  isTimeBased ? "قيد التنفيذ" : "$elapsedDays يوم"
-                ),
+                    "المدة", isTimeBased ? "قيد التنفيذ" : "$elapsedDays يوم"),
               ],
             ),
             const Spacer(),
@@ -134,9 +150,19 @@ class ActiveAbsenceCard extends StatelessWidget {
               width: double.infinity,
               height: 40,
               child: ElevatedButton.icon(
-                onPressed: () => isTimeBased ? _showTimeReturnDialog(context) : _showReturnDialog(context),
+                onPressed: () {
+                  // 🔑 حماية صخرية: منع التفاعل إذا تم إلغاء الإجراء سلفاً من جهاز آخر
+                  if (action.box == null || !action.isInBox) {
+                    _showSyncWarning(context);
+                    return;
+                  }
+                  isTimeBased
+                      ? _showTimeReturnDialog(context)
+                      : _showReturnDialog(context);
+                },
                 icon: const Icon(Icons.check_circle, size: 18),
-                label: const Text("تسجيل العودة ✅", style: TextStyle(fontSize: 13)),
+                label: const Text("تسجيل العودة ✅",
+                    style: TextStyle(fontSize: 13)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,
@@ -155,11 +181,16 @@ class ActiveAbsenceCard extends StatelessWidget {
 
   IconData _getIcon() {
     switch (action.type) {
-      case 'إذن': return Icons.access_time;
-      case 'تأمين صحي': return Icons.medical_services_outlined;
-      case 'إجازة': return Icons.beach_access;
-      case 'أجازة عارضة': return Icons.wb_sunny;
-      default: return Icons.person_off;
+      case 'إذن':
+        return Icons.access_time;
+      case 'تأمين صحي':
+        return Icons.medical_services_outlined;
+      case 'إجازة':
+        return Icons.beach_access;
+      case 'أجازة عارضة':
+        return Icons.wb_sunny;
+      default:
+        return Icons.person_off;
     }
   }
 
@@ -183,17 +214,33 @@ class ActiveAbsenceCard extends StatelessWidget {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
+  void _showSyncWarning(BuildContext context) {
+    UIUtils.showInfoSnackBar(
+      message: "تنبيه: تم إلغاء أو تعديل هذا الإجراء من جهاز آخر!",
+      backgroundColor: Colors.orange.shade800,
+      icon: Icons.sync_problem,
+    );
+    onRefresh(); // تحديث فوري للشاشة لإخفاء الكارت الذي حُذف محلياً بكاش المزامنة
+  }
+
   Future<void> _showDeleteConfirmation(BuildContext context) async {
     UIUtils.showDeleteConfirmation(
       context: context,
       title: "إلغاء الإجراء",
-      content: "هل أنت متأكد من إلغاء ${action.type} لـ ${worker.name}؟ سيتم حذف الإجراء بالكامل.",
+      content:
+          "هل أنت متأكد من إلغاء ${action.type} لـ ${worker.name}؟ سيتم حذف الإجراء بالكامل.",
       onConfirm: () async {
+        // فحص إضافي للتأكيد التام قبل البدء في عمليات الحذف
+        if (action.box == null || !action.isInBox) {
+          onRefresh();
+          return;
+        }
+
         final factoryId = await SupabaseManager.getFactoryId();
 
         // 1. Take a copy of the data before deletion from Hive
         final actionJson = action.toJson();
-        actionJson['factory_id'] = factoryId; // Ensure factory_id is present for matching on other devices
+        actionJson['factory_id'] = factoryId;
 
         // 2. Local deletion from Flutter and Hive
         worker.actions.remove(action);
@@ -206,11 +253,11 @@ class ActiveAbsenceCard extends StatelessWidget {
         SyncService.instance.pushToQueue(
           'worker_actions',
           actionJson,
-          operation: 'delete', // Ensures the record is deleted from cloud and other devices immediately
+          operation: 'delete',
         );
 
         onRefresh();
-        
+
         if (context.mounted) {
           UIUtils.showInfoSnackBar(
             message: "تم إلغاء ${action.type} بنجاح",
@@ -224,12 +271,12 @@ class ActiveAbsenceCard extends StatelessWidget {
 
   Future<void> _showTimeReturnDialog(BuildContext context) async {
     final dateNotifier = ValueNotifier<DateTime>(action.date);
-    final returnDateNotifier = ValueNotifier<DateTime>(
-        action.returnDate ?? DateTime.now());
-    final startTimeNotifier = ValueNotifier<TimeOfDay>(
-        action.startTime ?? TimeOfDay.now());
-    final endTimeNotifier = ValueNotifier<TimeOfDay>(
-        action.endTime ?? TimeOfDay.now());
+    final returnDateNotifier =
+        ValueNotifier<DateTime>(action.returnDate ?? DateTime.now());
+    final startTimeNotifier =
+        ValueNotifier<TimeOfDay>(action.startTime ?? TimeOfDay.now());
+    final endTimeNotifier =
+        ValueNotifier<TimeOfDay>(action.endTime ?? TimeOfDay.now());
 
     await showModalBottomSheet(
       context: context,
@@ -244,7 +291,6 @@ class ActiveAbsenceCard extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // Handle
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Container(
@@ -272,13 +318,15 @@ class ActiveAbsenceCard extends StatelessWidget {
                       ),
                       const Divider(),
                       const SizedBox(height: 10),
-                      // Start Date
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text("تاريخ الذهاب", style: TextStyle(fontSize: 14)),
+                        title: const Text("تاريخ الذهاب",
+                            style: TextStyle(fontSize: 14)),
                         subtitle: Text(_formatDate(dateNotifier.value),
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                        trailing: const Icon(Icons.calendar_month, color: Colors.blue),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing: const Icon(Icons.calendar_month,
+                            color: Colors.blue),
                         onTap: () async {
                           final picked = await showDatePicker(
                             context: context,
@@ -292,13 +340,15 @@ class ActiveAbsenceCard extends StatelessWidget {
                         },
                       ),
                       const SizedBox(height: 8),
-                      // Start Time
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text("وقت الذهاب", style: TextStyle(fontSize: 14)),
+                        title: const Text("وقت الذهاب",
+                            style: TextStyle(fontSize: 14)),
                         subtitle: Text(startTimeNotifier.value.format(context),
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                        trailing: const Icon(Icons.access_time, color: Colors.blue),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing:
+                            const Icon(Icons.access_time, color: Colors.blue),
                         onTap: () async {
                           final picked = await showTimePicker(
                             context: context,
@@ -311,13 +361,15 @@ class ActiveAbsenceCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       const Divider(),
-                      // Return Date
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text("تاريخ العودة", style: TextStyle(fontSize: 14)),
+                        title: const Text("تاريخ العودة",
+                            style: TextStyle(fontSize: 14)),
                         subtitle: Text(_formatDate(returnDateNotifier.value),
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                        trailing: const Icon(Icons.calendar_month, color: Colors.green),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing: const Icon(Icons.calendar_month,
+                            color: Colors.green),
                         onTap: () async {
                           final picked = await showDatePicker(
                             context: context,
@@ -331,13 +383,15 @@ class ActiveAbsenceCard extends StatelessWidget {
                         },
                       ),
                       const SizedBox(height: 8),
-                      // End Time
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text("وقت العودة", style: TextStyle(fontSize: 14)),
+                        title: const Text("وقت العودة",
+                            style: TextStyle(fontSize: 14)),
                         subtitle: Text(endTimeNotifier.value.format(context),
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                        trailing: const Icon(Icons.access_time, color: Colors.green),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing:
+                            const Icon(Icons.access_time, color: Colors.green),
                         onTap: () async {
                           final picked = await showTimePicker(
                             context: context,
@@ -363,30 +417,43 @@ class ActiveAbsenceCard extends StatelessWidget {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
                               ),
                               onPressed: () async {
-                                // Update action with new values
+                                // 🔑 حماية لمنع الـ Crash إذا حذف الإجراء مستخدم آخر أثناء فتح الـ BottomSheet
+                                if (action.box == null || !action.isInBox) {
+                                  if (context.mounted) Navigator.pop(context);
+                                  _showSyncWarning(context);
+                                  return;
+                                }
+
                                 action.date = dateNotifier.value;
                                 action.returnDate = returnDateNotifier.value;
-                                action.startTimeHour = startTimeNotifier.value.hour;
-                                action.startTimeMinute = startTimeNotifier.value.minute;
+                                action.startTimeHour =
+                                    startTimeNotifier.value.hour;
+                                action.startTimeMinute =
+                                    startTimeNotifier.value.minute;
                                 action.endTimeHour = endTimeNotifier.value.hour;
-                                action.endTimeMinute = endTimeNotifier.value.minute;
-                                
-                                final factoryId = await SupabaseManager.getFactoryId();
-                                action.factoryId = factoryId ?? action.factoryId;
-                                
+                                action.endTimeMinute =
+                                    endTimeNotifier.value.minute;
+
+                                final factoryId =
+                                    await SupabaseManager.getFactoryId();
+                                action.factoryId =
+                                    factoryId ?? action.factoryId;
+
                                 await action.save();
                                 await worker.save();
-                                
+
                                 final actionData = action.toJson();
                                 actionData['factory_id'] = factoryId;
-                                SyncService.instance.pushToQueue('worker_actions', actionData);
-                                
+                                SyncService.instance
+                                    .pushToQueue('worker_actions', actionData);
+
                                 if (context.mounted) Navigator.pop(context);
                                 onRefresh();
-                                
+
                                 if (context.mounted) {
                                   UIUtils.showInfoSnackBar(
                                     message: "تم تحديث ${action.type} بنجاح",
@@ -416,12 +483,13 @@ class ActiveAbsenceCard extends StatelessWidget {
     final DateTime now = DateTime.now();
     final DateTime start = action.date;
     final DateTime initialReturnDate = DateTime(now.year, now.month, now.day);
-    
+
     final returnDateNotifier = ValueNotifier<DateTime>(initialReturnDate);
 
     int calcDays() {
       final startDate = DateTime(start.year, start.month, start.day);
-      final rDate = DateTime(returnDateNotifier.value.year, returnDateNotifier.value.month, returnDateNotifier.value.day);
+      final rDate = DateTime(returnDateNotifier.value.year,
+          returnDateNotifier.value.month, returnDateNotifier.value.day);
       return rDate.difference(startDate).inDays;
     }
 
@@ -438,7 +506,6 @@ class ActiveAbsenceCard extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // Handle
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Container(
@@ -478,8 +545,8 @@ class ActiveAbsenceCard extends StatelessWidget {
                         subtitle: Text(_formatDate(returnDateNotifier.value),
                             style:
                                 const TextStyle(fontWeight: FontWeight.bold)),
-                        trailing:
-                            const Icon(Icons.calendar_month, color: Colors.blue),
+                        trailing: const Icon(Icons.calendar_month,
+                            color: Colors.blue),
                         onTap: () async {
                           final picked = await showDatePicker(
                             context: context,
@@ -507,14 +574,17 @@ class ActiveAbsenceCard extends StatelessWidget {
                           children: [
                             const Row(
                               children: [
-                                Icon(Icons.calculate_outlined, color: Colors.grey, size: 20),
+                                Icon(Icons.calculate_outlined,
+                                    color: Colors.grey, size: 20),
                                 SizedBox(width: 12),
-                                Text("عدد الأيام المحسوب:", style: TextStyle(color: Colors.grey)),
+                                Text("عدد الأيام المحسوب:",
+                                    style: TextStyle(color: Colors.grey)),
                               ],
                             ),
                             Text(
                               "${calcDays()} يوم",
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16),
                             ),
                           ],
                         ),
@@ -538,27 +608,38 @@ class ActiveAbsenceCard extends StatelessWidget {
                                     const EdgeInsets.symmetric(vertical: 12),
                               ),
                               onPressed: () async {
+                                // 🔑 حماية لمنع الـ Crash إذا حذف الإجراء مستخدم آخر أثناء فتح الـ BottomSheet
+                                if (action.box == null || !action.isInBox) {
+                                  if (context.mounted) Navigator.pop(context);
+                                  _showSyncWarning(context);
+                                  return;
+                                }
+
                                 final finalDays = calcDays().toDouble();
 
                                 action.returnDate = returnDateNotifier.value;
                                 action.days = finalDays;
-                                
-                                final factoryId = await SupabaseManager.getFactoryId();
-                                action.factoryId = factoryId ?? action.factoryId;
-                                
+
+                                final factoryId =
+                                    await SupabaseManager.getFactoryId();
+                                action.factoryId =
+                                    factoryId ?? action.factoryId;
+
                                 await action.save();
                                 await worker.save();
-                                
+
                                 final actionData = action.toJson();
                                 actionData['factory_id'] = factoryId;
-                                SyncService.instance.pushToQueue('worker_actions', actionData);
+                                SyncService.instance
+                                    .pushToQueue('worker_actions', actionData);
 
                                 if (context.mounted) Navigator.pop(context);
                                 onRefresh();
 
                                 if (context.mounted) {
                                   UIUtils.showInfoSnackBar(
-                                    message: "تم تسجيل عودة ${worker.name} (${action.type}) بنجاح",
+                                    message:
+                                        "تم تسجيل عودة ${worker.name} (${action.type}) بنجاح",
                                     backgroundColor: Colors.green,
                                     icon: Icons.check_circle,
                                   );

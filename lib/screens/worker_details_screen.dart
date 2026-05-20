@@ -31,24 +31,43 @@ class WorkerDetailsScreen extends StatefulWidget {
 
 class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   StreamSubscription? _supabaseSubscription;
+  StreamSubscription? _hiveSubscription;
+  late Worker _worker;
 
   @override
   void initState() {
     super.initState();
+    _worker = widget.box.get(widget.worker.key) ?? widget.worker;
     _cleanupActions();
     _setupSupabaseStream();
+    _setupHiveListener();
   }
 
   @override
   void dispose() {
     _supabaseSubscription?.cancel();
+    _hiveSubscription?.cancel();
     super.dispose();
+  }
+
+  void _setupHiveListener() {
+    if (!widget.box.isOpen) return;
+    _hiveSubscription = widget.box.watch(key: widget.worker.key).listen((event) {
+      if (mounted) {
+        final freshWorker = widget.box.get(widget.worker.key);
+        if (freshWorker != null) {
+          setState(() {
+            _worker = freshWorker;
+          });
+        }
+      }
+    });
   }
 
   void _cleanupActions() async {
     // Remove ghost/null keys from HiveList and remove duplicates by ID
-    final initialCount = widget.worker.actions.length;
-    final rawActions = widget.worker.actions.whereType<WorkerAction>().toList();
+    final initialCount = _worker.actions.length;
+    final rawActions = _worker.actions.whereType<WorkerAction>().toList();
 
     final uniqueMap = <String, WorkerAction>{};
     for (var action in rawActions) {
@@ -60,9 +79,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     final validList = uniqueMap.values.toList();
 
     if (validList.length != initialCount) {
-      widget.worker.actions.clear();
-      widget.worker.actions.addAll(validList);
-      await widget.worker.save();
+      _worker.actions.clear();
+      _worker.actions.addAll(validList);
+      await _worker.save();
       if (mounted) setState(() {});
     }
   }
@@ -79,13 +98,13 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
       if (data.isNotEmpty) {
         for (var record in data) {
-          if (record['worker_name'] != widget.worker.name) continue;
+          if (record['worker_name'] != _worker.name) continue;
 
           final action = WorkerAction.fromJson(record);
           if (action.id == null) continue;
 
           // البحث عن الإجراء محلياً باستخدام الـ ID
-          final localIndex = widget.worker.actions
+          final localIndex = _worker.actions
               .indexWhere((a) => (a as WorkerAction?)?.id == action.id);
 
           if (localIndex == -1) {
@@ -93,12 +112,12 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             await actionBox.put(action.id, action);
             final saved = actionBox.get(action.id);
             if (saved != null) {
-              widget.worker.actions.add(saved);
+              _worker.actions.add(saved);
               updated = true;
             }
           } else {
             // إجراء موجود بالفعل -> نقوم بتحديث خصائصه مباشرة للحفاظ على ارتباطه بقائمة HiveList
-            final existingAction = widget.worker.actions[localIndex];
+            final existingAction = _worker.actions[localIndex];
             existingAction.type = action.type;
             existingAction.days = action.days;
             existingAction.date = action.date;
@@ -121,7 +140,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       }
 
       if (updated) {
-        await widget.worker.save();
+        await _worker.save();
         if (mounted) {
           setState(
               () {}); // تحديث الواجهة مع بقاء التقارير التاريخية والجديدة كاملة ومحمية
@@ -137,7 +156,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   }
 
   Future<void> _copyPhoneToClipboard() async {
-    await Clipboard.setData(ClipboardData(text: widget.worker.phone));
+    await Clipboard.setData(ClipboardData(text: _worker.phone));
 
     UIUtils.showInfoSnackBar(
       message: "تم نسخ الرقم بنجاح",
@@ -153,7 +172,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        title: Text("👤 ${widget.worker.name}"),
+        title: Text("👤 ${_worker.name}"),
         centerTitle: true,
       ),
       body: Padding(
@@ -181,14 +200,14 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                widget.worker.name,
+                                _worker.name,
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               Text(
-                                "🛠 ${widget.worker.job}",
+                                "🛠 ${_worker.job}",
                                 style: TextStyle(
                                   color: Colors.grey.shade600,
                                   fontSize: 14,
@@ -209,13 +228,13 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                           icon: Icons.phone,
                           label: "اتصال",
                           color: Colors.green,
-                          onTap: () => _launchURL("tel:${widget.worker.phone}"),
+                          onTap: () => _launchURL("tel:${_worker.phone}"),
                         ),
                         _buildHeaderAction(
                           icon: Icons.message,
                           label: "واتساب",
                           color: const Color(0xFF25D366),
-                          onTap: () => _launchWhatsApp(widget.worker.phone),
+                          onTap: () => _launchWhatsApp(_worker.phone),
                         ),
                         if (isWindows)
                           _buildHeaderAction(
@@ -242,7 +261,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 const Spacer(),
                 Builder(builder: (context) {
                   final rawActions =
-                      widget.worker.actions.whereType<WorkerAction>().toList();
+                      _worker.actions.whereType<WorkerAction>().toList();
                   final uniqueCount =
                       rawActions.map((a) => a.id).toSet().length;
                   return Text(
@@ -259,7 +278,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 builder: (context) {
                   // Filter out ghost keys (nulls) and ensure stability
                   final rawActions =
-                      widget.worker.actions.whereType<WorkerAction>().toList();
+                      _worker.actions.whereType<WorkerAction>().toList();
 
                   // تنظيف القائمة لمنع التكرار (Unique filter by ID)
                   final uniqueActionsMap = <String, WorkerAction>{};
@@ -290,12 +309,12 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                       // Find original index using ID for reliability
                       int originalIndex = -1;
                       if (displayedAction.id != null) {
-                        originalIndex = widget.worker.actions.indexWhere((a) =>
+                        originalIndex = _worker.actions.indexWhere((a) =>
                             (a as WorkerAction?)?.id == displayedAction.id);
                       }
                       if (originalIndex == -1) {
                         originalIndex =
-                            widget.worker.actions.indexOf(displayedAction);
+                            _worker.actions.indexOf(displayedAction);
                       }
 
                       return WorkerActionCard(
@@ -303,7 +322,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                         onRefresh: _refresh,
                         onEdit: () async {
                           if (originalIndex != -1) {
-                            _editAction(widget.worker.actions[originalIndex],
+                            _editAction(_worker.actions[originalIndex],
                                 originalIndex);
                             _refresh();
                           }
@@ -323,7 +342,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                               if (targetId == null) return;
 
                               // Re-locate the action safely
-                              final actionToDelete = widget.worker.actions
+                              final actionToDelete = _worker.actions
                                   .cast<WorkerAction?>()
                                   .firstWhere(
                                     (a) => a?.id == targetId,
@@ -339,8 +358,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                               final actionJson = actionToDelete.toJson();
 
                               // Deleting from HiveList, HiveBox, and Syncing to Supabase
-                              widget.worker.actions.remove(actionToDelete);
-                              await widget.worker.save();
+                              _worker.actions.remove(actionToDelete);
+                              await _worker.save();
 
                               // Delete from box
                               if (actionToDelete.isInBox) {
@@ -371,8 +390,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                       actionBox.get(restoredAction.id);
 
                                   if (saved != null) {
-                                    widget.worker.actions.add(saved);
-                                    await widget.worker.save();
+                                    _worker.actions.add(saved);
+                                    await _worker.save();
                                     // Sync back to Supabase
                                     SyncService.instance.pushToQueue(
                                         'worker_actions', saved.toJson());
@@ -403,7 +422,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   }
 
   Widget _buildActiveAbsenceSection() {
-    final activeAction = widget.worker.activeAction;
+    final activeAction = _worker.activeAction;
     // Skip old actions (more than 30 days ago) to keep the view clean
     if (activeAction == null ||
         DateTime.now().difference(activeAction.date).inDays > 30) {
@@ -415,12 +434,12 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       child: SizedBox(
         height: 190,
         child: ActiveAbsenceCard(
-          worker: widget.worker,
+          worker: _worker,
           action: activeAction,
           onRefresh: _refresh,
           onEdit: () {
             // Find index of this action to allow editing
-            final idx = widget.worker.actions.indexOf(activeAction);
+            final idx = _worker.actions.indexOf(activeAction);
             _editAction(activeAction, idx);
           },
         ),
@@ -788,9 +807,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                     amount: amountToSave,
                                     bonusDays: bonusDaysToSave,
                                     factoryId:
-                                        factoryId ?? widget.worker.factoryId,
-                                    workerName: widget.worker.name,
-                                    workerId: widget.worker.id,
+                                        factoryId ?? _worker.factoryId,
+                                    workerName: _worker.name,
+                                    workerId: _worker.id,
                                   );
 
                                   // Use put with ID instead of add to maintain key consistency
@@ -798,8 +817,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                       updatedAction.id, updatedAction);
                                   final saved = actionBox.get(updatedAction.id);
                                   if (saved != null) {
-                                    widget.worker.actions.add(saved);
-                                    await widget.worker.save();
+                                    _worker.actions.add(saved);
+                                    await _worker.save();
 
                                     final actionData = saved.toJson();
                                     actionData['factory_id'] = factoryId;
@@ -832,7 +851,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                       factoryId ?? existingAction.factoryId;
 
                                   await existingAction.save();
-                                  await widget.worker.save();
+                                  await _worker.save();
 
                                   final actionData = existingAction.toJson();
                                   actionData['factory_id'] = factoryId;
@@ -965,7 +984,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   }
 
   Widget _buildWorkerStatusChip() {
-    final activeAction = widget.worker.activeAction;
+    final activeAction = _worker.activeAction;
     final isPresent = activeAction == null;
 
     return Container(

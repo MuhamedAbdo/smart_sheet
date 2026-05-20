@@ -181,6 +181,8 @@ class WorkerAction extends HiveObject {
     );
   }
 
+  String? get syncId => id;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
