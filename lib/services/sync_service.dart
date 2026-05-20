@@ -37,6 +37,7 @@ import 'package:uuid/uuid.dart';
 // 🔑 part files — جزء من نفس الـ library، ترى جميع التعريفات الـ private.
 part 'sync/customer_sync.dart';
 part 'sync/production_sync.dart';
+part 'sync/machines_sync.dart';
 
 // ==============================================================
 // SyncServiceBase — الحقول المشتركة بين Mixins و SyncService
@@ -63,7 +64,7 @@ abstract class SyncServiceBase {
 // SyncService — نقطة الدخول المركزية للتطبيق
 // ==============================================================
 
-class SyncService extends SyncServiceBase with CustomerSync, ProductionSync {
+class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, MachinesSync {
   static final SyncService instance = SyncService._internal();
   SyncService._internal();
 
@@ -71,7 +72,6 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync {
   // (Workers / Machines / Attendance / MachineReports)
   // مرشحة للعزل في Mixins مستقبلية تدريجياً
   RealtimeChannel? _workersChannel;
-  RealtimeChannel? _machinesChannel;
   RealtimeChannel? _attendanceLogsChannel;
   RealtimeChannel? _machineReportsChannel;
 
@@ -156,28 +156,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync {
       // 4. المزامنة المبدئية لـ production_reports [ProductionSync]
       await _initProductionReports(factoryId);
 
-      // 5. المزامنة المبدئية لـ machines
-      try {
-        final res = await _supabase.from('machines').select().eq('factory_id', factoryId);
-        final box = Hive.isBoxOpen('flexo_machines')
-            ? Hive.box<FlexoMachine>('flexo_machines')
-            : await Hive.openBox<FlexoMachine>('flexo_machines');
-
-        for (final r in res) {
-          final stableKey = r['sync_id']?.toString() ?? r['id']?.toString();
-          if (stableKey == null) continue;
-          dynamic existingKey = stableKey;
-          for (var i = 0; i < box.length; i++) {
-            final m = box.getAt(i);
-            if (m != null && m.id == stableKey) {
-              existingKey = box.keyAt(i);
-              break;
-            }
-          }
-          await box.put(existingKey, FlexoMachine(id: stableKey, name: r['name']?.toString() ?? ''));
-        }
-        debugPrint('✅ SyncService: تم استرجاع ${res.length} machines.');
-      } catch (e) { debugPrint('❌ SyncService.initialize(machines): $e'); }
+      // 5. المزامنة المبدئية لـ machines [MachinesSync]
+      await _initMachines(factoryId);
 
       // 6. المزامنة المبدئية لـ worker_actions (= attendance_logs)
       try {
@@ -380,14 +360,11 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync {
     try {
       await _tearDownCustomerChannels();
       await _tearDownProductionChannels();
+      await _tearDownMachinesChannel();
 
       if (_workersChannel != null) {
         await _supabase.removeChannel(_workersChannel!);
         _workersChannel = null;
-      }
-      if (_machinesChannel != null) {
-        await _supabase.removeChannel(_machinesChannel!);
-        _machinesChannel = null;
       }
       if (_attendanceLogsChannel != null) {
         await _supabase.removeChannel(_attendanceLogsChannel!);
@@ -441,39 +418,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync {
         });
   }
 
-  void _setupMachinesChannel(String factoryId) {
-    final filter = PostgresChangeFilter(
-      type: PostgresChangeFilterType.eq,
-      column: 'factory_id',
-      value: factoryId,
-    );
-    _machinesChannel = _supabase
-        .channel('rt_machines_${factoryId}_v1')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'machines',
-          filter: filter,
-          callback: (payload) {
-            debugPrint('📥 [machines] event=${payload.eventType} new=${payload.newRecord} old=${payload.oldRecord}');
-            _onMachineChange(payload, factoryId);
-          },
-        )
-        .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('✅ SUBSCRIBED → machines (factory: $factoryId)');
-            _reconnectAttempts = 0;
-          } else if (status == RealtimeSubscribeStatus.timedOut) {
-            debugPrint('⏱️ TIMEOUT → machines — جدولة إعادة الاتصال...');
-            _scheduleReconnect();
-          } else if (status == RealtimeSubscribeStatus.channelError) {
-            debugPrint('❌ CHANNEL ERROR → machines: $error');
-            _scheduleReconnect();
-          } else {
-            debugPrint('📡 machines: $status ${error ?? ""}');
-          }
-        });
-  }
+
 
   void _setupAttendanceLogsChannel(String factoryId) {
     final filter = PostgresChangeFilter(
@@ -641,49 +586,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync {
     } catch (e) { debugPrint('❌ _onWorkerChange: $e'); }
   }
 
-  void _onMachineChange(PostgresChangePayload payload, String myFactoryId) async {
-    try {
-      final isDelete = payload.eventType == PostgresChangeEvent.delete;
-      final record = isDelete ? payload.oldRecord : payload.newRecord;
-      if (record.isEmpty) { debugPrint('⚠️ [machines] payload فارغ!'); return; }
 
-      final recordFactoryId = record['factory_id']?.toString();
-      if (!isDelete && recordFactoryId != myFactoryId) {
-        debugPrint('⏭️ [machines] تجاهل: factory مختلف ($recordFactoryId)'); return;
-      }
-
-      if (!Hive.isBoxOpen('flexo_machines')) await Hive.openBox<FlexoMachine>('flexo_machines');
-      final box = Hive.box<FlexoMachine>('flexo_machines');
-      final stableKey = record['sync_id']?.toString() ?? record['id']?.toString();
-      if (stableKey == null) { debugPrint('⚠️ [machines] لا يوجد sync_id أو id!'); return; }
-
-      if (isDelete) {
-        dynamic existingKey;
-        for (var i = 0; i < box.length; i++) {
-          final m = box.getAt(i);
-          if (m != null && m.id == stableKey) { existingKey = box.keyAt(i); break; }
-        }
-        if (existingKey != null) {
-          await box.delete(existingKey);
-          debugPrint('🗑️ [machines] حُذفت محلياً: $stableKey');
-        } else if (box.containsKey(stableKey)) {
-          await box.delete(stableKey);
-          debugPrint('🗑️ [machines] حُذفت بالمفتاح المباشر: $stableKey');
-        } else {
-          debugPrint('⚠️ [machines] لم يُعثر على الماكينة: $stableKey');
-        }
-      } else {
-        final machineName = record['name']?.toString() ?? '';
-        dynamic existingKey = stableKey;
-        for (var i = 0; i < box.length; i++) {
-          final m = box.getAt(i);
-          if (m != null && m.id == stableKey) { existingKey = box.keyAt(i); break; }
-        }
-        await box.put(existingKey, FlexoMachine(id: stableKey, name: machineName));
-        debugPrint('✅ [machines] تم حفظ/تحديث: $machineName (key=$existingKey)');
-      }
-    } catch (e) { debugPrint('❌ _onMachineChange: $e'); }
-  }
 
   void _onAttendanceLogChange(PostgresChangePayload payload, String myFactoryId) async {
     try {
