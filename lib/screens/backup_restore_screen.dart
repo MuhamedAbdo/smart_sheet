@@ -8,7 +8,7 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/live_session.dart';
@@ -763,7 +763,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   }
 
   Future<void> _showAdminQRCode() async {
-    const storage = FlutterSecureStorage();
+    const storage = SafeSecureStorage();
     final factoryId = await storage.read(key: 'factory_id');
 
     if (factoryId == null || factoryId.isEmpty) {

@@ -1,10 +1,10 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:flutter/foundation.dart';
 
 class SupabaseManager {
   static final SupabaseClient _supabase = Supabase.instance.client;
-  static const _storage = FlutterSecureStorage();
+  static const _storage = SafeSecureStorage();
 
   /// جلب الـ factory_id من التخزين الآمن
   static Future<String?> getFactoryId() async {

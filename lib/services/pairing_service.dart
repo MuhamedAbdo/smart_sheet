@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:smart_sheet/services/safe_secure_storage.dart';
 
 /// خدمة إدارة أكواد الربط بين الأجهزة
 class PairingService {
   static final SupabaseClient _supabase = Supabase.instance.client;
-  static const _storage = FlutterSecureStorage();
+  static const _storage = SafeSecureStorage();
   
   String? _currentCode;
   DateTime? _codeExpiry;

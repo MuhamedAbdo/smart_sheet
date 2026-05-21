@@ -2,19 +2,27 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
-
+import 'package:smart_sheet/services/auth_service.dart';
+import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/widgets/theme_toggle_button.dart';
 import 'package:smart_sheet/screens/backup_restore_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   static const String routeName = '/settings';
 
   const SettingsScreen({super.key});
 
   @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final isAdmin = context.watch<AuthService>().isAdmin;
     final size = MediaQuery.of(context).size;
     final isDesktop = !kIsWeb && Platform.isWindows || size.width > 900;
 
@@ -36,7 +44,13 @@ class SettingsScreen extends StatelessWidget {
                   const SizedBox(width: 16),
                   Expanded(child: _buildDataCard(context)),
                   const SizedBox(width: 16),
-                  Expanded(child: _buildFactorySettingsCard(themeProvider, context)),
+                  Expanded(
+                    child: _buildFactorySettingsCard(
+                      themeProvider,
+                      context,
+                      isAdmin: isAdmin,
+                    ),
+                  ),
                 ],
               )
             : Column(
@@ -45,7 +59,11 @@ class SettingsScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   _buildDataCard(context),
                   const SizedBox(height: 16),
-                  _buildFactorySettingsCard(themeProvider, context),
+                  _buildFactorySettingsCard(
+                    themeProvider,
+                    context,
+                    isAdmin: isAdmin,
+                  ),
                 ],
               ),
       ),
@@ -139,13 +157,23 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFactorySettingsCard(ThemeProvider themeProvider, BuildContext context) {
+  Widget _buildFactorySettingsCard(
+    ThemeProvider themeProvider,
+    BuildContext context, {
+    bool isAdmin = false,
+  }) {
     final shiftStart = themeProvider.shiftStart;
     final shiftEnd = themeProvider.shiftEnd;
 
-    // Calculate total hours
-    double totalHours = shiftEnd.hour + shiftEnd.minute / 60.0 - (shiftStart.hour + shiftStart.minute / 60.0);
+    // حساب إجمالي ساعات الوردية
+    double totalHours = shiftEnd.hour +
+        shiftEnd.minute / 60.0 -
+        (shiftStart.hour + shiftStart.minute / 60.0);
     if (totalHours < 0) totalHours += 24;
+
+    // مساعد: تنسيق TimeOfDay كنص "HH:MM" لرفعه للسيرفر
+    String fmtTime(TimeOfDay t) =>
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
     return Card(
       elevation: 2,
@@ -155,50 +183,159 @@ class SettingsScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("إعدادات المصنع والوردية",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                const Text(
+                  "إعدادات المصنع والوردية",
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                // شارة دور الأدمن: مخفية عن بقية المستخدمين
+                if (isAdmin)
+                  const Tooltip(
+                    message: 'أنت مسجّل كمسؤول (Admin)',
+                    child: Icon(
+                      Icons.admin_panel_settings,
+                      size: 16,
+                      color: Colors.orange,
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 16),
+
+            // ─── بداية الوردية ──────────────────────────────────────────
             ListTile(
-              leading: const Icon(Icons.access_time, color: Colors.orange),
+              leading:
+                  const Icon(Icons.access_time, color: Colors.orange),
               title: const Text("بداية الوردية"),
               subtitle: Text(shiftStart.format(context)),
-              trailing: const Icon(Icons.edit, size: 18),
-              onTap: () async {
-                final picked = await showTimePicker(
-                  context: context,
-                  initialTime: shiftStart,
-                );
-                if (picked != null) {
-                  themeProvider.setShiftStart(picked);
-                }
-              },
+              // قلم التحرير: ظاهر للأدمن فقط
+              trailing: isAdmin
+                  ? const Icon(Icons.edit, size: 18)
+                  : null,
+              // تفاعل الضغط: متاح للأدمن فقط
+              onTap: isAdmin
+                  ? () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: shiftStart,
+                      );
+                      if (picked == null) return;
+
+                      // 1️⃣ تحديث محلي (Hive + notifyListeners)
+                      await themeProvider.setShiftStart(picked);
+
+                      // 2️⃣ رفع مباشر لـ Supabase → ينشّط Realtime على باقي الأجهزة
+                      // ملاحظة: نستخدم update مباشراً بدلاً من pushToQueue لأن جدول
+                      // factories يستخدم id كـ PK وليس sync_id,
+                      // والطابور يُضيف factory_id تلقائياً مما يتعارض مع هيكل الجدول.
+                      final factoryId =
+                          await SupabaseManager.getFactoryId();
+                      if (factoryId != null) {
+                        try {
+                           final client = Supabase.instance.client;
+                           final payload = {
+                             'shift_start_time': fmtTime(picked),
+                             'shift_end_time': fmtTime(themeProvider.shiftEnd),
+                           };
+                           final updatedRows = await client
+                               .from('factories')
+                               .update(payload)
+                               .eq('factory_id', factoryId)
+                               .select();
+                           if (updatedRows.isEmpty) {
+                             payload['factory_id'] = factoryId;
+                             await client.from('factories').insert(payload);
+                           }
+                          debugPrint(
+                              '✅ [factories] تم رفع وقت بداية الوردية: ${fmtTime(picked)}');
+                        } catch (e) {
+                          debugPrint(
+                              '❌ [factories] فشل رفع وقت بداية الوردية: $e');
+                        }
+                      }
+
+                      // 3️⃣ إجبار إعادة بناء فورية للواجهة نفسها — يضمن ظهور القيمة
+                      // الجديدة فوراً دون الانتظار لدورة إطار Provider.
+                      if (mounted) setState(() {});
+                    }
+                  : null,
+
             ),
             const Divider(),
+
+            // ─── نهاية الوردية ───────────────────────────────────────────
             ListTile(
-              leading: const Icon(Icons.access_time_filled, color: Colors.deepOrange),
+              leading: const Icon(Icons.access_time_filled,
+                  color: Colors.deepOrange),
               title: const Text("نهاية الوردية"),
               subtitle: Text(shiftEnd.format(context)),
-              trailing: const Icon(Icons.edit, size: 18),
-              onTap: () async {
-                final picked = await showTimePicker(
-                  context: context,
-                  initialTime: shiftEnd,
-                );
-                if (picked != null) {
-                  themeProvider.setShiftEnd(picked);
-                }
-              },
+              // قلم التحرير: ظاهر للأدمن فقط
+              trailing: isAdmin
+                  ? const Icon(Icons.edit, size: 18)
+                  : null,
+              // تفاعل الضغط: متاح للأدمن فقط
+              onTap: isAdmin
+                  ? () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: shiftEnd,
+                      );
+                      if (picked == null) return;
+
+                      // 1️⃣ تحديث محلي (Hive + notifyListeners)
+                      await themeProvider.setShiftEnd(picked);
+
+                      // 2️⃣ رفع مباشر لـ Supabase → ينشّط Realtime على باقي الأجهزة
+                      final factoryId =
+                          await SupabaseManager.getFactoryId();
+                      if (factoryId != null) {
+                        try {
+                           final client = Supabase.instance.client;
+                           final payload = {
+                             'shift_start_time': fmtTime(themeProvider.shiftStart),
+                             'shift_end_time': fmtTime(picked),
+                           };
+                           final updatedRows = await client
+                               .from('factories')
+                               .update(payload)
+                               .eq('factory_id', factoryId)
+                               .select();
+                           if (updatedRows.isEmpty) {
+                             payload['factory_id'] = factoryId;
+                             await client.from('factories').insert(payload);
+                           }
+                          debugPrint(
+                              '✅ [factories] تم رفع وقت نهاية الوردية: ${fmtTime(picked)}');
+                        } catch (e) {
+                          debugPrint(
+                              '❌ [factories] فشل رفع وقت نهاية الوردية: $e');
+                        }
+                      }
+
+                      // 3️⃣ إجبار إعادة بناء فورية للواجهة نفسها — يضمن ظهور القيمة
+                      // الجديدة فوراً دون الانتظار لدورة إطار Provider.
+                      if (mounted) setState(() {});
+                    }
+                  : null,
+
             ),
             const Divider(),
+
+            // ─── إجمالي ساعات الوردية ────────────────────────────────────
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, size: 16, color: Colors.grey),
+                  const Icon(Icons.info_outline,
+                      size: 16, color: Colors.grey),
                   const SizedBox(width: 8),
                   Text(
                     "إجمالي ساعات الوردية: ${totalHours.toStringAsFixed(1)} ساعة",
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    style: const TextStyle(
+                        color: Colors.grey, fontSize: 13),
                   ),
                 ],
               ),

@@ -219,6 +219,10 @@ class SmartSheetApp extends StatelessWidget {
     // مراقبة ThemeProvider للتغييرات
     final themeProvider = context.watch<ThemeProvider>();
 
+    // تسجيل ThemeProvider في SyncService حتى يتمكن FactorySync mixin
+    // من تطبيق أوقات الوردية الواردة من Supabase Realtime مباشرةً.
+    SyncService.instance.setThemeProvider(themeProvider);
+
     return MaterialApp(
       scaffoldMessengerKey: scaffoldMessengerKey,
       navigatorKey:

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_state.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/pairing_service.dart';
 
@@ -28,7 +28,7 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> _loadFactoryId() async {
-    const storage = FlutterSecureStorage();
+    const storage = SafeSecureStorage();
     _factoryId = await storage.read(key: 'factory_id');
     notifyListeners();
   }
@@ -66,7 +66,7 @@ class AuthService extends ChangeNotifier {
 
   Future<void> _fetchAndStoreUserData(String userId) async {
     try {
-      const storage = FlutterSecureStorage();
+      const storage = SafeSecureStorage();
       
       final response = await _supabaseClient
           .from('profiles')
@@ -103,7 +103,7 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> _clearUserData() async {
-    const storage = FlutterSecureStorage();
+    const storage = SafeSecureStorage();
     await storage.delete(key: 'factory_id');
     await storage.delete(key: 'user_role');
     _factoryId = null;
@@ -146,7 +146,7 @@ class AuthService extends ChangeNotifier {
 
     try {
       final oldRole = _state.role;
-      const storage = FlutterSecureStorage();
+      const storage = SafeSecureStorage();
       final oldFactoryId = await storage.read(key: 'factory_id');
 
       // مسح التخزين المحلي لإجبار جلب بيانات جديدة
@@ -322,7 +322,7 @@ class AuthService extends ChangeNotifier {
 
   /// 🔓 فك ارتباط الجهاز بالمصنع الحالي (مسح factory_id محلياً ومن السيرفر)
   Future<void> unlinkFactory() async {
-    const storage = FlutterSecureStorage();
+    const storage = SafeSecureStorage();
     await storage.delete(key: 'factory_id');
     _factoryId = null;
     

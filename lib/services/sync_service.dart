@@ -21,10 +21,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/live_session.dart';
@@ -39,6 +40,7 @@ part 'sync/customer_sync.dart';
 part 'sync/production_sync.dart';
 part 'sync/machines_sync.dart';
 part 'sync/workers_sync.dart';
+part 'sync/factory_sync.dart';
 
 // ==============================================================
 // SyncServiceBase — الحقول المشتركة بين Mixins و SyncService
@@ -65,7 +67,7 @@ abstract class SyncServiceBase {
 // SyncService — نقطة الدخول المركزية للتطبيق
 // ==============================================================
 
-class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, MachinesSync, WorkersSync {
+class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, MachinesSync, WorkersSync, FactorySync {
   static final SyncService instance = SyncService._internal();
   SyncService._internal();
 
@@ -73,6 +75,22 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
   // (Machines / MachineReports)
   // مرشحة للعزل في Mixins مستقبلية تدريجياً
   RealtimeChannel? _machineReportsChannel;
+
+  // ─── ThemeProvider Reference ──────────────────────────────────
+  // يُسجَّل من main.dart عند بناء SmartSheetApp لتمرير الـ ref
+  // للـ FactorySync mixin دون كسر signature الـ initialize().
+  ThemeProvider? _themeProvider;
+
+  void setThemeProvider(ThemeProvider tp) {
+    final bool isFirstTime = _themeProvider == null;
+    _themeProvider = tp;
+
+    if (isFirstTime && _currentFactoryId != null) {
+      debugPrint('⚡ SyncService: تم تسجيل ThemeProvider بعد التهيئة. بدء مزامنة المصنع...');
+      _initFactorySettings(_currentFactoryId!, tp);
+      _setupFactoryChannel(_currentFactoryId!, tp);
+    }
+  }
 
   Box? _queueBox;
   bool _isProcessingQueue = false;
@@ -112,6 +130,11 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
       // 6. المزامنة المبدئية لـ worker_actions (= attendance_logs)
       await _initWorkerActions(factoryId);
+
+      // 9. المزامنة المبدئية لأوقات الوردية [FactorySync]
+      if (_themeProvider != null) {
+        await _initFactorySettings(factoryId, _themeProvider!);
+      }
 
       // 7. المزامنة المبدئية لـ customer_products [CustomerSync]
       await _initCustomerProducts(factoryId);
@@ -262,6 +285,11 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
     // ─── [هنا] machines ────────────────────────────────────────────
     _setupMachinesChannel(factoryId);
 
+    // ─── [FactorySync] factories (shift times) ──────────────────────
+    if (_themeProvider != null) {
+      _setupFactoryChannel(factoryId, _themeProvider!);
+    }
+
     // ─── [هنا] machine_reports ─────────────────────────────────────
     _setupMachineReportsChannel(factoryId);
   }
@@ -274,6 +302,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       await _tearDownProductionChannels();
       await _tearDownMachinesChannel();
       await _tearDownWorkersChannels();
+      await _tearDownFactoryChannel();
 
       if (_machineReportsChannel != null) {
         await _supabase.removeChannel(_machineReportsChannel!);
