@@ -80,6 +80,18 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       onConfirm: () async {
         final messenger = ScaffoldMessenger.of(context);
         await _productionReportBox!.delete(key);
+
+        // ✅ مزامنة الحذف مع Supabase لتحديث جميع الأجهزة
+        final syncId = record['sync_id']?.toString() ?? record['id']?.toString();
+        if (syncId != null) {
+          SyncService.instance.pushToQueue(
+            'production_reports',
+            {'sync_id': syncId, 'id': syncId},
+            operation: 'delete',
+          );
+          debugPrint('🗑️ _deleteSingleReport: تم إضافة الحذف للـ Queue (sync_id=$syncId)');
+        }
+
         if (mounted) {
           messenger.clearSnackBars();
           UIUtils.showUndoSnackBar(
@@ -94,6 +106,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       },
     );
   }
+
 
   void _deleteAllReports() {
     if (_productionReportBox == null || _productionReportBox!.isEmpty) return;

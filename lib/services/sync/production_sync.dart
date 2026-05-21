@@ -187,10 +187,21 @@ mixin ProductionSync on SyncServiceBase {
   ) async {
     try {
       final isDelete = payload.eventType == PostgresChangeEvent.delete;
-      final record = isDelete ? payload.oldRecord : payload.newRecord;
+
+      // ⚠️ عند DELETE: oldRecord يكون فارغاً إذا لم يكن REPLICA IDENTITY FULL مفعّلاً.
+      // نستخدم newRecord كـ fallback لاستخراج المعرّف (id/sync_id).
+      Map<String, dynamic> record;
+      if (isDelete) {
+        record = payload.oldRecord.isNotEmpty
+            ? payload.oldRecord
+            : payload.newRecord;
+      } else {
+        record = payload.newRecord;
+      }
 
       if (record.isEmpty) {
-        debugPrint('⚠️ [production_reports] payload فارغ! تحقق من Replica Identity.');
+        debugPrint('⚠️ [production_reports] DELETE payload فارغ تماماً! '
+            'تأكد من: ALTER TABLE production_reports REPLICA IDENTITY FULL;');
         return;
       }
 
@@ -198,6 +209,7 @@ mixin ProductionSync on SyncServiceBase {
       if (!isDelete && recordFactoryId != myFactoryId) {
         debugPrint('⏭️ [production_reports] تجاهل: factory مختلف'); return;
       }
+
 
       if (!Hive.isBoxOpen('inkReports')) {
         debugPrint('⚠️ [production_reports] Box inkReports مغلق!'); return;
@@ -262,8 +274,25 @@ mixin ProductionSync on SyncServiceBase {
   ) async {
     try {
       final isDelete = payload.eventType == PostgresChangeEvent.delete;
-      final record = isDelete ? payload.oldRecord : payload.newRecord;
-      if (record.isEmpty) return;
+
+      // ⚠️ عند DELETE: Supabase يرسل oldRecord فقط إذا كان REPLICA IDENTITY FULL مفعّلاً.
+      // إذا كان oldRecord فارغاً، نحاول استخدام newRecord كـ fallback.
+      Map<String, dynamic> record;
+      if (isDelete) {
+        record = payload.oldRecord.isNotEmpty
+            ? payload.oldRecord
+            : payload.newRecord;
+      } else {
+        record = payload.newRecord;
+      }
+
+      if (record.isEmpty) {
+        debugPrint(
+          '⚠️ [live_sessions] DELETE payload فارغ تماماً! '
+          'تأكد من تفعيل: ALTER TABLE live_sessions REPLICA IDENTITY FULL;',
+        );
+        return;
+      }
 
       final recordFactoryId = record['factory_id']?.toString();
       if (!isDelete && recordFactoryId != myFactoryId) return;
@@ -272,19 +301,40 @@ mixin ProductionSync on SyncServiceBase {
         await Hive.openBox<LiveSession>('flexo_live_sessions');
       }
       final box = Hive.box<LiveSession>('flexo_live_sessions');
-      final stableKey = record['sync_id']?.toString() ?? record['id']?.toString();
-      if (stableKey == null) return;
+
+      // محاولة استخراج المفتاح الثابت من أكثر من حقل ممكن
+      final stableKey = record['sync_id']?.toString()
+          ?? record['id']?.toString();
+
+      if (stableKey == null) {
+        debugPrint('⚠️ [live_sessions] DELETE: لا يوجد sync_id أو id في payload!');
+        return;
+      }
 
       if (isDelete) {
-        dynamic existingKey = stableKey;
-        for (var i = 0; i < box.length; i++) {
-          final session = box.getAt(i);
-          if (session != null && session.id == stableKey) {
-            existingKey = box.keyAt(i); break;
+        // ── بحث شامل في الصندوق للعثور على المفتاح ──
+        dynamic keyToDelete;
+
+        // أولاً: بحث مباشر بالـ stableKey
+        if (box.containsKey(stableKey)) {
+          keyToDelete = stableKey;
+        } else {
+          // ثانياً: بحث بالمرور على الكل ومقارنة session.id
+          for (var i = 0; i < box.length; i++) {
+            final session = box.getAt(i);
+            if (session != null && session.id == stableKey) {
+              keyToDelete = box.keyAt(i);
+              break;
+            }
           }
         }
-        await box.delete(existingKey);
-        debugPrint('🗑️ [live_sessions] حُذف محلياً: $stableKey');
+
+        if (keyToDelete != null) {
+          await box.delete(keyToDelete);
+          debugPrint('🗑️ [live_sessions] حُذف محلياً: $stableKey');
+        } else {
+          debugPrint('⚠️ [live_sessions] لم يُعثر على الجلسة محلياً: $stableKey (ربما حُذف مسبقاً)');
+        }
       } else {
         final session = LiveSession.fromJson(record);
         dynamic existingKey = stableKey;
@@ -301,6 +351,7 @@ mixin ProductionSync on SyncServiceBase {
       debugPrint('❌ _onLiveSessionChange: $e');
     }
   }
+
 
   // ==============================================================
   // Helpers — خاصة بتقارير الإنتاج

@@ -24,14 +24,21 @@ class SessionCard extends StatefulWidget {
 }
 
 class _SessionCardState extends State<SessionCard> {
-  late Timer _timer;
+  Timer? _timer;
   late Duration _displayDuration;
+  late bool _isOwner;
 
   @override
   void initState() {
     super.initState();
     _displayDuration = widget.session.netRunningTime;
-    _startTimer();
+    
+    final String? currentDeviceId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('device_id') : null;
+    _isOwner = currentDeviceId != null && currentDeviceId == widget.session.createdByDeviceId;
+
+    if (_isOwner) {
+      _startTimer();
+    }
   }
 
   void _startTimer() {
@@ -46,7 +53,7 @@ class _SessionCardState extends State<SessionCard> {
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 
@@ -61,8 +68,7 @@ class _SessionCardState extends State<SessionCard> {
   @override
   Widget build(BuildContext context) {
     final bool isPaused = !widget.session.isRunning;
-    final String? currentDeviceId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('device_id') : null;
-    final bool isOwner = currentDeviceId != null && currentDeviceId == widget.session.createdByDeviceId;
+    final bool isOwner = _isOwner;
     final bool isAdmin = context.watch<AuthService>().isAdmin;
 
     return Card(
@@ -161,7 +167,7 @@ class _SessionCardState extends State<SessionCard> {
                 ],
               ],
               const SizedBox(height: 10),
-              if (isOwner || isAdmin) ...[
+              if (isOwner) ...[
                 Center(
                   child: Text(
                     _formatDuration(_displayDuration),

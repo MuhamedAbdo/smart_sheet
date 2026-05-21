@@ -179,10 +179,23 @@ mixin CustomerSync on SyncServiceBase {
   ) async {
     try {
       final isDelete = payload.eventType == PostgresChangeEvent.delete;
-      final record = isDelete ? payload.oldRecord : payload.newRecord;
+
+      // ⚠️ عند DELETE: oldRecord يكون فارغاً إذا لم يكن REPLICA IDENTITY FULL مفعّلاً.
+      // نستخدم newRecord كـ fallback لاستخراج المعرّف.
+      Map<String, dynamic> record;
+      if (isDelete) {
+        record = payload.oldRecord.isNotEmpty
+            ? payload.oldRecord
+            : payload.newRecord;
+      } else {
+        record = payload.newRecord;
+      }
 
       if (record.isEmpty) {
-        debugPrint('⚠️ [customers] payload فارغ! تحقق من Replica Identity في Supabase.');
+        debugPrint(
+          '⚠️ [customers] DELETE payload فارغ تماماً! '
+          'تأكد من تفعيل: ALTER TABLE customers REPLICA IDENTITY FULL;',
+        );
         return;
       }
 
@@ -244,8 +257,23 @@ mixin CustomerSync on SyncServiceBase {
   ) async {
     try {
       final isDelete = payload.eventType == PostgresChangeEvent.delete;
-      final record = isDelete ? payload.oldRecord : payload.newRecord;
-      if (record.isEmpty) return;
+
+      // ⚠️ نفس fallback pattern للتعامل مع REPLICA IDENTITY FULL المعطّل
+      Map<String, dynamic> record;
+      if (isDelete) {
+        record = payload.oldRecord.isNotEmpty
+            ? payload.oldRecord
+            : payload.newRecord;
+      } else {
+        record = payload.newRecord;
+      }
+      if (record.isEmpty) {
+        debugPrint(
+          '⚠️ [customer_products] DELETE payload فارغ! '
+          'تأكد من: ALTER TABLE customer_products REPLICA IDENTITY FULL;',
+        );
+        return;
+      }
 
       if (!Hive.isBoxOpen('finished_products')) {
         await Hive.openBox<FinishedProduct>('finished_products');
