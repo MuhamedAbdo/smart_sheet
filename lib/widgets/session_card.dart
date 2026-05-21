@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/live_session.dart';
@@ -32,9 +34,25 @@ class _SessionCardState extends State<SessionCard> {
   void initState() {
     super.initState();
     _displayDuration = widget.session.netRunningTime;
-    
-    final String? currentDeviceId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('device_id') : null;
-    _isOwner = currentDeviceId != null && currentDeviceId == widget.session.createdByDeviceId;
+
+    // ✅ الديسكتوب (Windows/macOS/Linux) لا يكون مالكاً أبداً.
+    // الجلسات تُنشأ حصراً من الموبايل، لذلك نمنع التحكم من أي منصة سطح مكتب.
+    final bool isDesktop = !kIsWeb && (
+      Platform.isWindows || Platform.isMacOS || Platform.isLinux
+    );
+
+    if (!isDesktop) {
+      final String? currentDeviceId = Hive.isBoxOpen('settings')
+          ? Hive.box('settings').get('device_id')
+          : null;
+      _isOwner = currentDeviceId != null &&
+          currentDeviceId.isNotEmpty &&
+          widget.session.createdByDeviceId != null &&
+          widget.session.createdByDeviceId!.isNotEmpty &&
+          currentDeviceId == widget.session.createdByDeviceId;
+    } else {
+      _isOwner = false; // Desktop: عرض فقط بدون أي تحكم
+    }
 
     if (_isOwner) {
       _startTimer();

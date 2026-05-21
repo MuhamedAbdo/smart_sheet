@@ -83,11 +83,6 @@ Future<void> main() async {
         Hive.openBox<LiveSession>('flexo_live_sessions'),
         Hive.openBox('sync_queue'), // قائمة انتظار المزامنة
       ]);
-      
-      // ✅ مسح الكاش المؤقت لضمان سحب بيانات نظيفة من السيرفر
-      await Hive.box<LiveSession>('flexo_live_sessions').clear();
-      await Hive.box('sync_queue').clear();
-      
       _openBackgroundBoxes();
     }
 
