@@ -15,6 +15,104 @@ import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 
+/// Helper class for factory shift-based time calculations
+class ShiftTimeCalculator {
+  /// Calculate total shift duration in hours
+  static double calculateShiftDuration(
+      TimeOfDay shiftStart, TimeOfDay shiftEnd) {
+    double shiftHours = shiftEnd.hour +
+        shiftEnd.minute / 60.0 -
+        (shiftStart.hour + shiftStart.minute / 60.0);
+    if (shiftHours <= 0) shiftHours += 24;
+    return shiftHours;
+  }
+
+  /// Calculate action duration in hours between departure and return times
+  static double calculateActionDuration(
+    DateTime departureDate,
+    TimeOfDay? departureTime,
+    DateTime? returnDate,
+    TimeOfDay? returnTime,
+    TimeOfDay defaultShiftStart,
+    TimeOfDay defaultShiftEnd,
+  ) {
+    final depHour = departureTime?.hour ?? defaultShiftStart.hour;
+    final depMinute = departureTime?.minute ?? defaultShiftStart.minute;
+
+    final retHour = returnTime?.hour ?? defaultShiftEnd.hour;
+    final retMinute = returnTime?.minute ?? defaultShiftEnd.minute;
+
+    final startDateTime = DateTime(
+      departureDate.year,
+      departureDate.month,
+      departureDate.day,
+      depHour,
+      depMinute,
+    );
+
+    final endBaseDate = returnDate ?? departureDate;
+    final endDateTime = DateTime(
+      endBaseDate.year,
+      endBaseDate.month,
+      endBaseDate.day,
+      retHour,
+      retMinute,
+    );
+
+    final diffMinutes = endDateTime.difference(startDateTime).inMinutes;
+    if (diffMinutes <= 0) return 0.0;
+
+    return diffMinutes / 60.0;
+  }
+
+  /// Smart 50% day calculation with +/- 1 hour margin
+  /// Returns the calculated days with proper fractional day adjustment
+  static double calculateDaysWithSmart50Rule(
+    double actionDurationHours,
+    double shiftDurationHours,
+  ) {
+    final totalHours = actionDurationHours;
+    final fullDays = (totalHours / 24).floor();
+    final remainingHours = totalHours % 24;
+
+    // Calculate 50% threshold with +/- 1 hour margin
+    final halfShift = shiftDurationHours / 2;
+    final lowerMargin = halfShift - 1.0;
+    final upperMargin = halfShift + 1.0;
+
+    double partialDay = 0.0;
+
+    // Full day threshold (within 1 hour of full shift)
+    if (remainingHours >= shiftDurationHours - 1.0) {
+      partialDay = 1.0;
+    }
+    // 50% rule: within +/- 1 hour of half shift
+    else if (remainingHours >= lowerMargin && remainingHours <= upperMargin) {
+      partialDay = 0.5;
+    }
+    // More than 50% but less than full day
+    else if (remainingHours > upperMargin) {
+      partialDay = 0.5;
+    }
+    // Less than 50% threshold
+    else {
+      partialDay = 0.0;
+    }
+
+    return fullDays + partialDay;
+  }
+
+  /// Get default departure time (shift start)
+  static TimeOfDay getDefaultDepartureTime(ThemeProvider themeProvider) {
+    return themeProvider.shiftStart;
+  }
+
+  /// Get default return time for ending a live session (shift start)
+  static TimeOfDay getDefaultReturnTime(ThemeProvider themeProvider) {
+    return themeProvider.shiftStart;
+  }
+}
+
 class WorkerDetailsScreen extends StatefulWidget {
   final Worker worker;
   final Box<Worker> box;
@@ -52,7 +150,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
   void _setupHiveListener() {
     if (!widget.box.isOpen) return;
-    _hiveSubscription = widget.box.watch(key: widget.worker.key).listen((event) {
+    _hiveSubscription =
+        widget.box.watch(key: widget.worker.key).listen((event) {
       if (mounted) {
         final freshWorker = widget.box.get(widget.worker.key);
         if (freshWorker != null) {
@@ -322,8 +421,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                         onRefresh: _refresh,
                         onEdit: () async {
                           if (originalIndex != -1) {
-                            _editAction(_worker.actions[originalIndex],
-                                originalIndex);
+                            _editAction(
+                                _worker.actions[originalIndex], originalIndex);
                             _refresh();
                           }
                         },
@@ -453,12 +552,27 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       _showActionBottomSheet(existingAction: action, index: index);
 
   void _showActionBottomSheet({WorkerAction? existingAction, int? index}) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
     final actionType = ValueNotifier<String>(existingAction?.type ?? 'إجازة');
     final date =
         ValueNotifier<DateTime>(existingAction?.date ?? DateTime.now());
     final calculatedDays = ValueNotifier<double>(existingAction?.days ?? 1.0);
-    final startTime = ValueNotifier<TimeOfDay?>(existingAction?.startTime);
-    final endTime = ValueNotifier<TimeOfDay?>(existingAction?.endTime);
+
+    // Default time initialization based on factory shift
+    final defaultDepartureTime =
+        ShiftTimeCalculator.getDefaultDepartureTime(themeProvider);
+    final defaultReturnTime =
+        ShiftTimeCalculator.getDefaultReturnTime(themeProvider);
+
+    // Set default departure time to shift start for new actions
+    final startTime = ValueNotifier<TimeOfDay?>(
+        existingAction?.startTime ?? defaultDepartureTime);
+
+    // Set default return time to shift start when ending a live session (returnDate is set)
+    final endTime = ValueNotifier<TimeOfDay?>(existingAction?.endTime ??
+        (existingAction?.returnDate != null ? defaultReturnTime : null));
+
     final rewardType = ValueNotifier<String>(
         existingAction?.amount != null ? 'amount' : 'days');
     final amountController =
@@ -473,79 +587,53 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       final shiftStart = themeProvider.shiftStart;
       final shiftEnd = themeProvider.shiftEnd;
 
-      // Calculate shift duration in hours
-      double shiftHours = shiftEnd.hour +
-          shiftEnd.minute / 60.0 -
-          (shiftStart.hour + shiftStart.minute / 60.0);
-      if (shiftHours <= 0) shiftHours += 24;
+      // Calculate shift duration using helper
+      final shiftDuration =
+          ShiftTimeCalculator.calculateShiftDuration(shiftStart, shiftEnd);
 
       if (returnDate.value != null) {
-        final start = DateTime(
-            date.value.year,
-            date.value.month,
-            date.value.day,
-            startTime.value?.hour ?? shiftStart.hour,
-            startTime.value?.minute ?? shiftStart.minute);
-        final end = DateTime(
-            returnDate.value!.year,
-            returnDate.value!.month,
-            returnDate.value!.day,
-            endTime.value?.hour ?? shiftEnd.hour,
-            endTime.value?.minute ?? shiftEnd.minute);
+        // Multi-day or single-day absence with return date
+        final actionDuration = ShiftTimeCalculator.calculateActionDuration(
+          date.value,
+          startTime.value,
+          returnDate.value,
+          endTime.value,
+          shiftStart,
+          shiftEnd,
+        );
 
-        final diffMinutes = end.difference(start).inMinutes;
-        if (diffMinutes <= 0) {
+        if (actionDuration <= 0) {
           calculatedDays.value = 0.0;
           return;
         }
 
-        final totalHours = diffMinutes / 60.0;
-        final fullDays = (totalHours / 24).floor();
-        final remainingHours = totalHours % 24;
-
-        double partialDay = 0.0;
-        if (remainingHours >= shiftHours - 1) {
-          partialDay = 1.0;
-        } else if (remainingHours >= (shiftHours / 2) - 1 &&
-            remainingHours <= (shiftHours / 2) + 1.5) {
-          // توسيع النطاق قليلاً ليشمل 3 و 4 و 5 ساعات إذا كانت الوردية 8 ساعات
-          partialDay = 0.5;
-        } else if (remainingHours > (shiftHours / 2) + 1.5) {
-          // إذا كانت أكثر من نصف الوردية بوضوح ولكن لم تصل للوردية الكاملة
-          partialDay = 0.5;
-        }
-
-        calculatedDays.value = fullDays + partialDay;
+        // Use smart 50% rule calculation
+        calculatedDays.value = ShiftTimeCalculator.calculateDaysWithSmart50Rule(
+          actionDuration,
+          shiftDuration,
+        );
       } else if (startTime.value != null && endTime.value != null) {
         // Same day partial absence (Permission/إذن)
-        double duration = endTime.value!.hour +
-            endTime.value!.minute / 60.0 -
-            (startTime.value!.hour + startTime.value!.minute / 60.0);
-        if (duration < 0) duration += 24;
+        final actionDuration = ShiftTimeCalculator.calculateActionDuration(
+          date.value,
+          startTime.value,
+          null, // Same day
+          endTime.value,
+          shiftStart,
+          shiftEnd,
+        );
 
-        if (duration >= shiftHours - 1) {
-          calculatedDays.value = 1.0;
-        } else if (duration >= (shiftHours / 2) - 1 &&
-            duration <= (shiftHours / 2) + 1.5) {
-          calculatedDays.value = 0.5;
-        } else if (duration > (shiftHours / 2) + 1.5) {
-          calculatedDays.value = 0.5;
-        } else {
-          calculatedDays.value = 0.0;
-        }
+        // Use smart 50% rule calculation for same-day permissions
+        calculatedDays.value = ShiftTimeCalculator.calculateDaysWithSmart50Rule(
+          actionDuration,
+          shiftDuration,
+        );
       }
     }
 
-    // Initial check if we are editing an existing action
-    if (existingAction != null &&
-        (existingAction.days == 0 || existingAction.days == null) &&
-        existingAction.returnDate != null) {
-      final start = DateTime(existingAction.date.year,
-          existingAction.date.month, existingAction.date.day);
-      final end = DateTime(existingAction.returnDate!.year,
-          existingAction.returnDate!.month, existingAction.returnDate!.day);
-      final diff = end.difference(start).inDays;
-      calculatedDays.value = diff.toDouble();
+    // Initial calculation for existing actions
+    if (existingAction != null) {
+      updateCalculatedDays();
     }
 
     showModalBottomSheet(
@@ -806,8 +894,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                     endTimeMinute: endTime.value?.minute,
                                     amount: amountToSave,
                                     bonusDays: bonusDaysToSave,
-                                    factoryId:
-                                        factoryId ?? _worker.factoryId,
+                                    factoryId: factoryId ?? _worker.factoryId,
                                     workerName: _worker.name,
                                     workerId: _worker.id,
                                   );

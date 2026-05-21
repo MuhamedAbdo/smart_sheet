@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
+import 'package:smart_sheet/providers/theme_provider.dart';
+import 'package:smart_sheet/screens/worker_details_screen.dart';
 
 class ActiveAbsenceCard extends StatelessWidget {
   final Worker worker;
@@ -486,11 +489,40 @@ class ActiveAbsenceCard extends StatelessWidget {
 
     final returnDateNotifier = ValueNotifier<DateTime>(initialReturnDate);
 
-    int calcDays() {
+    // Get theme provider for default return time (shift start)
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final defaultReturnTime =
+        ShiftTimeCalculator.getDefaultReturnTime(themeProvider);
+    final returnTimeNotifier = ValueNotifier<TimeOfDay>(defaultReturnTime);
+
+    double calcDays() {
       final startDate = DateTime(start.year, start.month, start.day);
       final rDate = DateTime(returnDateNotifier.value.year,
           returnDateNotifier.value.month, returnDateNotifier.value.day);
-      return rDate.difference(startDate).inDays;
+
+      // Use smart calculation with time consideration
+      final shiftStart = themeProvider.shiftStart;
+      final shiftEnd = themeProvider.shiftEnd;
+      final shiftDuration =
+          ShiftTimeCalculator.calculateShiftDuration(shiftStart, shiftEnd);
+
+      final actionDuration = ShiftTimeCalculator.calculateActionDuration(
+        start,
+        action.startTime, // Use existing start time if available
+        returnDateNotifier.value,
+        returnTimeNotifier.value,
+        shiftStart,
+        shiftEnd,
+      );
+
+      if (actionDuration <= 0) {
+        return rDate.difference(startDate).inDays.toDouble();
+      }
+
+      return ShiftTimeCalculator.calculateDaysWithSmart50Rule(
+        actionDuration,
+        shiftDuration,
+      );
     }
 
     await showModalBottomSheet(
@@ -561,6 +593,28 @@ class ActiveAbsenceCard extends StatelessWidget {
                           }
                         },
                       ),
+                      const SizedBox(height: 8),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text("وقت العودة",
+                            style: TextStyle(fontSize: 14)),
+                        subtitle: Text(returnTimeNotifier.value.format(context),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                        trailing:
+                            const Icon(Icons.access_time, color: Colors.green),
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: returnTimeNotifier.value,
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              returnTimeNotifier.value = picked;
+                            });
+                          }
+                        },
+                      ),
                       const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -569,24 +623,38 @@ class ActiveAbsenceCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey.shade300),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.calculate_outlined,
-                                    color: Colors.grey, size: 20),
-                                SizedBox(width: 12),
-                                Text("عدد الأيام المحسوب:",
-                                    style: TextStyle(color: Colors.grey)),
-                              ],
-                            ),
-                            Text(
-                              "${calcDays()} يوم",
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                          ],
+                        child: ValueListenableBuilder<DateTime>(
+                          valueListenable: returnDateNotifier,
+                          builder: (context, returnDate, _) {
+                            return ValueListenableBuilder<TimeOfDay>(
+                              valueListenable: returnTimeNotifier,
+                              builder: (context, returnTime, _) {
+                                final days = calcDays();
+                                return Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.calculate_outlined,
+                                            color: Colors.grey, size: 20),
+                                        SizedBox(width: 12),
+                                        Text("عدد الأيام المحسوب:",
+                                            style:
+                                                TextStyle(color: Colors.grey)),
+                                      ],
+                                    ),
+                                    Text(
+                                      "${days.toStringAsFixed(1)} يوم",
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(height: 30),
@@ -615,10 +683,14 @@ class ActiveAbsenceCard extends StatelessWidget {
                                   return;
                                 }
 
-                                final finalDays = calcDays().toDouble();
+                                final finalDays = calcDays();
 
                                 action.returnDate = returnDateNotifier.value;
                                 action.days = finalDays;
+                                action.endTimeHour =
+                                    returnTimeNotifier.value.hour;
+                                action.endTimeMinute =
+                                    returnTimeNotifier.value.minute;
 
                                 final factoryId =
                                     await SupabaseManager.getFactoryId();
