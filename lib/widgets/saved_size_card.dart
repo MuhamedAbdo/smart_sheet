@@ -1,8 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 
 class SavedSizeCard extends StatelessWidget {
   final Map<String, dynamic> record;
@@ -111,7 +115,6 @@ class SavedSizeCard extends StatelessWidget {
             if (record['isSheet'] != true)
               _buildInfoRow("📏 الارتفاع", "${record['height'] ?? '—'} سم"),
 
-
             const SizedBox(height: 10),
 
             // --- بيانات الشيت حسب النوع ---
@@ -183,7 +186,6 @@ class SavedSizeCard extends StatelessWidget {
               style: TextStyle(
                   fontSize: 14,
                   fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
-
         ],
       ),
     );
@@ -204,28 +206,58 @@ class SavedSizeCard extends StatelessWidget {
               padding: const EdgeInsets.only(left: 8.0),
               child: GestureDetector(
                 onTap: () => _showFullScreenImage(context, images, i, ''),
-                child: Container(
-                  width: 60,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: CachedNetworkImage(
-                    imageUrl: images[i],
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => const Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: CachedNetworkImage(
+                        imageUrl: images[i],
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Tooltip(
+                          message: 'تعذّر التحميل:\n$url\n\n$error',
+                          child: const Icon(Icons.broken_image,
+                              size: 20, color: Colors.red),
+                        ),
                       ),
                     ),
-                    errorWidget: (context, url, error) => Tooltip(
-                      message: 'تعذّر التحميل:\n$url\n\n$error',
-                      child: const Icon(Icons.broken_image, size: 20, color: Colors.red),
+                    Positioned(
+                      top: 2,
+                      right: 2,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () =>
+                              _downloadThumbnailImage(context, images[i]),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.download,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             );
@@ -256,35 +288,70 @@ class SavedSizeCard extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () =>
                       _showFullScreenImage(context, images, i, baseDirPath),
-                  child: Container(
+                  child: SizedBox(
                     width: 60,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: path.startsWith('http')
-                        ? CachedNetworkImage(
-                            imageUrl: path,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                    height: 60,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: path.startsWith('http')
+                              ? CachedNetworkImage(
+                                  imageUrl: path,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => const Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    ),
+                                  ),
+                                  errorWidget: (context, url, error) => Tooltip(
+                                    message: 'تعذّر التحميل:\n$url\n\n$error',
+                                    child: const Icon(Icons.broken_image,
+                                        size: 20, color: Colors.red),
+                                  ),
+                                )
+                              : Image.file(
+                                  File(path),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(Icons.broken_image, size: 20),
+                                ),
+                        ),
+                        Positioned(
+                          top: 2,
+                          right: 2,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () =>
+                                  _downloadThumbnailImage(context, path),
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: const BoxDecoration(
+                                  color: Colors.black54,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.download,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                            errorWidget: (context, url, error) => Tooltip(
-                              message: 'تعذّر التحميل:\n$url\n\n$error',
-                              child: const Icon(Icons.broken_image, size: 20, color: Colors.red),
-                            ),
-                          )
-                        : Image.file(
-                            File(path),
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.broken_image, size: 20),
                           ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -341,13 +408,15 @@ class SavedSizeCard extends StatelessWidget {
 
     // تنفيذ نفس منطق دالة _calculateSheet الموجودة في شاشة الإدخال لضمان التطابق
     if (isOverFlap && isTwoFlap) {
-      productionWidth1 =
-          addTwoMm ? (width + 0.2).toStringAsFixed(2) : width.toStringAsFixed(2);
+      productionWidth1 = addTwoMm
+          ? (width + 0.2).toStringAsFixed(2)
+          : width.toStringAsFixed(2);
       productionWidth2 = productionWidth1;
     } else if (isOverFlap && isOneFlap) {
       productionWidth1 = ".....";
-      productionWidth2 =
-          addTwoMm ? (width + 0.2).toStringAsFixed(2) : width.toStringAsFixed(2);
+      productionWidth2 = addTwoMm
+          ? (width + 0.2).toStringAsFixed(2)
+          : width.toStringAsFixed(2);
     } else if (isFlap && isTwoFlap) {
       productionWidth1 = addTwoMm
           ? ((width / 2) + 0.2).toStringAsFixed(2)
@@ -415,6 +484,217 @@ class SavedSizeCard extends StatelessWidget {
       ),
     );
   }
+
+  static void _downloadThumbnailImage(BuildContext context, String imagePath) {
+    _downloadImage(context, imagePath);
+  }
+
+  static Future<void> _downloadImage(
+      BuildContext context, String imagePath) async {
+    try {
+      if (imagePath.startsWith('http')) {
+        await _downloadFromUrlStatic(context, imagePath);
+      } else {
+        await _copyLocalFileStatic(context, imagePath);
+      }
+    } catch (e) {
+      debugPrint('Error downloading image: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('فشل تحميل الصورة'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  static Future<void> _downloadFromUrlStatic(
+      BuildContext context, String url) async {
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to download image: ${response.statusCode}');
+      }
+      final bytes = response.bodyBytes;
+
+      String extension = '.jpg';
+      if (url.contains('.png')) {
+        extension = '.png';
+      } else if (url.contains('.jpeg')) {
+        extension = '.jpeg';
+      } else if (url.contains('.webp')) {
+        extension = '.webp';
+      }
+
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final filename = 'sample_$timestamp$extension';
+
+      if (kIsWeb) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('التحميل غير مدعوم على الويب'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (Platform.isAndroid) {
+        final downloadsDir = Directory('/storage/emulated/0/Download');
+        if (!await downloadsDir.exists()) {
+          final externalDir = await getExternalStorageDirectory();
+          if (externalDir != null) {
+            final file = File('${externalDir.path}/$filename');
+            await file.writeAsBytes(bytes);
+          } else {
+            throw Exception('External storage directory not available');
+          }
+        } else {
+          final file = File('${downloadsDir.path}/$filename');
+          await file.writeAsBytes(bytes);
+        }
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم حفظ الصورة في المعرض/التحميلات'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else if (Platform.isWindows || Platform.isLinux) {
+        String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: 'حفظ الصورة',
+          fileName: filename,
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        );
+
+        if (outputFile != null) {
+          final file = File(outputFile);
+          await file.writeAsBytes(bytes);
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم حفظ الصورة بنجاح'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } else {
+        final appDir = await getApplicationDocumentsDirectory();
+        final file = File('${appDir.path}/$filename');
+        await file.writeAsBytes(bytes);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم حفظ الصورة في: ${file.path}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error in _downloadFromUrlStatic: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> _copyLocalFileStatic(
+      BuildContext context, String sourcePath) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        throw Exception('Source file does not exist');
+      }
+
+      final bytes = await sourceFile.readAsBytes();
+      final extension = sourcePath.split('.').last.toLowerCase();
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final filename = 'sample_$timestamp.$extension';
+
+      if (kIsWeb) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('التحميل غير مدعوم على الويب'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (Platform.isAndroid) {
+        final downloadsDir = Directory('/storage/emulated/0/Download');
+        if (!await downloadsDir.exists()) {
+          final externalDir = await getExternalStorageDirectory();
+          if (externalDir != null) {
+            final file = File('${externalDir.path}/$filename');
+            await file.writeAsBytes(bytes);
+          } else {
+            throw Exception('External storage directory not available');
+          }
+        } else {
+          final file = File('${downloadsDir.path}/$filename');
+          await file.writeAsBytes(bytes);
+        }
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم حفظ الصورة في المعرض/التحميلات'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else if (Platform.isWindows || Platform.isLinux) {
+        String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: 'حفظ الصورة',
+          fileName: filename,
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        );
+
+        if (outputFile != null) {
+          final file = File(outputFile);
+          await file.writeAsBytes(bytes);
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم حفظ الصورة بنجاح'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } else {
+        final appDir = await getApplicationDocumentsDirectory();
+        final file = File('${appDir.path}/$filename');
+        await file.writeAsBytes(bytes);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم حفظ الصورة في: ${file.path}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error in _copyLocalFileStatic: $e');
+      rethrow;
+    }
+  }
 }
 
 // كلاس داخلي لعرض الصور بكامل الشاشة
@@ -448,6 +728,13 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
         title: Text("صورة ${_currentIndex + 1} من ${widget.images.length}"),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            onPressed: () => _downloadCurrentImage(context),
+            tooltip: 'تحميل الصورة',
+          ),
+        ],
       ),
       body: PageView.builder(
         controller: _pageController,
@@ -464,11 +751,13 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.broken_image, color: Colors.white, size: 50),
+                    const Icon(Icons.broken_image,
+                        color: Colors.white, size: 50),
                     const SizedBox(height: 8),
                     Text(
                       'تعذّر تحميل الصورة\n$path',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 12),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -483,11 +772,13 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.broken_image, color: Colors.white, size: 50),
+                    const Icon(Icons.broken_image,
+                        color: Colors.white, size: 50),
                     const SizedBox(height: 8),
                     Text(
                       'فشل تحميل الملف:\n$path',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 12),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -498,5 +789,221 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
         },
       ),
     );
+  }
+
+  Future<void> _downloadCurrentImage(BuildContext context) async {
+    final currentImagePath = widget.images[_currentIndex];
+
+    try {
+      if (currentImagePath.startsWith('http')) {
+        // Download from URL
+        await _downloadFromUrl(context, currentImagePath);
+      } else {
+        // Copy local file
+        await _copyLocalFile(context, currentImagePath);
+      }
+    } catch (e) {
+      debugPrint('Error downloading image: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('فشل تحميل الصورة'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _downloadFromUrl(BuildContext context, String url) async {
+    try {
+      // Download image bytes
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to download image: ${response.statusCode}');
+      }
+      final bytes = response.bodyBytes;
+
+      // Determine file extension from URL
+      String extension = '.jpg';
+      if (url.contains('.png')) {
+        extension = '.png';
+      } else if (url.contains('.jpeg')) {
+        extension = '.jpeg';
+      } else if (url.contains('.webp')) {
+        extension = '.webp';
+      }
+
+      // Generate timestamped filename
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final filename = 'sample_$timestamp$extension';
+
+      if (kIsWeb) {
+        // Web: Not supported in this implementation
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('التحميل غير مدعوم على الويب'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (Platform.isAndroid) {
+        // Android: Save to Downloads directory
+        final downloadsDir = Directory('/storage/emulated/0/Download');
+        if (!await downloadsDir.exists()) {
+          // Fallback to external storage directory
+          final externalDir = await getExternalStorageDirectory();
+          if (externalDir != null) {
+            final file = File('${externalDir.path}/$filename');
+            await file.writeAsBytes(bytes);
+          } else {
+            throw Exception('External storage directory not available');
+          }
+        } else {
+          final file = File('${downloadsDir.path}/$filename');
+          await file.writeAsBytes(bytes);
+        }
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم حفظ الصورة في المعرض/التحميلات'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else if (Platform.isWindows || Platform.isLinux) {
+        // Desktop: Use file picker to let user choose save location
+        String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: 'حفظ الصورة',
+          fileName: filename,
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        );
+
+        if (outputFile != null) {
+          final file = File(outputFile);
+          await file.writeAsBytes(bytes);
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم حفظ الصورة بنجاح'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } else {
+        // Fallback for other platforms
+        final appDir = await getApplicationDocumentsDirectory();
+        final file = File('${appDir.path}/$filename');
+        await file.writeAsBytes(bytes);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم حفظ الصورة في: ${file.path}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error in _downloadFromUrl: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _copyLocalFile(BuildContext context, String sourcePath) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        throw Exception('Source file does not exist');
+      }
+
+      final bytes = await sourceFile.readAsBytes();
+      final extension = sourcePath.split('.').last.toLowerCase();
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final filename = 'sample_$timestamp.$extension';
+
+      if (kIsWeb) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('التحميل غير مدعوم على الويب'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (Platform.isAndroid) {
+        final downloadsDir = Directory('/storage/emulated/0/Download');
+        if (!await downloadsDir.exists()) {
+          final externalDir = await getExternalStorageDirectory();
+          if (externalDir != null) {
+            final file = File('${externalDir.path}/$filename');
+            await file.writeAsBytes(bytes);
+          } else {
+            throw Exception('External storage directory not available');
+          }
+        } else {
+          final file = File('${downloadsDir.path}/$filename');
+          await file.writeAsBytes(bytes);
+        }
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم حفظ الصورة في المعرض/التحميلات'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else if (Platform.isWindows || Platform.isLinux) {
+        String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: 'حفظ الصورة',
+          fileName: filename,
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        );
+
+        if (outputFile != null) {
+          final file = File(outputFile);
+          await file.writeAsBytes(bytes);
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم حفظ الصورة بنجاح'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } else {
+        final appDir = await getApplicationDocumentsDirectory();
+        final file = File('${appDir.path}/$filename');
+        await file.writeAsBytes(bytes);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم حفظ الصورة في: ${file.path}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error in _copyLocalFile: $e');
+      rethrow;
+    }
   }
 }
