@@ -591,13 +591,16 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       final dateA = DateTime.tryParse(dateAStr) ?? DateTime(2000);
       final dateB = DateTime.tryParse(dateBStr) ?? DateTime(2000);
 
-      // الفرز الأساسي: التاريخ (حسب اختيار المستخدم)
-      int dateCompare =
+      // الفرز الأساسي: التاريخ (الأحدث أولاً أو العكس حسب اختيار المستخدم)
+      final int dateCompare =
           descending ? dateB.compareTo(dateA) : dateA.compareTo(dateB);
       if (dateCompare != 0) return dateCompare;
 
-      // الفرز الثانوي: المفتاح التقني (Key) لضمان ظهور الأحدث إضافياً أولاً عند تساوي التواريخ
-      return b.key.toString().compareTo(a.key.toString());
+      // الفرز الثانوي: وقت الانتهاء (endTime) داخل نفس اليوم — الأحدث أولاً دائماً
+      // endTime مخزّن كـ "HH:mm" — المقارنة النصية تعمل بشكل صحيح لهذا الفورمات
+      final endTimeA = a.value['endTime']?.toString() ?? '';
+      final endTimeB = b.value['endTime']?.toString() ?? '';
+      return endTimeB.compareTo(endTimeA);
     });
 
     // إضافة فلترة التاريخ في النهاية إذا كان مختاراً

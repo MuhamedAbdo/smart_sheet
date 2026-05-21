@@ -68,7 +68,9 @@ mixin ProductionSync on SyncServiceBase {
       final res = await _supabase
           .from('production_reports')
           .select()
-          .eq('factory_id', factoryId);
+          .eq('factory_id', factoryId)
+          .order('date', ascending: false)
+          .order('end_time', ascending: false);
 
       final box = Hive.isBoxOpen('inkReports')
           ? Hive.box('inkReports')
