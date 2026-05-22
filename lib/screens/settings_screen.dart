@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
+import 'package:smart_sheet/screens/about_screen.dart';
+import 'package:smart_sheet/screens/backup_restore_screen.dart';
+import 'package:smart_sheet/screens/privacy_policy_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/widgets/theme_toggle_button.dart';
-import 'package:smart_sheet/screens/backup_restore_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   static const String routeName = '/settings';
@@ -37,20 +39,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: isDesktop
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: _buildAppearanceCard(themeProvider)),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildDataCard(context)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildFactorySettingsCard(
-                      themeProvider,
-                      context,
-                      isAdmin: isAdmin,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildAppearanceCard(themeProvider)),
+                      const SizedBox(width: 16),
+                      Expanded(child: _buildDataCard(context)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildFactorySettingsCard(
+                          themeProvider,
+                          context,
+                          isAdmin: isAdmin,
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 16),
+                  _buildAboutCard(context),
                 ],
               )
             : Column(
@@ -64,6 +73,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     context,
                     isAdmin: isAdmin,
                   ),
+                  const SizedBox(height: 16),
+                  _buildAboutCard(context),
                 ],
               ),
       ),
@@ -187,8 +198,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 const Text(
                   "إعدادات المصنع والوردية",
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 // شارة دور الأدمن: مخفية عن بقية المستخدمين
@@ -207,14 +217,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             // ─── بداية الوردية ──────────────────────────────────────────
             ListTile(
-              leading:
-                  const Icon(Icons.access_time, color: Colors.orange),
+              leading: const Icon(Icons.access_time, color: Colors.orange),
               title: const Text("بداية الوردية"),
               subtitle: Text(shiftStart.format(context)),
               // قلم التحرير: ظاهر للأدمن فقط
-              trailing: isAdmin
-                  ? const Icon(Icons.edit, size: 18)
-                  : null,
+              trailing: isAdmin ? const Icon(Icons.edit, size: 18) : null,
               // تفاعل الضغط: متاح للأدمن فقط
               onTap: isAdmin
                   ? () async {
@@ -231,24 +238,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // ملاحظة: نستخدم update مباشراً بدلاً من pushToQueue لأن جدول
                       // factories يستخدم id كـ PK وليس sync_id,
                       // والطابور يُضيف factory_id تلقائياً مما يتعارض مع هيكل الجدول.
-                      final factoryId =
-                          await SupabaseManager.getFactoryId();
+                      final factoryId = await SupabaseManager.getFactoryId();
                       if (factoryId != null) {
                         try {
-                           final client = Supabase.instance.client;
-                           final payload = {
-                             'shift_start_time': fmtTime(picked),
-                             'shift_end_time': fmtTime(themeProvider.shiftEnd),
-                           };
-                           final updatedRows = await client
-                               .from('factories')
-                               .update(payload)
-                               .eq('factory_id', factoryId)
-                               .select();
-                           if (updatedRows.isEmpty) {
-                             payload['factory_id'] = factoryId;
-                             await client.from('factories').insert(payload);
-                           }
+                          final client = Supabase.instance.client;
+                          final payload = {
+                            'shift_start_time': fmtTime(picked),
+                            'shift_end_time': fmtTime(themeProvider.shiftEnd),
+                          };
+                          final updatedRows = await client
+                              .from('factories')
+                              .update(payload)
+                              .eq('factory_id', factoryId)
+                              .select();
+                          if (updatedRows.isEmpty) {
+                            payload['factory_id'] = factoryId;
+                            await client.from('factories').insert(payload);
+                          }
                           debugPrint(
                               '✅ [factories] تم رفع وقت بداية الوردية: ${fmtTime(picked)}');
                         } catch (e) {
@@ -262,7 +268,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       if (mounted) setState(() {});
                     }
                   : null,
-
             ),
             const Divider(),
 
@@ -273,9 +278,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: const Text("نهاية الوردية"),
               subtitle: Text(shiftEnd.format(context)),
               // قلم التحرير: ظاهر للأدمن فقط
-              trailing: isAdmin
-                  ? const Icon(Icons.edit, size: 18)
-                  : null,
+              trailing: isAdmin ? const Icon(Icons.edit, size: 18) : null,
               // تفاعل الضغط: متاح للأدمن فقط
               onTap: isAdmin
                   ? () async {
@@ -289,24 +292,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       await themeProvider.setShiftEnd(picked);
 
                       // 2️⃣ رفع مباشر لـ Supabase → ينشّط Realtime على باقي الأجهزة
-                      final factoryId =
-                          await SupabaseManager.getFactoryId();
+                      final factoryId = await SupabaseManager.getFactoryId();
                       if (factoryId != null) {
                         try {
-                           final client = Supabase.instance.client;
-                           final payload = {
-                             'shift_start_time': fmtTime(themeProvider.shiftStart),
-                             'shift_end_time': fmtTime(picked),
-                           };
-                           final updatedRows = await client
-                               .from('factories')
-                               .update(payload)
-                               .eq('factory_id', factoryId)
-                               .select();
-                           if (updatedRows.isEmpty) {
-                             payload['factory_id'] = factoryId;
-                             await client.from('factories').insert(payload);
-                           }
+                          final client = Supabase.instance.client;
+                          final payload = {
+                            'shift_start_time':
+                                fmtTime(themeProvider.shiftStart),
+                            'shift_end_time': fmtTime(picked),
+                          };
+                          final updatedRows = await client
+                              .from('factories')
+                              .update(payload)
+                              .eq('factory_id', factoryId)
+                              .select();
+                          if (updatedRows.isEmpty) {
+                            payload['factory_id'] = factoryId;
+                            await client.from('factories').insert(payload);
+                          }
                           debugPrint(
                               '✅ [factories] تم رفع وقت نهاية الوردية: ${fmtTime(picked)}');
                         } catch (e) {
@@ -320,7 +323,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       if (mounted) setState(() {});
                     }
                   : null,
-
             ),
             const Divider(),
 
@@ -329,15 +331,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.all(12.0),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline,
-                      size: 16, color: Colors.grey),
+                  const Icon(Icons.info_outline, size: 16, color: Colors.grey),
                   const SizedBox(width: 8),
                   Text(
                     "إجمالي ساعات الوردية: ${totalHours.toStringAsFixed(1)} ساعة",
-                    style: const TextStyle(
-                        color: Colors.grey, fontSize: 13),
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── بطاقة معلومات التطبيق والخصوصية ────────────────────────────────────
+  Widget _buildAboutCard(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blueAccent),
+                SizedBox(width: 8),
+                Text(
+                  'معلومات التطبيق',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Divider(),
+            ListTile(
+              leading:
+                  const Icon(Icons.apps_outlined, color: Colors.blueAccent),
+              title: const Text('عن التطبيق والمطور'),
+              subtitle: const Text('Smart Sheet — Version 1.0.0'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+              contentPadding: EdgeInsets.zero,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AboutScreen()),
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading:
+                  const Icon(Icons.privacy_tip_outlined, color: Colors.teal),
+              title: const Text('سياسة الخصوصية'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+              contentPadding: EdgeInsets.zero,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
               ),
             ),
           ],
