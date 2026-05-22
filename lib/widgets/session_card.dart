@@ -149,7 +149,7 @@ class _SessionCardState extends State<SessionCard> {
               ),
               const Divider(),
               _buildInfoRow(Icons.person, "العميل: ${widget.session.clientName}"),
-              _buildInfoRow(Icons.engineering, "الفني: ${widget.session.technicianName}"),
+              _buildInfoRow(Icons.category_outlined, "الصنف: ${widget.session.productName}"),
               _buildInfoRow(
                   Icons.numbers, "أمر: ${widget.session.orderNumber}"),
               InkWell(
