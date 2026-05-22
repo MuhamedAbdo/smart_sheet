@@ -211,8 +211,40 @@ Future<void> _initializeNotifications() async {
       .initialize(const InitializationSettings(android: androidSettings));
 }
 
-class SmartSheetApp extends StatelessWidget {
+class SmartSheetApp extends StatefulWidget {
   const SmartSheetApp({super.key});
+
+  @override
+  State<SmartSheetApp> createState() => _SmartSheetAppState();
+}
+
+class _SmartSheetAppState extends State<SmartSheetApp>
+    with WidgetsBindingObserver {
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// إعادة تهيئة الـ Realtime channels عند العودة للمقدمة —
+  /// على Android يقوم النظام بإيقاف WebSocket في الخلفية،
+  /// مما يُفضي إلى فقدان أحداث live_sessions على الأجهزة غير المُنشئة للجلسة.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('▶️ SmartSheetApp: العودة للمقدمة → إعادة تهيئة المزامنة...');
+      SyncService.instance.initialize().catchError((e) {
+        debugPrint('❌ SmartSheetApp: فشل initialize() عند resume: $e');
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

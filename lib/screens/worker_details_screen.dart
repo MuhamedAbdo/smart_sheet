@@ -128,7 +128,6 @@ class WorkerDetailsScreen extends StatefulWidget {
 }
 
 class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
-  StreamSubscription? _supabaseSubscription;
   StreamSubscription? _hiveSubscription;
   late Worker _worker;
 
@@ -137,23 +136,31 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     super.initState();
     _worker = widget.box.get(widget.worker.key) ?? widget.worker;
     _cleanupActions();
-    _setupSupabaseStream();
+    // SyncService يتولى مزامنة worker_actions عبر _onAttendanceLogChange
+    // الذي يُحدِّث Hive ثم يستدعي w.save() — يكفي الاستماع لـ Hive فقط.
     _setupHiveListener();
   }
 
   @override
   void dispose() {
-    _supabaseSubscription?.cancel();
     _hiveSubscription?.cancel();
     super.dispose();
   }
 
   void _setupHiveListener() {
     if (!widget.box.isOpen) return;
+    // نُثبِّت المفتاح فوراً قبل أي إعادة تهيئة للـ Hive قد تُبطل المرجع القديم.
+    // بعد استدعاء _initWorkers() عند resume، يُستبدَل Worker القديم بجديد
+    // ويفقد القديم مفتاحه من الـ keystore → widget.worker.key يصبح null.
+    final watchKey = widget.worker.key;
+    if (watchKey == null) {
+      debugPrint('⚠️ WorkerDetails: worker key is null, Hive listener skipped.');
+      return;
+    }
     _hiveSubscription =
-        widget.box.watch(key: widget.worker.key).listen((event) {
+        widget.box.watch(key: watchKey).listen((event) {
       if (mounted) {
-        final freshWorker = widget.box.get(widget.worker.key);
+        final freshWorker = widget.box.get(watchKey); // استخدام المفتاح المُثبَّت
         if (freshWorker != null) {
           setState(() {
             _worker = freshWorker;
@@ -185,68 +192,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     }
   }
 
-  Future<void> _setupSupabaseStream() async {
-    final stream =
-        await SupabaseManager.streamData('worker_actions', primaryKey: ['id']);
-    if (stream == null) return;
-
-    _supabaseSubscription = stream.listen((data) async {
-      if (!Hive.isBoxOpen('worker_actions')) return;
-      final actionBox = Hive.box<WorkerAction>('worker_actions');
-      bool updated = false;
-
-      if (data.isNotEmpty) {
-        for (var record in data) {
-          if (record['worker_name'] != _worker.name) continue;
-
-          final action = WorkerAction.fromJson(record);
-          if (action.id == null) continue;
-
-          // البحث عن الإجراء محلياً باستخدام الـ ID
-          final localIndex = _worker.actions
-              .indexWhere((a) => (a as WorkerAction?)?.id == action.id);
-
-          if (localIndex == -1) {
-            // إجراء جديد تماماً قادم من جهاز آخر -> يتم إضافته للحفاظ على التزامن
-            await actionBox.put(action.id, action);
-            final saved = actionBox.get(action.id);
-            if (saved != null) {
-              _worker.actions.add(saved);
-              updated = true;
-            }
-          } else {
-            // إجراء موجود بالفعل -> نقوم بتحديث خصائصه مباشرة للحفاظ على ارتباطه بقائمة HiveList
-            final existingAction = _worker.actions[localIndex];
-            existingAction.type = action.type;
-            existingAction.days = action.days;
-            existingAction.date = action.date;
-            existingAction.notes = action.notes;
-            existingAction.returnDate = action.returnDate;
-            existingAction.startTimeHour = action.startTimeHour;
-            existingAction.startTimeMinute = action.startTimeMinute;
-            existingAction.endTimeHour = action.endTimeHour;
-            existingAction.endTimeMinute = action.endTimeMinute;
-            existingAction.amount = action.amount;
-            existingAction.bonusDays = action.bonusDays;
-            existingAction.factoryId = action.factoryId;
-            existingAction.workerName = action.workerName;
-            existingAction.workerId = action.workerId;
-
-            await existingAction.save();
-            updated = true;
-          }
-        }
-      }
-
-      if (updated) {
-        await _worker.save();
-        if (mounted) {
-          setState(
-              () {}); // تحديث الواجهة مع بقاء التقارير التاريخية والجديدة كاملة ومحمية
-        }
-      }
-    });
-  }
 
   void _refresh() => setState(() {});
 
