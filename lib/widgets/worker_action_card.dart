@@ -5,9 +5,12 @@ import '../../models/worker_action_model.dart';
 
 class WorkerActionCard extends StatelessWidget {
   final WorkerAction action;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
   final VoidCallback onRefresh;
+  /// هل الجهاز الحالي هو مُنشئ هذا الإجراء؟
+  /// false = عرض فقط بدون أزرار تعديل/حذف
+  final bool isOwner;
 
   const WorkerActionCard({
     super.key,
@@ -15,6 +18,7 @@ class WorkerActionCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onRefresh,
+    this.isOwner = true,
   });
 
   @override
@@ -172,7 +176,8 @@ class WorkerActionCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
             ],
-            Row(
+            // أزرار التحكم — تظهر فقط للجهاز المالك للإجراء
+            if (isOwner) Row(
               children: [
                 if (action.type == 'غياب' && action.returnDate != null) ...[
                   Expanded(

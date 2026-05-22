@@ -31,13 +31,15 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
       bonusDays: fields[10] as double?,
       factoryId: fields[11] as String?,
       workerName: fields[13] as String?,
+      workerId: fields[14] as String?,
+      createdByDeviceId: fields[15] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, WorkerAction obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.type)
       ..writeByte(12)
@@ -65,7 +67,11 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
       ..writeByte(11)
       ..write(obj.factoryId)
       ..writeByte(13)
-      ..write(obj.workerName);
+      ..write(obj.workerName)
+      ..writeByte(14)
+      ..write(obj.workerId)
+      ..writeByte(15)
+      ..write(obj.createdByDeviceId);
   }
 
   @override

@@ -24,6 +24,7 @@ import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
+import 'package:smart_sheet/utils/device_manager.dart';
 
 // استيراد الموديلات
 import 'package:smart_sheet/models/worker_action_model.dart';
@@ -66,10 +67,14 @@ Future<void> main() async {
       // يحدث عند وجود نسخة سابقة من التطبيق لم تُغلق بعد
       try {
         await Hive.openBox('settings');
+        // ✅ تأكد من أن كل جهاز يملك UUID ثابتاً منذ أول تشغيل
+        // ضروري لنظام ملكية الإجراءات (isOwner check في action cards)
+        await DeviceManager.getDeviceId();
       } catch (lockError) {
         debugPrint('⚠️ settings.lock محجوز، انتظار 1 ثانية وإعادة المحاولة: $lockError');
         await Future.delayed(const Duration(seconds: 1));
         await Hive.openBox('settings'); // إذا فشلت المرة الثانية → ستُرفع للـ catch الخارجي
+        await DeviceManager.getDeviceId();
       }
 
       // فتح صناديق العلاقات الأساسية

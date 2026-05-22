@@ -130,12 +130,17 @@ class WorkerDetailsScreen extends StatefulWidget {
 class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   StreamSubscription? _hiveSubscription;
   late Worker _worker;
+  String? _currentDeviceId; // معرف الجهاز الحالي لتحديد ملكية الإجراء
 
   @override
   void initState() {
     super.initState();
     _worker = widget.box.get(widget.worker.key) ?? widget.worker;
     _cleanupActions();
+    // تحميل device_id من صندوق الإعدادات لتحديد ملكية الإجراءات
+    if (Hive.isBoxOpen('settings')) {
+      _currentDeviceId = Hive.box('settings').get('device_id')?.toString();
+    }
     // SyncService يتولى مزامنة worker_actions عبر _onAttendanceLogChange
     // الذي يُحدِّث Hive ثم يستدعي w.save() — يكفي الاستماع لـ Hive فقط.
     _setupHiveListener();
@@ -194,6 +199,16 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
 
   void _refresh() => setState(() {});
+
+  /// تحديد ما إذا كان الجهاز الحالي هو مالك هذا الإجراء.
+  /// • إذا كان [createdByDeviceId] فارغ (إجراءات قديمة لا تحمل device_id)،
+  ///   نفترض التوافق للجهاز الحالي حتى لا نكسر التحكم في الإجراءات السابقة.
+  bool _isActionOwner(WorkerAction action) {
+    final actionDevice = action.createdByDeviceId;
+    if (actionDevice == null || actionDevice.isEmpty) return true; // backward compat
+    if (_currentDeviceId == null || _currentDeviceId!.isEmpty) return true; // device not identified
+    return _currentDeviceId == actionDevice;
+  }
 
   String _f(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -363,6 +378,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
                       return WorkerActionCard(
                         action: displayedAction,
+                        isOwner: _isActionOwner(displayedAction),
                         onRefresh: _refresh,
                         onEdit: () async {
                           if (originalIndex != -1) {
@@ -480,6 +496,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         child: ActiveAbsenceCard(
           worker: _worker,
           action: activeAction,
+          isOwner: _isActionOwner(activeAction),
           onRefresh: _refresh,
           onEdit: () {
             // Find index of this action to allow editing
@@ -823,6 +840,11 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                     await SupabaseManager.getFactoryId();
 
                                 if (existingAction == null) {
+                                  // جلب device_id من صندوق الإعدادات لتسجيل ملكية الإجراء
+                                  final deviceId = _currentDeviceId ??
+                                      (Hive.isBoxOpen('settings')
+                                          ? Hive.box('settings').get('device_id')?.toString()
+                                          : null);
                                   final updatedAction = WorkerAction(
                                     type: actionType.value,
                                     days: (actionType.value == 'إجازة' ||
@@ -842,6 +864,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                     factoryId: factoryId ?? _worker.factoryId,
                                     workerName: _worker.name,
                                     workerId: _worker.id,
+                                    createdByDeviceId: deviceId,
                                   );
 
                                   // Use put with ID instead of add to maintain key consistency

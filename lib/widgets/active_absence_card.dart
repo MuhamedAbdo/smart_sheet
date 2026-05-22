@@ -13,6 +13,9 @@ class ActiveAbsenceCard extends StatelessWidget {
   final WorkerAction action;
   final VoidCallback onRefresh;
   final VoidCallback? onEdit;
+  /// هل الجهاز الحالي هو مُنشئ هذا الإجراء؟
+  /// false = عرض فقط بدون أزرار تعديل/حذف/عودة
+  final bool isOwner;
 
   const ActiveAbsenceCard({
     super.key,
@@ -20,6 +23,7 @@ class ActiveAbsenceCard extends StatelessWidget {
     required this.action,
     required this.onRefresh,
     this.onEdit,
+    this.isOwner = true,
   });
 
   int get elapsedDays {
@@ -100,39 +104,41 @@ class ActiveAbsenceCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    // 🔑 فحص حماية للمزامنة الخارجية عند التعديل
-                    if (action.box == null || !action.isInBox) {
-                      _showSyncWarning(context);
-                      return;
-                    }
-                    if (onEdit != null) onEdit!();
-                  },
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.blue.withValues(alpha: 0.1),
-                    foregroundColor: Colors.blue,
+                if (isOwner) ...[
+                  IconButton(
+                    onPressed: () {
+                      // 🔑 فحص حماية للمزامنة الخارجية عند التعديل
+                      if (action.box == null || !action.isInBox) {
+                        _showSyncWarning(context);
+                        return;
+                      }
+                      if (onEdit != null) onEdit!();
+                    },
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                      foregroundColor: Colors.blue,
+                    ),
+                    tooltip: 'تعديل الإجراء',
                   ),
-                  tooltip: 'تعديل الإجراء',
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    // 🔑 فحص حماية للمزامنة الخارجية عند الإلغاء المحلي
-                    if (action.box == null || !action.isInBox) {
-                      _showSyncWarning(context);
-                      return;
-                    }
-                    _showDeleteConfirmation(context);
-                  },
-                  icon: const Icon(Icons.delete_outline, size: 20),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.red.withValues(alpha: 0.1),
-                    foregroundColor: Colors.red,
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () {
+                      // 🔑 فحص حماية للمزامنة الخارجية عند الإلغاء المحلي
+                      if (action.box == null || !action.isInBox) {
+                        _showSyncWarning(context);
+                        return;
+                      }
+                      _showDeleteConfirmation(context);
+                    },
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.red.withValues(alpha: 0.1),
+                      foregroundColor: Colors.red,
+                    ),
+                    tooltip: 'إلغاء الإجراء',
                   ),
-                  tooltip: 'إلغاء الإجراء',
-                ),
+                ],
               ],
             ),
             const Divider(height: 16),
@@ -149,33 +155,34 @@ class ActiveAbsenceCard extends StatelessWidget {
               ],
             ),
             const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              height: 40,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // 🔑 حماية صخرية: منع التفاعل إذا تم إلغاء الإجراء سلفاً من جهاز آخر
-                  if (action.box == null || !action.isInBox) {
-                    _showSyncWarning(context);
-                    return;
-                  }
-                  isTimeBased
-                      ? _showTimeReturnDialog(context)
-                      : _showReturnDialog(context);
-                },
-                icon: const Icon(Icons.check_circle, size: 18),
-                label: const Text("تسجيل العودة ✅",
-                    style: TextStyle(fontSize: 13)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+            if (isOwner)
+              SizedBox(
+                width: double.infinity,
+                height: 40,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    // 🔑 حماية صخرية: منع التفاعل إذا تم إلغاء الإجراء سلفاً من جهاز آخر
+                    if (action.box == null || !action.isInBox) {
+                      _showSyncWarning(context);
+                      return;
+                    }
+                    isTimeBased
+                        ? _showTimeReturnDialog(context)
+                        : _showReturnDialog(context);
+                  },
+                  icon: const Icon(Icons.check_circle, size: 18),
+                  label: const Text("تسجيل العودة ✅",
+                      style: TextStyle(fontSize: 13)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),

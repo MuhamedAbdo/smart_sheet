@@ -17,19 +17,19 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return Worker(
+      id: fields[6] as String?,
       name: fields[0] as String,
       phone: fields[1] as String,
       job: fields[2] as String,
-      actions: (fields[3] as List?)?.cast<WorkerAction>(),
       hasMedicalInsurance: fields[4] as bool,
       factoryId: fields[5] as String?,
-    );
+    ).._actions = (fields[3] as HiveList?)?.castHiveList();
   }
 
   @override
   void write(BinaryWriter writer, Worker obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -37,11 +37,13 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       ..writeByte(2)
       ..write(obj.job)
       ..writeByte(3)
-      ..write(obj.actions)
+      ..write(obj._actions)
       ..writeByte(4)
       ..write(obj.hasMedicalInsurance)
       ..writeByte(5)
-      ..write(obj.factoryId);
+      ..write(obj.factoryId)
+      ..writeByte(6)
+      ..write(obj.id);
   }
 
   @override
