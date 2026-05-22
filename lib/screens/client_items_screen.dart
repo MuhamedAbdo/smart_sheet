@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:smart_sheet/screens/job_order_dialog.dart';
 import 'package:smart_sheet/screens/production_report_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
@@ -104,21 +106,49 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: isSearching
-                ? SavedSizeSearchBar(
-                    onChanged: (v) => setState(() => searchQuery = v))
-                : Text(widget.clientName),
-            centerTitle: !isSearching,
-            actions: [
-              IconButton(
-                icon: Icon(isSearching ? Icons.close : Icons.search),
-                onPressed: () => setState(() {
-                  isSearching = !isSearching;
-                  if (!isSearching) searchQuery = "";
-                }),
-              )
-            ],
-          ),
+          title: isSearching
+              ? SavedSizeSearchBar(
+                  onChanged: (v) => setState(() => searchQuery = v))
+              : Text(widget.clientName),
+          centerTitle: !isSearching,
+          actions: [
+            // ── زر إصدار أمر التشغيل — حصري لسطح المكتب ──────────────────
+            if (!kIsWeb && Platform.isWindows)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, right: 8),
+                child: ElevatedButton.icon(
+                  onPressed: () => _openJobOrderDialog(
+                    context,
+                    allClientRecords,
+                    clientCode,
+                  ),
+                  icon: const Icon(Icons.print_outlined, size: 17),
+                  label: const Text(
+                    'إصدار أمر تشغيل',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1a3a6e),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            // ── زر البحث ──────────────────────────────────────────────────
+            IconButton(
+              icon: Icon(isSearching ? Icons.close : Icons.search),
+              onPressed: () => setState(() {
+                isSearching = !isSearching;
+                if (!isSearching) searchQuery = "";
+              }),
+            )
+          ],
+        ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () {
               Navigator.push(
@@ -431,5 +461,28 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       if (context.mounted) Navigator.pop(context);
       debugPrint("Error preparing report: $e");
     }
+  }
+
+  /// يفتح dialog إصدار أمر التشغيل (حصري لسطح المكتب)
+  void _openJobOrderDialog(
+    BuildContext context,
+    List<MapEntry<dynamic, dynamic>> allClientRecords,
+    String clientCode,
+  ) {
+    // استخراج الأصناف الحقيقية فقط (ليس سجل العميل الأساسي)
+    final items = allClientRecords
+        .where((e) => e.value is Map && e.value['isClientRecord'] != true)
+        .map((e) => Map<String, dynamic>.from(e.value as Map))
+        .toList();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => JobOrderDialog(
+        clientName: widget.clientName,
+        clientCode: clientCode,
+        clientItems: items,
+      ),
+    );
   }
 }

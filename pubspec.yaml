@@ -96,6 +96,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/html/
 
   fonts:
     - family: Cairo
