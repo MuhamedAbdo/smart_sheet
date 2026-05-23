@@ -57,11 +57,10 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     final now = DateTime.now();
     final dateStr =
         '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
-    // رقم أمر تشغيل تلقائي بناءً على الطابع الزمني
-    _orderNumberCtrl.text =
-        DateTime.now().millisecondsSinceEpoch.toString().substring(6);
+    
+    _orderNumberCtrl.text = "0000";
+    _jobNumberCtrl.text = "0000";
     _startDateCtrl.text = dateStr;
-    _jobNumberCtrl.text = dateStr;
   }
 
   @override
@@ -202,6 +201,35 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
 
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2101),
+      locale: const Locale('ar', 'AE'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF1a3a6e),
+              onPrimary: Colors.white,
+              onSurface: Colors.black87,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      final dateStr =
+          '${picked.year}/${picked.month.toString().padLeft(2, '0')}/${picked.day.toString().padLeft(2, '0')}';
+      setState(() {
+        controller.text = dateStr;
+      });
+    }
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
@@ -393,6 +421,8 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                   _startDateCtrl,
                   isDark,
                   hint: 'yyyy/mm/dd',
+                  readOnly: true,
+                  onTap: () => _selectDate(context, _startDateCtrl),
                 ),
               ),
               const SizedBox(width: 12),
@@ -402,16 +432,20 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                   _deliveryDateCtrl,
                   isDark,
                   hint: 'yyyy/mm/dd',
+                  readOnly: true,
+                  onTap: () => _selectDate(context, _deliveryDateCtrl),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           _field(
-            'تاريخ الاستلام',
+            'تاريخ الانتهاء',
             _receivedDateCtrl,
             isDark,
             hint: 'yyyy/mm/dd',
+            readOnly: true,
+            onTap: () => _selectDate(context, _receivedDateCtrl),
           ),
           const SizedBox(height: 20),
           _sectionTitle(
@@ -829,6 +863,8 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     String? hint,
     int maxLines = 1,
     TextInputType keyboard = TextInputType.text,
+    bool readOnly = false,
+    VoidCallback? onTap,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -846,6 +882,8 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
           controller: ctrl,
           keyboardType: keyboard,
           maxLines: maxLines,
+          readOnly: readOnly,
+          onTap: onTap,
           style: TextStyle(
             fontSize: 13,
             color: isDark ? const Color(0xDEFFFFFF) : Colors.black87,
