@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_state.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ class AuthService extends ChangeNotifier {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   UserState get state => _state;
+  bool get isAuthenticated => Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
   String? get factoryId => _factoryId;
   bool get isAdmin => _state.role?.trim().toLowerCase() == 'admin';
   String? _factoryId;
@@ -42,8 +44,45 @@ class AuthService extends ChangeNotifier {
     if (session != null) {
       // Keep existing role if available to avoid flicker before fetch
       _state = UserState.authenticated(session.user, role: _state.role);
+      Hive.box('settings').put('is_user_logged_in', true);
       if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.initialSession) {
         _fetchAndStoreUserData(session.user.id);
+      }
+    } else {
+      final isLocalLoggedIn = Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
+      if (!isLocalLoggedIn) {
+        _state = UserState.unauthenticated();
+        _clearUserData();
+      }
+    }
+    notifyListeners();
+  }
+
+  void _checkInitialSession() {
+    final session = _supabaseClient.auth.currentSession;
+    final isLocalLoggedIn = Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
+
+    if (session != null) {
+      _state = UserState.authenticated(session.user, role: _state.role);
+      Hive.box('settings').put('is_user_logged_in', true);
+      _fetchAndStoreUserData(session.user.id);
+    } else if (isLocalLoggedIn) {
+      final user = _supabaseClient.auth.currentUser;
+      if (user != null) {
+        _state = UserState.authenticated(user, role: _state.role);
+        _fetchAndStoreUserData(user.id);
+      } else {
+        _state = UserState.authenticated(
+          const User(
+            id: 'local_cached_user',
+            appMetadata: {},
+            userMetadata: {},
+            aud: '',
+            createdAt: '',
+          ),
+          role: _state.role,
+        );
+        _loadCachedRoleAndInitSync();
       }
     } else {
       _state = UserState.unauthenticated();
@@ -52,16 +91,19 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _checkInitialSession() {
-    final session = _supabaseClient.auth.currentSession;
-    if (session != null) {
-      _state = UserState.authenticated(session.user, role: _state.role);
-      _fetchAndStoreUserData(session.user.id);
-    } else {
-      _state = UserState.unauthenticated();
-      _clearUserData();
+  Future<void> _loadCachedRoleAndInitSync() async {
+    try {
+      const storage = SafeSecureStorage();
+      final role = await storage.read(key: 'user_role') ?? 'employee';
+      _factoryId = await storage.read(key: 'factory_id');
+      _state = _state.copyWith(role: role);
+      notifyListeners();
+      if (_factoryId != null) {
+        await SyncService.instance.initialize();
+      }
+    } catch (e) {
+      debugPrint('Error loading cached user data: $e');
     }
-    notifyListeners();
   }
 
   Future<void> _fetchAndStoreUserData(String userId) async {
@@ -311,6 +353,7 @@ class AuthService extends ChangeNotifier {
     _state = _state.copyWith(isLoading: true, errorMessage: null);
     notifyListeners();
     try {
+      await Hive.box('settings').put('is_user_logged_in', false);
       await _supabaseClient.auth.signOut();
       // يتم تحديث الحالة تلقائيًا عبر stream listener
     } catch (e) {

@@ -10,7 +10,7 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
-    final isAuthenticated = authService.state.isAuthenticated;
+    final isAuthenticated = authService.isAuthenticated;
 
     if (isAuthenticated) {
       return const HomeScreen();
