@@ -40,9 +40,6 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
   // Selected items list (ordered)
   final List<int> _selectedIndices = [];
 
-  // Selected product types (R/T/E/C/B)
-  final List<String> _selectedTypes = [];
-
   bool _isGenerating = false;
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────
@@ -95,16 +92,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     });
   }
 
-  // ── Type Toggle ──────────────────────────────────────────────────────────────
-  void _toggleType(String type) {
-    setState(() {
-      if (_selectedTypes.contains(type)) {
-        _selectedTypes.remove(type);
-      } else {
-        _selectedTypes.add(type);
-      }
-    });
-  }
+
 
   // ── PDF Generation ───────────────────────────────────────────────────────────
   Future<void> _generate() async {
@@ -148,7 +136,6 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         receivedDate: _receivedDateCtrl.text,
         generalNotes: _generalNotesCtrl.text,
         items: items,
-        selectedTypes: List.from(_selectedTypes),
       );
       final html = await JobOrderService.generateHtml(data);
       if (mounted) {
@@ -343,10 +330,6 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          _sectionTitle('نوع التشغيل', Icons.category_outlined, isDark),
-          const SizedBox(height: 10),
-          _buildTypeSelector(isDark),
           const SizedBox(height: 20),
           _sectionTitle('المواعيد', Icons.event_outlined, isDark),
           const SizedBox(height: 12),
@@ -659,69 +642,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     );
   }
 
-  // ── Type Selector (R / T / E / C / B) ────────────────────────────────────────
-  static const _types = ['R', 'T', 'E', 'C', 'B'];
 
-  Widget _buildTypeSelector(bool isDark) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _types.map((type) {
-        final isSelected = _selectedTypes.contains(type);
-        return GestureDetector(
-          onTap: () => _toggleType(type),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0xFF22c55e).withValues(alpha: isDark ? 0.25 : 0.12)
-                  : (isDark ? const Color(0xFF252B3B) : Colors.grey.shade100),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isSelected
-                    ? const Color(0xFF22c55e)
-                    : (isDark ? Colors.white12 : Colors.grey.shade300),
-                width: 1.5,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
-                  child: isSelected
-                      ? const Icon(
-                          Icons.check_circle,
-                          key: ValueKey('checked'),
-                          size: 16,
-                          color: Color(0xFF22c55e),
-                        )
-                      : Icon(
-                          Icons.circle_outlined,
-                          key: const ValueKey('unchecked'),
-                          size: 16,
-                          color: isDark ? Colors.white30 : Colors.grey.shade400,
-                        ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  type,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected
-                        ? const Color(0xFF16a34a)
-                        : (isDark ? Colors.white70 : Colors.grey.shade700),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
 
   Widget _field(
     String label,
