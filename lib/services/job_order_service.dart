@@ -1,7 +1,11 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 // ─── Data Models ────────────────────────────────────────────────────────────
 
@@ -118,13 +122,176 @@ class JobOrderService {
     return html;
   }
 
-  /// يكتب الـ HTML إلى ملف مؤقت ويفتحه في المتصفح الافتراضي للطباعة
+  /// يفتح الـ HTML للطباعة بطريقة متوافقة مع جميع المنصات (بما في ذلك الويب وسطح المكتب)
   static Future<void> openForPrinting(String html) async {
-    final tempDir = await getTemporaryDirectory();
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final file = File('${tempDir.path}/job_order_$timestamp.html');
-    await file.writeAsString(html);
-    await OpenFile.open(file.path);
+    try {
+      // استخدام حزمة printing المدمجة لعرض نافذة الطباعة مباشرة
+      await Printing.layoutPdf(
+        // ignore: deprecated_member_use
+        onLayout: (format) async => await Printing.convertHtml(
+          html: html,
+          format: format,
+        ),
+        name: 'order_${DateTime.now().millisecondsSinceEpoch}',
+      );
+    } catch (e) {
+      debugPrint("⚠️ Printing failed, trying fallback: $e");
+      if (!kIsWeb) {
+        await openHtmlInBrowserFallback(html);
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  /// خطة بديلة لفتح ملف الـ HTML في المتصفح الافتراضي للطباعة إذا تعذر تحميل المعاينة المدمجة
+  static Future<void> openHtmlInBrowserFallback(String html) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${tempDir.path}/job_order_$timestamp.html');
+      await file.writeAsString(html);
+      await OpenFile.open(file.path);
+    } catch (e) {
+      debugPrint("⚠️ Printing fallback failed: $e");
+    }
+  }
+
+  /// يفتح نافذة معاينة تفاعلية فاخرة للـ PDF تتيح للمستخدم استعراض الصفحات، تحميل الملف، أو طباعته
+  static Future<void> showPreview(BuildContext context, String html) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final isDark = theme.brightness == Brightness.dark;
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          child: Container(
+            width: 1000,
+            height: MediaQuery.of(ctx).size.height * 0.9,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Header of preview dialog
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFF1A3A6E),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.picture_as_pdf, color: Colors.white, size: 20),
+                          SizedBox(width: 10),
+                          Text(
+                            'معاينة أمر التشغيل PDF',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        tooltip: 'إغلاق المعاينة',
+                      ),
+                    ],
+                  ),
+                ),
+                // Body - PdfPreview
+                Expanded(
+                  child: PdfPreview(
+                    build: (format) async => await Printing.convertHtml( // ignore: deprecated_member_use
+                      html: html,
+                      format: format,
+                    ),
+                    allowPrinting: true,
+                    allowSharing: true,
+                    canChangePageFormat: false,
+                    initialPageFormat: PdfPageFormat.a4,
+                    pdfFileName: 'order_${DateTime.now().millisecondsSinceEpoch}.pdf',
+                    loadingWidget: const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF1A3A6E),
+                      ),
+                    ),
+                    previewPageMargin: const EdgeInsets.all(12),
+                    onError: (previewCtx, error) {
+                      final bool isMissingPlugin = error is MissingPluginException || error.toString().contains('MissingPluginException');
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                              const SizedBox(height: 16),
+                              Text(
+                                isMissingPlugin 
+                                  ? 'عذراً، يجب إعادة تشغيل التطبيق بالكامل (Cold Run / Rebuild)'
+                                  : 'خطأ في معالجة ملف PDF',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                textDirection: TextDirection.rtl,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                isMissingPlugin
+                                  ? 'تم إضافة حزم برمجية جديدة تتطلب إعادة بناء وتجميع ملفات الـ C++ الخاصة بنظام تشغيل Windows.\nيرجى إغلاق نافذة التطبيق تماماً (Stop) وإعادة تشغيله من جديد (Run) لتفعيل محرك المعاينة.'
+                                  : 'حدث خطأ غير متوقع أثناء معالجة القالب: $error',
+                                textAlign: TextAlign.center,
+                                textDirection: TextDirection.rtl,
+                                style: const TextStyle(color: Colors.grey, height: 1.5, fontSize: 12),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF1A3A6E),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.open_in_browser, size: 18),
+                                label: const Text('الفتح في المتصفح الافتراضي كبديل مؤقت', style: TextStyle(fontSize: 12)),
+                                onPressed: () async {
+                                  Navigator.pop(ctx);
+                                  await JobOrderService.openHtmlInBrowserFallback(html);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // ── Private Helpers ─────────────────────────────────────────────────────────

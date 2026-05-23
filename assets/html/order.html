@@ -4,16 +4,12 @@
   <meta charset="UTF-8">
   <title>أمر تشغيل مطبعة - العاشرة للطباعة والنشر والتغليف</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
 
     :root {
-      --primary-color: #1a202c;
-      --secondary-color: #2d3748;
-      --border-color: #1a202c;
-      --text-color: #1a202c;
-      --highlight-color: #c53030;
-      --light-bg: #f7fafc;
-      --header-bg: #edf2f7;
+      --border-color: #000000;
+      --text-color: #000000;
+      --bg-header: #f2f2f2;
       --print-width: 210mm;
       --print-height: 297mm;
     }
@@ -27,22 +23,22 @@
     body {
       background-color: #e2e8f0;
       font-family: 'Cairo', sans-serif;
-      font-size: 9.5px;
+      font-size: 8px;
       color: var(--text-color);
-      line-height: 1.2;
-      padding: 10px 0;
+      line-height: 1.15;
+      padding: 20px 0;
       display: flex;
       flex-direction: column;
       align-items: center;
+      gap: 20px;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    /* Strict A4 Container for Single-Page Containment */
-    .a4-container {
+    /* Strict A4 Container for Page Splitting */
+    .a4-page {
       width: var(--print-width);
       height: var(--print-height);
-      max-height: var(--print-height);
       background-color: #ffffff;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
       padding: 6mm 8mm;
@@ -53,7 +49,6 @@
       justify-content: space-between;
     }
 
-    /* Print styling */
     @media print {
       body {
         background-color: #ffffff;
@@ -61,666 +56,626 @@
         margin: 0;
         display: block;
       }
-      .a4-container {
+      .a4-page {
         box-shadow: none;
-        width: var(--print-width);
-        height: var(--print-height);
-        max-height: var(--print-height);
-        padding: 6mm 8mm;
         margin: 0;
-        border: none;
+        page-break-after: always;
+      }
+      .a4-page:last-child {
         page-break-after: avoid;
-        page-break-inside: avoid;
-        overflow: hidden;
       }
     }
 
     /* Typography Utilities */
     h1, h2, h3, h4 {
+      font-weight: 800;
+    }
+
+    .bold {
       font-weight: 700;
     }
 
-    /* Header Section Layout */
-    .header-section {
+    /* Tables general styling */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    table th, table td {
+      border: 1px solid var(--border-color);
+      padding: 2px 3px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    table th {
+      background-color: var(--bg-header);
+      font-weight: 700;
+    }
+
+    /* Form Fields and Dotted Lines */
+    .dotted-line {
+      border-bottom: 1px dotted #555;
+      display: inline-block;
+      min-width: 40px;
+      height: 12px;
+      vertical-align: bottom;
+      padding: 0 3px;
+    }
+
+    .checkbox-box {
+      width: 10px;
+      height: 10px;
+      border: 1px solid #000;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 3px;
+      background: #fff;
+    }
+
+    .checkbox-box.checked {
+      background: #000;
+      color: #fff;
+      font-size: 7px;
+      line-height: 8px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    /* ==========================================================================
+       PAGE 1: FACE STYLING
+       ========================================================================== */
+    .face-header {
       display: grid;
       grid-template-columns: 1.2fr 1.6fr 1.2fr;
       align-items: start;
-      margin-bottom: 5px;
+      margin-bottom: 4px;
       gap: 10px;
     }
 
-    .header-right {
+    .face-header-right {
       display: flex;
       flex-direction: column;
-      justify-content: center;
       align-items: flex-start;
-      padding-top: 5px;
     }
 
-    .header-right .company-name {
-      font-size: 11.5px;
+    .face-header-right .title-main {
+      font-size: 11px;
       font-weight: 800;
-      color: var(--primary-color);
     }
 
-    .header-right .brand-sub {
-      font-size: 9.5px;
-      font-weight: 600;
-      margin-top: 1px;
-      margin-right: 20px;
+    .face-header-right .title-sub {
+      font-size: 9px;
+      font-weight: 700;
+      margin-right: 15px;
     }
 
-    .header-center {
+    .face-header-center {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding-top: 6px;
+      padding-top: 10px;
     }
 
-    .order-title-box {
-      font-size: 13.5px;
+    .order-number-title {
+      font-size: 12px;
       font-weight: 800;
-      color: var(--highlight-color);
       border: 1.5px solid var(--border-color);
       padding: 3px 12px;
-      border-radius: 4px;
-      background-color: var(--light-bg);
-      box-shadow: 2px 2px 0px var(--primary-color);
+      background-color: var(--bg-header);
     }
 
-    .header-left-wrapper {
+    .face-header-left {
       display: flex;
       flex-direction: column;
       align-items: center;
     }
 
-    .basmala {
-      font-size: 8.5px;
+    .face-header-left .basmala {
+      font-size: 8px;
       font-weight: 600;
-      margin-bottom: 1px;
+      margin-bottom: 2px;
     }
 
-    .header-left-box {
-      border: 1.2px solid var(--border-color);
+    .face-header-left .details-box {
+      border: 1px solid var(--border-color);
       width: 100%;
       padding: 3px 5px;
-      font-size: 9px;
-      background-color: #fff;
+      font-size: 8px;
+      background: #fff;
     }
 
-    .header-left-box div {
+    .face-header-left .details-box div {
       display: flex;
       justify-content: space-between;
       margin-bottom: 2px;
     }
 
-    .header-left-box div:last-child {
-      margin-bottom: 0;
-    }
-
-    /* Client Info Form Grid */
-    .client-info-section {
-      border: 1.2px solid var(--border-color);
-      padding: 4px 8px;
-      margin-bottom: 5px;
-      background-color: #fff;
-    }
-
-    .info-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
+    /* Client info section */
+    .client-info-table {
       margin-bottom: 4px;
     }
 
-    .info-row:last-child {
-      margin-bottom: 0;
-    }
-
-    .info-field {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .info-label {
-      font-weight: 700;
-      white-space: nowrap;
-      min-width: fit-content;
-    }
-
-    .info-value-line {
-      flex-grow: 1;
-      border-bottom: 1px dotted #718096;
-      height: 14px;
-    }
-
-    /* Segmented Digits boxes */
-    .digit-boxes {
-      display: inline-flex;
-      gap: 2px;
-      direction: ltr;
-    }
-
-    .digit-box {
-      width: 14px;
-      height: 14px;
-      border: 1px solid var(--border-color);
-      background: #fff;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 8.5px;
-      font-weight: 700;
-    }
-
-    .digit-box.separator {
-      border: none;
-      width: 6px;
-      font-weight: bold;
-    }
-
-    /* Checkboxes styling */
-    .checkbox-container {
-      display: inline-flex;
-      align-items: center;
-      margin-left: 8px;
-      cursor: pointer;
-    }
-
-    .checkbox-custom {
-      width: 11px;
-      height: 11px;
-      border: 1.2px solid var(--border-color);
-      margin-left: 3px;
-      display: inline-block;
-      position: relative;
-      background-color: #fff;
-    }
-
-    /* Main Table Grid */
-    .main-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 5px;
-      background-color: #fff;
-    }
-
-    .main-table th, .main-table td {
-      border: 1.2px solid var(--border-color);
-      padding: 3px 5px;
-      text-align: center;
-      vertical-align: middle;
-    }
-
-    .main-table th {
-      background-color: var(--header-bg);
-      font-weight: 700;
-      font-size: 9.5px;
-    }
-
-    .main-table tr {
-      height: 20px;
-    }
-
-    .main-table .col-m {
-      width: 3%;
-      font-weight: 700;
-    }
-
-    .main-table .col-desc {
-      width: 44%;
+    .client-info-table td {
       text-align: right;
+      padding: 3px 6px;
+      font-size: 8.5px;
     }
 
-    .main-table .col-quantity {
-      width: 10%;
-      font-weight: 700;
-      background-color: #fffdf5; /* Prominent background highlight for 'العدد' */
+    /* Main specifications table */
+    .specs-table {
+      margin-bottom: 4px;
     }
 
-    .main-table .col-dims {
-      width: 20%;
+    .specs-table th {
+      font-size: 9px;
     }
 
-    .main-table .col-notes {
-      width: 15%;
-    }
+    .specs-table .col-m { width: 3%; font-weight: 700; }
+    .specs-table .col-desc { width: 44%; text-align: right; }
+    .specs-table .col-quantity { width: 10%; font-weight: 700; }
+    .specs-table .col-dims { width: 18%; }
+    .specs-table .col-notes { width: 17%; text-align: right; }
+    .specs-table .col-review { width: 8%; font-weight: 700; background-color: var(--bg-header); }
 
-    .main-table .col-review {
-      width: 8%;
-      font-weight: 700;
-      background-color: #f7fafc;
-    }
-
-    /* Dotted table cell placeholder */
     .dotted-cell-lines {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 4px;
       justify-content: center;
-      height: 100%;
-      padding: 3px 0;
+      padding: 2px 0;
     }
 
     .dotted-line-placeholder {
-      border-bottom: 1px dotted #a0aec0;
+      border-bottom: 1px dotted #888;
       width: 100%;
       height: 1px;
     }
 
-    /* Middle section with Split Layout and Sideways text */
-    .middle-split-wrapper {
+    /* Tech prep split section */
+    .tech-split-container {
       display: grid;
       grid-template-columns: 18px 1fr 1.6fr;
       gap: 6px;
-      margin-bottom: 5px;
-    }
-
-    /* Sideways Rotate Text column */
-    .sideways-column {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: var(--header-bg);
-      border: 1.2px solid var(--border-color);
-      padding: 3px 0;
-    }
-
-    .sideways-text {
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-      font-size: 8px;
-      font-weight: 700;
-      white-space: nowrap;
-      text-align: center;
-      letter-spacing: 0.3px;
-    }
-
-    /* Notes block on the left */
-    .notes-block {
-      border: 1.2px solid var(--border-color);
-      background-color: #fff;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .section-header {
-      background-color: var(--primary-color);
-      color: #fff;
-      text-align: center;
-      font-weight: 700;
-      padding: 3px;
-      font-size: 9.5px;
-      letter-spacing: 0.5px;
-    }
-
-    .notes-content {
-      padding: 6px;
-      flex-grow: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 9px;
-      justify-content: space-around;
-    }
-
-    /* Technical settings block on the right */
-    .tech-prep-block {
-      border: 1.2px solid var(--border-color);
-      background-color: #fff;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .tech-table {
-      width: 100%;
-      border-collapse: collapse;
-      flex-grow: 1;
-    }
-
-    .tech-table td {
-      border: 1px solid var(--border-color);
-      padding: 2.2px 4px;
-      font-size: 9px;
-      vertical-align: middle;
-    }
-
-    .tech-table .label-cell {
-      font-weight: 700;
-      background-color: var(--header-bg);
-      width: 14%;
-      text-align: center;
-    }
-
-    .tech-table .value-cell {
-      width: 86%;
-      text-align: right;
-    }
-
-    .inline-field-group {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      margin-left: 8px;
-    }
-
-    .inline-field-label {
-      font-weight: 600;
-    }
-
-    .inline-dotted-input {
-      border-bottom: 1px dotted #718096;
-      width: 50px;
-      display: inline-block;
-      height: 11px;
-    }
-
-    .inline-dotted-input.long {
-      width: 100px;
-    }
-
-    .inline-dotted-input.short {
-      width: 25px;
-    }
-
-    .inline-dotted-input.medium {
-      width: 70px;
-    }
-
-    /* Lower Section: Preparatory Settings */
-    .prep-settings-wrapper {
-      display: grid;
-      grid-template-columns: 18px 1fr;
-      gap: 6px;
-      margin-bottom: 5px;
-    }
-
-    .prep-block {
-      border: 1.2px solid var(--border-color);
-      background-color: #fff;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .prep-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .prep-table th, .prep-table td {
-      border: 1px solid var(--border-color);
-      padding: 2px 4px;
-      font-size: 8.5px;
-      vertical-align: middle;
-    }
-
-    .prep-table th {
-      background-color: var(--header-bg);
-      font-weight: 700;
-    }
-
-    .prep-table .paper-type-cell {
-      font-weight: 700;
-      background-color: var(--header-bg);
-      width: 12%;
-      text-align: center;
-    }
-
-    .prep-table .signature-cell {
-      width: 10%;
-      text-align: center;
-      font-weight: 700;
-      background-color: #f7fafc;
-    }
-
-    .inline-flex-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 6px;
-      width: 100%;
-    }
-
-    .sub-section-row {
-      background-color: #f7fafc;
-    }
-
-    .ink-color-box {
-      display: inline-flex;
-      align-items: center;
-      margin-left: 5px;
-      font-weight: bold;
-    }
-
-    .ink-color-box .checkbox-custom {
-      margin-left: 2px;
-    }
-
-    /* Printable disclaimer at bottom of prep settings */
-    .warning-disclaimer {
-      font-size: 8px;
-      font-weight: 800;
-      text-align: center;
-      padding: 2.2px 0;
-      border-top: 1.2px solid var(--border-color);
-      background-color: #fffaf0;
-      color: #744210;
-    }
-
-    /* New: Finishing & Post-Press Section Styling */
-    .finishing-section {
-      border: 1.2px solid var(--border-color);
-      background-color: #fff;
-      display: flex;
-      flex-direction: column;
-      margin-bottom: 5px;
-    }
-
-    .finishing-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      width: 100%;
-    }
-
-    .finishing-item {
-      border: 0.5px solid #cbd5e0;
-      padding: 3px 6px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 4px;
-    }
-
-    .finishing-name {
-      font-weight: 700;
-      min-width: 50px;
-    }
-
-    .finishing-options {
-      display: flex;
-      align-items: center;
-      flex-grow: 1;
-      justify-content: flex-end;
-      gap: 5px;
-    }
-
-    /* Bottom Signatures Section */
-    .signatures-section {
-      border: 1.2px solid var(--border-color);
-      background-color: #fff;
-      display: flex;
-      flex-direction: column;
-      margin-bottom: 5px;
-    }
-
-    .signatures-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      width: 100%;
-    }
-
-    .signature-box {
-      border-left: 1px solid var(--border-color);
-      padding: 4px 6px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      height: 48px;
-    }
-
-    .signature-box:last-child {
-      border-left: none;
-    }
-
-    .signature-title {
-      font-weight: 700;
-      font-size: 9px;
       margin-bottom: 4px;
     }
 
-    .signature-line {
-      border-bottom: 1px dotted #718096;
-      width: 100%;
-      height: 12px;
-      margin-top: auto;
+    .sideways-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--bg-header);
+      border: 1px solid var(--border-color);
     }
 
-    /* Footer styles */
-    .form-footer {
+    .sideways-bar span {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font-size: 7.5px;
+      font-weight: 700;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .notes-box {
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .notes-box-header {
+      background-color: #000000;
+      color: #ffffff;
+      text-align: center;
+      font-weight: 700;
+      padding: 2px;
+      font-size: 9px;
+    }
+
+    .notes-box-body {
+      padding: 5px;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      justify-content: space-around;
+    }
+
+    .tech-prep-box {
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tech-prep-table td {
+      border: 1px solid var(--border-color);
+      font-size: 8px;
+      padding: 1.8px 4px;
+      text-align: right;
+    }
+
+    .tech-prep-table .label-cell {
+      background-color: var(--bg-header);
+      font-weight: 700;
+      text-align: center;
+      width: 15%;
+    }
+
+    .inline-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      margin-left: 6px;
+    }
+
+    /* Digit box أرشيف */
+    .digit-box {
+      border: 1.2px solid #000;
+      padding: 0 4px;
+      margin: 0 1px;
+      display: inline-block;
+      background: #fff;
+      font-weight: bold;
+    }
+
+    /* Preparatory section layout */
+    .prep-layout-container {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .prep-content-box {
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .prep-table td {
+      font-size: 8px;
+      padding: 1.5px 3px;
+      text-align: right;
+    }
+
+    .prep-table .header-cell {
+      background-color: var(--bg-header);
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .disclaimer-bar {
+      font-size: 7.5px;
+      font-weight: 800;
+      text-align: center;
+      padding: 2px 0;
+      border-top: 1px solid var(--border-color);
+      background-color: #fffbef;
+      color: #854d0e;
+    }
+
+    /* Offset print footer */
+    .offset-footer {
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-header);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 4px 8px;
+      margin-bottom: 4px;
+    }
+
+    .offset-footer div {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Segmented boxes code layout */
+    .segmented-code-container {
+      display: inline-flex;
+      gap: 1px;
+      direction: ltr;
+    }
+
+    .segmented-box {
+      width: 12px;
+      height: 12px;
+      border: 1px solid #000;
+      text-align: center;
+      font-size: 8px;
+      line-height: 11px;
+      font-weight: bold;
+      background: #fff;
+    }
+
+    /* Footer labels */
+    .page-footer {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      font-size: 8.5px;
-      font-weight: 600;
-      color: #718096;
-      border-top: 1px solid var(--border-color);
-      padding-top: 3px;
+      font-size: 8px;
+      font-weight: bold;
+      border-top: 1px solid #000;
+      padding-top: 2px;
     }
 
-    /* Digital Hover Polish */
-    .a4-container:hover {
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-      transition: box-shadow 0.3s ease;
+    /* ==========================================================================
+       PAGE 2: BACK STYLING
+       ========================================================================== */
+    .back-header-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1.2fr 1.4fr;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .back-header-right-box {
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .back-header-right-table td {
+      border: 1px solid var(--border-color);
+      font-size: 8px;
+      padding: 1.5px 3px;
+      text-align: right;
+    }
+
+    .back-header-right-table .label {
+      background-color: var(--bg-header);
+      font-weight: 700;
+      text-align: center;
+      width: 25%;
+    }
+
+    .back-header-center-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-header);
+      padding: 4px;
+    }
+
+    .back-header-center-box .title {
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .back-header-left-box {
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .back-header-left-table td {
+      border: 1px solid var(--border-color);
+      font-size: 8px;
+      padding: 1.5px 3px;
+      text-align: right;
+    }
+
+    .back-header-left-table .label {
+      background-color: var(--bg-header);
+      font-weight: 700;
+      text-align: center;
+      width: 30%;
+    }
+
+    /* Corrugator Production Report Section */
+    .corrugator-report-title {
+      background-color: #000000;
+      color: #ffffff;
+      font-weight: 700;
+      text-align: center;
+      padding: 2px;
+      font-size: 8.5px;
+      margin-bottom: 2px;
+    }
+
+    .corrugator-report-split {
+      display: grid;
+      grid-template-columns: 2.5fr 1fr;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .corrugator-report-table td {
+      padding: 2.2px 4px;
+      font-size: 8px;
+    }
+
+    /* Flexo Print Section styling */
+    .section-title-bar {
+      background-color: #000000;
+      color: #ffffff;
+      font-weight: 700;
+      text-align: center;
+      padding: 2.5px;
+      font-size: 8.5px;
+      margin-bottom: 2px;
+    }
+
+    .flexo-print-container {
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 4px;
+    }
+
+    .flexo-print-table td {
+      padding: 3px 6px;
+      font-size: 8px;
+      text-align: right;
+    }
+
+    .flexo-print-table .label {
+      background-color: var(--bg-header);
+      font-weight: 700;
+      text-align: center;
+      width: 15%;
+    }
+
+    /* Carton finishing section */
+    .carton-prep-container {
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 4px;
+    }
+
+    .carton-prep-table td {
+      padding: 3px 6px;
+      font-size: 8px;
+      text-align: right;
+    }
+
+    .carton-prep-table .label {
+      background-color: var(--bg-header);
+      font-weight: 700;
+      text-align: center;
+      width: 15%;
+    }
+
+    /* Finished product deliveries table */
+    .deliveries-table {
+      margin-bottom: 4px;
+    }
+
+    .deliveries-table th, .deliveries-table td {
+      font-size: 8px;
+      padding: 2.5px 3px;
+    }
+
+    /* Bottom final block */
+    .back-bottom-container {
+      display: grid;
+      grid-template-columns: 2.2fr 1fr;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .attachments-table td {
+      font-size: 8px;
+      padding: 2px 4px;
+    }
+
+    .closing-report-box {
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 5px 8px;
+      background: #fff;
     }
   </style>
 </head>
 <body>
 
   <!-- ==========================================================================
-       SINGLE A4 PRINTABLE PAGE (الوجه + التعديلات)
+       PAGE 1: FACE (الوجه الأول)
        ========================================================================== -->
-  <div class="a4-container">
+  <div class="a4-page page-face">
     
     <!-- HEADER SECTION -->
-    <div class="header-section">
+    <div class="face-header">
       <!-- Right: Company details -->
-      <div class="header-right">
-        <div class="company-name">العاشر للطباعة والنشر والتغليف</div>
-        <div class="brand-sub">( كارترس )</div>
+      <div class="face-header-right">
+        <div class="title-main">العاشر للطباعة والنشر والتغليف</div>
+        <div class="title-sub">( كارتنريس )</div>
       </div>
       
       <!-- Center: Form name -->
-      <div class="header-center">
-        <div class="order-title-box">
-          أمر تشغيل رقم ( <span style="color: var(--highlight-color); font-weight: 800;">{{order_number}}</span> )
+      <div class="face-header-center">
+        <div class="order-number-title">
+          أمر تشغيل رقم ( <span style="font-weight: 800;">{{order_number}}</span> )
         </div>
       </div>
       
       <!-- Left: Order details box -->
-      <div class="header-left-wrapper">
+      <div class="face-header-left">
         <div class="basmala">بسم الله الرحمن الرحيم</div>
-        <div class="header-left-box">
+        <div class="details-box">
           <div>
             <span style="font-weight: 700;">طلبية رقم:</span>
-            <span class="inline-dotted-input short">{{job_number}}</span>
+            <span class="dotted-line" style="min-width: 50px;">{{job_number}}</span>
           </div>
           <div>
             <span style="font-weight: 700;">بتاريخ:</span>
-            <span class="inline-dotted-input" style="width: 50px;">{{order_date}}</span>
+            <span class="dotted-line" style="min-width: 50px;">{{order_date}}</span>
           </div>
           <div>
-            <span style="font-weight: 700;">محرر أمر التشغيل:</span>
-            <span class="inline-dotted-input" style="width: 40px;">{{created_by}}</span>
+            <span style="font-weight: 700;">المحرر:</span>
+            <span class="dotted-line" style="min-width: 50px;">{{created_by}}</span>
           </div>
         </div>
       </div>
     </div>
 
     <!-- CLIENT INFO FORM SECTION -->
-    <div class="client-info-section">
-      <div class="info-row">
-        <div class="info-field">
-          {{type_checkboxes}}
-        </div>
-        <div class="info-field" style="grid-column: span 2; justify-content: flex-end;">
-          <span class="info-label">التاريخ :</span>
-          <span class="info-value-line" style="max-width: 120px;">{{order_date}}</span>
-        </div>
-      </div>
-      
-      <div class="info-row">
-        <div class="info-field" style="grid-column: span 2;">
-          <span class="info-label">العميل :</span>
-          <span class="info-value-line">{{customer_name}}</span>
-        </div>
-        <div class="info-field">
-          <span class="info-label">كود العميل :</span>
-          <span style="font-weight: 700; font-size: 10px; border: 1px solid #1a202c; padding: 1px 6px;">{{client_code}}</span>
-        </div>
-      </div>
+    <table class="client-info-table">
+      <tbody>
+        <tr>
+          <td style="width: 60%;">
+            <span class="bold">نوع التشغيل:</span>
+            {{type_checkboxes}}
+          </td>
+          <td style="width: 40%; text-align: left;">
+            <span class="bold">التاريخ:</span>
+            <span class="dotted-line" style="min-width: 100px;">{{order_date}}</span>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <span class="bold">العميل:</span>
+            <span class="dotted-line" style="width: 82%;">{{customer_name}}</span>
+          </td>
+          <td>
+            <span class="bold">كود العميل:</span>
+            <span class="dotted-line" style="width: 65%;">{{client_code}}</span>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <span class="bold">الصنف:</span>
+            <span class="dotted-line" style="width: 83%;">{{item_names_summary}}</span>
+          </td>
+          <td>
+            <span class="bold">كود الصنف:</span>
+            <span class="dotted-line" style="width: 65%;">{{item_code_summary}}</span>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <span class="bold">العنوان:</span>
+            <span class="dotted-line" style="width: 48%;">{{address}}</span>
+            <span class="bold" style="margin-right: 15px;">تليفون:</span>
+            <span class="dotted-line" style="width: 32%;">{{phone}}</span>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <span class="bold">تاريخ بدء التشغيل:</span>
+            <span class="dotted-line" style="width: 20%;">{{start_date}}</span>
+            <span class="bold" style="margin-right: 15px;">ميعاد التسليم:</span>
+            <span class="dotted-line" style="width: 20%;">{{delivery_date}}</span>
+            <span class="bold" style="margin-right: 15px;">تاريخ الانتهاء:</span>
+            <span class="dotted-line" style="width: 20%;">{{received_date}}</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
 
-      <div class="info-row">
-        <div class="info-field" style="grid-column: span 2;">
-          <span class="info-label">الصنف :</span>
-          <span class="info-value-line">{{item_names_summary}}</span>
-        </div>
-        <div class="info-field">
-          <span class="info-label">كود الصنف :</span>
-          <span style="font-size: 9px;">{{item_code_summary}}</span>
-        </div>
-      </div>
-
-      <div class="info-row">
-        <div class="info-field">
-          <span class="info-label">العنوان :</span>
-          <span class="info-value-line">{{address}}</span>
-        </div>
-        <div class="info-field">
-          <span class="info-label">المسئول :</span>
-          <span class="info-value-line">{{supervisor}}</span>
-        </div>
-        <div class="info-field">
-          <span class="info-label">التليفون :</span>
-          <span class="info-value-line">{{phone}}</span>
-        </div>
-      </div>
-
-      <div class="info-row">
-        <div class="info-field">
-          <span class="info-label">تاريخ بدء التشغيل :</span>
-          <span class="info-value-line">{{start_date}}</span>
-        </div>
-        <div class="info-field">
-          <span class="info-label">ميعاد التسليم :</span>
-          <span class="info-value-line">{{delivery_date}}</span>
-        </div>
-        <div class="info-field">
-          <span class="info-label">تاريخ الاستلام :</span>
-          <span class="info-value-line">{{received_date}}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- MAIN PRODUCT SPECIFICATION TABLE SECTION (WITH 'العدد' COLUMN) -->
-    <table class="main-table">
+    <!-- MAIN PRODUCT SPECIFICATION TABLE SECTION -->
+    <table class="specs-table">
       <thead>
         <tr>
           <th class="col-m">م</th>
           <th class="col-desc">بيان المنتج ومواصفات التشغيل المطلوبة</th>
           <th class="col-quantity">العدد (الكمية)</th>
-          <th class="col-dims">المقاسات والتفاصيل الفنية للعملية</th>
+          <th class="col-dims">المقاسات والتفاصيل الفنية</th>
           <th class="col-notes">ملاحظات التشغيل</th>
           <th class="col-review">المراجعة</th>
         </tr>
@@ -731,214 +686,133 @@
     </table>
 
     <!-- MIDDLE SECTION: TECHNICAL PREP & NOTES (SIDE-BY-SIDE) -->
-    <div class="middle-split-wrapper">
-      
-      <!-- Sideways label for department instructions -->
-      <div class="sideways-column">
-        <div class="sideways-text">
-          ( تملأ الخانات الفارغة بواسطة مشرف القسم )
-        </div>
+    <div class="tech-split-container">
+      <!-- Sideways label -->
+      <div class="sideways-bar">
+        <span>( تملأ الخانات الفارغة بواسطة مشرف القسم )</span>
       </div>
 
       <!-- Notes block on left -->
-      <div class="notes-block">
-        <div class="section-header">ملاحظات وتعليمات</div>
-        <div class="notes-content">
+      <div class="notes-box">
+        <div class="notes-box-header">ملاحظات وتعليمات</div>
+        <div class="notes-box-body">
           {{general_notes_lines}}
         </div>
       </div>
 
       <!-- Technical preparation block on right -->
-      <div class="tech-prep-block">
-        <div class="section-header">التجهيزات الفنية</div>
-        <table class="tech-table">
-          <tr>
-            <td class="label-cell">سكانر</td>
-            <td class="value-cell">
-              <div class="inline-field-group">
-                <span class="inline-field-label">مقاس:</span>
-                <span class="inline-dotted-input short"></span>
-              </div>
-              <div class="inline-field-group">
-                <span class="inline-field-label">عدد:</span>
-                <span class="inline-dotted-input short"></span>
-              </div>
-              <div class="inline-field-group">
-                <span>(</span>
-                <span class="inline-dotted-input" style="width: 35px;"></span>
-                <span>)</span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="label-cell">كمبيوتر</td>
-            <td class="value-cell">
-              <div class="checkbox-container"><span class="checkbox-custom"></span> جمع</div>
-              <div class="checkbox-container"><span class="checkbox-custom"></span> تصميم</div>
-              <div class="inline-field-group" style="margin-right: 10px;">
-                <span class="inline-field-label">مقاس:</span>
-                <span class="inline-dotted-input short"></span>
-              </div>
-              <div class="checkbox-container" style="margin-right: 10px;"><span class="checkbox-custom"></span> بدون</div>
-            </td>
-          </tr>
-          <tr>
-            <td class="label-cell">بروفة</td>
-            <td class="value-cell">
-              <div class="checkbox-container">
-                <span class="checkbox-custom"></span> Color Ink Jet ( Photo Glossy / Film )
-              </div>
-              <div class="checkbox-container" style="margin-right: 15px;">
-                <span class="checkbox-custom"></span> B.W. ( 1 )
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="label-cell">كلك</td>
-            <td class="value-cell">
-              <div class="inline-field-group">
-                <span class="inline-field-label">عدد:</span>
-                <span class="inline-dotted-input short"></span>
-              </div>
-              <div class="inline-field-group">
-                <span class="inline-field-label">مقاس:</span>
-                <span class="inline-dotted-input short"></span>
-              </div>
-              <div class="checkbox-container" style="margin-right: 15px;">
-                <span class="checkbox-custom"></span> استرالون
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="label-cell">أفلام</td>
-            <td class="value-cell">
-              <div class="inline-field-group">
-                <span class="inline-field-label">عدد:</span>
-                <span class="inline-dotted-input short"></span>
-              </div>
-              <div class="inline-field-group">
-                <span class="inline-field-label">مقاس:</span>
-                <span class="inline-dotted-input short"></span>
-              </div>
-              <div class="checkbox-container" style="margin-right: 15px;">
-                <span class="checkbox-custom"></span> ألوان
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="label-cell">Cyrel</td>
-            <td class="value-cell">
-              <div class="inline-field-group" style="width: 95%;">
-                <span class="inline-dotted-input" style="width: 100%;"></span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="label-cell">اسم الملف</td>
-            <td class="value-cell">
-              <div class="inline-field-group">
-                <span>(</span>
-                <span class="inline-dotted-input medium"></span>
-                <span>)</span>
-              </div>
-              <div class="inline-field-group">
-                <span class="inline-field-label">صفحة:</span>
-                <span class="inline-dotted-input short"></span>
-              </div>
-              <div class="checkbox-container" style="margin-right: 10px;">
-                <span class="checkbox-custom"></span> داخل مجلد
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="label-cell">أرشيف</td>
-            <td class="value-cell">
-              <div class="checkbox-container"><span class="checkbox-custom"></span> CD's No.</div>
-              <div class="digit-boxes" style="margin-right: 8px; vertical-align: middle;">
-                <span class="digit-box"></span>
-                <span class="digit-box"></span>
-                <span class="digit-box"></span>
-                <span class="digit-box"></span>
-                <span class="digit-box"></span>
-                <span class="digit-box"></span>
-                <span class="digit-box"></span>
-                <span class="digit-box"></span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="label-cell">ملاحظات</td>
-            <td class="value-cell">
-              <div style="height: 10px; border-bottom: 1px dotted #a0aec0; width: 95%; margin: 1px 0;"></div>
-            </td>
-          </tr>
+      <div class="tech-prep-box">
+        <div class="notes-box-header" style="background-color: #000000;">التجهيزات الفنية</div>
+        <table class="tech-prep-table">
+          <tbody>
+            <tr>
+              <td class="label-cell">سكانر</td>
+              <td>
+                <div class="inline-group"><span>مقاس:</span> <span class="dotted-line" style="min-width: 40px;"></span></div>
+                <div class="inline-group"><span>عدد:</span> <span class="dotted-line" style="min-width: 30px;"></span></div>
+                <div class="inline-group"><span>[ ]</span></div>
+              </td>
+            </tr>
+            <tr>
+              <td class="label-cell">كمبيوتر</td>
+              <td>
+                <div class="inline-group"><span class="checkbox-box"></span> <span>جمع</span></div>
+                <div class="inline-group"><span class="checkbox-box"></span> <span>تصميم</span></div>
+                <div class="inline-group"><span>مقاس:</span> <span class="dotted-line" style="min-width: 40px;"></span></div>
+                <div class="inline-group"><span>عدد:</span> <span class="dotted-line" style="min-width: 30px;"></span></div>
+                <div class="inline-group"><span class="checkbox-box"></span> <span>بدون</span></div>
+              </td>
+            </tr>
+            <tr>
+              <td class="label-cell">بروفة</td>
+              <td>
+                <div class="inline-group"><span>1) B.W.</span> <span class="checkbox-box"></span></div>
+                <div class="inline-group"><span>2) Color Ink Jet (Photo Glossy / Film)</span> <span class="checkbox-box"></span></div>
+              </td>
+            </tr>
+            <tr>
+              <td class="label-cell">كلك</td>
+              <td>
+                <div class="inline-group"><span>عدد:</span> <span class="dotted-line" style="min-width: 30px;"></span></div>
+                <div class="inline-group"><span>مقاس:</span> <span class="dotted-line" style="min-width: 45px;"></span></div>
+                <div class="inline-group"><span class="checkbox-box"></span> <span>استرالون</span></div>
+              </td>
+            </tr>
+            <tr>
+              <td class="label-cell">أفلام</td>
+              <td>
+                <div class="inline-group"><span>عدد:</span> <span class="dotted-line" style="min-width: 30px;"></span></div>
+                <div class="inline-group"><span>مقاس:</span> <span class="dotted-line" style="min-width: 45px;"></span></div>
+                <div class="inline-group"><span class="checkbox-box"></span> <span>ألوان</span></div>
+              </td>
+            </tr>
+            <tr>
+              <td class="label-cell">Cyrel</td>
+              <td>
+                <span class="dotted-line" style="width: 95%;"></span>
+              </td>
+            </tr>
+            <tr>
+              <td class="label-cell">اسم الملف</td>
+              <td>
+                <span class="dotted-line" style="width: 50%;"></span>
+                <div class="inline-group"><span>صفحة:</span> <span class="dotted-line" style="min-width: 35px;"></span></div>
+                <div class="inline-group"><span class="checkbox-box"></span> <span>داخل مجلد</span></div>
+              </td>
+            </tr>
+            <tr>
+              <td class="label-cell">أرشيف</td>
+              <td>
+                <div class="inline-group"><span class="checkbox-box"></span> <span>CD's No.</span></div>
+                <div class="inline-group">
+                  <span class="digit-box">&nbsp;</span><span class="digit-box">&nbsp;</span><span class="digit-box">&nbsp;</span><span class="digit-box">&nbsp;</span><span class="digit-box">&nbsp;</span><span class="digit-box">&nbsp;</span><span class="digit-box">&nbsp;</span><span class="digit-box">&nbsp;</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="label-cell">ملاحظات</td>
+              <td>
+                <span class="dotted-line" style="width: 95%;"></span>
+              </td>
+            </tr>
+          </tbody>
         </table>
       </div>
     </div>
 
     <!-- LOWER SECTION: PREPARATORY SETTINGS -->
-    <div class="prep-settings-wrapper">
-      
-      <!-- Sideways text vertically rotated -->
-      <div class="sideways-column" style="background-color: var(--header-bg);">
-        <div class="sideways-text">
-          ( تملأ خانات الأحبار المستهلكة تقريباً بواسطة مشرف القسم )
-        </div>
+    <div class="prep-layout-container">
+      <div class="sideways-bar">
+        <span>( تملأ خانات الأحبار المستهلكة تقريباً بواسطة مشرف القسم )</span>
       </div>
 
-      <div class="prep-block">
-        <div class="section-header">تجهيزات تحضيرية للورق والمواد</div>
+      <div class="prep-content-box">
+        <div class="notes-box-header" style="background-color: #000;">تجهيزات تحضيرية للورق والمواد</div>
         <table class="prep-table">
           <thead>
             <tr>
-              <th colspan="2" style="width: 90%;">مواصفات وتجهيزات الورق</th>
-              <th style="width: 10%;">توقيع المختص</th>
+              <th colspan="2" class="header-cell" style="width: 90%;">مواصفات وتجهيزات الورق</th>
+              <th class="header-cell" style="width: 10%;">توقيع المختص</th>
             </tr>
           </thead>
           <tbody>
-            <!-- ورق خارجي -->
             <tr>
-              <td class="paper-type-cell">ورق خارجي</td>
+              <td class="bold header-cell" style="width: 12%;">ورق خارجي</td>
               <td>
-                <div class="inline-flex-row">
-                  <div>
-                    <span class="inline-field-label">نوع:</span>
-                    <span class="inline-dotted-input medium"></span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">وزن:</span>
-                    <span class="inline-dotted-input short"></span> <span class="inline-field-label">جم</span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">عدد:</span>
-                    <span class="inline-dotted-input short"></span> <span class="inline-field-label">فرخ</span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">بعد القص:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">مقاس:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                </div>
-                <div class="inline-flex-row" style="margin-top: 3px; border-top: 1px dotted #e2e8f0; padding-top: 2px;">
-                  <div>
-                    <span class="inline-field-label">يؤخذ من ورق:</span>
-                    <span class="inline-dotted-input medium"></span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">نوع:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">مقاس:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                </div>
+                <span class="bold">نوع:</span> <span class="dotted-line" style="width: 90px;"></span>
+                <span class="bold" style="margin-right: 6px;">وزن:</span> <span class="dotted-line" style="width: 35px;"></span> جم
+                <span class="bold" style="margin-right: 6px;">عدد:</span> <span class="dotted-line" style="width: 40px;"></span> فرخ
+                <span class="bold" style="margin-right: 6px;">بعد القص:</span> <span class="dotted-line" style="width: 40px;"></span>
+                <span class="bold" style="margin-right: 6px;">مقاس:</span> <span class="dotted-line" style="width: 40px;"></span>
+                <br>
+                <span style="display:inline-block; margin-top:2px;">
+                  <span class="bold">يؤخذ من ورق:</span> <span class="dotted-line" style="width: 100px;"></span>
+                  <span class="bold" style="margin-right: 6px;">نوع:</span> <span class="dotted-line" style="width: 45px;"></span>
+                  <span class="bold" style="margin-right: 6px;">مقاس:</span> <span class="dotted-line" style="width: 45px;"></span>
+                </span>
               </td>
-              <td rowspan="6" class="signature-cell">
-                <div class="dotted-cell-lines">
+              <td rowspan="6" style="background-color: var(--bg-header);">
+                <div class="dotted-cell-lines" style="height: 100%;">
                   <div class="dotted-line-placeholder"></div>
                   <div class="dotted-line-placeholder"></div>
                   <div class="dotted-line-placeholder"></div>
@@ -946,288 +820,398 @@
                 </div>
               </td>
             </tr>
-            <!-- داخلي أصل -->
             <tr>
-              <td class="paper-type-cell">داخلي ( أصل )</td>
+              <td class="bold header-cell">داخلي (أصل)</td>
               <td>
-                <div class="inline-flex-row">
-                  <div>
-                    <span class="inline-field-label">نوع:</span>
-                    <span class="inline-dotted-input medium"></span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">وزن:</span>
-                    <span class="inline-dotted-input short"></span> <span class="inline-field-label">جم</span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">عدد:</span>
-                    <span class="inline-dotted-input short"></span> <span class="inline-field-label">فرخ</span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">بعد القص:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">مقاس:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                </div>
-              </td>
-            </tr>
-            <!-- داخلي صورة 1-4 collapsed row for spacing -->
-            <tr>
-              <td class="paper-type-cell">داخلي ( ص ١، ٢ )</td>
-              <td>
-                <div class="inline-flex-row">
-                  <div>
-                    <span class="inline-field-label">نوع ص١:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">وزن:</span>
-                    <span class="inline-dotted-input short"></span> <span class="inline-field-label">جم</span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">نوع ص٢:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">وزن:</span>
-                    <span class="inline-dotted-input short"></span> <span class="inline-field-label">جم</span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">فرخ:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                </div>
+                <span class="bold">نوع:</span> <span class="dotted-line" style="width: 90px;"></span>
+                <span class="bold" style="margin-right: 6px;">وزن:</span> <span class="dotted-line" style="width: 35px;"></span> جم
+                <span class="bold" style="margin-right: 6px;">عدد:</span> <span class="dotted-line" style="width: 40px;"></span> فرخ
+                <span class="bold" style="margin-right: 6px;">بعد القص:</span> <span class="dotted-line" style="width: 40px;"></span>
+                <span class="bold" style="margin-right: 6px;">مقاس:</span> <span class="dotted-line" style="width: 40px;"></span>
               </td>
             </tr>
             <tr>
-              <td class="paper-type-cell">داخلي ( ص ٣، ٤ )</td>
+              <td class="bold header-cell">داخلي (ص ١، ٢)</td>
               <td>
-                <div class="inline-flex-row">
-                  <div>
-                    <span class="inline-field-label">نوع ص٣:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">وزن:</span>
-                    <span class="inline-dotted-input short"></span> <span class="inline-field-label">جم</span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">نوع ص٤:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">وزن:</span>
-                    <span class="inline-dotted-input short"></span> <span class="inline-field-label">جم</span>
-                  </div>
-                  <div>
-                    <span class="inline-field-label">فرخ:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                </div>
+                <span class="bold">نوع ص١:</span> <span class="dotted-line" style="width: 50px;"></span>
+                <span class="bold" style="margin-right: 4px;">وزن:</span> <span class="dotted-line" style="width: 30px;"></span> جم
+                <span class="bold" style="margin-right: 8px;">نوع ص٢:</span> <span class="dotted-line" style="width: 50px;"></span>
+                <span class="bold" style="margin-right: 4px;">وزن:</span> <span class="dotted-line" style="width: 30px;"></span> جم
+                <span class="bold" style="margin-right: 8px;">فرخ:</span> <span class="dotted-line" style="width: 40px;"></span>
               </td>
             </tr>
-
-            <!-- زنكات -->
-            <tr class="sub-section-row">
-              <td class="paper-type-cell">زنكات</td>
+            <tr>
+              <td class="bold header-cell">داخلي (ص ٣، ٤)</td>
               <td>
-                <div class="inline-flex-row">
-                  <div>
-                    <span class="inline-field-label">عدد الزنكات:</span>
-                    <span class="inline-dotted-input short"></span>
-                  </div>
-                  <div class="checkbox-container"><span class="checkbox-custom"></span> رولاند</div>
-                  <div class="checkbox-container"><span class="checkbox-custom"></span> توك</div>
-                  <div class="checkbox-container"><span class="checkbox-custom"></span> أخرى</div>
-                </div>
+                <span class="bold">نوع ص٣:</span> <span class="dotted-line" style="width: 50px;"></span>
+                <span class="bold" style="margin-right: 4px;">وزن:</span> <span class="dotted-line" style="width: 30px;"></span> جم
+                <span class="bold" style="margin-right: 8px;">نوع ص٤:</span> <span class="dotted-line" style="width: 50px;"></span>
+                <span class="bold" style="margin-right: 4px;">وزن:</span> <span class="dotted-line" style="width: 30px;"></span> جم
+                <span class="bold" style="margin-right: 8px;">فرخ:</span> <span class="dotted-line" style="width: 40px;"></span>
               </td>
             </tr>
-
-            <!-- أحبار -->
-            <tr class="sub-section-row">
-              <td class="paper-type-cell">أحبار</td>
+            <tr style="background-color: #fcfcfc;">
+              <td class="bold header-cell">زنكات</td>
               <td>
-                <div class="inline-flex-row">
-                  <div class="checkbox-container"><span class="checkbox-custom"></span> G</div>
-                  <div class="checkbox-container"><span class="checkbox-custom"></span> S</div>
-                  <div class="checkbox-container"><span class="checkbox-custom"></span> K</div>
-                  <div class="checkbox-container"><span class="checkbox-custom"></span> Y</div>
-                  <div class="checkbox-container"><span class="checkbox-custom"></span> M</div>
-                  <div class="checkbox-container"><span class="checkbox-custom"></span> C</div>
-                  <div style="margin-right: 10px;">
-                    <span class="inline-field-label">أخرى:</span>
-                    <span class="inline-dotted-input medium"></span>
-                  </div>
-                </div>
+                <span class="bold">عدد الزنكات:</span> <span class="dotted-line" style="width: 40px;"></span>
+                <span class="checkbox-box" style="margin-right: 20px;"></span> رولاند
+                <span class="checkbox-box" style="margin-right: 20px;"></span> توك
+                <span class="checkbox-box" style="margin-right: 20px;"></span> أخرى
               </td>
             </tr>
-
-            <!-- أحبار مستهلكة -->
-            <tr class="sub-section-row">
-              <td class="paper-type-cell">أحبار مستهلكة</td>
+            <tr style="background-color: #fcfcfc;">
+              <td class="bold header-cell">أحبار</td>
+              <td>
+                <span class="checkbox-box"></span> G
+                <span class="checkbox-box" style="margin-right: 10px;"></span> S
+                <span class="checkbox-box" style="margin-right: 10px;"></span> K
+                <span class="checkbox-box" style="margin-right: 10px;"></span> Y
+                <span class="checkbox-box" style="margin-right: 10px;"></span> M
+                <span class="checkbox-box" style="margin-right: 10px;"></span> C
+                <span class="bold" style="margin-right: 20px;">أخرى لون:</span> <span class="dotted-line" style="width: 120px;"></span>
+              </td>
+            </tr>
+            <tr style="background-color: #f7f7f7;">
+              <td class="bold header-cell">أحبار مستهلكة</td>
               <td colspan="2">
-                <div class="inline-flex-row">
-                  <div class="ink-color-box">1C <span class="checkbox-custom"></span> حبر</div>
-                  <div class="ink-color-box">1M <span class="checkbox-custom"></span> حبر</div>
-                  <div class="ink-color-box">1Y <span class="checkbox-custom"></span> حبر</div>
-                  <div class="ink-color-box">1K <span class="checkbox-custom"></span> حبر</div>
-                  <div style="margin-right: 10px;">
-                    <span class="inline-field-label">أخرى:</span>
-                    <span class="inline-dotted-input medium"></span>
-                  </div>
-                  <div style="margin-right: 10px;">
-                    <span class="inline-field-label">ضم:</span>
-                    <span class="checkbox-custom"></span>
-                  </div>
-                </div>
+                <span class="bold">1C</span> <span class="checkbox-box"></span> حبر
+                <span class="bold" style="margin-right: 12px;">1M</span> <span class="checkbox-box"></span> حبر
+                <span class="bold" style="margin-right: 12px;">1Y</span> <span class="checkbox-box"></span> حبر
+                <span class="bold" style="margin-right: 12px;">1K</span> <span class="checkbox-box"></span> حبر
+                <span class="bold" style="margin-right: 12px;">أخرى:</span> <span class="dotted-line" style="width: 60px;"></span>
+                <span class="bold" style="margin-right: 12px;">تغطية:</span>
+                <span class="checkbox-box"></span> ورنيش
+                <span class="checkbox-box" style="margin-right: 6px;"></span> سلوفان
+                <span class="checkbox-box" style="margin-right: 6px;"></span> U.V
+                <span class="checkbox-box" style="margin-right: 6px;"></span> أخرى
+                <span class="checkbox-box" style="margin-right: 6px;"></span> بدون
+                <span class="checkbox-box" style="margin-right: 6px;"></span> مواد مساعدة
               </td>
             </tr>
-
-            <!-- ملاحظات تحضيرية -->
             <tr>
-              <td class="paper-type-cell">ملاحظات</td>
+              <td class="bold header-cell">ملاحظات</td>
               <td colspan="2">
-                <div class="dotted-line-placeholder" style="margin: 4px 0;"></div>
+                <span class="dotted-line" style="width: 95%;"></span>
               </td>
             </tr>
           </tbody>
         </table>
         
-        <!-- Warning alert text of the table -->
-        <div class="warning-disclaimer">
+        <div class="disclaimer-bar">
           يحذر قص الورق بقسم الورق والمطبعة وتاريخ إعداد العملية بالقسم قبل مراجعة مقاسات ألواح الزنك والمقاس الفعلي للمنتج
         </div>
       </div>
     </div>
 
-    <!-- NEW: FINISHING & POST-PRESS SECTION (9 OPERATIONS IN COMPACT GRID) -->
-    <div class="finishing-section">
-      <div class="section-header">التشطيب ومرحلة ما بعد الطباعة</div>
-      <div class="finishing-grid">
-        <!-- 1. سلوفان -->
-        <div class="finishing-item">
-          <span class="finishing-name">١. سلوفان</span>
-          <div class="finishing-options">
-            <div class="checkbox-container"><span class="checkbox-custom"></span> لامع</div>
-            <div class="checkbox-container"><span class="checkbox-custom"></span> مط</div>
-          </div>
-        </div>
-        <!-- 2. يوفى -->
-        <div class="finishing-item">
-          <span class="finishing-name">٢. يوفى</span>
-          <div class="finishing-options">
-            <div class="checkbox-container"><span class="checkbox-custom"></span> كلي</div>
-            <div class="checkbox-container"><span class="checkbox-custom"></span> كاش</div>
-            <div class="checkbox-container"><span class="checkbox-custom"></span> روتاري</div>
-          </div>
-        </div>
-        <!-- 3. بيمبر -->
-        <div class="finishing-item">
-          <span class="finishing-name">٣. بيمبر</span>
-          <div class="finishing-options">
-            <div class="checkbox-container"><span class="checkbox-custom"></span> بارز</div>
-            <div class="checkbox-container"><span class="checkbox-custom"></span> غائر</div>
-          </div>
-        </div>
-        <!-- 4. بصمة -->
-        <div class="finishing-item">
-          <span class="finishing-name">٤. بصمة</span>
-          <div class="finishing-options">
-            <div class="checkbox-container"><span class="checkbox-custom"></span> ذهبي</div>
-            <div class="checkbox-container"><span class="checkbox-custom"></span> فضي</div>
-            <div class="checkbox-container"><span class="checkbox-custom"></span> أخرى</div>
-          </div>
-        </div>
-        <!-- 5. كاش -->
-        <div class="finishing-item">
-          <span class="finishing-name">٥. كاش</span>
-          <div class="finishing-options">
-            <div class="checkbox-container"><span class="checkbox-custom"></span> تنفيذ</div>
-            <span class="inline-dotted-input short"></span>
-          </div>
-        </div>
-        <!-- 6. روتاري -->
-        <div class="finishing-item">
-          <span class="finishing-name">٦. روتاري</span>
-          <div class="finishing-options">
-            <div class="checkbox-container"><span class="checkbox-custom"></span> تنفيذ</div>
-            <span class="inline-dotted-input short"></span>
-          </div>
-        </div>
-        <!-- 7. تكسير -->
-        <div class="finishing-item">
-          <span class="finishing-name">٧. تكسير</span>
-          <div class="finishing-options">
-            <div class="checkbox-container"><span class="checkbox-custom"></span> فورمة</div>
-            <div class="checkbox-container"><span class="checkbox-custom"></span> ريجيل</div>
-          </div>
-        </div>
-        <!-- 8. تجميع -->
-        <div class="finishing-item">
-          <span class="finishing-name">٨. تجميع</span>
-          <div class="finishing-options">
-            <div class="checkbox-container"><span class="checkbox-custom"></span> تلقيح</div>
-            <div class="checkbox-container"><span class="checkbox-custom"></span> متداخل</div>
-          </div>
-        </div>
-        <!-- 9. لزق -->
-        <div class="finishing-item">
-          <span class="finishing-name">٩. لزق</span>
-          <div class="finishing-options">
-            <div class="checkbox-container"><span class="checkbox-custom"></span> جانبي</div>
-            <div class="checkbox-container"><span class="checkbox-custom"></span> ٣ نقط</div>
-            <div class="checkbox-container"><span class="checkbox-custom"></span> يدوي</div>
-          </div>
-        </div>
+    <!-- OFFSET PRINTING FOOTER SECTION -->
+    <div class="offset-footer">
+      <div>
+        <span class="bold">طباعة الأوفست:</span>
+        <span>اسم القائم بالتشغيل مع التوقيع والتاريخ:</span>
+        <span class="dotted-line" style="width: 140px;"></span>
+      </div>
+      <div style="justify-content: flex-end;">
+        <span>تقرير رئيس القسم:</span>
+        <span class="dotted-line" style="width: 180px;"></span>
       </div>
     </div>
 
-    <!-- NEW: BOTTOM SIGNATURE GRID (6 PRODUCTION ROLES) -->
-    <div class="signatures-section">
-      <div class="section-header">اعتمادات وجداول تسليم الأقسام الإنتاجية</div>
-      <div class="signatures-grid">
-        <!-- 1. Design -->
-        <div class="signature-box">
-          <span class="signature-title">١. مشرف التصميم</span>
-          <span class="signature-line"></span>
-        </div>
-        <!-- 2. Montage -->
-        <div class="signature-box">
-          <span class="signature-title">٢. مشرف المونتاج</span>
-          <span class="signature-line"></span>
-        </div>
-        <!-- 3. Press -->
-        <div class="signature-box">
-          <span class="signature-title">٣. رئيس المطبعة</span>
-          <span class="signature-line"></span>
-        </div>
-        <!-- 4. Finishing -->
-        <div class="signature-box">
-          <span class="signature-title">٤. مشرف التشطيب</span>
-          <span class="signature-line"></span>
-        </div>
-        <!-- 5. QC -->
-        <div class="signature-box">
-          <span class="signature-title">٥. مراقبة الجودة</span>
-          <span class="signature-line"></span>
-        </div>
-        <!-- 6. Manager -->
-        <div class="signature-box">
-          <span class="signature-title">٦. مدير الإنتاج</span>
-          <span class="signature-line"></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- FORM FOOTER -->
-    <div class="form-footer">
+    <!-- FOOTER -->
+    <div class="page-footer">
       <div>تحرير يناير ٢٠١٨</div>
-      <div style="font-weight: 800; color: var(--primary-color);">صفحة تشغيل موحدة ( ١ / ١ )</div>
+      <div style="font-weight: 800; color: #000;">أمر تشغيل موحد ( ١ / ٢ )</div>
+    </div>
+  </div>
+
+
+  <!-- ==========================================================================
+       PAGE 2: BACK (الوجه الخلفي)
+       ========================================================================== -->
+  <div class="a4-page page-back">
+    
+    <!-- HEADER SECTION -->
+    <div class="back-header-grid">
+      <!-- Right: Box Cans specs -->
+      <div class="back-header-right-box">
+        <div style="background-color:#000; color:#fff; text-align:center; font-weight:700; font-size:8.5px; padding:2px;">
+          بيانات للعلب ( قاع + غطاء ) ( أو فواصل )
+        </div>
+        <table class="back-header-right-table">
+          <tbody>
+            <tr>
+              <td class="label">غطاء / فاصل</td>
+              <td>
+                <span>مقاس:</span> <span class="dotted-line" style="width: 45px;"></span>
+                <span>الورق المستخدم:</span> <span class="dotted-line" style="width: 60px;"></span>
+                <span>التضليع:</span> <span class="dotted-line" style="width: 25px;"></span>
+                <span>مقاس الشريحة:</span> <span class="dotted-line" style="width: 35px;"></span>
+              </td>
+            </tr>
+            <tr>
+              <td class="label">قاعدة / فاصل</td>
+              <td>
+                <span>مقاس:</span> <span class="dotted-line" style="width: 45px;"></span>
+                <span>الورق المستخدم:</span> <span class="dotted-line" style="width: 60px;"></span>
+                <span>التضليع:</span> <span class="dotted-line" style="width: 25px;"></span>
+                <span>مقاس الشريحة:</span> <span class="dotted-line" style="width: 35px;"></span>
+              </td>
+            </tr>
+            <tr>
+              <td class="label">أخرى</td>
+              <td>
+                <span>مقاس:</span> <span class="dotted-line" style="width: 45px;"></span>
+                <span>الورق المستخدم:</span> <span class="dotted-line" style="width: 60px;"></span>
+                <span>التضليع:</span> <span class="dotted-line" style="width: 25px;"></span>
+                <span>مقاس الشريحة:</span> <span class="dotted-line" style="width: 35px;"></span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Center: Section Title "التصنيع" -->
+      <div class="back-header-center-box">
+        <div class="title">التصنيع</div>
+        <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start; font-weight:bold; font-size:8px;">
+          <div><span class="checkbox-box"></span> E</div>
+          <div><span class="checkbox-box"></span> C</div>
+          <div><span class="checkbox-box"></span> E/E</div>
+          <div><span class="checkbox-box"></span> C/C</div>
+          <div><span class="checkbox-box"></span> C/E</div>
+        </div>
+      </div>
+
+      <!-- Left: Corrugator stats box -->
+      <div class="back-header-left-box">
+        <table class="back-header-left-table" style="height: 100%;">
+          <tbody>
+            <tr>
+              <td class="label">عينات</td>
+              <td><span class="dotted-line" style="width: 90%;"></span></td>
+            </tr>
+            <tr>
+              <td class="label">مقاس العلبة</td>
+              <td>
+                <span class="dotted-line" style="width: 25px;"></span> /
+                <span class="dotted-line" style="width: 25px;"></span> /
+                <span class="dotted-line" style="width: 25px;"></span>
+              </td>
+            </tr>
+            <tr>
+              <td class="label">مقاس الشريحة</td>
+              <td>
+                <span class="dotted-line" style="width: 35px;"></span> /
+                <span class="dotted-line" style="width: 35px;"></span>
+                <span style="margin-right:4px;">عدد:</span> <span class="dotted-line" style="width: 20px;"></span>
+              </td>
+            </tr>
+            <tr>
+              <td class="label">عرض البكر</td>
+              <td><span class="dotted-line" style="width: 90%;"></span></td>
+            </tr>
+            <tr>
+              <td class="label">الخلفيات</td>
+              <td>
+                <span class="bold">أول:</span> نوع <span class="dotted-line" style="width:25px;"></span> وزن <span class="dotted-line" style="width:15px;"></span> جم
+                <span class="bold" style="margin-right:2px;">وسط:</span> وزن <span class="dotted-line" style="width:15px;"></span> جم
+                <span class="bold" style="margin-right:2px;">أخير:</span> نوع <span class="dotted-line" style="width:25px;"></span> وزن <span class="dotted-line" style="width:15px;"></span> جم
+              </td>
+            </tr>
+            <tr>
+              <td class="label">التوقيع</td>
+              <td>
+                <span>توقيع فني التضليع والتاريخ:</span>
+                <span class="dotted-line" style="width: 90px;"></span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
+    <!-- CORRUGATOR REPORT SECTION -->
+    <div class="corrugator-report-title">
+      تقرير قسم التضليع ( تسجل الدفعات التي تم تشغيلها مع التوقيع والتاريخ )
+    </div>
+    
+    <div class="corrugator-report-split">
+      <!-- Right table -->
+      <table class="corrugator-report-table">
+        <thead>
+          <tr>
+            <th style="width: 5%;">م</th>
+            <th style="width: 50%;">اسم القائم بالتشغيل مع التوقيع والتاريخ</th>
+            <th style="width: 20%;">الكمية المنتجة</th>
+            <th style="width: 25%;">ملاحظات</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>١</td><td><span class="dotted-line" style="width: 90%;"></span></td><td><span class="dotted-line" style="width: 80%;"></span></td><td><span class="dotted-line" style="width: 80%;"></span></td></tr>
+          <tr><td>٢</td><td><span class="dotted-line" style="width: 90%;"></span></td><td><span class="dotted-line" style="width: 80%;"></span></td><td><span class="dotted-line" style="width: 80%;"></span></td></tr>
+          <tr><td>٣</td><td><span class="dotted-line" style="width: 90%;"></span></td><td><span class="dotted-line" style="width: 80%;"></span></td><td><span class="dotted-line" style="width: 80%;"></span></td></tr>
+          <tr><td>٤</td><td><span class="dotted-line" style="width: 90%;"></span></td><td><span class="dotted-line" style="width: 80%;"></span></td><td><span class="dotted-line" style="width: 80%;"></span></td></tr>
+          <tr><td>٥</td><td><span class="dotted-line" style="width: 90%;"></span></td><td><span class="dotted-line" style="width: 80%;"></span></td><td><span class="dotted-line" style="width: 80%;"></span></td></tr>
+        </tbody>
+      </table>
+
+      <!-- Left notes box -->
+      <div class="notes-box">
+        <div class="notes-box-header" style="background-color: var(--bg-header); color:#000;">ملاحظات وتعليمات</div>
+        <div class="notes-box-body">
+          <div class="dotted-line-placeholder"></div>
+          <div class="dotted-line-placeholder"></div>
+          <div class="dotted-line-placeholder"></div>
+          <div class="dotted-line-placeholder"></div>
+          <div class="dotted-line-placeholder"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLEXO PRINTING SECTION -->
+    <div class="flexo-print-container">
+      <div class="section-title-bar">طباعة الفلكسو</div>
+      <table class="flexo-print-table">
+        <tbody>
+          <tr>
+            <td class="label">طباعة</td>
+            <td>
+              <span class="bold">ألوان:</span> ( <span class="dotted-line" style="width: 40px;"></span> )
+              <span class="bold" style="margin-right: 20px;">إجمالي عدد الألوان:</span> ( <span class="dotted-line" style="width: 30px;"></span> ) لون
+              <span class="bold" style="margin-right: 25px;">توقيع المختص:</span> <span class="dotted-line" style="width: 140px;"></span>
+            </td>
+          </tr>
+          <tr>
+            <td class="label">فرز طباعة</td>
+            <td>
+              <span class="checkbox-box"></span> أول
+              <span class="checkbox-box" style="margin-right: 30px;"></span> ثاني
+              <span class="checkbox-box" style="margin-right: 30px;"></span> هالك
+            </td>
+          </tr>
+          <tr>
+            <td class="label">ملاحظات</td>
+            <td>
+              <span class="dotted-line" style="width: 95%;"></span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- CARTON FINISHING SECTION -->
+    <div class="carton-prep-container">
+      <div class="section-title-bar">تجهيزات الكرتون</div>
+      <table class="carton-prep-table">
+        <tbody>
+          <tr>
+            <td class="label">فرمة تكسير</td>
+            <td>
+              <span class="bold">مقاس:</span> ( <span class="dotted-line" style="width: 80px;"></span> )
+              <span class="bold" style="margin-right: 20px;">لعدد:</span> ( <span class="dotted-line" style="width: 40px;"></span> ) علبة
+              <span class="bold" style="margin-right: 25px;">التوقيع والتاريخ:</span> <span class="dotted-line" style="width: 160px;"></span>
+            </td>
+          </tr>
+          <tr>
+            <td class="label">خيارات التشغيل</td>
+            <td>
+              <span class="bold">ريجة:</span> <span class="checkbox-box"></span>
+              <span style="margin-right: 4px;">توقيع:</span> <span class="dotted-line" style="width: 60px;"></span>
+              
+              <span class="bold" style="margin-right: 20px;">تفتيح:</span> <span class="checkbox-box"></span>
+              <span style="margin-right: 4px;">توقيع:</span> <span class="dotted-line" style="width: 60px;"></span>
+              
+              <span class="bold" style="margin-right: 20px;">دبوس:</span> <span class="checkbox-box"></span>
+              <span style="margin-right: 4px;">توقيع:</span> <span class="dotted-line" style="width: 60px;"></span>
+              
+              <span class="bold" style="margin-right: 20px;">لزق عادي / آلي:</span> <span class="checkbox-box"></span>
+              <span style="margin-right: 4px;">توقيع:</span> <span class="dotted-line" style="width: 60px;"></span>
+            </td>
+          </tr>
+          <tr>
+            <td class="label">ملاحظات</td>
+            <td>
+              <span class="dotted-line" style="width: 95%;"></span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- FINISHED PRODUCT DELIVERIES -->
+    <div class="section-title-bar" style="margin-bottom: 2px;">تسليمات منتج تام</div>
+    <table class="deliveries-table">
+      <thead>
+        <tr>
+          <th style="width: 3%;">م</th>
+          <th style="width: 25%;">بيان</th>
+          <th style="width: 10%;">إجمالي العدد</th>
+          <th style="width: 8%;">إذن</th>
+          <th style="width: 8%;">تصريح</th>
+          <th style="width: 10%;">بتاريخ</th>
+          <th style="width: 8%;">سيارة</th>
+          <th style="width: 13%;">اسم السائق</th>
+          <th style="width: 10%;">ملاحظات</th>
+          <th style="width: 10%;">توقيع المخازن</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>١</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
+        <tr><td>٢</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
+        <tr><td>٣</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
+        <tr><td>٤</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
+        <tr><td>٥</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
+        <tr><td>٦</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
+      </tbody>
+    </table>
+
+    <!-- BOTTOM ATTACHMENTS & CLOSURE REPORT -->
+    <div class="back-bottom-container">
+      <!-- Left attachments table -->
+      <table class="attachments-table">
+        <thead>
+          <tr>
+            <th style="width: 5%;">م</th>
+            <th style="width: 15%;">تاريخ</th>
+            <th style="width: 45%;">بيان مرفقات العميل</th>
+            <th style="width: 15%;">توقيع المختص</th>
+            <th style="width: 20%;">ملاحظات</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>١</td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+          </tr>
+          <tr>
+            <td>٢</td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Right closing report box -->
+      <div class="closing-report-box">
+        <div class="bold" style="font-size: 8.5px; border-bottom: 1.2px solid #000; padding-bottom: 2px; margin-bottom: 4px; text-align: center;">
+          تقرير الإقفال
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>بتاريخ: <span class="dotted-line" style="width: 60px;"></span></span>
+          <span>المخازن: <span class="dotted-line" style="width: 70px;"></span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="page-footer">
+      <div>تحرير يناير ٢٠١٨</div>
+      <div style="font-weight: 800; color: #000;">أمر تشغيل موحد ( ٢ / ٢ )</div>
+    </div>
   </div>
 
 </body>

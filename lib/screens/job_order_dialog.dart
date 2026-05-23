@@ -151,7 +151,9 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         selectedTypes: List.from(_selectedTypes),
       );
       final html = await JobOrderService.generateHtml(data);
-      await JobOrderService.openForPrinting(html);
+      if (mounted) {
+        await JobOrderService.showPreview(context, html);
+      }
     } catch (e) {
       if (mounted) _showSnack('خطأ في إنشاء أمر التشغيل: $e');
     } finally {

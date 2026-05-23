@@ -113,7 +113,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           centerTitle: !isSearching,
           actions: [
             // ── زر إصدار أمر التشغيل — حصري لسطح المكتب ──────────────────
-            if (!kIsWeb && Platform.isWindows)
+            if ((!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) ||
+                (kIsWeb && MediaQuery.of(context).size.width > 900))
               Padding(
                 padding: const EdgeInsets.only(left: 4, right: 8),
                 child: ElevatedButton.icon(
