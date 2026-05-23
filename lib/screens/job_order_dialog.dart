@@ -37,6 +37,14 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
   final Map<int, TextEditingController> _qtyCtrl = {};
   final Map<int, TextEditingController> _itemNotesCtrl = {};
 
+  // Corrugation controllers keyed by item index
+  final Map<int, List<String>> _itemSelectedCorrugations = {};
+  final Map<int, TextEditingController> _itemCustomCorrugationCtrl = {};
+  final Map<int, TextEditingController> _itemSamplesCtrl = {};
+  final Map<int, TextEditingController> _itemBoxSizeCtrl = {};
+  final Map<int, TextEditingController> _itemSheetSizeCtrl = {};
+  final Map<int, TextEditingController> _itemSheetCountCtrl = {};
+
   // Selected items list (ordered)
   final List<int> _selectedIndices = [];
 
@@ -74,6 +82,21 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     for (final c in _itemNotesCtrl.values) {
       c.dispose();
     }
+    for (final c in _itemCustomCorrugationCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _itemSamplesCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _itemBoxSizeCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _itemSheetSizeCtrl.values) {
+      c.dispose();
+    }
+    for (final c in _itemSheetCountCtrl.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -84,10 +107,33 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         _selectedIndices.remove(index);
         _qtyCtrl.remove(index)?.dispose();
         _itemNotesCtrl.remove(index)?.dispose();
+
+        _itemSelectedCorrugations.remove(index);
+        _itemCustomCorrugationCtrl.remove(index)?.dispose();
+        _itemSamplesCtrl.remove(index)?.dispose();
+        _itemBoxSizeCtrl.remove(index)?.dispose();
+        _itemSheetSizeCtrl.remove(index)?.dispose();
+        _itemSheetCountCtrl.remove(index)?.dispose();
       } else {
         _selectedIndices.add(index);
         _qtyCtrl[index] = TextEditingController();
         _itemNotesCtrl[index] = TextEditingController();
+
+        // Initialize corrugation controllers
+        final raw = widget.clientItems[index];
+        final l = raw['length']?.toString() ?? '';
+        final w = raw['width']?.toString() ?? '';
+        final h = raw['height']?.toString() ?? '';
+
+        final defaultBoxSize = [l, w, h].where((x) => x.isNotEmpty).join(' / ');
+        final defaultSheetSize = [l, w].where((x) => x.isNotEmpty).join(' / ');
+
+        _itemSelectedCorrugations[index] = [];
+        _itemCustomCorrugationCtrl[index] = TextEditingController();
+        _itemSamplesCtrl[index] = TextEditingController();
+        _itemBoxSizeCtrl[index] = TextEditingController(text: defaultBoxSize);
+        _itemSheetSizeCtrl[index] = TextEditingController(text: defaultSheetSize);
+        _itemSheetCountCtrl[index] = TextEditingController();
       }
     });
   }
@@ -116,6 +162,12 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         height: raw['height']?.toString() ?? '',
         quantity: _qtyCtrl[idx]?.text ?? '',
         itemNotes: _itemNotesCtrl[idx]?.text ?? '',
+        corrugationTypes: List.from(_itemSelectedCorrugations[idx] ?? []),
+        customCorrugation: _itemCustomCorrugationCtrl[idx]?.text ?? '',
+        corrugationSamples: _itemSamplesCtrl[idx]?.text ?? '',
+        corrugationBoxSize: _itemBoxSizeCtrl[idx]?.text ?? '',
+        corrugationSheetSize: _itemSheetSizeCtrl[idx]?.text ?? '',
+        corrugationSheetCount: _itemSheetCountCtrl[idx]?.text ?? '',
       );
     }).toList();
 
@@ -519,6 +571,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                         Padding(
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Divider(height: 12),
                               Row(
@@ -529,8 +582,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                       'العدد (الكمية)',
                                       _qtyCtrl[idx]!,
                                       isDark,
-                                      keyboard:
-                                          TextInputType.number,
+                                      keyboard: TextInputType.number,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -540,6 +592,132 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                       'ملاحظات التشغيل',
                                       _itemNotesCtrl[idx]!,
                                       isDark,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              
+                              // --- Corrugation Section Header
+                              Row(
+                                children: [
+                                  const Icon(Icons.waves, size: 14, color: Color(0xFF1a3a6e)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'مواصفات التضليع (سيتم إدراجها بالظهر)',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white70 : const Color(0xFF1a3a6e),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              
+                              // --- Checkboxes Wrap
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                children: ['E', 'C', 'E/E', 'C/C', 'C/E'].map((type) {
+                                  final isChecked = _itemSelectedCorrugations[idx]?.contains(type) ?? false;
+                                  return InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        if (isChecked) {
+                                          _itemSelectedCorrugations[idx]?.remove(type);
+                                        } else {
+                                          _itemSelectedCorrugations[idx]?.add(type);
+                                        }
+                                      });
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: Checkbox(
+                                              value: isChecked,
+                                              activeColor: const Color(0xFF1a3a6e),
+                                              onChanged: (v) {
+                                                setState(() {
+                                                  if (v == true) {
+                                                    _itemSelectedCorrugations[idx]?.add(type);
+                                                  } else {
+                                                    _itemSelectedCorrugations[idx]?.remove(type);
+                                                  }
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            type,
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                              const SizedBox(height: 8),
+                              
+                              // --- Custom Corrugation
+                              _miniField(
+                                'تضليع مخصص / أخرى (مثل E/E + C)',
+                                _itemCustomCorrugationCtrl[idx]!,
+                                isDark,
+                                hint: 'أكتب نوع التضليع إذا لم يكن بالقائمة أعلاه',
+                              ),
+                              const SizedBox(height: 8),
+                              
+                              // --- Samples & Sheet Count Row
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _miniField(
+                                      'عينات',
+                                      _itemSamplesCtrl[idx]!,
+                                      isDark,
+                                      hint: 'مثال: معتمدة / مطابقة',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _miniField(
+                                      'عدد الشرائح',
+                                      _itemSheetCountCtrl[idx]!,
+                                      isDark,
+                                      keyboard: TextInputType.number,
+                                      hint: 'أرقام فقط',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              
+                              // --- Box Size & Sheet Size Row
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _miniField(
+                                      'مقاس العلبة (طول / عرض / إرتفاع)',
+                                      _itemBoxSizeCtrl[idx]!,
+                                      isDark,
+                                      hint: 'مثال: 80 / 36 / 48',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _miniField(
+                                      'مقاس الشريحة (طول / عرض)',
+                                      _itemSheetSizeCtrl[idx]!,
+                                      isDark,
+                                      hint: 'مثال: 80 / 36',
                                     ),
                                   ),
                                 ],
@@ -709,6 +887,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     TextEditingController ctrl,
     bool isDark, {
     TextInputType keyboard = TextInputType.text,
+    String? hint,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -729,6 +908,11 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
             color: isDark ? const Color(0xDEFFFFFF) : Colors.black87,
           ),
           decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(
+              fontSize: 11,
+              color: isDark ? Colors.white30 : Colors.grey.shade400,
+            ),
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 10,

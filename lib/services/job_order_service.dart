@@ -20,6 +20,14 @@ class JobOrderItem {
   String itemNotes;
   String review;
 
+  // Corrugation fields
+  final List<String> corrugationTypes;
+  final String customCorrugation;
+  final String corrugationSamples;
+  final String corrugationBoxSize;
+  final String corrugationSheetSize;
+  final String corrugationSheetCount;
+
   JobOrderItem({
     required this.productName,
     required this.productCode,
@@ -29,7 +37,15 @@ class JobOrderItem {
     this.quantity = '',
     this.itemNotes = '',
     this.review = '',
+    this.corrugationTypes = const [],
+    this.customCorrugation = '',
+    this.corrugationSamples = '',
+    this.corrugationBoxSize = '',
+    this.corrugationSheetSize = '',
+    this.corrugationSheetCount = '',
   });
+
+  bool get hasCorrugation => corrugationTypes.isNotEmpty || customCorrugation.isNotEmpty;
 }
 
 /// بيانات أمر التشغيل الكامل — يُمرَّر إلى [JobOrderService.generateHtml]
@@ -98,6 +114,12 @@ class JobOrderService {
     html = html.replaceAll('{{received_date}}', _safe(data.receivedDate));
 
     html = html.replaceAll('{{items_table_rows}}', _buildItemsRows(data.items));
+
+    // --- Corrugation dynamic blocks
+    html = html.replaceAll(
+      '{{corrugation_specs_blocks}}',
+      _buildCorrugationSpecsBlocks(data.items),
+    );
 
     // --- General notes
     html = html.replaceAll(
@@ -367,6 +389,117 @@ class JobOrderService {
               '${_esc(line)}</div>',
         )
         .join('\n');
+  }
+
+  static String _buildCorrugationSpecsBlocks(List<JobOrderItem> items) {
+    final corrugationItems = items.where((i) => i.hasCorrugation).toList();
+    
+    if (corrugationItems.isEmpty) {
+      return _buildCorrugationTable(
+        index: null,
+        types: [],
+        custom: '',
+        samples: '',
+        boxSize: '',
+        sheetSize: '',
+        sheetCount: '',
+      );
+    }
+    
+    final buffer = StringBuffer();
+    for (int i = 0; i < corrugationItems.length; i++) {
+      final item = corrugationItems[i];
+      buffer.write(_buildCorrugationTable(
+        index: i + 1,
+        types: item.corrugationTypes,
+        custom: item.customCorrugation,
+        samples: item.corrugationSamples,
+        boxSize: item.corrugationBoxSize,
+        sheetSize: item.corrugationSheetSize,
+        sheetCount: item.corrugationSheetCount,
+      ));
+    }
+    return buffer.toString();
+  }
+
+  static String _buildCorrugationTable({
+    required int? index,
+    required List<String> types,
+    required String custom,
+    required String samples,
+    required String boxSize,
+    required String sheetSize,
+    required String sheetCount,
+  }) {
+    final title = index != null ? 'التضليع (صنف $index)' : 'التضليع';
+    
+    final isE = types.contains('E') ? 'checked' : '';
+    final isC = types.contains('C') ? 'checked' : '';
+    final isEE = types.contains('E/E') ? 'checked' : '';
+    final isCC = types.contains('C/C') ? 'checked' : '';
+    final isCE = types.contains('C/E') ? 'checked' : '';
+    
+    final eTick = isE.isNotEmpty ? '&#10003;' : '';
+    final cTick = isC.isNotEmpty ? '&#10003;' : '';
+    final eeTick = isEE.isNotEmpty ? '&#10003;' : '';
+    final ccTick = isCC.isNotEmpty ? '&#10003;' : '';
+    final ceTick = isCE.isNotEmpty ? '&#10003;' : '';
+
+    return '''
+<table class="corrugation-item-table" style="width: 100%; border: 1.5px solid #000; border-collapse: collapse; margin-bottom: 8px;">
+  <tbody>
+    <!-- Header Title Bar -->
+    <tr>
+      <td colspan="3" style="background-color: #000000; color: #ffffff; text-align: center; font-weight: bold; font-size: 8.5px; padding: 2.5px;">$title</td>
+    </tr>
+    <!-- Row 1: Corrugation Type -->
+    <tr>
+      <!-- Column 1: Labels -->
+      <td class="bold" style="width: 12%; text-align: center; border: 1px solid #000; padding: 3px; font-size: 8.5px; background-color: var(--bg-header);">التضليع</td>
+      <!-- Column 2: Checkboxes and other -->
+      <td colspan="2" style="width: 88%; border: 1px solid #000; padding: 3px 6px; font-size: 8px; text-align: right;">
+        <div style="display: inline-flex; align-items: center; gap: 8px; direction: rtl;">
+          <span style="font-weight: bold;">( ${_esc(custom)} )</span>
+          <span class="inline-group"><span class="checkbox-box $isCE" style="${isCE.isNotEmpty ? 'background:#000;color:#fff;text-align:center;line-height:8px;font-size:8px;' : ''}">$ceTick</span> C/E</span>
+          <span class="inline-group"><span class="checkbox-box $isCC" style="${isCC.isNotEmpty ? 'background:#000;color:#fff;text-align:center;line-height:8px;font-size:8px;' : ''}">$ccTick</span> C/C</span>
+          <span class="inline-group"><span class="checkbox-box $isEE" style="${isEE.isNotEmpty ? 'background:#000;color:#fff;text-align:center;line-height:8px;font-size:8px;' : ''}">$eeTick</span> E/E</span>
+          <span class="inline-group"><span class="checkbox-box $isC" style="${isC.isNotEmpty ? 'background:#000;color:#fff;text-align:center;line-height:8px;font-size:8px;' : ''}">$cTick</span> C</span>
+          <span class="inline-group"><span class="checkbox-box $isE" style="${isE.isNotEmpty ? 'background:#000;color:#fff;text-align:center;line-height:8px;font-size:8px;' : ''}">$eTick</span> E</span>
+        </div>
+      </td>
+    </tr>
+    <!-- Row 2: Samples & Signature -->
+    <tr>
+      <td class="bold" style="text-align: center; border: 1px solid #000; padding: 3px; font-size: 8.5px; background-color: var(--bg-header);">عينات</td>
+      <td style="border: 1px solid #000; padding: 3px 6px; font-size: 8px; text-align: right; width: 63%;">
+        <span class="dotted-line" style="width: 90%;">${_esc(samples)}</span>
+      </td>
+      <!-- Signature cell spanning Rows 2, 3, 4 -->
+      <td rowspan="3" style="width: 25%; border: 1px solid #000; text-align: center; vertical-align: middle; padding: 4px; font-size: 8px; background: #fff;">
+        <div class="bold" style="margin-bottom: 4px;">توقيع فني التضليع والتاريخ</div>
+        <div class="dotted-line" style="width: 90%; height: 35px; border-bottom: none;"></div>
+      </td>
+    </tr>
+    <!-- Row 3: Box Size -->
+    <tr>
+      <td class="bold" style="text-align: center; border: 1px solid #000; padding: 3px; font-size: 8.5px; background-color: var(--bg-header);">مقاس العلبة</td>
+      <td style="border: 1px solid #000; padding: 3px 6px; font-size: 8.5px; text-align: center; font-weight: bold;">
+        ${_esc(boxSize)}
+      </td>
+    </tr>
+    <!-- Row 4: Sheet Size -->
+    <tr>
+      <td class="bold" style="text-align: center; border: 1px solid #000; padding: 3px; font-size: 8.5px; background-color: var(--bg-header);">مقاس الشريحة</td>
+      <td style="border: 1px solid #000; padding: 3px 6px; font-size: 8.5px; text-align: center; font-weight: bold;">
+        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; direction: rtl;">
+          <span>${_esc(sheetSize)}</span>
+          <span>( عدد الشرائح: ${_esc(sheetCount)} )</span>
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+''';
   }
 
   /// تحويل أحرف HTML الخاصة لمنع XSS في الحقول المُدخلة
