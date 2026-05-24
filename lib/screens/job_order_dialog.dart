@@ -188,9 +188,8 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         generalNotes: _generalNotesCtrl.text,
         items: items,
       );
-      final html = await JobOrderService.generateHtml(data);
       if (mounted) {
-        await JobOrderService.showPreview(context, html);
+        await JobOrderService.showPreview(context, data);
       }
     } catch (e) {
       if (mounted) _showSnack('خطأ في إنشاء أمر التشغيل: $e');
