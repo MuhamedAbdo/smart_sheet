@@ -1,13 +1,18 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
   <meta charset="UTF-8">
   <title>أمر تشغيل مطبعة - العاشر للطباعة والنشر والتغليف</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
       background-color: #e2e8f0;
       font-family: 'Cairo', sans-serif;
@@ -25,7 +30,7 @@
       width: 210mm;
       height: 297mm;
       background-color: #fff;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
       padding: 4mm 6mm;
       display: flex;
       flex-direction: column;
@@ -34,74 +39,256 @@
     }
 
     @media print {
-      body { background-color: #fff; padding: 0; }
-      .a4-container { box-shadow: none; padding: 4mm 6mm; }
+      body {
+        background-color: #fff;
+        padding: 0;
+      }
+
+      .a4-container {
+        box-shadow: none;
+        padding: 4mm 6mm;
+      }
     }
 
     /* Common elements */
-    .bordered-block { border: 1.5px solid #1a202c; background-color: #fff; }
-    .section-header { background-color: #5b796d; color: #fff; text-align: center; font-weight: 700; padding: 2px; font-size: 11px; }
-    .header-dark { background-color: #5b796d; color: #fff; text-align: center; font-weight: 700; }
-    
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #1a202c; padding: 1px 3px; vertical-align: middle; }
-    
-    .dotted-line { display: inline-block; border-bottom: 1px dotted #718096; min-height: 12px; }
-    
+    .bordered-block {
+      border: 1.5px solid #1a202c;
+      background-color: #fff;
+    }
+
+    .section-header {
+      background-color: #5b796d;
+      color: #fff;
+      text-align: center;
+      font-weight: 700;
+      padding: 2px;
+      font-size: 11px;
+    }
+
+    .header-dark {
+      background-color: #5b796d;
+      color: #fff;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      border: 1px solid #1a202c;
+      padding: 1px 3px;
+      vertical-align: middle;
+    }
+
+    .dotted-line {
+      display: inline-block;
+      border-bottom: 1px dotted #718096;
+      min-height: 12px;
+    }
+
     /* 1. Header */
-    .header-section { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: start; gap: 5px; margin-bottom: 2px; }
-    .header-right { text-align: right; font-weight: 800; font-size: 12px; }
-    .header-center { text-align: center; padding-top: 10px; }
-    .order-title { font-size: 16px; font-weight: 800; color: #e53e3e; }
-    .header-left-box { border: 1.5px solid #1a202c; padding: 2px 4px; font-size: 9px; }
-    .header-left-box div { display: flex; justify-content: space-between; margin-bottom: 1px; }
+    .header-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: start;
+      gap: 5px;
+      margin-bottom: 2px;
+    }
+
+    .header-right {
+      text-align: right;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .header-center {
+      text-align: center;
+      padding-top: 10px;
+    }
+
+    .order-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #e53e3e;
+    }
+
+    .header-left-box {
+      border: 1.5px solid #1a202c;
+      padding: 2px 4px;
+      font-size: 9px;
+    }
+
+    .header-left-box div {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 1px;
+    }
 
     /* 2. Client Info */
-    .client-info-section { border: 1.5px solid #1a202c; padding: 3px 6px; font-size: 9.5px; }
-    .info-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
-    .digit-box { display: inline-flex; width: 12px; height: 12px; border: 1px solid #1a202c; background: #fff; align-items: center; justify-content: center; }
-    .checkbox-box { display: inline-flex; width: 10px; height: 10px; border: 1px solid #1a202c; background: #fff; margin-left: 2px; }
+    .client-info-section {
+      border: 1.5px solid #1a202c;
+      padding: 3px 6px;
+      font-size: 9.5px;
+    }
+
+    .info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+
+    .digit-box {
+      display: inline-flex;
+      width: 12px;
+      height: 12px;
+      border: 1px solid #1a202c;
+      background: #fff;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .checkbox-box {
+      display: inline-flex;
+      width: 10px;
+      height: 10px;
+      border: 1px solid #1a202c;
+      background: #fff;
+      margin-left: 2px;
+    }
 
     /* 3. First Table */
-    .first-table-wrapper { display: flex; border: 1.5px solid #1a202c; }
-    .first-table-right { width: 85%; display: flex; }
-    .vertical-text-header { writing-mode: vertical-rl; transform: rotate(180deg); background-color: #fff; text-align: center; font-weight: 700; width: 25px; border-left: 1px solid #1a202c; }
-    .list-items { flex-grow: 1; padding: 2px 6px; display: flex; flex-direction: column; justify-content: space-between; border-left: 1px solid #1a202c; }
-    .first-table-left { width: 15%; display: flex; }
-    .review-header { font-weight: 700; text-align: center; border-bottom: 1px solid #1a202c; padding: 2px; }
+    .first-table-wrapper {
+      display: flex;
+      border: 1.5px solid #1a202c;
+    }
+
+    .first-table-right {
+      width: 85%;
+      display: flex;
+    }
+
+    .vertical-text-header {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      background-color: #fff;
+      text-align: center;
+      font-weight: 700;
+      width: 25px;
+      border-left: 1px solid #1a202c;
+    }
+
+    .list-items {
+      flex-grow: 1;
+      padding: 2px 6px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-left: 1px solid #1a202c;
+    }
+
+    .first-table-left {
+      width: 15%;
+      display: flex;
+    }
+
+    .review-header {
+      font-weight: 700;
+      text-align: center;
+      border-bottom: 1px solid #1a202c;
+      padding: 2px;
+    }
 
     /* 4. Corrugation */
-    .corrugation-table td { padding: 1px 3px; font-size: 9px; }
-    .corrugation-table .cell-label { font-weight: 700; text-align: right; width: 12%; }
-    .layers-table th, .layers-table td { padding: 0 2px; font-size: 8.5px; text-align: center; }
+    .corrugation-table td {
+      padding: 1px 3px;
+      font-size: 9px;
+    }
+
+    .corrugation-table .cell-label {
+      font-weight: 700;
+      text-align: right;
+      width: 12%;
+    }
+
+    .layers-table th,
+    .layers-table td {
+      padding: 0 2px;
+      font-size: 8.5px;
+      text-align: center;
+    }
 
     /* 5. Notes & Operators & Flexo */
-    .notes-flexo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
-    
-    .notes-block { border: 1.5px solid #1a202c; display: flex; flex-direction: column; }
-    .notes-content { padding: 4px; display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; }
-    
-    .right-blocks { display: flex; flex-direction: column; gap: 3px; }
-    .operators-table td { text-align: center; padding: 1px; }
-    
+    .notes-flexo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px;
+    }
+
+    .notes-block {
+      border: 1.5px solid #1a202c;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .notes-content {
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      flex-grow: 1;
+    }
+
+    .right-blocks {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .operators-table td {
+      text-align: center;
+      padding: 1px;
+    }
+
     /* 6. Delivery Section */
-    .delivery-table th { font-size: 8px; }
-    .delivery-table td { text-align: center; height: 14px; }
-    
+    .delivery-table th {
+      font-size: 8px;
+    }
+
+    .delivery-table td {
+      text-align: center;
+      height: 14px;
+    }
+
     /* 7. Attachments & Footer */
-    .attachments-table th { font-size: 8px; }
-    
-    .footer-report { display: flex; justify-content: space-between; padding: 2px 5px; font-size: 9px; font-weight: 700; border: 1.5px solid #1a202c; margin-top: 2px; }
+    .attachments-table th {
+      font-size: 8px;
+    }
+
+    .footer-report {
+      display: flex;
+      justify-content: space-between;
+      padding: 2px 5px;
+      font-size: 9px;
+      font-weight: 700;
+      border: 1.5px solid #1a202c;
+      margin-top: 2px;
+    }
   </style>
 </head>
+
 <body>
 
   <div class="a4-container">
-    
+
     <!-- 1. HEADER -->
     <div class="header-section">
       <div class="header-right">
-        العاشر للطباعة والنشر والتغليف<br>( كارترس )
+        العاشر للطباعة والنشر والتغليف<br>( كارتبرس )
       </div>
       <div class="header-center">
         <div class="order-title">أمر تشغيل رقم ( <span style="font-weight: 800;">0211</span> )</div>
@@ -132,16 +319,21 @@
         <div style="display: flex; align-items: center; gap: 5px;">
           <span style="font-weight: 700;">كود العميل :</span>
           <div style="direction: ltr; display: inline-flex; gap: 2px;">
-            <div class="digit-box">2</div><div class="digit-box"></div><div class="digit-box"></div> 
-            <span>-</span> 
-            <div class="digit-box"></div><div class="digit-box"></div><div class="digit-box"></div>
+            <div class="digit-box">2</div>
+            <div class="digit-box"></div>
+            <div class="digit-box"></div>
+            <span>-</span>
+            <div class="digit-box"></div>
+            <div class="digit-box"></div>
+            <div class="digit-box"></div>
           </div>
         </div>
         <div style="margin-right: 15px;">
-          <span style="font-weight: 700;">التاريخ :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;
+          <span style="font-weight: 700;">التاريخ :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; /
+          &nbsp;&nbsp;&nbsp;
         </div>
       </div>
-      
+
       <div class="info-row">
         <div style="flex-grow: 1;">
           <span style="font-weight: 700;">الصنف :</span> <span class="dotted-line" style="width: 250px;"></span>
@@ -149,7 +341,9 @@
         <div style="display: flex; align-items: center; gap: 5px;">
           <span style="font-weight: 700;">كود الصنف :</span>
           <div style="direction: ltr; display: inline-flex; gap: 2px;">
-            <div class="digit-box"></div><div class="digit-box"></div><div class="digit-box"></div>
+            <div class="digit-box"></div>
+            <div class="digit-box"></div>
+            <div class="digit-box"></div>
           </div>
         </div>
       </div>
@@ -164,9 +358,12 @@
       </div>
 
       <div class="info-row">
-        <div><span style="font-weight: 700;">تاريخ بدء التشغيل :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;</div>
-        <div><span style="font-weight: 700;">تاريخ الانتهاء :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;</div>
-        <div><span style="font-weight: 700;">ميعاد التسليم :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;</div>
+        <div><span style="font-weight: 700;">تاريخ بدء التشغيل :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; /
+          &nbsp;&nbsp;&nbsp;</div>
+        <div><span style="font-weight: 700;">تاريخ الانتهاء :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; /
+          &nbsp;&nbsp;&nbsp;</div>
+        <div><span style="font-weight: 700;">ميعاد التسليم :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; /
+          &nbsp;&nbsp;&nbsp;</div>
       </div>
     </div>
 
@@ -185,10 +382,12 @@
         <div style="width: 120px;"></div> <!-- Empty space right of list -->
       </div>
       <div class="first-table-left">
-        <div class="vertical-text-header" style="width: 20px; font-size: 9px; border-left: none; border-right: 1px solid #1a202c;">م / ف</div>
+        <div class="vertical-text-header"
+          style="width: 20px; font-size: 9px; border-left: none; border-right: 1px solid #1a202c;">م / ف</div>
         <div style="flex-grow: 1; display: flex; flex-direction: column;">
           <div class="review-header">المراجعة</div>
-          <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: space-around; padding: 2px;">
+          <div
+            style="flex-grow: 1; display: flex; flex-direction: column; justify-content: space-around; padding: 2px;">
             <div style="border-bottom: 1px dotted #718096;"></div>
             <div style="border-bottom: 1px dotted #718096;"></div>
             <div style="border-bottom: 1px dotted #718096;"></div>
@@ -212,7 +411,8 @@
               <div><span class="checkbox-box"></span> E/E</div>
               <div><span class="checkbox-box"></span> C/C</div>
               <div><span class="checkbox-box"></span> C/E</div>
-              <div style="margin-right: auto;">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div>
+              <div style="margin-right: auto;">(
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div>
             </div>
           </td>
         </tr>
@@ -220,17 +420,20 @@
           <td class="cell-label" style="border-right: none;">عينات</td>
           <td style="width: 45%;"></td>
           <td rowspan="4" style="width: 43%; vertical-align: top; text-align: center; padding: 0; border-left: none;">
-            <div style="font-weight: 700; border-bottom: 1px solid #1a202c; padding: 2px;">توقيع فني التضليع والتاريخ</div>
+            <div style="font-weight: 700; border-bottom: 1px solid #1a202c; padding: 2px;">توقيع فني التضليع والتاريخ
+            </div>
             <div style="height: 45px;"></div>
           </td>
         </tr>
         <tr>
           <td class="cell-label" style="border-right: none;">مقاس العلبة</td>
-          <td style="text-align: center;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+          <td style="text-align: center;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          </td>
         </tr>
         <tr>
           <td class="cell-label" style="border-right: none;">مقاس الشريحة</td>
-          <td style="text-align: center;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; <span style="font-weight: 700;">عدد الشرائح</span> [ &nbsp;&nbsp;&nbsp; ]</td>
+          <td style="text-align: center;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; <span
+              style="font-weight: 700;">عدد الشرائح</span> [ &nbsp;&nbsp;&nbsp; ]</td>
         </tr>
         <tr>
           <td class="cell-label" style="border-right: none;">عرض البكر</td>
@@ -240,42 +443,59 @@
           <td colspan="3" style="padding: 0; border: none;">
             <table class="layers-table" style="border: none; border-top: 1px solid #1a202c;">
               <tr>
-                <td rowspan="6" class="header-dark" style="writing-mode: vertical-rl; transform: rotate(180deg); width: 8%; border-right: none;">الطبقات</td>
+                <td rowspan="6" class="header-dark"
+                  style="writing-mode: vertical-rl; transform: rotate(180deg); width: 8%; border-right: none;">الطبقات
+                </td>
                 <td rowspan="2" style="font-weight: 700; width: 8%;">أول</td>
-                <td style="width: 34%;"><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
-                <td style="width: 25%;"><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
-                <td rowspan="2" style="width: 25%; font-weight: 700; border-left: none;">عدد الشرائح : [ &nbsp;&nbsp;&nbsp; ]</td>
+                <td style="width: 34%;"><span style="font-weight: 700;">نوع</span> [
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
+                <td style="width: 25%;"><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span
+                    style="font-weight: 700;">جم</span></td>
+                <td rowspan="2" style="width: 25%; font-weight: 700; border-left: none;">عدد الشرائح : [
+                  &nbsp;&nbsp;&nbsp; ]</td>
               </tr>
               <tr>
-                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
-                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
+                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  ]</td>
+                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span
+                    style="font-weight: 700;">جم</span></td>
               </tr>
               <tr>
                 <td rowspan="2" style="font-weight: 700;">وسط</td>
-                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
-                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
+                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  ]</td>
+                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span
+                    style="font-weight: 700;">جم</span></td>
                 <td rowspan="2" style="font-weight: 700; border-left: none;">عدد الشرائح : [ &nbsp;&nbsp;&nbsp; ]</td>
               </tr>
               <tr>
-                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
-                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
+                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  ]</td>
+                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span
+                    style="font-weight: 700;">جم</span></td>
               </tr>
               <tr>
                 <td rowspan="2" style="font-weight: 700;">أخير</td>
-                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
-                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
+                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  ]</td>
+                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span
+                    style="font-weight: 700;">جم</span></td>
                 <td rowspan="2" style="font-weight: 700; border-left: none;">عدد الشرائح : [ &nbsp;&nbsp;&nbsp; ]</td>
               </tr>
               <tr>
-                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
-                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
+                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  ]</td>
+                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span
+                    style="font-weight: 700;">جم</span></td>
               </tr>
             </table>
           </td>
         </tr>
         <tr>
           <td class="cell-label" style="border-right: none; border-bottom: none;">ملاحظات</td>
-          <td colspan="2" style="border-left: none; border-bottom: none;"><div style="height: 18px;"></div></td>
+          <td colspan="2" style="border-left: none; border-bottom: none;">
+            <div style="height: 18px;"></div>
+          </td>
         </tr>
       </table>
     </div>
@@ -287,28 +507,44 @@
         <!-- Empty Table (Operators) -->
         <table class="operators-table" style="height: 55px;">
           <tr>
-            <td style="width: 20%; font-weight: 700; text-align: center; border-top: 1.5px solid #1a202c; border-right: 1.5px solid #1a202c;">١</td>
+            <td
+              style="width: 20%; font-weight: 700; text-align: center; border-top: 1.5px solid #1a202c; border-right: 1.5px solid #1a202c;">
+              ١</td>
             <td style="width: 80%; border-top: 1.5px solid #1a202c; border-left: 1.5px solid #1a202c;"></td>
           </tr>
-          <tr><td style="font-weight: 700; text-align: center; border-right: 1.5px solid #1a202c;">٢</td><td style="border-left: 1.5px solid #1a202c;"></td></tr>
-          <tr><td style="font-weight: 700; text-align: center; border-right: 1.5px solid #1a202c;">٣</td><td style="border-left: 1.5px solid #1a202c;"></td></tr>
-          <tr><td style="font-weight: 700; text-align: center; border-right: 1.5px solid #1a202c;">٤</td><td style="border-left: 1.5px solid #1a202c;"></td></tr>
           <tr>
-            <td style="font-weight: 700; text-align: center; border-bottom: 1.5px solid #1a202c; border-right: 1.5px solid #1a202c;">٥</td>
+            <td style="font-weight: 700; text-align: center; border-right: 1.5px solid #1a202c;">٢</td>
+            <td style="border-left: 1.5px solid #1a202c;"></td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; text-align: center; border-right: 1.5px solid #1a202c;">٣</td>
+            <td style="border-left: 1.5px solid #1a202c;"></td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; text-align: center; border-right: 1.5px solid #1a202c;">٤</td>
+            <td style="border-left: 1.5px solid #1a202c;"></td>
+          </tr>
+          <tr>
+            <td
+              style="font-weight: 700; text-align: center; border-bottom: 1.5px solid #1a202c; border-right: 1.5px solid #1a202c;">
+              ٥</td>
             <td style="border-bottom: 1.5px solid #1a202c; border-left: 1.5px solid #1a202c;"></td>
           </tr>
         </table>
-        
+
         <!-- Flexo -->
         <div class="bordered-block">
           <div class="header-dark" style="padding: 2px;">طباعة الفلكسو</div>
           <table style="border: none;">
             <tr>
-              <td style="width: 20%; font-weight: 700; text-align: center; border-right: none; border-top: none;">طباعة</td>
-              <td style="width: 60%; font-size: 8.5px; border-top: none;">
-                ألوان ( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ) - إجمالي عدد الألوان ( &nbsp;&nbsp;&nbsp;&nbsp; ) لون.
+              <td style="width: 20%; font-weight: 700; text-align: center; border-right: none; border-top: none;">طباعة
               </td>
-              <td rowspan="2" style="width: 20%; text-align: center; vertical-align: top; padding: 0; border-left: none; border-top: none;">
+              <td style="width: 60%; font-size: 8.5px; border-top: none;">
+                ألوان ( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ) - إجمالي عدد الألوان ( &nbsp;&nbsp;&nbsp;&nbsp; )
+                لون.
+              </td>
+              <td rowspan="2"
+                style="width: 20%; text-align: center; vertical-align: top; padding: 0; border-left: none; border-top: none;">
                 <div style="font-weight: 700; border-bottom: 1px solid #1a202c; font-size: 8px;">توقيع المختص</div>
               </td>
             </tr>
@@ -322,7 +558,9 @@
             </tr>
             <tr>
               <td style="font-weight: 700; text-align: center; border-right: none; border-bottom: none;">ملاحظات</td>
-              <td colspan="2" style="border-left: none; border-bottom: none;"><div style="height: 14px;"></div></td>
+              <td colspan="2" style="border-left: none; border-bottom: none;">
+                <div style="height: 14px;"></div>
+              </td>
             </tr>
           </table>
         </div>
@@ -363,12 +601,78 @@
           </tr>
         </thead>
         <tbody>
-          <tr><td style="border-right: none;">١</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td style="border-left: none;"></td></tr>
-          <tr><td style="border-right: none;">٢</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td style="border-left: none;"></td></tr>
-          <tr><td style="border-right: none;">٣</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td style="border-left: none;"></td></tr>
-          <tr><td style="border-right: none;">٤</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td style="border-left: none;"></td></tr>
-          <tr><td style="border-right: none;">٥</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td style="border-left: none;"></td></tr>
-          <tr><td style="border-right: none; border-bottom: none;">٦</td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-left: none; border-bottom: none;"></td></tr>
+          <tr>
+            <td style="border-right: none;">١</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td style="border-left: none;"></td>
+          </tr>
+          <tr>
+            <td style="border-right: none;">٢</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td style="border-left: none;"></td>
+          </tr>
+          <tr>
+            <td style="border-right: none;">٣</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td style="border-left: none;"></td>
+          </tr>
+          <tr>
+            <td style="border-right: none;">٤</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td style="border-left: none;"></td>
+          </tr>
+          <tr>
+            <td style="border-right: none;">٥</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td style="border-left: none;"></td>
+          </tr>
+          <tr>
+            <td style="border-right: none; border-bottom: none;">٦</td>
+            <td style="border-bottom: none;"></td>
+            <td style="border-bottom: none;"></td>
+            <td style="border-bottom: none;"></td>
+            <td style="border-bottom: none;"></td>
+            <td style="border-bottom: none;"></td>
+            <td style="border-bottom: none;"></td>
+            <td style="border-bottom: none;"></td>
+            <td style="border-bottom: none;"></td>
+            <td style="border-left: none; border-bottom: none;"></td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -388,10 +692,18 @@
         </thead>
         <tbody>
           <tr>
-            <td style="border-right: none;">١</td><td></td><td></td><td></td><td style="border-left: none;"></td>
+            <td style="border-right: none;">١</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td style="border-left: none;"></td>
           </tr>
           <tr>
-            <td style="border-right: none; border-bottom: none;">٢</td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-left: none; border-bottom: none;"></td>
+            <td style="border-right: none; border-bottom: none;">٢</td>
+            <td style="border-bottom: none;"></td>
+            <td style="border-bottom: none;"></td>
+            <td style="border-bottom: none;"></td>
+            <td style="border-left: none; border-bottom: none;"></td>
           </tr>
         </tbody>
       </table>
@@ -402,10 +714,11 @@
       <div>بتاريخ : <span class="dotted-line" style="width: 80px;"></span></div>
       <div>تقرير الإقفال : <span class="dotted-line" style="width: 150px;"></span></div>
     </div>
-    
+
     <div style="font-size: 8px; color: #718096; margin-top: 1px;">( ١ / ١ )</div>
 
   </div>
 
 </body>
+
 </html>
