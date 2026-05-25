@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:smart_sheet/services/job_order_service.dart';
 
 /// Dialog إصدار أمر التشغيل — حصرياً لسطح المكتب (Windows)
 class JobOrderDialog extends StatefulWidget {
   final String clientName;
   final String clientCode;
+  final String clientAddress;
+  final String clientSupervisor;
+  final String clientPhone;
 
   /// قائمة أصناف العميل من صندوق savedSheetSizes
   final List<Map<String, dynamic>> clientItems;
@@ -13,6 +17,9 @@ class JobOrderDialog extends StatefulWidget {
     super.key,
     required this.clientName,
     this.clientCode = '',
+    this.clientAddress = '',
+    this.clientSupervisor = '',
+    this.clientPhone = '',
     this.clientItems = const [],
   });
 
@@ -25,11 +32,8 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
   final _orderNumberCtrl = TextEditingController();
   final _jobNumberCtrl = TextEditingController();
   final _createdByCtrl = TextEditingController();
-  final _addressCtrl = TextEditingController();
   final _startDateCtrl = TextEditingController();
-  final _supervisorCtrl = TextEditingController();
   final _deliveryDateCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
   final _receivedDateCtrl = TextEditingController();
   final _generalNotesCtrl = TextEditingController();
 
@@ -58,8 +62,8 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     final dateStr =
         '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
     
-    _orderNumberCtrl.text = "0000";
-    _jobNumberCtrl.text = "0000";
+    _orderNumberCtrl.clear();
+    _jobNumberCtrl.clear();
     _startDateCtrl.text = dateStr;
   }
 
@@ -68,11 +72,8 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     _orderNumberCtrl.dispose();
     _jobNumberCtrl.dispose();
     _createdByCtrl.dispose();
-    _addressCtrl.dispose();
     _startDateCtrl.dispose();
-    _supervisorCtrl.dispose();
     _deliveryDateCtrl.dispose();
-    _phoneCtrl.dispose();
     _receivedDateCtrl.dispose();
     _generalNotesCtrl.dispose();
     for (final c in _qtyCtrl.values) {
@@ -179,11 +180,11 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         createdBy: _createdByCtrl.text,
         customerName: widget.clientName,
         clientCode: widget.clientCode,
-        address: _addressCtrl.text,
+        address: widget.clientAddress,
         startDate: _startDateCtrl.text,
-        supervisor: _supervisorCtrl.text,
+        supervisor: widget.clientSupervisor,
         deliveryDate: _deliveryDateCtrl.text,
-        phone: _phoneCtrl.text,
+        phone: widget.clientPhone,
         receivedDate: _receivedDateCtrl.text,
         generalNotes: _generalNotesCtrl.text,
         items: items,
@@ -361,7 +362,9 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                   'رقم أمر التشغيل',
                   _orderNumberCtrl,
                   isDark,
-                  hint: 'تلقائي',
+                  hint: 'أرقام فقط',
+                  keyboard: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 ),
               ),
               const SizedBox(width: 12),
@@ -370,7 +373,9 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                   'طلبية رقم',
                   _jobNumberCtrl,
                   isDark,
-                  hint: 'رقم الطلبية',
+                  hint: 'أرقام فقط',
+                  keyboard: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 ),
               ),
             ],
@@ -383,33 +388,8 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
             hint: 'اسم الشخص المُصدِر',
           ),
           const SizedBox(height: 20),
-          _sectionTitle('بيانات العميل', Icons.business_outlined, isDark),
-          const SizedBox(height: 12),
-          _field('العنوان', _addressCtrl, isDark, hint: 'عنوان العميل'),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _field(
-                  'المسئول',
-                  _supervisorCtrl,
-                  isDark,
-                  hint: 'اسم المسئول',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _field(
-                  'التليفون',
-                  _phoneCtrl,
-                  isDark,
-                  hint: '01x-xxxxxxxx',
-                  keyboard: TextInputType.phone,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+          // "Client Info" section removed as requested.
+
           _sectionTitle('المواعيد', Icons.event_outlined, isDark),
           const SizedBox(height: 12),
           Row(
@@ -637,7 +617,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                   const Icon(Icons.waves, size: 14, color: Color(0xFF1a3a6e)),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'مواصفات التضليع (سيتم إدراجها بالظهر)',
+                                    'مواصفات التضليع',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -658,9 +638,9 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                     onTap: () {
                                       setState(() {
                                         if (isChecked) {
-                                          _itemSelectedCorrugations[idx]?.remove(type);
+                                          _itemSelectedCorrugations[idx]?.clear();
                                         } else {
-                                          _itemSelectedCorrugations[idx]?.add(type);
+                                          _itemSelectedCorrugations[idx] = [type];
                                         }
                                       });
                                     },
@@ -673,14 +653,15 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                             width: 18,
                                             height: 18,
                                             child: Checkbox(
-                                              value: isChecked,
+                                              value: _itemSelectedCorrugations[idx]?.isNotEmpty == true && 
+                                                     _itemSelectedCorrugations[idx]!.first == type,
                                               activeColor: const Color(0xFF1a3a6e),
                                               onChanged: (v) {
                                                 setState(() {
                                                   if (v == true) {
-                                                    _itemSelectedCorrugations[idx]?.add(type);
+                                                    _itemSelectedCorrugations[idx] = [type];
                                                   } else {
-                                                    _itemSelectedCorrugations[idx]?.remove(type);
+                                                    _itemSelectedCorrugations[idx]?.clear();
                                                   }
                                                 });
                                               },
@@ -864,6 +845,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     TextInputType keyboard = TextInputType.text,
     bool readOnly = false,
     VoidCallback? onTap,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -883,6 +865,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
           maxLines: maxLines,
           readOnly: readOnly,
           onTap: onTap,
+          inputFormatters: inputFormatters,
           style: TextStyle(
             fontSize: 13,
             color: isDark ? const Color(0xDEFFFFFF) : Colors.black87,

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>أمر تشغيل مطبعة - العاشر للطباعة والنشر والتغليف</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background-color: #e2e8f0;
+      font-family: 'Cairo', sans-serif;
+      font-size: 10px;
+      color: #1a202c;
+      line-height: 1.1;
+      padding: 10px 0;
+      display: flex;
+      justify-content: center;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .a4-container {
+      width: 210mm;
+      height: 297mm;
+      background-color: #fff;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      padding: 4mm 6mm;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      overflow: hidden;
+    }
+
+    @media print {
+      body { background-color: #fff; padding: 0; }
+      .a4-container { box-shadow: none; padding: 4mm 6mm; }
+    }
+
+    /* Common elements */
+    .bordered-block { border: 1.5px solid #1a202c; background-color: #fff; }
+    .section-header { background-color: #5b796d; color: #fff; text-align: center; font-weight: 700; padding: 2px; font-size: 11px; }
+    .header-dark { background-color: #5b796d; color: #fff; text-align: center; font-weight: 700; }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #1a202c; padding: 1px 3px; vertical-align: middle; }
+    
+    .dotted-line { display: inline-block; border-bottom: 1px dotted #718096; min-height: 12px; }
+    
+    /* 1. Header */
+    .header-section { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: start; gap: 5px; margin-bottom: 2px; }
+    .header-right { text-align: right; font-weight: 800; font-size: 12px; }
+    .header-center { text-align: center; padding-top: 10px; }
+    .order-title { font-size: 16px; font-weight: 800; color: #e53e3e; }
+    .header-left-box { border: 1.5px solid #1a202c; padding: 2px 4px; font-size: 9px; }
+    .header-left-box div { display: flex; justify-content: space-between; margin-bottom: 1px; }
+
+    /* 2. Client Info */
+    .client-info-section { border: 1.5px solid #1a202c; padding: 3px 6px; font-size: 9.5px; }
+    .info-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+    .digit-box { display: inline-flex; width: 12px; height: 12px; border: 1px solid #1a202c; background: #fff; align-items: center; justify-content: center; }
+    .checkbox-box { display: inline-flex; width: 10px; height: 10px; border: 1px solid #1a202c; background: #fff; margin-left: 2px; }
+
+    /* 3. First Table */
+    .first-table-wrapper { display: flex; border: 1.5px solid #1a202c; }
+    .first-table-right { width: 85%; display: flex; }
+    .vertical-text-header { writing-mode: vertical-rl; transform: rotate(180deg); background-color: #fff; text-align: center; font-weight: 700; width: 25px; border-left: 1px solid #1a202c; }
+    .list-items { flex-grow: 1; padding: 2px 6px; display: flex; flex-direction: column; justify-content: space-between; border-left: 1px solid #1a202c; }
+    .first-table-left { width: 15%; display: flex; }
+    .review-header { font-weight: 700; text-align: center; border-bottom: 1px solid #1a202c; padding: 2px; }
+
+    /* 4. Corrugation */
+    .corrugation-table td { padding: 1px 3px; font-size: 9px; }
+    .corrugation-table .cell-label { font-weight: 700; text-align: right; width: 12%; }
+    .layers-table th, .layers-table td { padding: 0 2px; font-size: 8.5px; text-align: center; }
+
+    /* 5. Notes & Operators & Flexo */
+    .notes-flexo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+    
+    .notes-block { border: 1.5px solid #1a202c; display: flex; flex-direction: column; }
+    .notes-content { padding: 4px; display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; }
+    
+    .right-blocks { display: flex; flex-direction: column; gap: 3px; }
+    .operators-table td { text-align: center; padding: 1px; }
+    
+    /* 6. Delivery Section */
+    .delivery-table th { font-size: 8px; }
+    .delivery-table td { text-align: center; height: 14px; }
+    
+    /* 7. Attachments & Footer */
+    .attachments-table th { font-size: 8px; }
+    
+    .footer-report { display: flex; justify-content: space-between; padding: 2px 5px; font-size: 9px; font-weight: 700; border: 1.5px solid #1a202c; margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+  <div class="a4-container">
+    
+    <!-- 1. HEADER -->
+    <div class="header-section">
+      <div class="header-right">
+        العاشر للطباعة والنشر والتغليف<br>( كارترس )
+      </div>
+      <div class="header-center">
+        <div class="order-title">أمر تشغيل رقم ( <span style="font-weight: 800;">0211</span> )</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="font-size: 9px; font-weight: 600; margin-bottom: 1px;">بسم الله الرحمن الرحيم</div>
+        <div class="header-left-box">
+          <div><span>طلبية رقم :</span> <span class="dotted-line" style="width: 50px;"></span></div>
+          <div><span>بتاريخ :</span> <span>٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;</span></div>
+          <div><span>محرر أمر التشغيل :</span> <span class="dotted-line" style="width: 50px;"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. CLIENT INFO -->
+    <div class="client-info-section">
+      <div class="info-row">
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <span class="checkbox-box"></span> R
+          <span class="checkbox-box"></span> T
+          <span class="checkbox-box"></span> E
+          <span class="checkbox-box"></span> C
+          <span class="checkbox-box"></span> B
+        </div>
+        <div style="flex-grow: 1; margin-right: 15px;">
+          <span style="font-weight: 700;">العميل :</span> <span class="dotted-line" style="width: 150px;"></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <span style="font-weight: 700;">كود العميل :</span>
+          <div style="direction: ltr; display: inline-flex; gap: 2px;">
+            <div class="digit-box">2</div><div class="digit-box"></div><div class="digit-box"></div> 
+            <span>-</span> 
+            <div class="digit-box"></div><div class="digit-box"></div><div class="digit-box"></div>
+          </div>
+        </div>
+        <div style="margin-right: 15px;">
+          <span style="font-weight: 700;">التاريخ :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;
+        </div>
+      </div>
+      
+      <div class="info-row">
+        <div style="flex-grow: 1;">
+          <span style="font-weight: 700;">الصنف :</span> <span class="dotted-line" style="width: 250px;"></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <span style="font-weight: 700;">كود الصنف :</span>
+          <div style="direction: ltr; display: inline-flex; gap: 2px;">
+            <div class="digit-box"></div><div class="digit-box"></div><div class="digit-box"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-row">
+        <div style="flex-grow: 1;">
+          <span style="font-weight: 700;">العنوان :</span> <span class="dotted-line" style="width: 150px;"></span>
+        </div>
+        <div style="flex-grow: 1;">
+          <span style="font-weight: 700;">التليفون :</span> <span class="dotted-line" style="width: 120px;"></span>
+        </div>
+      </div>
+
+      <div class="info-row">
+        <div><span style="font-weight: 700;">تاريخ بدء التشغيل :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;</div>
+        <div><span style="font-weight: 700;">تاريخ الانتهاء :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;</div>
+        <div><span style="font-weight: 700;">ميعاد التسليم :</span> ٢٠ &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;</div>
+      </div>
+    </div>
+
+    <!-- 3. FIRST TABLE (المطلوب تنفيذه / المراجعة) -->
+    <div class="first-table-wrapper">
+      <div class="first-table-right">
+        <div class="vertical-text-header">المطلوب تنفيذه</div>
+        <div class="list-items">
+          <div>( 1 ) <span class="dotted-line" style="width: 90%;"></span></div>
+          <div>( 2 ) <span class="dotted-line" style="width: 90%;"></span></div>
+          <div>( 3 ) <span class="dotted-line" style="width: 90%;"></span></div>
+          <div>( 4 ) <span class="dotted-line" style="width: 90%;"></span></div>
+          <div>( 5 ) <span class="dotted-line" style="width: 90%;"></span></div>
+          <div>( 6 ) <span class="dotted-line" style="width: 90%;"></span></div>
+        </div>
+        <div style="width: 120px;"></div> <!-- Empty space right of list -->
+      </div>
+      <div class="first-table-left">
+        <div class="vertical-text-header" style="width: 20px; font-size: 9px; border-left: none; border-right: 1px solid #1a202c;">م / ف</div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column;">
+          <div class="review-header">المراجعة</div>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: space-around; padding: 2px;">
+            <div style="border-bottom: 1px dotted #718096;"></div>
+            <div style="border-bottom: 1px dotted #718096;"></div>
+            <div style="border-bottom: 1px dotted #718096;"></div>
+            <div style="border-bottom: 1px dotted #718096;"></div>
+            <div style="border-bottom: 1px dotted #718096;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. CORRUGATION SECTION -->
+    <div class="bordered-block">
+      <div class="section-header">التضليع</div>
+      <table class="corrugation-table" style="border: none;">
+        <tr>
+          <td class="cell-label" style="width: 12%; border-right: none;">التضليع</td>
+          <td colspan="2">
+            <div style="display: flex; gap: 15px; align-items: center;">
+              <div><span class="checkbox-box"></span> E</div>
+              <div><span class="checkbox-box"></span> C</div>
+              <div><span class="checkbox-box"></span> E/E</div>
+              <div><span class="checkbox-box"></span> C/C</div>
+              <div><span class="checkbox-box"></span> C/E</div>
+              <div style="margin-right: auto;">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="cell-label" style="border-right: none;">عينات</td>
+          <td style="width: 45%;"></td>
+          <td rowspan="4" style="width: 43%; vertical-align: top; text-align: center; padding: 0; border-left: none;">
+            <div style="font-weight: 700; border-bottom: 1px solid #1a202c; padding: 2px;">توقيع فني التضليع والتاريخ</div>
+            <div style="height: 45px;"></div>
+          </td>
+        </tr>
+        <tr>
+          <td class="cell-label" style="border-right: none;">مقاس العلبة</td>
+          <td style="text-align: center;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        </tr>
+        <tr>
+          <td class="cell-label" style="border-right: none;">مقاس الشريحة</td>
+          <td style="text-align: center;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp; <span style="font-weight: 700;">عدد الشرائح</span> [ &nbsp;&nbsp;&nbsp; ]</td>
+        </tr>
+        <tr>
+          <td class="cell-label" style="border-right: none;">عرض البكر</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="3" style="padding: 0; border: none;">
+            <table class="layers-table" style="border: none; border-top: 1px solid #1a202c;">
+              <tr>
+                <td rowspan="6" class="header-dark" style="writing-mode: vertical-rl; transform: rotate(180deg); width: 8%; border-right: none;">الطبقات</td>
+                <td rowspan="2" style="font-weight: 700; width: 8%;">أول</td>
+                <td style="width: 34%;"><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
+                <td style="width: 25%;"><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
+                <td rowspan="2" style="width: 25%; font-weight: 700; border-left: none;">عدد الشرائح : [ &nbsp;&nbsp;&nbsp; ]</td>
+              </tr>
+              <tr>
+                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
+                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
+              </tr>
+              <tr>
+                <td rowspan="2" style="font-weight: 700;">وسط</td>
+                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
+                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
+                <td rowspan="2" style="font-weight: 700; border-left: none;">عدد الشرائح : [ &nbsp;&nbsp;&nbsp; ]</td>
+              </tr>
+              <tr>
+                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
+                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
+              </tr>
+              <tr>
+                <td rowspan="2" style="font-weight: 700;">أخير</td>
+                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
+                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
+                <td rowspan="2" style="font-weight: 700; border-left: none;">عدد الشرائح : [ &nbsp;&nbsp;&nbsp; ]</td>
+              </tr>
+              <tr>
+                <td><span style="font-weight: 700;">نوع</span> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]</td>
+                <td><span style="font-weight: 700;">وزن</span> [ &nbsp;&nbsp;&nbsp; ] <span style="font-weight: 700;">جم</span></td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td class="cell-label" style="border-right: none; border-bottom: none;">ملاحظات</td>
+          <td colspan="2" style="border-left: none; border-bottom: none;"><div style="height: 18px;"></div></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 5. NOTES & FLEXO GRID -->
+    <div class="notes-flexo-grid">
+      <!-- Right: Operators & Flexo (First in RTL) -->
+      <div class="right-blocks">
+        <!-- Empty Table (Operators) -->
+        <table class="operators-table" style="height: 55px;">
+          <tr>
+            <td style="width: 20%; font-weight: 700; text-align: center; border-top: 1.5px solid #1a202c; border-right: 1.5px solid #1a202c;">١</td>
+            <td style="width: 80%; border-top: 1.5px solid #1a202c; border-left: 1.5px solid #1a202c;"></td>
+          </tr>
+          <tr><td style="font-weight: 700; text-align: center; border-right: 1.5px solid #1a202c;">٢</td><td style="border-left: 1.5px solid #1a202c;"></td></tr>
+          <tr><td style="font-weight: 700; text-align: center; border-right: 1.5px solid #1a202c;">٣</td><td style="border-left: 1.5px solid #1a202c;"></td></tr>
+          <tr><td style="font-weight: 700; text-align: center; border-right: 1.5px solid #1a202c;">٤</td><td style="border-left: 1.5px solid #1a202c;"></td></tr>
+          <tr>
+            <td style="font-weight: 700; text-align: center; border-bottom: 1.5px solid #1a202c; border-right: 1.5px solid #1a202c;">٥</td>
+            <td style="border-bottom: 1.5px solid #1a202c; border-left: 1.5px solid #1a202c;"></td>
+          </tr>
+        </table>
+        
+        <!-- Flexo -->
+        <div class="bordered-block">
+          <div class="header-dark" style="padding: 2px;">طباعة الفلكسو</div>
+          <table style="border: none;">
+            <tr>
+              <td style="width: 20%; font-weight: 700; text-align: center; border-right: none; border-top: none;">طباعة</td>
+              <td style="width: 60%; font-size: 8.5px; border-top: none;">
+                ألوان ( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ) - إجمالي عدد الألوان ( &nbsp;&nbsp;&nbsp;&nbsp; ) لون.
+              </td>
+              <td rowspan="2" style="width: 20%; text-align: center; vertical-align: top; padding: 0; border-left: none; border-top: none;">
+                <div style="font-weight: 700; border-bottom: 1px solid #1a202c; font-size: 8px;">توقيع المختص</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; text-align: center; border-right: none;">فرز طباعة</td>
+              <td style="font-size: 9px;">
+                <span class="checkbox-box"></span> أول &nbsp;&nbsp;
+                <span class="checkbox-box"></span> ثاني &nbsp;&nbsp;
+                <span class="checkbox-box"></span> هالك
+              </td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; text-align: center; border-right: none; border-bottom: none;">ملاحظات</td>
+              <td colspan="2" style="border-left: none; border-bottom: none;"><div style="height: 14px;"></div></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Left: Notes (Second in RTL) -->
+      <div class="notes-block">
+        <div class="header-dark" style="padding: 2px;">ملاحظات وتعليمات</div>
+        <div class="notes-content">
+          <div style="border-bottom: 1px dotted #718096;"></div>
+          <div style="border-bottom: 1px dotted #718096;"></div>
+          <div style="border-bottom: 1px dotted #718096;"></div>
+          <div style="border-bottom: 1px dotted #718096;"></div>
+          <div style="border-bottom: 1px dotted #718096;"></div>
+          <div style="border-bottom: 1px dotted #718096;"></div>
+          <div style="border-bottom: 1px dotted #718096;"></div>
+          <div style="border-bottom: 1px dotted #718096;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. DELIVERY SECTION -->
+    <div class="bordered-block">
+      <div class="header-dark" style="padding: 2px;">تسليمات منتج تام</div>
+      <table class="delivery-table" style="border: none;">
+        <thead>
+          <tr>
+            <th style="width: 5%; border-right: none; border-top: none;">م</th>
+            <th style="width: 20%; border-top: none;">بيان</th>
+            <th style="width: 10%; border-top: none;">إجمالي<br>العدد</th>
+            <th style="width: 8%; border-top: none;">رقم<br>تصريح</th>
+            <th style="width: 8%; border-top: none;">رقم<br>إذن</th>
+            <th style="width: 12%; border-top: none;">بتاريخ</th>
+            <th style="width: 10%; border-top: none;">سيارة</th>
+            <th style="width: 12%; border-top: none;">اسم السائق</th>
+            <th style="width: 10%; border-top: none;">ملاحظات</th>
+            <th style="width: 5%; border-left: none; border-top: none;">توقيع<br>المخازن</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td style="border-right: none;">١</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td style="border-left: none;"></td></tr>
+          <tr><td style="border-right: none;">٢</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td style="border-left: none;"></td></tr>
+          <tr><td style="border-right: none;">٣</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td style="border-left: none;"></td></tr>
+          <tr><td style="border-right: none;">٤</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td style="border-left: none;"></td></tr>
+          <tr><td style="border-right: none;">٥</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td style="border-left: none;"></td></tr>
+          <tr><td style="border-right: none; border-bottom: none;">٦</td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-left: none; border-bottom: none;"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 7. ATTACHMENTS & CLOSING REPORT -->
+    <div class="bordered-block">
+      <div class="header-dark" style="padding: 2px;">بيان مرفقات العميل</div>
+      <table class="attachments-table" style="border: none;">
+        <thead>
+          <tr>
+            <th style="width: 5%; border-right: none; border-top: none;">م</th>
+            <th style="width: 15%; border-top: none;">تاريخ</th>
+            <th style="width: 50%; border-top: none;">بيان مرفقات العميل</th>
+            <th style="width: 15%; border-top: none;">توقيع المختص</th>
+            <th style="width: 15%; border-left: none; border-top: none;">ملاحظات</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="border-right: none;">١</td><td></td><td></td><td></td><td style="border-left: none;"></td>
+          </tr>
+          <tr>
+            <td style="border-right: none; border-bottom: none;">٢</td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-bottom: none;"></td><td style="border-left: none; border-bottom: none;"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer-report">
+      <div>المخازن : <span class="dotted-line" style="width: 80px;"></span></div>
+      <div>بتاريخ : <span class="dotted-line" style="width: 80px;"></span></div>
+      <div>تقرير الإقفال : <span class="dotted-line" style="width: 150px;"></span></div>
+    </div>
+    
+    <div style="font-size: 8px; color: #718096; margin-top: 1px;">( ١ / ١ )</div>
+
+  </div>
+
+</body>
+</html>

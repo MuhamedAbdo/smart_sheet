@@ -470,11 +470,28 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     List<MapEntry<dynamic, dynamic>> allClientRecords,
     String clientCode,
   ) {
-    // استخراج الأصناف الحقيقية فقط (ليس سجل العميل الأساسي)
+    // تجميع الأصناف فقط (تجاهل السجل الرئيسي للعميل)
     final items = allClientRecords
         .where((e) => e.value is Map && e.value['isClientRecord'] != true)
         .map((e) => Map<String, dynamic>.from(e.value as Map))
         .toList();
+
+    // استخراج بيانات العميل الأساسية من السجل الرئيسي
+    String clientAddress = '';
+    String clientSupervisor = '';
+    String clientPhone = '';
+
+    try {
+      final clientRecord = allClientRecords.firstWhere(
+        (e) => e.value is Map && e.value['isClientRecord'] == true,
+      );
+      final data = clientRecord.value as Map;
+      clientAddress = data['address']?.toString() ?? '';
+      clientSupervisor = data['supervisor']?.toString() ?? '';
+      clientPhone = data['phone']?.toString() ?? '';
+    } catch (_) {
+      // no client record found
+    }
 
     showDialog(
       context: context,
@@ -482,6 +499,9 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       builder: (_) => JobOrderDialog(
         clientName: widget.clientName,
         clientCode: clientCode,
+        clientAddress: clientAddress,
+        clientSupervisor: clientSupervisor,
+        clientPhone: clientPhone,
         clientItems: items,
       ),
     );
