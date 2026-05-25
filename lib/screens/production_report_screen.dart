@@ -14,6 +14,7 @@ import 'package:smart_sheet/widgets/flexo_report_drawer.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'dart:async';
 import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 class ProductionReportScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
 
@@ -118,19 +119,52 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         final messenger = ScaffoldMessenger.of(context);
         final Map<dynamic, dynamic> backup =
             Map.from(_productionReportBox!.toMap());
-        await _productionReportBox!.clear();
-        if (mounted) {
-          messenger.clearSnackBars();
-          UIUtils.showUndoSnackBar(
-            context: context,
-            message: "تم مسح جميع التقارير",
-            onUndo: () async {
-              messenger.clearSnackBars();
-              for (var entry in backup.entries) {
-                await _productionReportBox!.put(entry.key, entry.value);
-              }
-            },
-          );
+
+        // 1. جلب جميع المعرفات (sync_id) لحذفها من السيرفر دفعة واحدة
+        final List<String> listOfIds = [];
+        for (var record in backup.values) {
+          final syncId = record['sync_id']?.toString() ?? record['id']?.toString();
+          if (syncId != null && syncId.isNotEmpty) {
+            listOfIds.add(syncId);
+          }
+        }
+
+        try {
+          // 2. أمر المسح من السيرفر باستخدام inFilter
+          if (listOfIds.isNotEmpty) {
+            await Supabase.instance.client
+                .from('production_reports')
+                .delete()
+                .inFilter('sync_id', listOfIds);
+            debugPrint('🗑️ _deleteAllReports: تم مسح ${listOfIds.length} تقرير من السيرفر دفعة واحدة.');
+          }
+
+          // 3. مسح البوكس المحلي بعد السيرفر لتفادي المشاكل
+          await _productionReportBox!.clear();
+          
+          if (mounted) {
+            messenger.clearSnackBars();
+            UIUtils.showUndoSnackBar(
+              context: context,
+              message: "تم مسح جميع التقارير (محلياً ومن السيرفر)",
+              onUndo: () async {
+                messenger.clearSnackBars();
+                for (var entry in backup.entries) {
+                  await _productionReportBox!.put(entry.key, entry.value);
+                  // إعادة رفع المحذوفات للسيرفر في حالة التراجع
+                  SyncService.instance.pushToQueue('production_reports', entry.value);
+                }
+              },
+            );
+          }
+        } catch (e) {
+          debugPrint("Error clearing reports from Supabase: $e");
+          if (mounted) {
+            UIUtils.showInfoSnackBar(
+              message: "حدث خطأ أثناء محاولة الحذف من السيرفر. تحقق من الاتصال.",
+              backgroundColor: Colors.red,
+            );
+          }
         }
       },
     );
