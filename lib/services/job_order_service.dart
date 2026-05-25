@@ -254,7 +254,6 @@ class JobOrderService {
             alignment: pw.Alignment.topCenter,
             child: pw.Container(
               width: PdfPageFormat.a4.width - 32,
-              height: PdfPageFormat.a4.height - 42,
               child: pw.Directionality(
                 textDirection: pw.TextDirection.rtl,
                 child: pw.Column(
@@ -286,6 +285,36 @@ class JobOrderService {
                             data, boldStyle, regularStyle),
                         pw.SizedBox(height: 4),
                         _buildFlexoTable(boldStyle, regularStyle, headerColor),
+                        pw.SizedBox(height: 4),
+                        _buildDeliveriesTable(boldStyle, regularStyle, headerColor),
+                        pw.SizedBox(height: 4),
+                        _buildAttachmentsTable(boldStyle, regularStyle, headerColor),
+                        pw.SizedBox(height: 4),
+                        pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(_ar("تقرير الإقفال"), style: boldStyle.copyWith(fontSize: 9)),
+                                pw.SizedBox(height: 4),
+                                pw.Text(_ar("بتاريخ :"), style: boldStyle.copyWith(fontSize: 8)),
+                              ]
+                            ),
+                            pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.center,
+                              children: [
+                                pw.Text(_ar("المخازن"), style: boldStyle.copyWith(fontSize: 9)),
+                                pw.SizedBox(height: 10),
+                                pw.Container(
+                                  width: 80,
+                                  decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
+                                )
+                              ]
+                            )
+                          ]
+                        ),
                       ],
                     ),
                   ],
@@ -831,7 +860,7 @@ class JobOrderService {
                                                 style: boldStyle.copyWith(
                                                     fontSize: 8)),
                                             pw.Text(
-                                                " [ ${item.corrugationSheetCount.isEmpty ? '   ' : item.corrugationSheetCount} ] ",
+                                                " [ ${item.corrugationSheetCount.isEmpty ? '      ' : item.corrugationSheetCount} ] ",
                                                 style: regularStyle),
                                           ]),
                                       true),
@@ -1146,6 +1175,182 @@ class JobOrderService {
           ),
         ),
       ],
+    );
+  }
+
+  static pw.Widget _buildDeliveriesTable(pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor headerColor) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.black, width: 1.0),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            height: 12,
+            color: headerColor,
+            alignment: pw.Alignment.center,
+            child: pw.Text(_ar("تسليمات منتج تام"), style: boldStyle.copyWith(color: PdfColors.white, fontSize: 8)),
+          ),
+          pw.Container(
+            height: 20,
+            decoration: const pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 1.0))),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                _buildDeliveriesHeaderCell("م", 4, boldStyle),
+                _buildDeliveriesHeaderCell("بيـــان", 16, boldStyle),
+                _buildDeliveriesHeaderCell("إجمالي\nالعدد", 8, boldStyle),
+                pw.Expanded(
+                  flex: 14,
+                  child: pw.Container(
+                    decoration: const pw.BoxDecoration(border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                      children: [
+                        pw.Container(
+                          height: 10,
+                          alignment: pw.Alignment.center,
+                          child: pw.Text(_ar("رقم"), style: boldStyle.copyWith(fontSize: 7)),
+                        ),
+                        pw.Container(
+                          decoration: const pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 1.0))),
+                          child: pw.Row(
+                            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                            children: [
+                              pw.Expanded(
+                                flex: 1,
+                                child: pw.Container(
+                                  height: 10,
+                                  alignment: pw.Alignment.center,
+                                  child: pw.Text(_ar("إذن"), style: boldStyle.copyWith(fontSize: 6)),
+                                )
+                              ),
+                              pw.Container(width: 1, color: PdfColors.black),
+                              pw.Expanded(
+                                flex: 1,
+                                child: pw.Container(
+                                  height: 10,
+                                  alignment: pw.Alignment.center,
+                                  child: pw.Text(_ar("تصريح"), style: boldStyle.copyWith(fontSize: 6)),
+                                )
+                              ),
+                            ]
+                          )
+                        )
+                      ]
+                    )
+                  )
+                ),
+                _buildDeliveriesHeaderCell("بتاريخ", 9, boldStyle),
+                _buildDeliveriesHeaderCell("سيارة", 9, boldStyle),
+                _buildDeliveriesHeaderCell("اسم السائق", 14, boldStyle),
+                _buildDeliveriesHeaderCell("ملاحظات", 14, boldStyle),
+                _buildDeliveriesHeaderCell("توقيع\nالمخازن", 12, boldStyle, false),
+              ]
+            )
+          ),
+          ...List.generate(6, (index) {
+            return pw.Container(
+              height: 10,
+              decoration: const pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 1.0))),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  _buildDeliveriesEmptyCell(4, true, regularStyle, _ar((index + 1).toString())),
+                  _buildDeliveriesEmptyCell(16, true, regularStyle),
+                  _buildDeliveriesEmptyCell(8, true, regularStyle),
+                  _buildDeliveriesEmptyCell(7, true, regularStyle),
+                  _buildDeliveriesEmptyCell(7, true, regularStyle),
+                  _buildDeliveriesEmptyCell(9, true, regularStyle),
+                  _buildDeliveriesEmptyCell(9, true, regularStyle),
+                  _buildDeliveriesEmptyCell(14, true, regularStyle),
+                  _buildDeliveriesEmptyCell(14, true, regularStyle),
+                  _buildDeliveriesEmptyCell(12, false, regularStyle),
+                ]
+              )
+            );
+          }),
+        ]
+      )
+    );
+  }
+
+  static pw.Widget _buildDeliveriesHeaderCell(String text, int flex, pw.TextStyle style, [bool hasLeftBorder = true]) {
+    return pw.Expanded(
+      flex: flex,
+      child: pw.Container(
+        alignment: pw.Alignment.center,
+        height: 20,
+        decoration: hasLeftBorder ? const pw.BoxDecoration(border: pw.Border(left: pw.BorderSide(width: 1.0))) : null,
+        child: pw.Text(_ar(text), style: style.copyWith(fontSize: 7), textAlign: pw.TextAlign.center),
+      )
+    );
+  }
+
+  static pw.Widget _buildDeliveriesEmptyCell(int flex, bool hasLeftBorder, pw.TextStyle style, [String text = ""]) {
+    return pw.Expanded(
+      flex: flex,
+      child: pw.Container(
+        height: 10,
+        alignment: pw.Alignment.center,
+        decoration: hasLeftBorder ? const pw.BoxDecoration(border: pw.Border(left: pw.BorderSide(width: 1.0))) : null,
+        child: text.isNotEmpty ? pw.Text(text, style: style.copyWith(fontSize: 6)) : pw.SizedBox(),
+      )
+    );
+  }
+
+  static pw.Widget _buildAttachmentsTable(pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor headerColor) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.black, width: 1.0),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            height: 14,
+            color: headerColor,
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                _buildAttachmentsHeaderCell("م", 5, boldStyle),
+                _buildAttachmentsHeaderCell("تاريخ", 15, boldStyle),
+                _buildAttachmentsHeaderCell("بيان مرفقات العميل", 40, boldStyle),
+                _buildAttachmentsHeaderCell("توقيع المختص", 20, boldStyle),
+                _buildAttachmentsHeaderCell("ملاحظات", 20, boldStyle, false),
+              ]
+            )
+          ),
+          ...List.generate(2, (index) {
+            return pw.Container(
+              height: 10,
+              decoration: const pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 1.0))),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  _buildDeliveriesEmptyCell(5, true, regularStyle, _ar((index + 1).toString())),
+                  _buildDeliveriesEmptyCell(15, true, regularStyle),
+                  _buildDeliveriesEmptyCell(40, true, regularStyle),
+                  _buildDeliveriesEmptyCell(20, true, regularStyle),
+                  _buildDeliveriesEmptyCell(20, false, regularStyle),
+                ]
+              )
+            );
+          }),
+        ]
+      )
+    );
+  }
+
+  static pw.Widget _buildAttachmentsHeaderCell(String text, int flex, pw.TextStyle style, [bool hasLeftBorder = true]) {
+    return pw.Expanded(
+      flex: flex,
+      child: pw.Container(
+        alignment: pw.Alignment.center,
+        decoration: hasLeftBorder ? const pw.BoxDecoration(border: pw.Border(left: pw.BorderSide(width: 1.0))) : null,
+        child: pw.Text(_ar(text), style: style.copyWith(color: PdfColors.white, fontSize: 8)),
+      )
     );
   }
 
