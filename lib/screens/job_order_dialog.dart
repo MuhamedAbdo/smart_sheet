@@ -32,6 +32,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
   final _orderNumberCtrl = TextEditingController();
   final _jobNumberCtrl = TextEditingController();
   final _createdByCtrl = TextEditingController();
+  final _issueDateCtrl = TextEditingController();
   final _startDateCtrl = TextEditingController();
   final _deliveryDateCtrl = TextEditingController();
   final _receivedDateCtrl = TextEditingController();
@@ -64,6 +65,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     
     _orderNumberCtrl.clear();
     _jobNumberCtrl.clear();
+    _issueDateCtrl.text = dateStr;
     _startDateCtrl.text = dateStr;
   }
 
@@ -72,6 +74,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     _orderNumberCtrl.dispose();
     _jobNumberCtrl.dispose();
     _createdByCtrl.dispose();
+    _issueDateCtrl.dispose();
     _startDateCtrl.dispose();
     _deliveryDateCtrl.dispose();
     _receivedDateCtrl.dispose();
@@ -115,6 +118,12 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         _itemSheetSizeCtrl.remove(index)?.dispose();
         _itemSheetCountCtrl.remove(index)?.dispose();
       } else {
+        if (_selectedIndices.length >= 5) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('لا يمكن إدخال أكثر من 5 أصناف في أمر التشغيل منعاً للتكدس', style: TextStyle(fontFamily: 'Cairo'))),
+          );
+          return;
+        }
         _selectedIndices.add(index);
         _qtyCtrl[index] = TextEditingController();
         _itemNotesCtrl[index] = TextEditingController();
@@ -126,7 +135,20 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         final h = raw['height']?.toString() ?? '';
 
         final defaultBoxSize = [l, w, h].where((x) => x.isNotEmpty).join(' / ');
-        final defaultSheetSize = [l, w].where((x) => x.isNotEmpty).join(' / ');
+        
+        String sl = raw['sheet_length']?.toString() ?? raw['sheetLengthManual']?.toString() ?? '';
+        if (sl.isEmpty || sl == 'null') {
+          final res = raw['sheetLengthResult']?.toString() ?? '';
+          final match = RegExp(r'\d+(\.\d+)?').firstMatch(res);
+          sl = match?.group(0) ?? l;
+        }
+        String sw = raw['sheet_width']?.toString() ?? raw['sheetWidthManual']?.toString() ?? '';
+        if (sw.isEmpty || sw == 'null') {
+          final res = raw['sheetWidthResult']?.toString() ?? '';
+          final match = RegExp(r'\d+(\.\d+)?').firstMatch(res);
+          sw = match?.group(0) ?? w;
+        }
+        final defaultSheetSize = [sl, sw].where((x) => x.isNotEmpty).join(' / ');
 
         _itemSelectedCorrugations[index] = [];
         _itemCustomCorrugationCtrl[index] = TextEditingController();
@@ -146,10 +168,6 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
       _showSnack('يرجى اختيار صنف واحد على الأقل');
       return;
     }
-
-    final now = DateTime.now();
-    final orderDate =
-        '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
 
     // بناء قائمة الأصناف المُختارة بترتيب الاختيار
     final items = _selectedIndices.map((idx) {
@@ -176,7 +194,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
       final data = JobOrderData(
         orderNumber: _orderNumberCtrl.text,
         jobNumber: _jobNumberCtrl.text,
-        orderDate: orderDate,
+        orderDate: _issueDateCtrl.text,
         createdBy: _createdByCtrl.text,
         customerName: widget.clientName,
         clientCode: widget.clientCode,
@@ -396,6 +414,17 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
             children: [
               Expanded(
                 child: _field(
+                  'تاريخ إصدار أمر التشغيل',
+                  _issueDateCtrl,
+                  isDark,
+                  hint: 'yyyy/mm/dd',
+                  readOnly: true,
+                  onTap: () => _selectDate(context, _issueDateCtrl),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _field(
                   'تاريخ بدء التشغيل',
                   _startDateCtrl,
                   isDark,
@@ -404,7 +433,11 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                   onTap: () => _selectDate(context, _startDateCtrl),
                 ),
               ),
-              const SizedBox(width: 12),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
               Expanded(
                 child: _field(
                   'ميعاد التسليم',
@@ -415,16 +448,18 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                   onTap: () => _selectDate(context, _deliveryDateCtrl),
                 ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _field(
+                  'تاريخ الانتهاء',
+                  _receivedDateCtrl,
+                  isDark,
+                  hint: 'yyyy/mm/dd',
+                  readOnly: true,
+                  onTap: () => _selectDate(context, _receivedDateCtrl),
+                ),
+              ),
             ],
-          ),
-          const SizedBox(height: 12),
-          _field(
-            'تاريخ الانتهاء',
-            _receivedDateCtrl,
-            isDark,
-            hint: 'yyyy/mm/dd',
-            readOnly: true,
-            onTap: () => _selectDate(context, _receivedDateCtrl),
           ),
           const SizedBox(height: 20),
           _sectionTitle(
@@ -660,6 +695,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                                 setState(() {
                                                   if (v == true) {
                                                     _itemSelectedCorrugations[idx] = [type];
+                                                    _itemCustomCorrugationCtrl[idx]?.clear();
                                                   } else {
                                                     _itemSelectedCorrugations[idx]?.clear();
                                                   }
@@ -686,6 +722,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                 _itemCustomCorrugationCtrl[idx]!,
                                 isDark,
                                 hint: 'أكتب نوع التضليع إذا لم يكن بالقائمة أعلاه',
+                                readOnly: _itemSelectedCorrugations[idx]?.isNotEmpty == true,
                               ),
                               const SizedBox(height: 8),
                               
@@ -908,6 +945,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     bool isDark, {
     TextInputType keyboard = TextInputType.text,
     String? hint,
+    bool readOnly = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -923,6 +961,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         TextField(
           controller: ctrl,
           keyboardType: keyboard,
+          readOnly: readOnly,
           style: TextStyle(
             fontSize: 12,
             color: isDark ? const Color(0xDEFFFFFF) : Colors.black87,
