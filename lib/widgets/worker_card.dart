@@ -66,6 +66,13 @@ class _WorkerCardState extends State<WorkerCard> {
               labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
               textColor: textTheme.bodyMedium?.color,
             ),
+            const SizedBox(height: 5),
+            _buildInfoRow(
+              'القسم:',
+              _getDepartmentArabicName(widget.worker.department),
+              labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+              textColor: colorScheme.secondary,
+            ),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -183,5 +190,24 @@ class _WorkerCardState extends State<WorkerCard> {
         ),
       ),
     );
+  }
+
+  String _getDepartmentArabicName(String dept) {
+    switch (dept) {
+      case 'flexo':
+        return '🖨️ قسم الفلكسو';
+      case 'die_cutting':
+        return '✂️ قسم التكسير';
+      case 'production_line':
+        return '⚙️ خط الإنتاج';
+      case 'staples':
+        return '📌 قسم الدبوس';
+      case 'stores':
+        return '📦 المخازن';
+      case 'silicates':
+        return '🧪 السليكات';
+      default:
+        return '❓ قسم غير معروف ($dept)';
+    }
   }
 }

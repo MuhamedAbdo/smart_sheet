@@ -29,9 +29,6 @@ class Worker extends HiveObject {
         _actions = HiveList(box);
       } else {
         debugPrint('❌ Error: worker_actions box is closed. Returning temporary empty HiveList container.');
-        // We can't return a HiveList without a box.
-        // As a last resort, throw a more helpful error or return a nullable.
-        // For now, let's try to open it or at least handle the crash in toJson.
       }
     }
     return _actions ?? (throw StateError('worker_actions box must be open to access actions.'));
@@ -49,6 +46,18 @@ class Worker extends HiveObject {
   @HiveField(6)
   late String? id; // Unique ID for Supabase sync
 
+  @HiveField(7)
+  late String department; // flexo, production_line, die_cutting, staples, stores, silicates
+
+  @HiveField(8)
+  late bool canAdd;
+
+  @HiveField(9)
+  late bool canEdit;
+
+  @HiveField(10)
+  late bool canDelete;
+
   /// Alias for [id] — kept for backward compatibility with SyncService
   String? get syncId => id;
 
@@ -60,6 +69,10 @@ class Worker extends HiveObject {
     List<WorkerAction>? actions,
     this.hasMedicalInsurance = false,
     this.factoryId,
+    this.department = 'flexo',
+    this.canAdd = false,
+    this.canEdit = false,
+    this.canDelete = false,
   }) {
     // Generate valid UUID v4 if not provided or invalid (fixes 22P02 error in Supabase)
     if (id == null || !id!.contains('-')) {
@@ -146,6 +159,10 @@ class Worker extends HiveObject {
       'has_medical_insurance': hasMedicalInsurance,
       'factory_id': factoryId,
       'actions': actionsJson,
+      'department': department,
+      'can_add': canAdd,
+      'can_edit': canEdit,
+      'can_delete': canDelete,
     };
   }
 
@@ -162,6 +179,10 @@ class Worker extends HiveObject {
       actions: actions,
       hasMedicalInsurance: map['has_medical_insurance'] ?? false,
       factoryId: map['factory_id'],
+      department: map['department'] ?? 'flexo',
+      canAdd: map['can_add'] ?? map['canAdd'] ?? false,
+      canEdit: map['can_edit'] ?? map['canEdit'] ?? false,
+      canDelete: map['can_delete'] ?? map['canDelete'] ?? false,
     );
   }
 }

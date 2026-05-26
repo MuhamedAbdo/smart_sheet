@@ -6,11 +6,12 @@ import 'active_absence_card.dart';
 
 class ActiveAbsencesDashboard extends StatelessWidget {
   final Box<Worker> workerBox;
+  final String? filterDepartment; // ✅ تصفية حية حسب القسم
 
-  const ActiveAbsencesDashboard({super.key, required this.workerBox});
+  const ActiveAbsencesDashboard({super.key, required this.workerBox, this.filterDepartment});
 
   /// Resets all worker statuses from 'غياب' to 'متواجد' and clears old sessions
-  static Future<void> resetAllWorkerStatuses(BuildContext context, Box<Worker> workerBox) async {
+  static Future<void> resetAllWorkerStatuses(BuildContext context, Box<Worker> workerBox, String? filterDept) async {
     try {
       int updatedCount = 0;
       
@@ -18,6 +19,10 @@ class ActiveAbsencesDashboard extends StatelessWidget {
       for (var entry in workerBox.toMap().entries) {
         final worker = entry.value;
         final key = entry.key;
+        
+        if (filterDept != null && worker.department != filterDept) {
+          continue;
+        }
         
         List<WorkerAction> actions = List<WorkerAction>.from(worker.actions);
         
@@ -64,6 +69,10 @@ class ActiveAbsencesDashboard extends StatelessWidget {
             actions: filteredActions,
             hasMedicalInsurance: worker.hasMedicalInsurance,
             factoryId: worker.factoryId,
+            department: worker.department,
+            canAdd: worker.canAdd,
+            canEdit: worker.canEdit,
+            canDelete: worker.canDelete,
           );
           await workerBox.put(key, updatedWorker);
         }
@@ -100,6 +109,9 @@ class ActiveAbsencesDashboard extends StatelessWidget {
         final activeAbsences = <MapEntry<Worker, WorkerAction>>[];
         
         for (var worker in box.values) {
+          if (filterDepartment != null && worker.department != filterDepartment) {
+            continue;
+          }
           try {
             final activeAction = worker.actions.firstWhere(
               (a) => a.isActive,
@@ -152,7 +164,7 @@ class ActiveAbsencesDashboard extends StatelessWidget {
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
                       onPressed: () async {
-                        await resetAllWorkerStatuses(context, workerBox);
+                        await resetAllWorkerStatuses(context, workerBox, filterDepartment);
                       },
                       icon: const Icon(Icons.refresh, size: 16),
                       label: const Text('تصفير الحالات'),

@@ -237,10 +237,10 @@ mixin WorkersSync on SyncServiceBase {
       final workerName = record['name']?.toString() ?? '';
 
       if (isDelete) {
-        final syncId = record['sync_id']?.toString() ?? record['id']?.toString();
-        if (syncId != null && syncId.isNotEmpty) {
-          for (final b in allWorkerBoxes) { await _deleteWorkerBySyncId(b, syncId); }
-          debugPrint('🗑️ [workers] حُذف من ${allWorkerBoxes.length} boxes (sync_id=$syncId)');
+        final deletedId = record['id']?.toString() ?? record['sync_id']?.toString();
+        if (deletedId != null && deletedId.isNotEmpty) {
+          for (final b in allWorkerBoxes) { await _deleteWorkerBySyncId(b, deletedId); }
+          debugPrint('🗑️ Realtime Delete received on Mobile/Desktop for ID: $deletedId');
         } else {
           for (final b in allWorkerBoxes) { await _deleteWorkerFromBox(b, workerName, myFactoryId); }
           debugPrint('🗑️ [workers] حُذف من ${allWorkerBoxes.length} boxes بالاسم: $workerName');
@@ -266,12 +266,12 @@ mixin WorkersSync on SyncServiceBase {
               dynamic existingKey = stableKey;
               for (var i = 0; i < workerBox.length; i++) {
                 final item = workerBox.getAt(i);
-                if (item != null && item.syncId == stableKey) { existingKey = workerBox.keyAt(i); break; }
+                if (item != null && (item.syncId == stableKey || item.id == stableKey)) { existingKey = workerBox.keyAt(i); break; }
               }
               await workerBox.put(existingKey, worker);
             } catch (e) { debugPrint('❌ [workers] خطأ في ${workerBox.name}: $e'); }
           }
-          debugPrint('✅ [workers] تم حفظ $workerName في ${allWorkerBoxes.length} boxes');
+          debugPrint('✅ [workers] تم حفظ $workerName in ${allWorkerBoxes.length} boxes');
         } catch (e) { debugPrint('❌ [workers] فشل تحويل payload: $e'); }
       }
     } catch (e) { debugPrint('❌ _onWorkerChange: $e'); }

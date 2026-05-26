@@ -23,13 +23,17 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       job: fields[2] as String,
       hasMedicalInsurance: fields[4] as bool,
       factoryId: fields[5] as String?,
+      department: fields[7] == null ? 'flexo' : fields[7] as String,
+      canAdd: fields[8] == null ? false : fields[8] as bool,
+      canEdit: fields[9] == null ? false : fields[9] as bool,
+      canDelete: fields[10] == null ? false : fields[10] as bool,
     ).._actions = (fields[3] as HiveList?)?.castHiveList();
   }
 
   @override
   void write(BinaryWriter writer, Worker obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -43,7 +47,15 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       ..writeByte(5)
       ..write(obj.factoryId)
       ..writeByte(6)
-      ..write(obj.id);
+      ..write(obj.id)
+      ..writeByte(7)
+      ..write(obj.department)
+      ..writeByte(8)
+      ..write(obj.canAdd)
+      ..writeByte(9)
+      ..write(obj.canEdit)
+      ..writeByte(10)
+      ..write(obj.canDelete);
   }
 
   @override

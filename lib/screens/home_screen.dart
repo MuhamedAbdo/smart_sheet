@@ -10,6 +10,7 @@ import 'package:smart_sheet/screens/production_line_screen.dart';
 import 'package:smart_sheet/screens/saved_sizes_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/screens/staple_department_screen.dart';
+import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
@@ -168,6 +169,21 @@ class HomeScreen extends StatelessWidget {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const SavedSizesScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        HomeButton(
+                          icon: Icons.people,
+                          label: 'سجل العمال',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const WorkersScreen(
+                                  departmentBoxName: 'workers',
+                                  departmentTitle: 'طاقم المصنع الموحد',
+                                ),
                               ),
                             );
                           },

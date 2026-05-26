@@ -9,8 +9,9 @@ import 'package:smart_sheet/services/sync_service.dart';
 
 class WorkerList extends StatelessWidget {
   final Box<Worker> box; // ✅ إضافة الحقل
+  final String? filterDepartment; // ✅ تصفية حية حسب القسم
 
-  const WorkerList({super.key, required this.box}); // ✅ تعديل المُنشئ
+  const WorkerList({super.key, required this.box, this.filterDepartment}); // ✅ تعديل المُنشئ
 
   @override
   Widget build(BuildContext context) {
@@ -18,57 +19,68 @@ class WorkerList extends StatelessWidget {
     return ValueListenableBuilder(
       valueListenable: box.listenable(),
       builder: (context, Box<Worker> box, _) {
-        if (box.isEmpty) {
-          return const Center(child: Text("🚫 لا يوجد عمال بعد"));
+        final allWorkers = box.values.toList();
+        final filteredWorkers = filterDepartment == null
+            ? allWorkers
+            : allWorkers.where((w) => w.department == filterDepartment).toList();
+
+        if (filteredWorkers.isEmpty) {
+          return const Center(child: Text("🚫 لا يوجد عمال في هذا القسم بعد"));
         }
 
         return ListView.builder(
-          itemCount: box.length,
+          itemCount: filteredWorkers.length,
           itemBuilder: (context, index) {
-            final worker = box.getAt(index)!;
+            final worker = filteredWorkers[index];
             return WorkerCard(
               worker: worker,
-              onEdit: () => WorkerForm.show(context,
-                  existingWorker: worker, box: box), // ✅ تمرير الصندوق
+              onEdit: () => WorkerForm.show(
+                context,
+                existingWorker: worker,
+                box: box,
+                defaultDepartment: filterDepartment,
+              ), // ✅ تمرير الصندوق والقسم
               onDelete: () {
-                final workerToRemove = box.getAt(index);
-                if (workerToRemove == null) return;
-                // استخراج الـ key والـ syncId قبل الحذف لضمان الاتساق في Undo
-                final hiveKey = box.keyAt(index);
-                final syncId = workerToRemove.syncId ?? hiveKey.toString();
+                // استخراج الـ key والـ syncId من الكائن مباشرة لضمان الدقة في القوائم المفلترة
+                final hiveKey = worker.key;
+                final syncId = worker.syncId ?? hiveKey.toString();
 
                 UIUtils.showDeleteConfirmation(
                   context: context,
                   title: "حذف العامل",
-                  content: "هل أنت متأكد من حذف العامل \"${workerToRemove.name}\"؟",
-                      onConfirm: () async {
-                        final messenger = ScaffoldMessenger.of(context);
-                        final workerJson = workerToRemove.toJson();
-                        await box.delete(hiveKey);
+                  content: "هل أنت متأكد من حذف العامل \"${worker.name}\"؟",
+                  onConfirm: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final workerJson = worker.toJson();
+                    if (hiveKey != null) {
+                      await box.delete(hiveKey);
+                    }
 
-                        // ✅ إرسال أمر الحذف إلى Supabase عبر Queue
-                        SyncService.instance.pushToQueue(
-                          'workers',
-                          {'sync_id': syncId, 'id': syncId},
-                          operation: 'delete',
-                        );
-                        debugPrint('🗑️ [WorkerList] تم إرسال طلب حذف [sync_id=$syncId] إلى Queue');
+                    // ✅ إرسال أمر الحذف إلى Supabase عبر Queue
+                    SyncService.instance.pushToQueue(
+                      'workers',
+                      {'sync_id': syncId, 'id': syncId},
+                      operation: 'delete',
+                    );
+                    debugPrint('🗑️ [WorkerList] تم إرسال طلب حذف [sync_id=$syncId] إلى Queue');
 
-                        if (!context.mounted) return;
+                    if (!context.mounted) return;
+                    messenger.clearSnackBars();
+                    UIUtils.showUndoSnackBar(
+                      context: context,
+                      message: "تم حذف العامل",
+                      onUndo: () async {
                         messenger.clearSnackBars();
-                        UIUtils.showUndoSnackBar(
-                          context: context,
-                          message: "تم حذف العامل",
-                          onUndo: () async {
-                            messenger.clearSnackBars();
-                            // إعادة العامل بنفس الـ key المستخرج قبل الحذف
-                            await box.put(hiveKey, workerToRemove);
-                            // إعادة السجل سحابياً (upsert)
-                            SyncService.instance.pushToQueue('workers', workerJson);
-                            debugPrint('↩️ [WorkerList] إلغاء الحذف — تم إعادة sync_id=$syncId');
-                          },
-                        );
+                        // إعادة العامل بنفس الـ key المستخرج قبل الحذف
+                        if (hiveKey != null) {
+                          await box.put(hiveKey, worker);
+                        }
+                        // إعادة السجل سحابياً (upsert)
+                        SyncService.instance.pushToQueue('workers', workerJson);
+                        debugPrint('↩️ [WorkerList] إلغاء الحذف — تم إعادة sync_id=$syncId');
                       },
+                    );
+                  },
                 );
               },
               onTap: () {

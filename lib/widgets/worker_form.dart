@@ -6,23 +6,27 @@ import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smart_sheet/services/auth_service.dart';
 
 class WorkerForm extends StatefulWidget {
   final Worker? existingWorker;
   final Box<Worker> box;
+  final String? defaultDepartment;
 
-  const WorkerForm({super.key, this.existingWorker, required this.box});
+  const WorkerForm({super.key, this.existingWorker, required this.box, this.defaultDepartment});
 
   @override
   State<WorkerForm> createState() => _WorkerFormState();
 
   static void show(BuildContext context,
-      {Worker? existingWorker, Box<Worker>? box}) {
+      {Worker? existingWorker, Box<Worker>? box, String? defaultDepartment}) {
     final effectiveBox = box ?? Hive.box<Worker>('workers');
     showDialog(
       context: context,
       builder: (context) =>
-          WorkerForm(existingWorker: existingWorker, box: effectiveBox),
+          WorkerForm(existingWorker: existingWorker, box: effectiveBox, defaultDepartment: defaultDepartment),
     );
   }
 }
@@ -31,12 +35,25 @@ class _WorkerFormState extends State<WorkerForm> {
   late TextEditingController nameController;
   late TextEditingController phoneController;
   late String job;
+  late String selectedDepartment;
+  late bool canAdd;
+  late bool canEdit;
+  late bool canDelete;
 
   // ✅ تعريف المشغل الخاص بالمكتبة الموجودة في pubspec.yaml
   final FlutterNativeContactPicker _contactPicker =
       FlutterNativeContactPicker();
 
   final jobOptions = ['رئيس القسم', 'مشرف', 'فني', 'عامل', 'مساعد'];
+  
+  final Map<String, String> departmentOptions = {
+    'flexo': 'فلكسو',
+    'production_line': 'خط الإنتاج',
+    'die_cutting': 'التكسير',
+    'staples': 'الدبابيس',
+    'stores': 'المخازن',
+    'silicates': 'السليكات',
+  };
 
   @override
   void initState() {
@@ -46,6 +63,15 @@ class _WorkerFormState extends State<WorkerForm> {
     phoneController =
         TextEditingController(text: widget.existingWorker?.phone ?? '');
     job = widget.existingWorker?.job ?? 'عامل';
+    
+    // تحديد القسم الافتراضي
+    selectedDepartment = widget.existingWorker?.department ?? 
+                         widget.defaultDepartment ?? 
+                         'flexo';
+                         
+    canAdd = widget.existingWorker?.canAdd ?? false;
+    canEdit = widget.existingWorker?.canEdit ?? false;
+    canDelete = widget.existingWorker?.canDelete ?? false;
   }
 
   // ✅ الدالة المعدلة لتتوافق مع flutter_native_contact_picker
@@ -105,6 +131,10 @@ class _WorkerFormState extends State<WorkerForm> {
         job: job,
         actions: [],
         factoryId: factoryId,
+        department: selectedDepartment,
+        canAdd: canAdd,
+        canEdit: canEdit,
+        canDelete: canDelete,
       );
 
       // FIX: box.put(syncId) بدلاً من box.add() — مفتاح ثابت يمنع التكرار
@@ -119,6 +149,10 @@ class _WorkerFormState extends State<WorkerForm> {
       w.phone = phoneController.text.trim();
       w.job = job;
       w.factoryId ??= factoryId;
+      w.department = selectedDepartment;
+      w.canAdd = canAdd;
+      w.canEdit = canEdit;
+      w.canDelete = canDelete;
       // الـ syncId محفوظ بالفعل في الكائن — لا نغيره
       await w.save();
       // رفع للسحاب عبر Queue
@@ -129,6 +163,35 @@ class _WorkerFormState extends State<WorkerForm> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    final currentUserEmail = currentUser?.email;
+
+    final authService = Provider.of<AuthService>(context, listen: false);
+    bool isCurrentUserManager = authService.isAdmin;
+
+    final bool isSuperAdmin = currentUserEmail == 'mohamedabdo9999933@gmail.com';
+    
+    if (!isCurrentUserManager) {
+      final workersBox = Hive.isBoxOpen('workers') 
+          ? Hive.box<Worker>('workers') 
+          : null;
+      if (workersBox != null) {
+        for (final worker in workersBox.values) {
+          if (worker.canAdd && worker.canEdit && worker.canDelete) {
+            if (currentUser != null && 
+                (worker.phone == currentUser.phone || 
+                 worker.phone == currentUser.userMetadata?['phone'] ||
+                 worker.name == currentUser.userMetadata?['name'])) {
+              isCurrentUserManager = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    final bool showPermissions = isSuperAdmin || isCurrentUserManager;
+
     return AlertDialog(
       title: Text(
           widget.existingWorker == null ? "➕ إضافة عامل" : "✏️ تعديل العامل"),
@@ -162,6 +225,47 @@ class _WorkerFormState extends State<WorkerForm> {
                 onChanged: (v) => setState(() => job = v ?? 'عامل'),
                 decoration: const InputDecoration(labelText: "🛠 الوظيفة"),
               ),
+              // لا تظهر خيار اختيار القسم إذا تم تمريره كمعطى افتراضي ثابت
+              if (widget.defaultDepartment == null) ...[
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedDepartment,
+                  items: departmentOptions.entries
+                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                      .toList(),
+                  onChanged: (v) => setState(() => selectedDepartment = v ?? 'flexo'),
+                  decoration: const InputDecoration(labelText: "🏢 القسم"),
+                ),
+              ],
+              if (showPermissions && widget.defaultDepartment == null) ...[
+                const SizedBox(height: 15),
+                const Divider(),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4.0),
+                    child: Text("🔒 صلاحيات المشرفين (Supabase):", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                CheckboxListTile(
+                  title: const Text("إضافة تقارير (canAdd)"),
+                  value: canAdd,
+                  dense: true,
+                  onChanged: (val) => setState(() => canAdd = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text("تعديل تقارير (canEdit)"),
+                  value: canEdit,
+                  dense: true,
+                  onChanged: (val) => setState(() => canEdit = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text("حذف تقارير (canDelete)"),
+                  value: canDelete,
+                  dense: true,
+                  onChanged: (val) => setState(() => canDelete = val ?? false),
+                ),
+              ],
             ],
           ),
         ),

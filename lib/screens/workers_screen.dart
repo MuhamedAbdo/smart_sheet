@@ -20,9 +20,10 @@ class WorkersScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return FutureBuilder<Box<Worker>>(
       // الفحص يمنع حدوث "Already open with different type"
-      future: Hive.isBoxOpen(departmentBoxName)
-          ? Future.value(Hive.box<Worker>(departmentBoxName))
-          : Hive.openBox<Worker>(departmentBoxName),
+      // نقرأ دائماً من البوكس الموحد 'workers' تنفيذاً للمطلوب الثالث
+      future: Hive.isBoxOpen('workers')
+          ? Future.value(Hive.box<Worker>('workers'))
+          : Hive.openBox<Worker>('workers'),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -48,6 +49,18 @@ class WorkersScreen extends StatelessWidget {
 
         final Box<Worker> box = snapshot.data!;
 
+        // تحديد كود القسم المفلتر بناءً على departmentBoxName المُمرر
+        String? filterDept;
+        if (departmentBoxName == 'workers_flexo') {
+          filterDept = 'flexo';
+        } else if (departmentBoxName == 'workers_production') {
+          filterDept = 'production_line';
+        } else if (departmentBoxName == 'workers_crushing') {
+          filterDept = 'die_cutting';
+        } else if (departmentBoxName == 'workers_staple') {
+          filterDept = 'staples';
+        }
+
         return Scaffold(
           resizeToAvoidBottomInset: true,
           appBar: AppBar(
@@ -57,19 +70,19 @@ class WorkersScreen extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.auto_fix_high, color: Colors.blueAccent),
                 tooltip: "حذف التكرارات",
-                onPressed: () => _cleanDuplicates(context, box),
+                onPressed: () => _cleanDuplicates(context, box, filterDept),
               ),
             ],
           ),
           body: Column(
             children: [
-              ActiveAbsencesDashboard(workerBox: box),
-              Expanded(child: WorkerList(box: box)),
+              ActiveAbsencesDashboard(workerBox: box, filterDepartment: filterDept),
+              Expanded(child: WorkerList(box: box, filterDepartment: filterDept)),
             ],
           ),
           floatingActionButton: FloatingActionButton(
             heroTag: "workers_fab",
-            onPressed: () => WorkerForm.show(context, box: box),
+            onPressed: () => WorkerForm.show(context, box: box, defaultDepartment: filterDept),
             child: const Icon(Icons.add),
           ),
         );
@@ -77,7 +90,7 @@ class WorkersScreen extends StatelessWidget {
     );
   }
 
-  void _cleanDuplicates(BuildContext context, Box<Worker> box) async {
+  void _cleanDuplicates(BuildContext context, Box<Worker> box, String? filterDept) async {
     final Map<String, Worker> uniqueWorkers = {};
     final List<dynamic> keysToDelete = [];
 
@@ -85,6 +98,7 @@ class WorkersScreen extends StatelessWidget {
     for (int i = 0; i < box.length; i++) {
       final worker = box.getAt(i);
       if (worker == null) continue;
+      if (filterDept != null && worker.department != filterDept) continue;
 
       final identifier = "${worker.name.trim()}_${worker.phone.trim()}";
 
