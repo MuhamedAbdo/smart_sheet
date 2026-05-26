@@ -34,6 +34,7 @@ class WorkerForm extends StatefulWidget {
 class _WorkerFormState extends State<WorkerForm> {
   late TextEditingController nameController;
   late TextEditingController phoneController;
+  late TextEditingController emailController;
   late String job;
   late String selectedDepartment;
   late bool canAdd;
@@ -62,6 +63,8 @@ class _WorkerFormState extends State<WorkerForm> {
         TextEditingController(text: widget.existingWorker?.name ?? '');
     phoneController =
         TextEditingController(text: widget.existingWorker?.phone ?? '');
+    emailController =
+        TextEditingController(text: widget.existingWorker?.email ?? '');
     job = widget.existingWorker?.job ?? 'عامل';
     
     // تحديد القسم الافتراضي
@@ -113,6 +116,7 @@ class _WorkerFormState extends State<WorkerForm> {
   void dispose() {
     nameController.dispose();
     phoneController.dispose();
+    emailController.dispose();
     super.dispose();
   }
 
@@ -122,6 +126,10 @@ class _WorkerFormState extends State<WorkerForm> {
     // جلب factory_id من التخزين الآمن
     const storage = SafeSecureStorage();
     final factoryId = await storage.read(key: 'factory_id');
+    
+    final emailVal = emailController.text.trim().isEmpty 
+        ? null 
+        : emailController.text.trim();
 
     if (widget.existingWorker == null) {
       // إضافة عامل جديد — UUID يُولّد تلقائياً في الـ constructor
@@ -135,6 +143,7 @@ class _WorkerFormState extends State<WorkerForm> {
         canAdd: canAdd,
         canEdit: canEdit,
         canDelete: canDelete,
+        email: emailVal,
       );
 
       // FIX: box.put(syncId) بدلاً من box.add() — مفتاح ثابت يمنع التكرار
@@ -153,6 +162,7 @@ class _WorkerFormState extends State<WorkerForm> {
       w.canAdd = canAdd;
       w.canEdit = canEdit;
       w.canDelete = canDelete;
+      w.email = emailVal;
       // الـ syncId محفوظ بالفعل في الكائن — لا نغيره
       await w.save();
       // رفع للسحاب عبر Queue
@@ -175,16 +185,13 @@ class _WorkerFormState extends State<WorkerForm> {
       final workersBox = Hive.isBoxOpen('workers') 
           ? Hive.box<Worker>('workers') 
           : null;
-      if (workersBox != null) {
+      if (workersBox != null && currentUserEmail != null) {
         for (final worker in workersBox.values) {
-          if (worker.canAdd && worker.canEdit && worker.canDelete) {
-            if (currentUser != null && 
-                (worker.phone == currentUser.phone || 
-                 worker.phone == currentUser.userMetadata?['phone'] ||
-                 worker.name == currentUser.userMetadata?['name'])) {
+          if (worker.email?.trim().toLowerCase() == currentUserEmail.trim().toLowerCase()) {
+            if (worker.canAdd && worker.canEdit && worker.canDelete) {
               isCurrentUserManager = true;
-              break;
             }
+            break;
           }
         }
       }
@@ -216,6 +223,14 @@ class _WorkerFormState extends State<WorkerForm> {
                     ),
                   ),
                   keyboardType: TextInputType.phone),
+              const SizedBox(height: 10),
+              TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: "📧 البريد الإلكتروني (اختياري)",
+                    hintText: "example@email.com",
+                  ),
+                  keyboardType: TextInputType.emailAddress),
               const SizedBox(height: 10),
               DropdownButtonFormField(
                 initialValue: job,

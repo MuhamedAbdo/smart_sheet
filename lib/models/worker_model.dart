@@ -58,6 +58,9 @@ class Worker extends HiveObject {
   @HiveField(10)
   late bool canDelete;
 
+  @HiveField(11)
+  late String? email;
+
   /// Alias for [id] — kept for backward compatibility with SyncService
   String? get syncId => id;
 
@@ -73,6 +76,7 @@ class Worker extends HiveObject {
     this.canAdd = false,
     this.canEdit = false,
     this.canDelete = false,
+    this.email,
   }) {
     // Generate valid UUID v4 if not provided or invalid (fixes 22P02 error in Supabase)
     if (id == null || !id!.contains('-')) {
@@ -163,6 +167,7 @@ class Worker extends HiveObject {
       'can_add': canAdd,
       'can_edit': canEdit,
       'can_delete': canDelete,
+      'email': email,
     };
   }
 
@@ -183,6 +188,7 @@ class Worker extends HiveObject {
       canAdd: map['can_add'] ?? map['canAdd'] ?? false,
       canEdit: map['can_edit'] ?? map['canEdit'] ?? false,
       canDelete: map['can_delete'] ?? map['canDelete'] ?? false,
+      email: map['email']?.toString(),
     );
   }
 }
