@@ -537,32 +537,14 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      clientName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blueAccent,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Row(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 420;
+
+                  // ─── الأزرار (مشتركة بين الحالتين) ───────────────
+                  final actionButtons = Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        displayDate,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
                       IconButton(
                         constraints: const BoxConstraints(),
                         padding: EdgeInsets.zero,
@@ -581,8 +563,61 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                         tooltip: "حذف من الأرشيف",
                       ),
                     ],
-                  ),
-                ],
+                  );
+
+                  final dateText = Text(
+                    displayDate,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[600],
+                    ),
+                  );
+
+                  final clientText = Text(
+                    clientName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueAccent,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  );
+
+                  if (isNarrow) {
+                    // ─── شاشة الهاتف: صفّان ───────────────────────
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(child: clientText),
+                            actionButtons,
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        dateText,
+                      ],
+                    );
+                  }
+
+                  // ─── شاشة الديسكتوب: صف واحد ───────────────────
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(child: clientText),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          dateText,
+                          const SizedBox(width: 8),
+                          actionButtons,
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
               const Divider(height: 24, thickness: 1),
               Row(
