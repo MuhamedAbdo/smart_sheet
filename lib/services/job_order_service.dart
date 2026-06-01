@@ -1049,12 +1049,27 @@ class JobOrderService {
 
     return pw
         .Column(crossAxisAlignment: pw.CrossAxisAlignment.stretch, children: [
-      pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-        pw.Text(
+      pw.Row(children: [
+        pw.Expanded(
+          flex: 8,
+          child: pw.SizedBox(),
+        ),
+        pw.Expanded(
+          flex: 56,
+          child: pw.Text(
             _ar("تقرير قسم التضليع ( تدوين المقاسات التي تم تشغيلها في حالة تشغيل أمر على عدة مهمات )"),
-            style: regularStyle.copyWith(fontSize: 7)),
-        pw.Text(_ar("اسم القائم بالتشغيل مع التوقيع والتاريخ"),
-            style: regularStyle.copyWith(fontSize: 7)),
+            style: regularStyle.copyWith(fontSize: 7),
+            textAlign: pw.TextAlign.right,
+          ),
+        ),
+        pw.Expanded(
+          flex: 28,
+          child: pw.Text(
+            _ar("اسم القائم بالتشغيل مع التوقيع والتاريخ"),
+            style: regularStyle.copyWith(fontSize: 7),
+            textAlign: pw.TextAlign.right,
+          ),
+        ),
       ]),
       pw.SizedBox(height: 2),
       pw.Container(
@@ -1082,13 +1097,13 @@ class JobOrderService {
                                 style: boldStyle.copyWith(fontSize: 8))),
                       )),
                   pw.Expanded(
-                      flex: 46,
+                      flex: 56,
                       child: pw.Container(
                         decoration: const pw.BoxDecoration(
                             border: pw.Border(left: pw.BorderSide(width: 1.0))),
                       )),
                   pw.Expanded(
-                    flex: 46,
+                    flex: 28,
                     child: pw.Container(),
                   ),
                 ]));

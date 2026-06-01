@@ -32,6 +32,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
   final _orderNumberCtrl = TextEditingController();
   final _jobNumberCtrl = TextEditingController();
   final _createdByCtrl = TextEditingController();
+  final _clientCodeCtrl = TextEditingController();
   final _issueDateCtrl = TextEditingController();
   final _startDateCtrl = TextEditingController();
   final _deliveryDateCtrl = TextEditingController();
@@ -66,7 +67,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     _orderNumberCtrl.clear();
     _jobNumberCtrl.clear();
     _issueDateCtrl.text = dateStr;
-    _startDateCtrl.text = dateStr;
+    _clientCodeCtrl.text = widget.clientCode == 'غير مسجل' ? '' : widget.clientCode;
   }
 
   @override
@@ -74,6 +75,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     _orderNumberCtrl.dispose();
     _jobNumberCtrl.dispose();
     _createdByCtrl.dispose();
+    _clientCodeCtrl.dispose();
     _issueDateCtrl.dispose();
     _startDateCtrl.dispose();
     _deliveryDateCtrl.dispose();
@@ -197,7 +199,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         orderDate: _issueDateCtrl.text,
         createdBy: _createdByCtrl.text,
         customerName: widget.clientName,
-        clientCode: widget.clientCode,
+        clientCode: _clientCodeCtrl.text,
         address: widget.clientAddress,
         startDate: _startDateCtrl.text,
         supervisor: widget.clientSupervisor,
@@ -404,6 +406,13 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
             _createdByCtrl,
             isDark,
             hint: 'اسم الشخص المُصدِر',
+          ),
+          const SizedBox(height: 12),
+          _field(
+            'كود العميل',
+            _clientCodeCtrl,
+            isDark,
+            hint: 'أدخل كود العميل يدوياً',
           ),
           const SizedBox(height: 20),
           // "Client Info" section removed as requested.
@@ -631,6 +640,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                       _qtyCtrl[idx]!,
                                       isDark,
                                       keyboard: TextInputType.number,
+                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -745,6 +755,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                       isDark,
                                       keyboard: TextInputType.number,
                                       hint: 'أرقام فقط',
+                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                     ),
                                   ),
                                 ],
@@ -946,6 +957,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     TextInputType keyboard = TextInputType.text,
     String? hint,
     bool readOnly = false,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -962,6 +974,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
           controller: ctrl,
           keyboardType: keyboard,
           readOnly: readOnly,
+          inputFormatters: inputFormatters,
           style: TextStyle(
             fontSize: 12,
             color: isDark ? const Color(0xDEFFFFFF) : Colors.black87,
