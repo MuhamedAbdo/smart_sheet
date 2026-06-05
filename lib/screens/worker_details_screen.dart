@@ -15,6 +15,7 @@ import 'package:smart_sheet/services/sync_service.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
+import 'package:smart_sheet/models/day_schedule.dart';
 
 /// Helper class for factory shift-based time calculations
 class ShiftTimeCalculator {
@@ -111,6 +112,47 @@ class ShiftTimeCalculator {
   /// Get default return time for ending a live session (shift start)
   static TimeOfDay getDefaultReturnTime(ThemeProvider themeProvider) {
     return themeProvider.shiftStart;
+  }
+}
+
+// ─── مساعد حساب أيام العمل الفعلية (يتجاهل عطل نهاية الأسبوع) ────────────────
+class WorkingDayCalculator {
+  /// يمر على كل يوم في النطاق [from, to) ويعدّ فقط أيام العمل
+  /// استناداً إلى إعدادات factory_schedule في Hive.
+  /// إذا لم يُفعَّل الصندوق، يعود إلى العدّ الخطي البسيط.
+  static double countWorkingDays(DateTime from, DateTime to) {
+    if (!Hive.isBoxOpen('factory_schedule')) {
+      // fallback: فرق بسيط بالأيام
+      return to.difference(from).inDays.toDouble();
+    }
+    final box = Hive.box<DaySchedule>('factory_schedule');
+    int count = 0;
+    DateTime cursor = DateTime(from.year, from.month, from.day);
+    final end = DateTime(to.year, to.month, to.day);
+    while (cursor.isBefore(end)) {
+      final dayName = _weekdayName(cursor.weekday);
+      final schedule = box.get(dayName);
+      if (schedule == null || schedule.isWorkingDay) {
+        // إذا لم يوجد إعداد، نعدّ اليوم كيوم عمل (افتراضي آمن)
+        count++;
+      }
+      cursor = cursor.add(const Duration(days: 1));
+    }
+    return count.toDouble();
+  }
+
+  /// تحويل DateTime.weekday (1=Monday … 7=Sunday) إلى اسم DaySchedule
+  static String _weekdayName(int weekday) {
+    const map = {
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+      7: 'Sunday',
+    };
+    return map[weekday] ?? 'Monday';
   }
 }
 
@@ -577,28 +619,53 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
           ShiftTimeCalculator.calculateShiftDuration(shiftStart, shiftEnd);
 
       if (returnDate.value != null) {
-        // Multi-day or single-day absence with return date
-        final actionDuration = ShiftTimeCalculator.calculateActionDuration(
+        // ─── إجازة / غياب متعدد الأيام ─────────────────────────────────
+        // نعدّ فقط أيام العمل الفعلية (نتجاهل عطل الأسبوع من factory_schedule)
+        final workingDays = WorkingDayCalculator.countWorkingDays(
           date.value,
-          startTime.value,
-          returnDate.value,
-          endTime.value,
-          shiftStart,
-          shiftEnd,
+          returnDate.value!,
         );
 
-        if (actionDuration <= 0) {
+        if (workingDays <= 0) {
           calculatedDays.value = 0.0;
           return;
         }
 
-        // Use smart 50% rule calculation
-        calculatedDays.value = ShiftTimeCalculator.calculateDaysWithSmart50Rule(
-          actionDuration,
-          shiftDuration,
-        );
+        // إذا كان التاريخ نفسه (returnDate = date)، نعامله كيوم جزئي
+        if (date.value.year == returnDate.value!.year &&
+            date.value.month == returnDate.value!.month &&
+            date.value.day == returnDate.value!.day) {
+          final actionDuration = ShiftTimeCalculator.calculateActionDuration(
+            date.value,
+            startTime.value,
+            returnDate.value,
+            endTime.value,
+            shiftStart,
+            shiftEnd,
+          );
+          calculatedDays.value = ShiftTimeCalculator.calculateDaysWithSmart50Rule(
+            actionDuration,
+            shiftDuration,
+          );
+        } else {
+          // أيام كاملة → نطبّق تعديل الوقت الجزئي على اليوم الأخير فقط
+          final fullDays = (workingDays - 1).clamp(0, double.infinity);
+          final lastDayDuration = ShiftTimeCalculator.calculateActionDuration(
+            returnDate.value!,
+            null, // من بداية الوردية
+            returnDate.value,
+            endTime.value,
+            shiftStart,
+            shiftEnd,
+          );
+          final lastDayFraction = ShiftTimeCalculator.calculateDaysWithSmart50Rule(
+            lastDayDuration,
+            shiftDuration,
+          );
+          calculatedDays.value = fullDays + lastDayFraction;
+        }
       } else if (startTime.value != null && endTime.value != null) {
-        // Same day partial absence (Permission/إذن)
+        // ─── إذن / تأمين صحي: نفس اليوم ────────────────────────────────
         final actionDuration = ShiftTimeCalculator.calculateActionDuration(
           date.value,
           startTime.value,

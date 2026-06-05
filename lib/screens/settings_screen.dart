@@ -10,6 +10,7 @@ import 'package:smart_sheet/screens/privacy_policy_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/widgets/theme_toggle_button.dart';
+import 'package:smart_sheet/widgets/factory_schedule_card.dart';
 
 class SettingsScreen extends StatefulWidget {
   static const String routeName = '/settings';
@@ -42,6 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // ─── صف أول: المظهر + البيانات + إعدادات المصنع ───────
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -59,7 +61,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildAboutCard(context),
+                  // ─── صف ثانٍ: جدول الوردية (2/3) + معلومات التطبيق (1/3)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Expanded(flex: 2, child: FactoryScheduleCard()),
+                      const SizedBox(width: 16),
+                      Expanded(flex: 1, child: _buildAboutCard(context)),
+                    ],
+                  ),
                 ],
               )
             : Column(
@@ -73,6 +83,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     context,
                     isAdmin: isAdmin,
                   ),
+                  const SizedBox(height: 16),
+                  const FactoryScheduleCard(),
                   const SizedBox(height: 16),
                   _buildAboutCard(context),
                 ],

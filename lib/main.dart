@@ -36,6 +36,7 @@ import 'package:smart_sheet/models/production_report.dart';
 import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/models/downtime_interval.dart';
 import 'package:smart_sheet/models/live_session.dart';
+import 'package:smart_sheet/models/day_schedule.dart';
 
 // استيراد الخدمات والبروفايدر والشاشات
 import 'package:smart_sheet/config/constants.dart';
@@ -86,9 +87,12 @@ Future<void> main() async {
         Hive.openBox<Worker>('workers_staple'),
         Hive.openBox<FinishedProduct>('finished_products'),
         Hive.openBox<LiveSession>('flexo_live_sessions'),
+        Hive.openBox<DaySchedule>('factory_schedule'), // جدول أيام الوردية
         Hive.openBox('sync_queue'), // قائمة انتظار المزامنة
       ]);
       _openBackgroundBoxes();
+      // تهيئة القيم الافتراضية لجدول أيام الوردية إذا كان فارغاً
+      _initDefaultSchedule();
     }
 
     // 3. تهيئة Supabase بذكاء (بدون تعطيل التطبيق)
@@ -187,6 +191,19 @@ void _registerAdapters() {
     Hive.registerAdapter(DowntimeIntervalAdapter());
   }
   if (!Hive.isAdapterRegistered(17)) Hive.registerAdapter(LiveSessionAdapter());
+  if (!Hive.isAdapterRegistered(18)) Hive.registerAdapter(DayScheduleAdapter());
+}
+
+/// يُعبّئ صندوق factory_schedule بالقيم الافتراضية إذا كان فارغاً (أول تشغيل)
+void _initDefaultSchedule() {
+  if (!Hive.isBoxOpen('factory_schedule')) return;
+  final box = Hive.box<DaySchedule>('factory_schedule');
+  if (box.isEmpty) {
+    for (final d in DaySchedule.defaults) {
+      box.put(d.dayName, d);
+    }
+    debugPrint('✅ factory_schedule: تم تعبئة الإعدادات الافتراضية.');
+  }
 }
 
 void _openBackgroundBoxes() {
