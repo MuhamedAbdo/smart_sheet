@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/widgets/active_absences_dashboard.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 
 class WorkersScreen extends StatelessWidget {
   final String departmentBoxName;
@@ -86,10 +87,16 @@ class WorkersScreen extends StatelessWidget {
           Expanded(child: WorkerList(box: box, filterDepartment: filterDept)),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: "workers_fab",
-        onPressed: () => WorkerForm.show(context, box: box, defaultDepartment: filterDept),
-        child: const Icon(Icons.add),
+      floatingActionButton: ValueListenableBuilder<Box<Worker>>(
+        valueListenable: box.listenable(),
+        builder: (context, _, __) {
+          if (!PermissionHelper.canAdd) return const SizedBox.shrink();
+          return FloatingActionButton(
+            heroTag: "workers_fab",
+            onPressed: () => WorkerForm.show(context, box: box, defaultDepartment: filterDept),
+            child: const Icon(Icons.add),
+          );
+        },
       ),
     );
   }

@@ -7,6 +7,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/models/worker_model.dart';
 
 class SavedSizeCard extends StatelessWidget {
   final Map<String, dynamic> record;
@@ -89,6 +92,7 @@ class SavedSizeCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                // ―― زر المعاينة دائماً ظاهر ――
                 IconButton(
                   icon: const Icon(Icons.visibility, color: Colors.teal),
                   onPressed: () => processType == 'تكسير'
@@ -96,14 +100,30 @@ class SavedSizeCard extends StatelessWidget {
                           context, clientName, productName, productCode)
                       : _showFullDetails(context, record),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.blue),
-                  onPressed: onEdit,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: onDelete,
-                ),
+                // ―― أزرار التعديل والحذف بناءً على الصلاحيات ――
+                if (Hive.isBoxOpen('workers'))
+                  ValueListenableBuilder<Box<Worker>>(
+                    valueListenable: Hive.box<Worker>('workers').listenable(),
+                    builder: (context, _, __) {
+                      final canEdit = PermissionHelper.canEdit;
+                      final canDelete = PermissionHelper.canDelete;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (canEdit)
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: onEdit,
+                            ),
+                          if (canDelete)
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: onDelete,
+                            ),
+                        ],
+                      );
+                    },
+                  ),
               ],
             ),
 
@@ -152,24 +172,30 @@ class SavedSizeCard extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // --- أزرار الإنتاج (مصممة بمرونة للأقسام القادمة) ---
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () => onStartProduction(record),
-                    icon: const Icon(Icons.precision_manufacturing, size: 18),
-                    label: const Text("بدء إنتاج (فلكسو)"),
-                    style: OutlinedButton.styleFrom(
-                        visualDensity: VisualDensity.compact),
-                  ),
-                  // هنا يمكن إضافة أزرار أخرى لاحقاً (تكسير، دبوس...) دون تداخل
-                ],
+            // ―― أزرار الإنتاج بناءً على صلاحية canAdd ――
+            if (Hive.isBoxOpen('workers'))
+              ValueListenableBuilder<Box<Worker>>(
+                valueListenable: Hive.box<Worker>('workers').listenable(),
+                builder: (context, _, __) {
+                  if (!PermissionHelper.canAdd) return const SizedBox.shrink();
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => onStartProduction(record),
+                          icon: const Icon(Icons.precision_manufacturing, size: 18),
+                          label: const Text("بدء إنتاج (فلكسو)"),
+                          style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-            ),
           ],
         ),
       ),

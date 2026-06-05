@@ -11,6 +11,8 @@ import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/models/worker_model.dart';
 
 /// شاشة تعرض جميع الأصناف والمقاسات المرتبطة بعميل معين
 class ClientItemsScreen extends StatefulWidget {
@@ -24,6 +26,7 @@ class ClientItemsScreen extends StatefulWidget {
 
 class _ClientItemsScreenState extends State<ClientItemsScreen> {
   Box? _savedSheetSizesBox;
+  Box<Worker>? _workersBox;
   bool _isLoading = true;
   String searchQuery = "";
   bool isSearching = false;
@@ -48,6 +51,14 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
             _isLoading = false;
           });
         }
+      });
+    }
+    // فتح workers box لمراقبة تغيير الصلاحيات
+    if (Hive.isBoxOpen('workers')) {
+      _workersBox = Hive.box<Worker>('workers');
+    } else {
+      Hive.openBox<Worker>('workers').then((box) {
+        if (mounted) setState(() => _workersBox = box);
       });
     }
   }
@@ -150,24 +161,32 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
             )
           ],
         ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AddSheetSizeScreen(
-                    clientName: widget.clientName,
-                  ),
+          floatingActionButton: _workersBox == null
+              ? null
+              : ValueListenableBuilder<Box<Worker>>(
+                  valueListenable: _workersBox!.listenable(),
+                  builder: (context, _, __) {
+                    if (!PermissionHelper.canAdd) return const SizedBox.shrink();
+                    return FloatingActionButton.extended(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AddSheetSizeScreen(
+                              clientName: widget.clientName,
+                            ),
+                          ),
+                        );
+                      },
+                      backgroundColor: Colors.green.shade700,
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      label: const Text(
+                        'إضافة صنف',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-            backgroundColor: Colors.green.shade700,
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text(
-              'إضافة صنف',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ),
           body: _buildBody(allClientRecords, itemEntries.length, filteredEntries, clientCode),
         );
       },

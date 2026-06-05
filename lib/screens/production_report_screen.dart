@@ -12,6 +12,8 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/flexo_report_drawer.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/models/worker_model.dart';
 import 'dart:async';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -26,6 +28,7 @@ class ProductionReportScreen extends StatefulWidget {
 
 class _ProductionReportScreenState extends State<ProductionReportScreen> {
   Box? _productionReportBox;
+  Box<Worker>? _workersBox;
   bool _isBoxLoading = true;
 
   final TextEditingController _searchController = TextEditingController();
@@ -40,6 +43,14 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
   void initState() {
     super.initState();
     _openBoxSafe();
+    // فتح workers box للاستماع لتغييرات الصلاحيات
+    if (Hive.isBoxOpen('workers')) {
+      _workersBox = Hive.box<Worker>('workers');
+    } else {
+      Hive.openBox<Worker>('workers').then((box) {
+        if (mounted) setState(() => _workersBox = box);
+      });
+    }
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim());
     });
@@ -487,10 +498,18 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showStartSessionDialog(),
-        child: const Icon(Icons.play_arrow),
-      ),
+      floatingActionButton: _workersBox == null
+          ? null
+          : ValueListenableBuilder<Box<Worker>>(
+              valueListenable: _workersBox!.listenable(),
+              builder: (context, _, __) {
+                if (!PermissionHelper.canAdd) return const SizedBox.shrink();
+                return FloatingActionButton(
+                  onPressed: () => _showStartSessionDialog(),
+                  child: const Icon(Icons.play_arrow),
+                );
+              },
+            ),
     );
   }
 
@@ -577,25 +596,37 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
 
             _buildNotesText(record['notes']),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                    child: OutlinedButton.icon(
-                        onPressed: () => _editReport(key, record),
-                        icon: const Icon(Icons.edit, size: 16),
-                        label: const Text("تعديل"))),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade400,
-                      foregroundColor: Colors.white),
-                  onPressed: () => _deleteSingleReport(key, record),
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text("حذف"),
-                )),
-              ],
-            )
+            if (_workersBox != null)
+              ValueListenableBuilder<Box<Worker>>(
+                valueListenable: _workersBox!.listenable(),
+                builder: (context, _, __) {
+                  final canEdit = PermissionHelper.canEdit;
+                  final canDelete = PermissionHelper.canDelete;
+                  if (!canEdit && !canDelete) return const SizedBox.shrink();
+                  return Row(
+                    children: [
+                      if (canEdit) ...[  
+                        Expanded(
+                            child: OutlinedButton.icon(
+                                onPressed: () => _editReport(key, record),
+                                icon: const Icon(Icons.edit, size: 16),
+                                label: const Text("تعديل"))),
+                        if (canDelete) const SizedBox(width: 10),
+                      ],
+                      if (canDelete)
+                        Expanded(
+                            child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade400,
+                              foregroundColor: Colors.white),
+                          onPressed: () => _deleteSingleReport(key, record),
+                          icon: const Icon(Icons.delete_outline, size: 16),
+                          label: const Text("حذف"),
+                        )),
+                    ],
+                  );
+                },
+              )
           ],
         ),
       ),

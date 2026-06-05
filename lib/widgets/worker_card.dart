@@ -4,8 +4,8 @@ import '../../models/worker_model.dart';
 
 class WorkerCard extends StatefulWidget {
   final Worker worker;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
   final VoidCallback onTap;
 
   const WorkerCard({
@@ -87,32 +87,34 @@ class _WorkerCardState extends State<WorkerCard> {
                         padding: const EdgeInsets.symmetric(vertical: 12)),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: widget.onEdit,
-                    icon:
-                        Icon(Icons.edit, size: 18, color: colorScheme.primary),
-                    label: Text('تعديل',
-                        style: TextStyle(color: colorScheme.primary)),
-                    style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: widget.onDelete,
-                    icon:
-                        const Icon(Icons.delete, size: 18, color: Colors.white),
-                    label: const Text('حذف',
-                        style: TextStyle(color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                if (widget.onEdit != null) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onEdit,
+                      icon: Icon(Icons.edit, size: 18, color: colorScheme.primary),
+                      label: Text('تعديل',
+                          style: TextStyle(color: colorScheme.primary)),
+                      style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12)),
                     ),
                   ),
-                ),
+                ],
+                if (widget.onDelete != null) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: widget.onDelete,
+                      icon: const Icon(Icons.delete, size: 18, color: Colors.white),
+                      label: const Text('حذف',
+                          style: TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
