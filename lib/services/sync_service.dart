@@ -95,6 +95,15 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
   Box? _queueBox;
   bool _isProcessingQueue = false;
 
+  /// يضمن أن _queueBox مفتوح دائماً — يُعيد فتحه إن أُغلق.
+  Future<Box> _ensureQueueBox() async {
+    if (_queueBox != null && _queueBox!.isOpen) return _queueBox!;
+    _queueBox = Hive.isBoxOpen('sync_queue')
+        ? Hive.box('sync_queue')
+        : await Hive.openBox('sync_queue');
+    return _queueBox!;
+  }
+
   // ==============================================================
   // Public API
   // ==============================================================
@@ -174,11 +183,9 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
   Future<void> clearSyncQueue() async {
     try {
-      _queueBox ??= Hive.isBoxOpen('sync_queue')
-          ? Hive.box('sync_queue')
-          : await Hive.openBox('sync_queue');
-      final count = _queueBox!.length;
-      await _queueBox!.clear();
+      final box = await _ensureQueueBox();
+      final count = box.length;
+      await box.clear();
       debugPrint('🧹 SyncService: تم مسح $count عنصر من sync_queue.');
     } catch (e) {
       debugPrint('❌ SyncService.clearSyncQueue: $e');
@@ -245,11 +252,9 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
     String operation = 'upsert',
   }) async {
     try {
-      _queueBox ??= Hive.isBoxOpen('sync_queue')
-          ? Hive.box('sync_queue')
-          : await Hive.openBox('sync_queue');
+      final box = await _ensureQueueBox();
 
-      await _queueBox!.add({
+      await box.add({
         'table': table,
         'data': Map<String, dynamic>.from(data),
         'operation': operation,
@@ -436,21 +441,37 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
   Future<void> _processQueue() async {
     if (_isProcessingQueue) return;
-    if (_queueBox == null || _queueBox!.isEmpty) {
+
+    // ✅ الحارس الأساسي: إعادة فتح الـ box إن أُغلق بعد restart أو teardown
+    late Box queueBox;
+    try {
+      queueBox = await _ensureQueueBox();
+    } catch (e) {
+      debugPrint('❌ _processQueue: تعذّر فتح sync_queue: $e');
+      return;
+    }
+
+    if (queueBox.isEmpty) {
       debugPrint('📱 Mobile Queue: القائمة فارغة.'); return;
     }
 
-    debugPrint('📱 Mobile Queue: محاولة إرسال... (${_queueBox!.length} عنصر)');
+    debugPrint('📱 Mobile Queue: محاولة إرسال... (${queueBox.length} عنصر)');
     final hasInternet = await _checkInternet();
     if (!hasInternet) { debugPrint('📴 Queue: لا إنترنت.'); return; }
 
     _isProcessingQueue = true;
-    debugPrint('🔄 Queue: معالجة ${_queueBox!.length} عنصر...');
+    debugPrint('🔄 Queue: معالجة ${queueBox.length} عنصر...');
     final keysToDelete = <dynamic>[];
 
-    for (int i = 0; i < _queueBox!.length; i++) {
-      final key = _queueBox!.keyAt(i);
-      final item = _queueBox!.getAt(i);
+    for (int i = 0; i < queueBox.length; i++) {
+      // ✅ تحقق عند كل تكرار — قد يُغلق الـ box أثناء المعالجة
+      if (!queueBox.isOpen) {
+        debugPrint('⚠️ _processQueue: الـ box أُغلق أثناء المعالجة. توقف.');
+        break;
+      }
+
+      final key = queueBox.keyAt(i);
+      final item = queueBox.getAt(i);
       if (item is! Map) continue;
 
       final table = item['table']?.toString();
@@ -497,15 +518,19 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
         keysToDelete.add(key);
       } catch (e) {
         debugPrint('❌ Queue: فشل → $table [$operation]: $e');
-        final updated = Map<String, dynamic>.from(item);
-        updated['retries'] = retries + 1;
-        await _queueBox!.put(key, updated);
+        if (queueBox.isOpen) {
+          final updated = Map<String, dynamic>.from(item);
+          updated['retries'] = retries + 1;
+          await queueBox.put(key, updated);
+        }
       }
     }
 
-    for (final key in keysToDelete) { await _queueBox!.delete(key); }
+    if (queueBox.isOpen) {
+      for (final key in keysToDelete) { await queueBox.delete(key); }
+      debugPrint('✅ Queue: اكتملت. متبقي: ${queueBox.length}');
+    }
     _isProcessingQueue = false;
-    debugPrint('✅ Queue: اكتملت. متبقي: ${_queueBox!.length}');
   }
 
 

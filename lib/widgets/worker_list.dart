@@ -24,6 +24,9 @@ class WorkerList extends StatelessWidget {
             ? allWorkers
             : allWorkers.where((w) => w.department == filterDepartment).toList();
 
+        // ✅ ترتيب تصاعدي بناءً على الرتبة الإدارية والتشغيلية
+        filteredWorkers.sort((a, b) => _getJobWeight(a.job).compareTo(_getJobWeight(b.job)));
+
         if (filteredWorkers.isEmpty) {
           return const Center(child: Text("🚫 لا يوجد عمال في هذا القسم بعد"));
         }
@@ -97,5 +100,24 @@ class WorkerList extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// دالة تحديد وزن كل وظيفة لأغراض الترتيب التصاعدي
+  int _getJobWeight(String? job) {
+    switch (job?.trim()) {
+      case 'رئيس القسم':
+      case 'رئيس قسم':
+        return 1;
+      case 'مشرف':
+        return 2;
+      case 'فني':
+        return 3;
+      case 'مساعد':
+        return 4;
+      case 'عامل':
+        return 5;
+      default:
+        return 6; // لأي وظائف أخرى مضافة حديثاً
+    }
   }
 }
