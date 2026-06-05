@@ -28,7 +28,21 @@ class WorkersScreen extends StatelessWidget {
     } else if (departmentBoxName == 'workers_crushing') {
       filterDept = 'die_cutting';
     } else if (departmentBoxName == 'workers_staple') {
-      filterDept = 'staples';
+      filterDept = 'die_cutting'; // الدبوس والتعبئة → نفس كود die_cutting
+    } else if (departmentBoxName == 'workers_general_mgmt') {
+      filterDept = 'general_mgmt';
+    } else if (departmentBoxName == 'workers_technical_support') {
+      filterDept = 'technical_support';
+    } else if (departmentBoxName == 'workers_quality_control') {
+      filterDept = 'quality_control';
+    } else if (departmentBoxName == 'workers_accounting') {
+      filterDept = 'accounting';
+    } else if (departmentBoxName == 'workers_stores') {
+      filterDept = 'stores';
+    } else if (departmentBoxName == 'workers_sales') {
+      filterDept = 'sales';
+    } else if (departmentBoxName == 'workers_secretariat') {
+      filterDept = 'secretariat';
     }
 
     if (Hive.isBoxOpen('workers')) {

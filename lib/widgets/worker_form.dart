@@ -35,25 +35,87 @@ class _WorkerFormState extends State<WorkerForm> {
   late TextEditingController nameController;
   late TextEditingController phoneController;
   late TextEditingController emailController;
-  late String job;
+
+  /// الوظيفة المختارة حالياً (nullable لتجنّب assertion عند تغيير القسم)
+  String? selectedJob;
+
   late String selectedDepartment;
   late bool canAdd;
   late bool canEdit;
   late bool canDelete;
 
+  /// قائمة الوظائف المتاحة بناءً على القسم المختار — تُحدَّث ديناميكياً
+  List<String> availableJobs = [];
+
   // ✅ تعريف المشغل الخاص بالمكتبة الموجودة في pubspec.yaml
   final FlutterNativeContactPicker _contactPicker =
       FlutterNativeContactPicker();
 
-  final jobOptions = ['رئيس القسم', 'مشرف', 'فني', 'عامل', 'مساعد'];
-  
-  final Map<String, String> departmentOptions = {
-    'flexo': 'فلكسو',
-    'production_line': 'خط الإنتاج',
-    'die_cutting': 'التكسير',
-    'staples': 'الدبابيس',
-    'stores': 'المخازن',
-    'silicates': 'السليكات',
+  // ─── خريطة القسم ↔ وظائفه ─────────────────────────────────────────────────
+  // المفتاح = المسمى الرسمي للقسم (نفس قيمة departmentOptions)
+  // القيمة = قائمة الوظائف التابعة لذلك القسم
+  static const Map<String, List<String>> departmentJobsMap = {
+    'قسم الفلكسو': [
+      'رئيس القسم', 'مشرف', 'فني', 'مساعد', 'عامل',
+    ],
+    'قسم خط الإنتاج': [
+      'رئيس القسم', 'مشرف', 'فني', 'مساعد', 'عامل',
+    ],
+    'قسم الدبوس والتعبئة': [
+      'رئيس القسم', 'مشرف', 'فني', 'مساعد', 'عامل',
+    ],
+    'الإدارة العامة وإدارة الإنتاج': [
+      'مدير الإنتاج',
+      'مشرف عام الإنتاج',
+      'مدير HR / شؤون عاملين',
+      'موظف إداري',
+    ],
+    'قسم الدعم الفني والتجهيزات': [
+      'فني مونتاج أكلاشيهات',
+      'فني فورم وتكسير',
+      'فني عينات / تصميم',
+    ],
+    'قسم مراقبة الجودة': [
+      'مدير الجودة',
+      'مراقب جودة (صالة الإنتاج)',
+      'فني مختبر / معمل',
+    ],
+    'قسم الحسابات والمالية': [
+      'مدير حسابات',
+      'محاسب عملاء',
+      'محاسب موردين',
+      'خزينة / كاشير',
+    ],
+    'قسم المخازن واللوجستيات': [
+      'مدير مخازن',
+      'أمين مخزن رولات',
+      'أمين مخزن إنتاج تام',
+      'أمين مخزن خامات مساعدة',
+      'سائق كلارك',
+    ],
+    'قسم المبيعات والتعاقدات': [
+      'مدير مبيعات',
+      'مسؤول مبيعات / مندوب',
+    ],
+    'قسم السكرتارية والمكتب الأمامي': [
+      'سكرتارية تنفيذية',
+      'مسؤول إصدار أوامر التشغيل',
+      'مدخل بيانات إداري',
+    ],
+  };
+
+  /// ─── أقسام المصنع العشرة (key = كود Hive، value = المسمى الرسمي) ─────────
+  static const Map<String, String> departmentOptions = {
+    'flexo':             'قسم الفلكسو',
+    'production_line':   'قسم خط الإنتاج',
+    'die_cutting':       'قسم الدبوس والتعبئة',
+    'general_mgmt':      'الإدارة العامة وإدارة الإنتاج',
+    'technical_support': 'قسم الدعم الفني والتجهيزات',
+    'quality_control':   'قسم مراقبة الجودة',
+    'accounting':        'قسم الحسابات والمالية',
+    'stores':            'قسم المخازن واللوجستيات',
+    'sales':             'قسم المبيعات والتعاقدات',
+    'secretariat':       'قسم السكرتارية والمكتب الأمامي',
   };
 
   @override
@@ -65,16 +127,36 @@ class _WorkerFormState extends State<WorkerForm> {
         TextEditingController(text: widget.existingWorker?.phone ?? '');
     emailController =
         TextEditingController(text: widget.existingWorker?.email ?? '');
-    job = widget.existingWorker?.job ?? 'عامل';
-    
+
     // تحديد القسم الافتراضي
-    selectedDepartment = widget.existingWorker?.department ?? 
-                         widget.defaultDepartment ?? 
-                         'flexo';
-                         
-    canAdd = widget.existingWorker?.canAdd ?? false;
-    canEdit = widget.existingWorker?.canEdit ?? false;
+    selectedDepartment = widget.existingWorker?.department ??
+        widget.defaultDepartment ??
+        'flexo';
+
+    // ملء availableJobs بناءً على القسم الأولي
+    _updateJobsForDepartment(selectedDepartment, existingJob: widget.existingWorker?.job);
+
+    canAdd    = widget.existingWorker?.canAdd    ?? false;
+    canEdit   = widget.existingWorker?.canEdit   ?? false;
     canDelete = widget.existingWorker?.canDelete ?? false;
+  }
+
+  /// يُحدّث [availableJobs] عند تغيير القسم ويعيد تعيين الوظيفة المختارة.
+  /// [existingJob] يُمرَّر فقط عند التهيئة الأولى للحفاظ على قيمة العامل الموجود.
+  void _updateJobsForDepartment(String deptCode, {String? existingJob}) {
+    final deptLabel = departmentOptions[deptCode] ?? '';
+    final jobs = List<String>.from(departmentJobsMap[deptLabel] ?? []);
+
+    // إذا القائمة فارغة (قسم غير معرَّف) أضف placeholder
+    if (jobs.isEmpty) jobs.add('عامل');
+
+    availableJobs = jobs;
+
+    // إذا الوظيفة الحالية موجودة في القائمة الجديدة → أبقِها، وإلا → أول عنصر
+    final jobToUse = existingJob ?? selectedJob;
+    selectedJob = (jobToUse != null && jobs.contains(jobToUse))
+        ? jobToUse
+        : jobs.first;
   }
 
   // ✅ الدالة المعدلة لتتوافق مع flutter_native_contact_picker
@@ -131,12 +213,15 @@ class _WorkerFormState extends State<WorkerForm> {
         ? null 
         : emailController.text.trim();
 
+    // الوظيفة المُختارة نهائياً (selectedJob مضمون غير null بعد initState)
+    final finalJob = selectedJob ?? availableJobs.firstOrNull ?? 'عامل';
+
     if (widget.existingWorker == null) {
       // إضافة عامل جديد — UUID يُولّد تلقائياً في الـ constructor
       final worker = Worker(
         name: nameController.text.trim(),
         phone: phoneController.text.trim(),
-        job: job,
+        job: finalJob,
         actions: [],
         factoryId: factoryId,
         department: selectedDepartment,
@@ -156,7 +241,7 @@ class _WorkerFormState extends State<WorkerForm> {
       final w = widget.existingWorker!;
       w.name = nameController.text.trim();
       w.phone = phoneController.text.trim();
-      w.job = job;
+      w.job = finalJob;
       w.factoryId ??= factoryId;
       w.department = selectedDepartment;
       w.canAdd = canAdd;
@@ -232,26 +317,45 @@ class _WorkerFormState extends State<WorkerForm> {
                   ),
                   keyboardType: TextInputType.emailAddress),
               const SizedBox(height: 10),
-              DropdownButtonFormField(
-                initialValue: job,
-                items: jobOptions
-                    .map((j) => DropdownMenuItem(value: j, child: Text(j)))
-                    .toList(),
-                onChanged: (v) => setState(() => job = v ?? 'عامل'),
-                decoration: const InputDecoration(labelText: "🛠 الوظيفة"),
-              ),
-              // لا تظهر خيار اختيار القسم إذا تم تمريره كمعطى افتراضي ثابت
+              // ─── 1) القسم أولاً (يُظهر الوظائف المناسبة) ─────────────────
+              // لا يظهر إذا تم تمرير قسم ثابت من الخارج
               if (widget.defaultDepartment == null) ...[
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedDepartment,
-                  items: departmentOptions.entries
-                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
-                      .toList(),
-                  onChanged: (v) => setState(() => selectedDepartment = v ?? 'flexo'),
+                InputDecorator(
                   decoration: const InputDecoration(labelText: "🏢 القسم"),
+                  child: DropdownButton<String>(
+                    value: selectedDepartment,
+                    isExpanded: true,
+                    underline: const SizedBox.shrink(),
+                    items: departmentOptions.entries
+                        .map((e) => DropdownMenuItem(
+                              value: e.key,
+                              child: Text(e.value),
+                            ))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() {
+                        selectedDepartment = v;
+                        _updateJobsForDepartment(v);
+                      });
+                    },
+                  ),
                 ),
+                const SizedBox(height: 10),
               ],
+              // ─── 2) الوظيفة — ديناميكية حسب القسم المختار ────────────────
+              InputDecorator(
+                decoration: const InputDecoration(labelText: "🛠 الوظيفة"),
+                child: DropdownButton<String>(
+                  value: selectedJob,
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  items: availableJobs
+                      .map((j) => DropdownMenuItem(value: j, child: Text(j)))
+                      .toList(),
+                  onChanged: (v) => setState(() => selectedJob = v),
+                ),
+              ),
               if (showPermissions && widget.defaultDepartment == null) ...[
                 const SizedBox(height: 15),
                 const Divider(),
