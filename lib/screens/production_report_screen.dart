@@ -387,59 +387,114 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             : const Text("تقرير الإنتاج"),
         centerTitle: !_isSearching,
         actions: [
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, color: appBarIconColor),
-            tooltip: "خيارات التقارير",
-            onSelected: (value) async {
-              if (value == 'search') {
-                setState(() => _isSearching = true);
-              } else if (value == 'filter') {
-                _showDateFilterDialog();
-              } else if (value == 'archive_move') {
-                _moveToArchive();
-              } else if (value == 'archive_open') {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const FlexoArchiveScreen()));
-              } else if (value == 'clear') {
-                _deleteAllReports();
-              } else if (value == 'sort') {
-                _showSortSheet();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                  value: 'search',
-                  child:
-                      ListTile(leading: Icon(Icons.search), title: Text('بحث'))),
-              const PopupMenuItem(
-                  value: 'filter',
-                  child: ListTile(
-                      leading: Icon(Icons.calendar_month),
-                      title: Text('تصفية بالتاريخ'))),
-              const PopupMenuItem(
-                  value: 'archive_move',
-                  child: ListTile(
-                      leading: Icon(Icons.inventory_2),
-                      title: Text('نقل للأرشيف'))),
-              const PopupMenuItem(
-                  value: 'archive_open',
-                  child: ListTile(
-                      leading: Icon(Icons.inventory_2_outlined),
-                      title: Text('فتح الأرشيف'))),
-              const PopupMenuItem(
-                  value: 'sort',
-                  child: ListTile(
-                      leading: Icon(Icons.sort), title: Text('الترتيب'))),
-              const PopupMenuItem(
-                  value: 'clear',
-                  child: ListTile(
-                      leading: Icon(Icons.delete_sweep, color: Colors.red),
-                      title: Text('مسح الكل',
-                          style: TextStyle(color: Colors.red)))),
-            ],
-          ),
+          // ─── ربط القائمة بـ Hive لتحديث الصلاحيات فورياً ───
+          if (_workersBox != null)
+            ValueListenableBuilder<Box<Worker>>(
+              valueListenable: _workersBox!.listenable(),
+              builder: (context, _, __) {
+                final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+
+                // شرط إظهار نقل/فتح الأرشيف:
+                // Super Admin OR (وظيفته رئيس قسم/مشرف AND قسمه flexo AND canDelete==true)
+                final Worker? cw = PermissionHelper.currentWorker;
+                final bool isFlexoManager = cw != null &&
+                    (cw.job == 'رئيس قسم' || cw.job == 'مشرف') &&
+                    cw.department == 'flexo' &&
+                    cw.canDelete == true;
+                final bool showArchiveOptions = isSuperAdmin || isFlexoManager;
+
+                return PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, color: appBarIconColor),
+                  tooltip: "خيارات التقارير",
+                  onSelected: (value) async {
+                    if (value == 'search') {
+                      setState(() => _isSearching = true);
+                    } else if (value == 'filter') {
+                      _showDateFilterDialog();
+                    } else if (value == 'archive_move') {
+                      _moveToArchive();
+                    } else if (value == 'archive_open') {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const FlexoArchiveScreen()));
+                    } else if (value == 'clear') {
+                      _deleteAllReports();
+                    } else if (value == 'sort') {
+                      _showSortSheet();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                        value: 'search',
+                        child: ListTile(
+                            leading: Icon(Icons.search),
+                            title: Text('بحث'))),
+                    const PopupMenuItem(
+                        value: 'filter',
+                        child: ListTile(
+                            leading: Icon(Icons.calendar_month),
+                            title: Text('تصفية بالتاريخ'))),
+                    if (showArchiveOptions)
+                      const PopupMenuItem(
+                          value: 'archive_move',
+                          child: ListTile(
+                              leading: Icon(Icons.inventory_2),
+                              title: Text('نقل للأرشيف'))),
+                    if (showArchiveOptions)
+                      const PopupMenuItem(
+                          value: 'archive_open',
+                          child: ListTile(
+                              leading: Icon(Icons.inventory_2_outlined),
+                              title: Text('فتح الأرشيف'))),
+                    const PopupMenuItem(
+                        value: 'sort',
+                        child: ListTile(
+                            leading: Icon(Icons.sort),
+                            title: Text('الترتيب'))),
+                    // ─── مسح الكل: Super Admin فقط ───
+                    if (isSuperAdmin)
+                      const PopupMenuItem(
+                          value: 'clear',
+                          child: ListTile(
+                              leading:
+                                  Icon(Icons.delete_sweep, color: Colors.red),
+                              title: Text('مسح الكل',
+                                  style: TextStyle(color: Colors.red)))),
+                  ],
+                );
+              },
+            )
+          else
+            // حالة fallback قبل تحميل صندوق العمال
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, color: appBarIconColor),
+              tooltip: "خيارات التقارير",
+              onSelected: (value) async {
+                if (value == 'search') {
+                  setState(() => _isSearching = true);
+                } else if (value == 'filter') {
+                  _showDateFilterDialog();
+                } else if (value == 'sort') {
+                  _showSortSheet();
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                    value: 'search',
+                    child: ListTile(
+                        leading: Icon(Icons.search), title: Text('بحث'))),
+                const PopupMenuItem(
+                    value: 'filter',
+                    child: ListTile(
+                        leading: Icon(Icons.calendar_month),
+                        title: Text('تصفية بالتاريخ'))),
+                const PopupMenuItem(
+                    value: 'sort',
+                    child: ListTile(
+                        leading: Icon(Icons.sort), title: Text('الترتيب'))),
+              ],
+            ),
         ],
       ),
       drawer: const AppDrawer(),
