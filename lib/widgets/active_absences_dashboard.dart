@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 import 'active_absence_card.dart';
 
 class ActiveAbsencesDashboard extends StatelessWidget {
@@ -126,6 +127,20 @@ class ActiveAbsencesDashboard extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
+        // ─── حساب صلاحيات المستخدم الحالي مرة واحدة لكل rebuild ───
+        final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+        final Worker? currentWorker = PermissionHelper.currentWorker;
+
+        /// هل المستخدم الحالي له صلاحية التعديل على عامل معيّن؟
+        bool canEditWorker(Worker targetWorker) {
+          if (isSuperAdmin) return true;
+          if (currentWorker == null) return false;
+          final bool isSupervisor = currentWorker.job == 'مشرف' ||
+              currentWorker.job == 'رئيس قسم';
+          final bool sameDept = currentWorker.department == targetWorker.department;
+          return isSupervisor && sameDept && currentWorker.canEdit;
+        }
+
         return Container(
           height: 280,
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -162,18 +177,20 @@ class ActiveAbsencesDashboard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        await resetAllWorkerStatuses(context, workerBox, filterDepartment);
-                      },
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('تصفير الحالات'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    // ─── زر تصفير الحالات: Super Admin فقط ───
+                    if (isSuperAdmin)
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          await resetAllWorkerStatuses(context, workerBox, filterDepartment);
+                        },
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('تصفير الحالات'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -184,9 +201,12 @@ class ActiveAbsencesDashboard extends StatelessWidget {
                   itemCount: activeAbsences.length,
                   itemBuilder: (context, index) {
                     final entry = activeAbsences[index];
+                    // ─── عزل الأقسام: الكارت يُظهر أزرار التحكم فقط لصاحب الصلاحية ───
+                    final bool isOwner = canEditWorker(entry.key);
                     return ActiveAbsenceCard(
                       worker: entry.key,
                       action: entry.value,
+                      isOwner: isOwner,
                       onRefresh: () {
                         // ValueListenableBuilder will trigger rebuild
                       },

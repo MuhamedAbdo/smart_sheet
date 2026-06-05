@@ -9,6 +9,7 @@ import '../../models/worker_model.dart';
 import '../../widgets/worker_action_card.dart';
 import '../../widgets/active_absence_card.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'dart:async';
@@ -473,10 +474,32 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: "worker_details_fab",
-        onPressed: () => _showAddActionDialog(context),
-        child: const Icon(Icons.add),
+      // ─── FAB: محمي بـ ValueListenableBuilder لسحب الصلاحيات فورياً ───
+      floatingActionButton: ValueListenableBuilder<Box<Worker>>(
+        valueListenable: widget.box.listenable(),
+        builder: (context, _, __) {
+          final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+
+          // شروط المشرف / رئيس القسم:
+          // نفس القسم كالعامل المعروض + صلاحية canAdd
+          bool canAddForThisWorker() {
+            final Worker? cw = PermissionHelper.currentWorker;
+            if (cw == null) return false;
+            final bool isSupervisor =
+                cw.job == 'مشرف' || cw.job == 'رئيس قسم';
+            final bool sameDept = cw.department == _worker.department;
+            return isSupervisor && sameDept && cw.canAdd;
+          }
+
+          final bool showFab = isSuperAdmin || canAddForThisWorker();
+          if (!showFab) return const SizedBox.shrink();
+
+          return FloatingActionButton(
+            heroTag: "worker_details_fab",
+            onPressed: () => _showAddActionDialog(context),
+            child: const Icon(Icons.add),
+          );
+        },
       ),
     );
   }
