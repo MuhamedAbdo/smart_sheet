@@ -248,8 +248,8 @@ class _WorkerFormState extends State<WorkerForm> {
       w.canEdit = canEdit;
       w.canDelete = canDelete;
       w.email = emailVal;
-      // الـ syncId محفوظ بالفعل في الكائن — لا نغيره
-      await w.save();
+      // نستخدم widget.box.put بدلاً من w.save() لتجنب خطأ (This object is currently not in a box)
+      await widget.box.put(w.syncId!, w);
       // رفع للسحاب عبر Queue
       SyncService.instance.pushToQueue('workers', w.toJson());
     }

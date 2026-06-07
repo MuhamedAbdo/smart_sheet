@@ -13,9 +13,8 @@ class ActiveAbsenceCard extends StatelessWidget {
   final WorkerAction action;
   final VoidCallback onRefresh;
   final VoidCallback? onEdit;
-  /// هل الجهاز الحالي هو مُنشئ هذا الإجراء؟
-  /// false = عرض فقط بدون أزرار تعديل/حذف/عودة
-  final bool isOwner;
+  final bool showEditButton;
+  final bool showDeleteButton;
 
   const ActiveAbsenceCard({
     super.key,
@@ -23,7 +22,8 @@ class ActiveAbsenceCard extends StatelessWidget {
     required this.action,
     required this.onRefresh,
     this.onEdit,
-    this.isOwner = true,
+    this.showEditButton = true,
+    this.showDeleteButton = true,
   });
 
   int get elapsedDays {
@@ -104,7 +104,7 @@ class ActiveAbsenceCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (isOwner) ...[
+                if (showEditButton)
                   IconButton(
                     onPressed: () {
                       // 🔑 فحص حماية للمزامنة الخارجية عند التعديل
@@ -121,7 +121,8 @@ class ActiveAbsenceCard extends StatelessWidget {
                     ),
                     tooltip: 'تعديل الإجراء',
                   ),
-                  const SizedBox(width: 8),
+                if (showEditButton && showDeleteButton) const SizedBox(width: 8),
+                if (showDeleteButton)
                   IconButton(
                     onPressed: () {
                       // 🔑 فحص حماية للمزامنة الخارجية عند الإلغاء المحلي
@@ -138,7 +139,6 @@ class ActiveAbsenceCard extends StatelessWidget {
                     ),
                     tooltip: 'إلغاء الإجراء',
                   ),
-                ],
               ],
             ),
             const Divider(height: 16),
@@ -155,7 +155,7 @@ class ActiveAbsenceCard extends StatelessWidget {
               ],
             ),
             const Spacer(),
-            if (isOwner)
+            if (showEditButton)
               SizedBox(
                 width: double.infinity,
                 height: 40,

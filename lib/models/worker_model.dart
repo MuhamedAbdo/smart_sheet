@@ -1,6 +1,7 @@
 import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter/material.dart';
+import 'package:smart_sheet/models/day_schedule.dart';
 import 'worker_action_model.dart';
 
 part 'worker_model.g.dart';
@@ -142,6 +143,86 @@ class Worker extends HiveObject {
 
   /// Returns true if the worker is currently out (on leave, absence, etc.).
   bool get isOut => activeAction != null;
+
+  /// Closes all active hourly actions (permissions, health insurance) that have passed their shift end time.
+  static Future<void> autoCloseHourlyActionsGlobal() async {
+    if (!Hive.isBoxOpen('workers') || !Hive.isBoxOpen('factory_schedule') || !Hive.isBoxOpen('settings')) return;
+    
+    final workersBox = Hive.box<Worker>('workers');
+    final scheduleBox = Hive.box<DaySchedule>('factory_schedule');
+    final settingsBox = Hive.box('settings');
+
+    final String defaultShiftEndStr = settingsBox.get('shift_end', defaultValue: '17:00');
+    final parts = defaultShiftEndStr.split(':');
+    final defaultShiftEndHour = int.tryParse(parts[0]) ?? 17;
+    final defaultShiftEndMinute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    final TimeOfDay defaultShiftEnd = TimeOfDay(hour: defaultShiftEndHour, minute: defaultShiftEndMinute);
+
+    final now = DateTime.now();
+
+    for (final worker in workersBox.values) {
+      final activeAction = worker.activeAction;
+      if (activeAction != null && activeAction.isTimeBased && activeAction.returnDate == null) {
+        // Find shift end for the action's date
+        final dayName = _weekdayName(activeAction.date.weekday);
+        final schedule = scheduleBox.get(dayName);
+        
+        TimeOfDay shiftEnd = defaultShiftEnd;
+        if (schedule != null) {
+          shiftEnd = _parseTime(schedule.shiftEnd);
+        }
+
+        final shiftEndDateTime = DateTime(
+          activeAction.date.year,
+          activeAction.date.month,
+          activeAction.date.day,
+          shiftEnd.hour,
+          shiftEnd.minute,
+        );
+
+        if (now.isAfter(shiftEndDateTime)) {
+          debugPrint('🔄 Auto-closing action for ${worker.name} (action type: ${activeAction.type})');
+          activeAction.returnDate = activeAction.date;
+          activeAction.endTimeHour = shiftEnd.hour;
+          activeAction.endTimeMinute = shiftEnd.minute;
+
+          if (activeAction.isInBox) {
+            await activeAction.save();
+          }
+          await worker.save();
+        }
+      }
+    }
+  }
+
+  static String _weekdayName(int weekday) {
+    const map = {
+      1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday',
+      5: 'Friday', 6: 'Saturday', 7: 'Sunday',
+    };
+    return map[weekday] ?? 'Monday';
+  }
+
+  static TimeOfDay _parseTime(String timeString) {
+    try {
+      final parts = timeString.split(' ');
+      final timeParts = parts[0].split(':');
+      int hour = int.parse(timeParts[0]);
+      int minute = int.parse(timeParts[1]);
+      
+      if (parts.length > 1) {
+        final period = parts[1].toUpperCase();
+        if (period == 'PM' && hour != 12) {
+          hour += 12;
+        } else if (period == 'AM' && hour == 12) {
+          hour = 0;
+        }
+      }
+      return TimeOfDay(hour: hour, minute: minute);
+    } catch (e) {
+      return const TimeOfDay(hour: 17, minute: 0);
+    }
+  }
 
   Map<String, dynamic> toJson() {
     List<Map<String, dynamic>> actionsJson = [];

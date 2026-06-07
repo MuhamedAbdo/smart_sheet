@@ -82,6 +82,9 @@ class WorkersScreen extends StatelessWidget {
   }
 
   Widget _buildScreenContent(BuildContext context, Box<Worker> box, String? filterDept) {
+    // إغلاق الإجراءات المؤقتة القديمة في الخلفية
+    Worker.autoCloseHourlyActionsGlobal();
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(

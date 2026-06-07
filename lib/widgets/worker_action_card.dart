@@ -8,9 +8,8 @@ class WorkerActionCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback onRefresh;
-  /// هل الجهاز الحالي هو مُنشئ هذا الإجراء؟
-  /// false = عرض فقط بدون أزرار تعديل/حذف
-  final bool isOwner;
+  final bool showEditButton;
+  final bool showDeleteButton;
 
   const WorkerActionCard({
     super.key,
@@ -18,7 +17,8 @@ class WorkerActionCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onRefresh,
-    this.isOwner = true,
+    this.showEditButton = true,
+    this.showDeleteButton = true,
   });
 
   @override
@@ -176,10 +176,10 @@ class WorkerActionCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
             ],
-            // أزرار التحكم — تظهر فقط للجهاز المالك للإجراء
-            if (isOwner) Row(
+            // أزرار التحكم — يتم تمرير صلاحيات الظهور من الشاشة الأب
+            if (showEditButton || showDeleteButton) Row(
               children: [
-                if (action.type == 'غياب' && action.returnDate != null) ...[
+                if (showEditButton && action.type == 'غياب' && action.returnDate != null) ...[
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _convertToCasualLeave(context),
@@ -194,31 +194,34 @@ class WorkerActionCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onEdit,
-                    icon:
-                        Icon(Icons.edit, size: 18, color: colorScheme.primary),
-                    label: Text('تعديل',
-                        style: TextStyle(color: colorScheme.primary)),
-                    style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: onDelete,
-                    icon:
-                        const Icon(Icons.delete, size: 18, color: Colors.white),
-                    label: const Text('حذف',
-                        style: TextStyle(color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                if (showEditButton) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onEdit,
+                      icon:
+                          Icon(Icons.edit, size: 18, color: colorScheme.primary),
+                      label: Text('تعديل',
+                          style: TextStyle(color: colorScheme.primary)),
+                      style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12)),
                     ),
                   ),
-                ),
+                  if (showDeleteButton) const SizedBox(width: 8),
+                ],
+                if (showDeleteButton)
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: onDelete,
+                      icon:
+                          const Icon(Icons.delete, size: 18, color: Colors.white),
+                      label: const Text('حذف',
+                          style: TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ],

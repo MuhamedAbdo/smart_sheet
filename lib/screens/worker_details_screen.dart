@@ -117,27 +117,51 @@ class ShiftTimeCalculator {
 
 // ─── مساعد حساب أيام العمل الفعلية (يتجاهل عطل نهاية الأسبوع) ────────────────
 class WorkingDayCalculator {
-  /// يمر على كل يوم في النطاق [from, to) ويعدّ فقط أيام العمل
-  /// استناداً إلى إعدادات factory_schedule في Hive.
-  /// إذا لم يُفعَّل الصندوق، يعود إلى العدّ الخطي البسيط.
-  static double countWorkingDays(DateTime from, DateTime to) {
+  /// يمر على كل يوم في النطاق من [from] إلى [to] (شامل) ويعدّ أيام العمل.
+  /// إذا كان اليوم هو [to]، يتم فحص [returnTime]:
+  /// إذا كان [returnTime] أقل من أو يساوي [shiftStart]، يُسقط اليوم.
+  /// إذا كان [returnTime] أكبر من [shiftStart]، يُحسب كـ 1.0 يوم كامل (لا كسر).
+  static double calculateFullDays(DateTime from, DateTime to, TimeOfDay? returnTime, TimeOfDay shiftStart) {
+    DateTime startUtc = DateTime.utc(from.year, from.month, from.day);
+    DateTime endUtc = DateTime.utc(to.year, to.month, to.day);
+
     if (!Hive.isBoxOpen('factory_schedule')) {
-      // fallback: فرق بسيط بالأيام
-      return to.difference(from).inDays.toDouble();
+      // fallback: فرق بسيط بالأيام (معالجة يوم العودة افتراضية)
+      int baseDays = endUtc.difference(startUtc).inDays;
+      if (returnTime != null) {
+        final retMinutes = returnTime.hour * 60 + returnTime.minute;
+        final shiftStartMinutes = shiftStart.hour * 60 + shiftStart.minute;
+        if (retMinutes > shiftStartMinutes) baseDays++;
+      }
+      return baseDays.toDouble();
     }
+    
     final box = Hive.box<DaySchedule>('factory_schedule');
     int count = 0;
-    DateTime cursor = DateTime(from.year, from.month, from.day);
-    final end = DateTime(to.year, to.month, to.day);
-    while (cursor.isBefore(end)) {
+    DateTime cursor = startUtc;
+    
+    // 1. اجعل الـ Loop التكراري يقف تماماً عند اليوم الذي يسبق تاريخ العودة
+    while (cursor.isBefore(endUtc)) {
       final dayName = _weekdayName(cursor.weekday);
       final schedule = box.get(dayName);
-      if (schedule == null || schedule.isWorkingDay) {
-        // إذا لم يوجد إعداد، نعدّ اليوم كيوم عمل (افتراضي آمن)
-        count++;
+      final isWorkingDay = schedule == null || schedule.isWorkingDay;
+      
+      if (isWorkingDay) {
+        count++; // إذا كان اليوم المحصور يوم عمل (isWorkingDay == true)، يضاف 1 للعداد.
       }
       cursor = cursor.add(const Duration(days: 1));
     }
+    
+    // 2. معالجة يوم العودة (to) كشرط خارجي منفصل تماماً بعد انتهاء الـ Loop
+    if (returnTime != null) {
+      final retMinutes = returnTime.hour * 60 + returnTime.minute;
+      final shiftStartMinutes = shiftStart.hour * 60 + shiftStart.minute;
+      
+      if (retMinutes > shiftStartMinutes) {
+        count++; // يُحسب يوم العودة كـ 1 يوم غياب كامل لأن الغياب في الأيام الكاملة لا يتجزأ.
+      }
+    }
+    
     return count.toDouble();
   }
 
@@ -178,6 +202,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    Worker.autoCloseHourlyActionsGlobal();
     _worker = widget.box.get(widget.worker.key) ?? widget.worker;
     _cleanupActions();
     // تحميل device_id من صندوق الإعدادات لتحديد ملكية الإجراءات
@@ -270,6 +295,18 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final isWindows = !kIsWeb && Platform.isWindows;
+    final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+
+    bool canManageForThisWorker(bool Function(Worker) checkPerm) {
+      final Worker? cw = PermissionHelper.currentWorker;
+      if (cw == null) return false;
+      final bool isSupervisor = cw.job == 'مشرف' || cw.job == 'رئيس قسم';
+      final bool sameDept = cw.department == _worker.department;
+      return isSupervisor && sameDept && checkPerm(cw);
+    }
+
+    final bool canEditThisWorker = isSuperAdmin || canManageForThisWorker((cw) => cw.canEdit);
+    final bool canDeleteThisWorker = isSuperAdmin || canManageForThisWorker((cw) => cw.canDelete);
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -419,9 +456,12 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                             _worker.actions.indexOf(displayedAction);
                       }
 
+                      final bool isOwner = _isActionOwner(displayedAction);
+
                       return WorkerActionCard(
                         action: displayedAction,
-                        isOwner: _isActionOwner(displayedAction),
+                        showEditButton: isSuperAdmin || (canEditThisWorker && isOwner),
+                        showDeleteButton: isSuperAdmin || (canDeleteThisWorker && isOwner),
                         onRefresh: _refresh,
                         onEdit: () async {
                           if (originalIndex != -1) {
@@ -558,16 +598,34 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       padding: const EdgeInsets.only(bottom: 16),
       child: SizedBox(
         height: 190,
-        child: ActiveAbsenceCard(
-          worker: _worker,
-          action: activeAction,
-          isOwner: _isActionOwner(activeAction),
-          onRefresh: _refresh,
-          onEdit: () {
-            // Find index of this action to allow editing
-            final idx = _worker.actions.indexOf(activeAction);
-            _editAction(activeAction, idx);
-          },
+        child: Builder(
+          builder: (context) {
+            final bool isOwner = _isActionOwner(activeAction);
+            final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+
+            bool canManageForThisWorker(bool Function(Worker) checkPerm) {
+              final Worker? cw = PermissionHelper.currentWorker;
+              if (cw == null) return false;
+              final bool isSupervisor = cw.job == 'مشرف' || cw.job == 'رئيس قسم';
+              final bool sameDept = cw.department == _worker.department;
+              return isSupervisor && sameDept && checkPerm(cw);
+            }
+
+            final bool canEditThisWorker = isSuperAdmin || canManageForThisWorker((cw) => cw.canEdit);
+            final bool canDeleteThisWorker = isSuperAdmin || canManageForThisWorker((cw) => cw.canDelete);
+
+            return ActiveAbsenceCard(
+              worker: _worker,
+              action: activeAction,
+              showEditButton: isSuperAdmin || (canEditThisWorker && isOwner),
+              showDeleteButton: isSuperAdmin || (canDeleteThisWorker && isOwner),
+              onRefresh: _refresh,
+              onEdit: () {
+                final idx = _worker.actions.indexOf(activeAction);
+                _editAction(activeAction, idx);
+              },
+            );
+          }
         ),
       ),
     );
@@ -614,72 +672,45 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       final shiftStart = themeProvider.shiftStart;
       final shiftEnd = themeProvider.shiftEnd;
 
-      // Calculate shift duration using helper
-      final shiftDuration =
-          ShiftTimeCalculator.calculateShiftDuration(shiftStart, shiftEnd);
+      // نوع الإجراء يحدد طريقة الحساب
+      final isFullDayAction = actionType.value == 'إجازة' || 
+                              actionType.value == 'غياب' || 
+                              actionType.value == 'أجازة عارضة';
+      
+      final isHourlyAction = actionType.value == 'إذن' || 
+                             actionType.value == 'تأمين صحي';
 
-      if (returnDate.value != null) {
-        // ─── إجازة / غياب متعدد الأيام ─────────────────────────────────
-        // نعدّ فقط أيام العمل الفعلية (نتجاهل عطل الأسبوع من factory_schedule)
-        final workingDays = WorkingDayCalculator.countWorkingDays(
+      if (isFullDayAction && returnDate.value != null) {
+        // ─── إجراءات الأيام الكاملة ─────────────────────────────────
+        calculatedDays.value = WorkingDayCalculator.calculateFullDays(
           date.value,
           returnDate.value!,
+          endTime.value,
+          shiftStart,
         );
-
-        if (workingDays <= 0) {
-          calculatedDays.value = 0.0;
-          return;
-        }
-
-        // إذا كان التاريخ نفسه (returnDate = date)، نعامله كيوم جزئي
-        if (date.value.year == returnDate.value!.year &&
-            date.value.month == returnDate.value!.month &&
-            date.value.day == returnDate.value!.day) {
-          final actionDuration = ShiftTimeCalculator.calculateActionDuration(
-            date.value,
-            startTime.value,
-            returnDate.value,
-            endTime.value,
-            shiftStart,
-            shiftEnd,
-          );
-          calculatedDays.value = ShiftTimeCalculator.calculateDaysWithSmart50Rule(
-            actionDuration,
-            shiftDuration,
-          );
-        } else {
-          // أيام كاملة → نطبّق تعديل الوقت الجزئي على اليوم الأخير فقط
-          final fullDays = (workingDays - 1).clamp(0, double.infinity);
-          final lastDayDuration = ShiftTimeCalculator.calculateActionDuration(
-            returnDate.value!,
-            null, // من بداية الوردية
-            returnDate.value,
-            endTime.value,
-            shiftStart,
-            shiftEnd,
-          );
-          final lastDayFraction = ShiftTimeCalculator.calculateDaysWithSmart50Rule(
-            lastDayDuration,
-            shiftDuration,
-          );
-          calculatedDays.value = fullDays + lastDayFraction;
-        }
-      } else if (startTime.value != null && endTime.value != null) {
-        // ─── إذن / تأمين صحي: نفس اليوم ────────────────────────────────
+      } else if (isHourlyAction && startTime.value != null && endTime.value != null) {
+        // ─── إجراءات الساعات المرنة ────────────────────────────────
         final actionDuration = ShiftTimeCalculator.calculateActionDuration(
           date.value,
           startTime.value,
-          null, // Same day
+          returnDate.value, // قد يكون في نفس اليوم (null) أو في يوم مختلف
           endTime.value,
           shiftStart,
           shiftEnd,
         );
 
-        // Use smart 50% rule calculation for same-day permissions
-        calculatedDays.value = ShiftTimeCalculator.calculateDaysWithSmart50Rule(
-          actionDuration,
-          shiftDuration,
-        );
+        final shiftDuration = ShiftTimeCalculator.calculateShiftDuration(shiftStart, shiftEnd);
+        
+        // حساب الكسر العشري الدقيق بناءً على الساعات الفعلية مقسومة على مدة الوردية
+        if (shiftDuration > 0) {
+          double fraction = actionDuration / shiftDuration;
+          calculatedDays.value = double.parse(fraction.toStringAsFixed(3));
+        } else {
+          calculatedDays.value = 0.0;
+        }
+      } else {
+        // Default / Initial state
+        calculatedDays.value = 0.0;
       }
     }
 
@@ -995,7 +1026,14 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                   existingAction.factoryId =
                                       factoryId ?? existingAction.factoryId;
 
-                                  await existingAction.save();
+                                  if (existingAction.isInBox) {
+                                    await existingAction.save();
+                                  } else {
+                                    final actionBox = Hive.box<WorkerAction>('worker_actions');
+                                    if (existingAction.id != null) {
+                                      await actionBox.put(existingAction.id, existingAction);
+                                    }
+                                  }
                                   await _worker.save();
 
                                   final actionData = existingAction.toJson();

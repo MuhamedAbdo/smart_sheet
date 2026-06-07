@@ -93,6 +93,9 @@ Future<void> main() async {
       _openBackgroundBoxes();
       // تهيئة القيم الافتراضية لجدول أيام الوردية إذا كان فارغاً
       _initDefaultSchedule();
+      
+      // إغلاق أي أذونات أو إجراءات بالساعات مفتوحة من الأيام السابقة
+      Worker.autoCloseHourlyActionsGlobal();
     }
 
     // 3. تهيئة Supabase بذكاء (بدون تعطيل التطبيق)

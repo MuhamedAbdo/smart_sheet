@@ -206,7 +206,8 @@ class ActiveAbsencesDashboard extends StatelessWidget {
                     return ActiveAbsenceCard(
                       worker: entry.key,
                       action: entry.value,
-                      isOwner: isOwner,
+                      showEditButton: isOwner,
+                      showDeleteButton: isOwner,
                       onRefresh: () {
                         // ValueListenableBuilder will trigger rebuild
                       },
