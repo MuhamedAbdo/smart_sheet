@@ -16,6 +16,7 @@ class AuthService extends ChangeNotifier {
   bool get isAuthenticated => Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
   String? get factoryId => _factoryId;
   bool get isAdmin => _state.role?.trim().toLowerCase() == 'admin';
+  String? get currentUserEmail => _state.user?.email;
   String? _factoryId;
 
   AuthService() {

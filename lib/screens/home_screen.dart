@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/screens/crushing_screen.dart';
 import 'package:smart_sheet/screens/flexo_screen.dart';
 import 'package:smart_sheet/screens/production_line_screen.dart';
@@ -23,6 +25,8 @@ class HomeScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isWindows = !kIsWeb && Platform.isWindows;
+    final authService = context.watch<AuthService>();
+    final isSuperAdmin = authService.currentUserEmail == 'mohamedabdo9999933@gmail.com';
 
     return PopScope(
       canPop: false,
@@ -148,19 +152,20 @@ class HomeScreen extends StatelessWidget {
                             );
                           },
                         ),
-                        HomeButton(
-                          icon: Icons.add,
-                          label: 'إضافة عميل جديد',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const AddSheetSizeScreen(),
-                              ),
-                            );
-                          },
-                        ),
+                        if (isSuperAdmin)
+                          HomeButton(
+                            icon: Icons.add,
+                            label: 'إضافة عميل جديد',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const AddSheetSizeScreen(),
+                                ),
+                              );
+                            },
+                          ),
                         HomeButton(
                           icon: Icons.save,
                           label: 'سجل العملاء',
