@@ -57,4 +57,20 @@ class PermissionHelper {
     if (isSuperAdmin) return true;
     return currentWorker?.canDelete == true;
   }
+
+  /// صلاحيات إدارة العملاء والأصناف
+  static bool get canManageClientsAdd {
+    if (isSuperAdmin) return true;
+    return currentWorker?.canManageClientsAdd == true;
+  }
+
+  static bool get canManageClientsEdit {
+    if (isSuperAdmin) return true;
+    return currentWorker?.canManageClientsEdit == true;
+  }
+
+  static bool get canManageClientsDelete {
+    if (isSuperAdmin) return true;
+    return currentWorker?.canManageClientsDelete == true;
+  }
 }

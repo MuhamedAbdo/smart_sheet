@@ -43,6 +43,9 @@ class _WorkerFormState extends State<WorkerForm> {
   late bool canAdd;
   late bool canEdit;
   late bool canDelete;
+  late bool canManageClientsAdd;
+  late bool canManageClientsEdit;
+  late bool canManageClientsDelete;
 
   /// قائمة الوظائف المتاحة بناءً على القسم المختار — تُحدَّث ديناميكياً
   List<String> availableJobs = [];
@@ -129,9 +132,18 @@ class _WorkerFormState extends State<WorkerForm> {
         TextEditingController(text: widget.existingWorker?.email ?? '');
 
     // تحديد القسم الافتراضي
-    selectedDepartment = widget.existingWorker?.department ??
+    String initialDept = widget.existingWorker?.department ??
         widget.defaultDepartment ??
         'flexo';
+
+    if (initialDept == 'staples') {
+      initialDept = 'die_cutting';
+    }
+    if (!departmentOptions.containsKey(initialDept)) {
+      initialDept = 'flexo';
+    }
+    
+    selectedDepartment = initialDept;
 
     // ملء availableJobs بناءً على القسم الأولي
     _updateJobsForDepartment(selectedDepartment, existingJob: widget.existingWorker?.job);
@@ -139,6 +151,9 @@ class _WorkerFormState extends State<WorkerForm> {
     canAdd    = widget.existingWorker?.canAdd    ?? false;
     canEdit   = widget.existingWorker?.canEdit   ?? false;
     canDelete = widget.existingWorker?.canDelete ?? false;
+    canManageClientsAdd    = widget.existingWorker?.canManageClientsAdd    ?? false;
+    canManageClientsEdit   = widget.existingWorker?.canManageClientsEdit   ?? false;
+    canManageClientsDelete = widget.existingWorker?.canManageClientsDelete ?? false;
   }
 
   /// يُحدّث [availableJobs] عند تغيير القسم ويعيد تعيين الوظيفة المختارة.
@@ -228,6 +243,9 @@ class _WorkerFormState extends State<WorkerForm> {
         canAdd: canAdd,
         canEdit: canEdit,
         canDelete: canDelete,
+        canManageClientsAdd: canManageClientsAdd,
+        canManageClientsEdit: canManageClientsEdit,
+        canManageClientsDelete: canManageClientsDelete,
         email: emailVal,
       );
 
@@ -247,6 +265,9 @@ class _WorkerFormState extends State<WorkerForm> {
       w.canAdd = canAdd;
       w.canEdit = canEdit;
       w.canDelete = canDelete;
+      w.canManageClientsAdd = canManageClientsAdd;
+      w.canManageClientsEdit = canManageClientsEdit;
+      w.canManageClientsDelete = canManageClientsDelete;
       w.email = emailVal;
       // نستخدم widget.box.put بدلاً من w.save() لتجنب خطأ (This object is currently not in a box)
       await widget.box.put(w.syncId!, w);
@@ -383,6 +404,33 @@ class _WorkerFormState extends State<WorkerForm> {
                   value: canDelete,
                   dense: true,
                   onChanged: (val) => setState(() => canDelete = val ?? false),
+                ),
+                const SizedBox(height: 10),
+                const Divider(),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4.0),
+                    child: Text("🔒 صلاحيات العملاء والأصناف (Supabase):", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                CheckboxListTile(
+                  title: const Text("إضافة عملاء وأصناف"),
+                  value: canManageClientsAdd,
+                  dense: true,
+                  onChanged: (val) => setState(() => canManageClientsAdd = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text("تعديل عملاء وأصناف"),
+                  value: canManageClientsEdit,
+                  dense: true,
+                  onChanged: (val) => setState(() => canManageClientsEdit = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text("حذف عملاء وأصناف"),
+                  value: canManageClientsDelete,
+                  dense: true,
+                  onChanged: (val) => setState(() => canManageClientsDelete = val ?? false),
                 ),
               ],
             ],

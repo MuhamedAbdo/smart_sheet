@@ -21,20 +21,23 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       name: fields[0] as String,
       phone: fields[1] as String,
       job: fields[2] as String,
-      hasMedicalInsurance: fields[4] as bool,
+      hasMedicalInsurance: fields[4] == null ? false : fields[4] as bool,
       factoryId: fields[5] as String?,
-      department: fields[7] == null ? 'flexo' : fields[7] as String,
+      department: fields[7] as String,
       canAdd: fields[8] == null ? false : fields[8] as bool,
       canEdit: fields[9] == null ? false : fields[9] as bool,
       canDelete: fields[10] == null ? false : fields[10] as bool,
       email: fields[11] as String?,
+      canManageClientsAdd: fields[12] == null ? false : fields[12] as bool,
+      canManageClientsEdit: fields[13] == null ? false : fields[13] as bool,
+      canManageClientsDelete: fields[14] == null ? false : fields[14] as bool,
     ).._actions = (fields[3] as HiveList?)?.castHiveList();
   }
 
   @override
   void write(BinaryWriter writer, Worker obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -58,7 +61,13 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       ..writeByte(10)
       ..write(obj.canDelete)
       ..writeByte(11)
-      ..write(obj.email);
+      ..write(obj.email)
+      ..writeByte(12)
+      ..write(obj.canManageClientsAdd)
+      ..writeByte(13)
+      ..write(obj.canManageClientsEdit)
+      ..writeByte(14)
+      ..write(obj.canManageClientsDelete);
   }
 
   @override

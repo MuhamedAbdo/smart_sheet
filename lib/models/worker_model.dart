@@ -38,7 +38,7 @@ class Worker extends HiveObject {
   // ignore: experimental_member_use
   set actions(HiveList<WorkerAction> value) => _actions = value;
 
-  @HiveField(4)
+  @HiveField(4, defaultValue: false)
   late bool hasMedicalInsurance;
 
   @HiveField(5)
@@ -50,17 +50,26 @@ class Worker extends HiveObject {
   @HiveField(7)
   late String department; // flexo, production_line, die_cutting, staples, stores, silicates
 
-  @HiveField(8)
+  @HiveField(8, defaultValue: false)
   late bool canAdd;
 
-  @HiveField(9)
+  @HiveField(9, defaultValue: false)
   late bool canEdit;
 
-  @HiveField(10)
+  @HiveField(10, defaultValue: false)
   late bool canDelete;
 
   @HiveField(11)
   late String? email;
+
+  @HiveField(12, defaultValue: false)
+  late bool canManageClientsAdd;
+
+  @HiveField(13, defaultValue: false)
+  late bool canManageClientsEdit;
+
+  @HiveField(14, defaultValue: false)
+  late bool canManageClientsDelete;
 
   /// Alias for [id] — kept for backward compatibility with SyncService
   String? get syncId => id;
@@ -78,6 +87,9 @@ class Worker extends HiveObject {
     this.canEdit = false,
     this.canDelete = false,
     this.email,
+    this.canManageClientsAdd = false,
+    this.canManageClientsEdit = false,
+    this.canManageClientsDelete = false,
   }) {
     // Generate valid UUID v4 if not provided or invalid (fixes 22P02 error in Supabase)
     if (id == null || !id!.contains('-')) {
@@ -249,6 +261,9 @@ class Worker extends HiveObject {
       'can_edit': canEdit,
       'can_delete': canDelete,
       'email': email,
+      'can_manage_clients_add': canManageClientsAdd,
+      'can_manage_clients_edit': canManageClientsEdit,
+      'can_manage_clients_delete': canManageClientsDelete,
     };
   }
 
@@ -270,6 +285,9 @@ class Worker extends HiveObject {
       canEdit: map['can_edit'] ?? map['canEdit'] ?? false,
       canDelete: map['can_delete'] ?? map['canDelete'] ?? false,
       email: map['email']?.toString(),
+      canManageClientsAdd: map['can_manage_clients_add'] ?? map['canManageClientsAdd'] ?? false,
+      canManageClientsEdit: map['can_manage_clients_edit'] ?? map['canManageClientsEdit'] ?? false,
+      canManageClientsDelete: map['can_manage_clients_delete'] ?? map['canManageClientsDelete'] ?? false,
     );
   }
 }

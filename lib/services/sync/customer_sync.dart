@@ -37,6 +37,7 @@ mixin CustomerSync on SyncServiceBase {
           : await Hive.openBox('savedSheetSizes');
 
       for (final r in res) {
+        final hasSheetDetails = r['sheet_details'] != null;
         final hiveRecord = _customerToHive(r);
         final syncId = r['sync_id'] ?? r['id'];
         hiveRecord['sync_id'] = syncId;
@@ -46,7 +47,7 @@ mixin CustomerSync on SyncServiceBase {
           final item = box.getAt(i);
           if (item is Map && item['sync_id'] == syncId) {
             existingKey = box.keyAt(i);
-            _mergeLocalCustomerFields(hiveRecord, item);
+            _mergeLocalCustomerFields(hiveRecord, item, hasSheetDetails);
             break;
           }
         }
@@ -229,6 +230,7 @@ mixin CustomerSync on SyncServiceBase {
 
         debugPrint('🌟 وصلت بيانات جديدة: $clientName (factory: $recordFactoryId) key=$syncId');
 
+        final hasSheetDetails = record['sheet_details'] != null;
         final hiveRecord = _customerToHive(record);
         hiveRecord['sync_id'] = syncId;
 
@@ -237,7 +239,7 @@ mixin CustomerSync on SyncServiceBase {
           final item = box.getAt(i);
           if (item is Map && item['sync_id'] == syncId) {
             existingKey = box.keyAt(i);
-            _mergeLocalCustomerFields(hiveRecord, item);
+            _mergeLocalCustomerFields(hiveRecord, item, hasSheetDetails);
             break;
           }
         }
@@ -314,6 +316,7 @@ mixin CustomerSync on SyncServiceBase {
   // ==============================================================
 
   Map<String, dynamic> _customerToHive(Map<String, dynamic> r) {
+    final sheetDetails = r['sheet_details'] as Map<String, dynamic>? ?? {};
     return {
       'id':             r['id'],
       'sync_id':        r['sync_id'],
@@ -329,13 +332,31 @@ mixin CustomerSync on SyncServiceBase {
       'factory_id':     r['factory_id'],
       'imagePaths':     r['image_paths'] ?? [],
       'isClientRecord': r['is_client_record'] ?? false,
+      'isOverFlap': sheetDetails['isOverFlap'] ?? false,
+      'isFlap': sheetDetails['isFlap'] ?? true,
+      'isOneFlap': sheetDetails['isOneFlap'] ?? false,
+      'isTwoFlap': sheetDetails['isTwoFlap'] ?? true,
+      'addTwoMm': sheetDetails['addTwoMm'] ?? false,
+      'isFullSize': sheetDetails['isFullSize'] ?? true,
+      'isQuarterSize': sheetDetails['isQuarterSize'] ?? false,
+      'isQuarterWidth': sheetDetails['isQuarterWidth'] ?? true,
+      'sheetLengthResult': sheetDetails['sheetLengthResult'] ?? '',
+      'sheetWidthResult': sheetDetails['sheetWidthResult'] ?? '',
+      'productionWidth1': sheetDetails['productionWidth1'] ?? '',
+      'productionHeight': sheetDetails['productionHeight'] ?? '',
+      'productionWidth2': sheetDetails['productionWidth2'] ?? '',
+      'sheetLengthManual': sheetDetails['sheetLengthManual'] ?? '',
+      'sheetWidthManual': sheetDetails['sheetWidthManual'] ?? '',
+      'cuttingType': sheetDetails['cuttingType'] ?? 'دوبل',
     };
   }
 
   void _mergeLocalCustomerFields(
     Map<String, dynamic> newRecord,
     Map<dynamic, dynamic> existingRecord,
+    bool hasSheetDetails,
   ) {
+    if (hasSheetDetails) return;
     const localFields = [
       'isOverFlap', 'isFlap', 'isOneFlap', 'isTwoFlap', 'addTwoMm',
       'isFullSize', 'isQuarterSize', 'isQuarterWidth',

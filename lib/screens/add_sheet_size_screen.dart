@@ -357,6 +357,24 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'date': r['date'],
       'is_client_record': r['isClientRecord'],
       'image_paths': r['imagePaths'] ?? [],
+      'sheet_details': {
+        'isOverFlap': r['isOverFlap'],
+        'isFlap': r['isFlap'],
+        'isOneFlap': r['isOneFlap'],
+        'isTwoFlap': r['isTwoFlap'],
+        'addTwoMm': r['addTwoMm'],
+        'isFullSize': r['isFullSize'],
+        'isQuarterSize': r['isQuarterSize'],
+        'isQuarterWidth': r['isQuarterWidth'],
+        'sheetLengthResult': r['sheetLengthResult'],
+        'sheetWidthResult': r['sheetWidthResult'],
+        'productionWidth1': r['productionWidth1'],
+        'productionHeight': r['productionHeight'],
+        'productionWidth2': r['productionWidth2'],
+        'sheetLengthManual': r['sheetLengthManual'],
+        'sheetWidthManual': r['sheetWidthManual'],
+        'cuttingType': r['cuttingType'],
+      },
     };
   }
 

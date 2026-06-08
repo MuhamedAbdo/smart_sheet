@@ -105,8 +105,8 @@ class SavedSizeCard extends StatelessWidget {
                   ValueListenableBuilder<Box<Worker>>(
                     valueListenable: Hive.box<Worker>('workers').listenable(),
                     builder: (context, _, __) {
-                      final canEdit = PermissionHelper.canEdit;
-                      final canDelete = PermissionHelper.canDelete;
+                      final canEdit = PermissionHelper.canManageClientsEdit;
+                      final canDelete = PermissionHelper.canManageClientsDelete;
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

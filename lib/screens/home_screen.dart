@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:provider/provider.dart';
-import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/screens/crushing_screen.dart';
 import 'package:smart_sheet/screens/flexo_screen.dart';
 import 'package:smart_sheet/screens/production_line_screen.dart';
@@ -16,6 +14,9 @@ import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/models/worker_model.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -25,8 +26,6 @@ class HomeScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isWindows = !kIsWeb && Platform.isWindows;
-    final authService = context.watch<AuthService>();
-    final isSuperAdmin = authService.currentUserEmail == 'mohamedabdo9999933@gmail.com';
 
     return PopScope(
       canPop: false,
@@ -76,8 +75,11 @@ class HomeScreen extends StatelessWidget {
                       crossAxisCount = 3;
                     }
 
-                    return GridView.count(
-                      crossAxisCount: crossAxisCount,
+                    return ValueListenableBuilder<Box<Worker>>(
+                      valueListenable: Hive.box<Worker>('workers').listenable(),
+                      builder: (context, box, child) {
+                        return GridView.count(
+                          crossAxisCount: crossAxisCount,
                       crossAxisSpacing: 24,
                       mainAxisSpacing: 24,
                       childAspectRatio: 1.1,
@@ -152,7 +154,7 @@ class HomeScreen extends StatelessWidget {
                             );
                           },
                         ),
-                        if (isSuperAdmin)
+                        if (PermissionHelper.canManageClientsAdd)
                           HomeButton(
                             icon: Icons.add,
                             label: 'إضافة عميل جديد',
@@ -193,11 +195,13 @@ class HomeScreen extends StatelessWidget {
                             );
                           },
                         ),
-                      ],
-                    );
-                  },
-                ),
+                        ],
+                      );
+                    },
+                  );
+                },
               ),
+            ),
             ],
           ),
         ),

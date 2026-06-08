@@ -13,8 +13,6 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/models/worker_model.dart';
-import 'package:provider/provider.dart';
-import 'package:smart_sheet/services/auth_service.dart';
 
 /// شاشة تعرض جميع الأصناف والمقاسات المرتبطة بعميل معين
 class ClientItemsScreen extends StatefulWidget {
@@ -70,9 +68,6 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
-    final authService = context.watch<AuthService>();
-    final isSuperAdmin = authService.currentUserEmail == 'mohamedabdo9999933@gmail.com';
 
     return ValueListenableBuilder(
       valueListenable: _savedSheetSizesBox!.listenable(),
@@ -171,8 +166,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
               : ValueListenableBuilder<Box<Worker>>(
                   valueListenable: _workersBox!.listenable(),
                   builder: (context, _, __) {
-                    if (!isSuperAdmin) return const SizedBox.shrink();
-                    if (!PermissionHelper.canAdd) return const SizedBox.shrink();
+                    if (!PermissionHelper.canManageClientsAdd) return const SizedBox.shrink();
                     return FloatingActionButton.extended(
                       onPressed: () {
                         Navigator.push(

@@ -13,7 +13,12 @@ class AuthService extends ChangeNotifier {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   UserState get state => _state;
-  bool get isAuthenticated => Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
+  bool get isAuthenticated {
+    if (Hive.isBoxOpen('settings')) {
+      return Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
+    }
+    return false;
+  }
   String? get factoryId => _factoryId;
   bool get isAdmin => _state.role?.trim().toLowerCase() == 'admin';
   String? get currentUserEmail => _state.user?.email;
@@ -45,12 +50,14 @@ class AuthService extends ChangeNotifier {
     if (session != null) {
       // Keep existing role if available to avoid flicker before fetch
       _state = UserState.authenticated(session.user, role: _state.role);
-      Hive.box('settings').put('is_user_logged_in', true);
+      if (Hive.isBoxOpen('settings')) {
+        Hive.box('settings').put('is_user_logged_in', true);
+      }
       if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.initialSession) {
         _fetchAndStoreUserData(session.user.id);
       }
     } else {
-      final isLocalLoggedIn = Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
+      final isLocalLoggedIn = Hive.isBoxOpen('settings') && Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
       if (!isLocalLoggedIn) {
         _state = UserState.unauthenticated();
         _clearUserData();
@@ -61,11 +68,13 @@ class AuthService extends ChangeNotifier {
 
   void _checkInitialSession() {
     final session = _supabaseClient.auth.currentSession;
-    final isLocalLoggedIn = Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
+    final isLocalLoggedIn = Hive.isBoxOpen('settings') && Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
 
     if (session != null) {
       _state = UserState.authenticated(session.user, role: _state.role);
-      Hive.box('settings').put('is_user_logged_in', true);
+      if (Hive.isBoxOpen('settings')) {
+        Hive.box('settings').put('is_user_logged_in', true);
+      }
       _fetchAndStoreUserData(session.user.id);
     } else if (isLocalLoggedIn) {
       final user = _supabaseClient.auth.currentUser;
@@ -354,7 +363,9 @@ class AuthService extends ChangeNotifier {
     _state = _state.copyWith(isLoading: true, errorMessage: null);
     notifyListeners();
     try {
-      await Hive.box('settings').put('is_user_logged_in', false);
+      if (Hive.isBoxOpen('settings')) {
+        await Hive.box('settings').put('is_user_logged_in', false);
+      }
       await _supabaseClient.auth.signOut();
       // يتم تحديث الحالة تلقائيًا عبر stream listener
     } catch (e) {

@@ -5,8 +5,7 @@ import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
-import 'package:provider/provider.dart';
-import 'package:smart_sheet/services/auth_service.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 
 // تعريف أنواع الترتيب
 enum SortType {
@@ -346,9 +345,6 @@ class _ClientCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authService = context.watch<AuthService>();
-    final isSuperAdmin = authService.currentUserEmail == 'mohamedabdo9999933@gmail.com';
-
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
@@ -367,18 +363,18 @@ class _ClientCard extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isSuperAdmin) ...[
+            if (PermissionHelper.canManageClientsEdit)
               IconButton(
                 icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
                 onPressed: onEdit,
                 tooltip: "تعديل بيانات العميل",
               ),
+            if (PermissionHelper.canManageClientsDelete)
               IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red, size: 20),
                 onPressed: onDelete,
                 tooltip: "حذف العميل",
               ),
-            ],
             const Icon(Icons.arrow_forward_ios, size: 16),
           ],
         ),
