@@ -659,25 +659,20 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   final canDelete = PermissionHelper.canDelete;
                   if (!canEdit && !canDelete) return const SizedBox.shrink();
                   return Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      if (canEdit) ...[  
-                        Expanded(
-                            child: OutlinedButton.icon(
-                                onPressed: () => _editReport(key, record),
-                                icon: const Icon(Icons.edit, size: 16),
-                                label: const Text("تعديل"))),
-                        if (canDelete) const SizedBox(width: 10),
-                      ],
+                      if (canEdit)
+                        IconButton(
+                          onPressed: () => _editReport(key, record),
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          tooltip: "تعديل",
+                        ),
                       if (canDelete)
-                        Expanded(
-                            child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red.shade400,
-                              foregroundColor: Colors.white),
+                        IconButton(
                           onPressed: () => _deleteSingleReport(key, record),
-                          icon: const Icon(Icons.delete_outline, size: 16),
-                          label: const Text("حذف"),
-                        )),
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          tooltip: "حذف",
+                        ),
                     ],
                   );
                 },

@@ -223,7 +223,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
       child: Stack(
         children: [
           Scaffold(
-            resizeToAvoidBottomInset: false,
+            resizeToAvoidBottomInset: true,
             appBar: AppBar(
                 title: Text(widget.reportKey == null
                     ? "🆕 إضافة تقرير إنتاج"

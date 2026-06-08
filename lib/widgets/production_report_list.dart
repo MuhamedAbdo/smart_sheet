@@ -132,24 +132,16 @@ class ProductionReportList extends StatelessWidget {
                                 style: TextStyle(color: Colors.green)),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () =>
-                                onEdit(key, _convertValuesToString(record)),
-                            icon: const Icon(Icons.edit, size: 18),
-                            label: const Text('تعديل'),
-                          ),
+                        IconButton(
+                          onPressed: () =>
+                              onEdit(key, _convertValuesToString(record)),
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          tooltip: 'تعديل',
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => onDelete(key),
-                            icon: const Icon(Icons.delete, size: 18),
-                            label: const Text('حذف'),
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red),
-                          ),
+                        IconButton(
+                          onPressed: () => onDelete(key),
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          tooltip: 'حذف',
                         ),
                       ],
                     ),
