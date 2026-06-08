@@ -6,6 +6,7 @@ import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/models/worker_model.dart';
 
 // تعريف أنواع الترتيب
 enum SortType {
@@ -72,9 +73,12 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         ],
       ),
       body: ValueListenableBuilder(
-        valueListenable: _savedSheetSizesBox.listenable(),
-        builder: (context, Box box, _) {
-          final clients = _getUniqueClients(box);
+        valueListenable: Hive.box<Worker>('workers_flexo').listenable(),
+        builder: (context, _, __) {
+          return ValueListenableBuilder(
+            valueListenable: _savedSheetSizesBox.listenable(),
+            builder: (context, Box box, _) {
+              final clients = _getUniqueClients(box);
 
           if (clients.isEmpty) {
             return Center(
@@ -123,6 +127,8 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             ],
           );
         },
+      );
+      },
       ),
     );
   }

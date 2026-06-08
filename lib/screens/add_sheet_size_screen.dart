@@ -155,6 +155,9 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   Future<void> _saveSheetSize(
       {dynamic duplicateKey, bool shouldDeleteOriginal = true}) async {
+    // حساب المقاسات أوتوماتيكياً قبل الحفظ لتجنب نسيان المستخدم الضغط على "احسب"
+    _calculateSheet();
+
     final clientName = clientNameController.text.trim();
     final productCode = productCodeController.text.trim();
 

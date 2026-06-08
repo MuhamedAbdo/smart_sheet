@@ -466,6 +466,17 @@ class SavedSizeCard extends StatelessWidget {
           children: [
             Text("📏 الأبعاد: $length × $width × $height سم"),
             const SizedBox(height: 10),
+            if ((record['sheetLengthResult']?.isNotEmpty ?? false) ||
+                (record['sheetWidthResult']?.isNotEmpty ?? false))
+              Column(
+                children: [
+                  if (record['sheetLengthResult']?.isNotEmpty ?? false)
+                    Text("📐 ${record['sheetLengthResult']}"),
+                  if (record['sheetWidthResult']?.isNotEmpty ?? false)
+                    Text("📐 ${record['sheetWidthResult']}"),
+                  const SizedBox(height: 10),
+                ],
+              ),
             const Text("🔧 توزيع مقاسات خط الإنتاج",
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 5),
