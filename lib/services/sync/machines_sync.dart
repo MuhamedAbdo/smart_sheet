@@ -74,13 +74,19 @@ mixin MachinesSync on SyncServiceBase {
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → machines (factory: $factoryId)');
-            _reconnectAttempts = 0;
+            _reconnectAttempts['machines_channel'] = 0;
           } else if (status == RealtimeSubscribeStatus.timedOut) {
             debugPrint('⏱️ TIMEOUT → machines — جدولة إعادة الاتصال...');
-            _scheduleReconnect();
+            _scheduleReconnect('machines_channel', () async {
+              await _tearDownMachinesChannel();
+              _setupMachinesChannel(factoryId);
+            });
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → machines: $error');
-            _scheduleReconnect();
+            _scheduleReconnect('machines_channel', () async {
+              await _tearDownMachinesChannel();
+              _setupMachinesChannel(factoryId);
+            });
           } else {
             debugPrint('📡 machines: $status ${error ?? ""}');
           }

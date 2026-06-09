@@ -7,9 +7,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:smart_sheet/utils/permission_helper.dart';
-import 'package:smart_sheet/models/worker_model.dart';
 
 class SavedSizeCard extends StatelessWidget {
   final Map<String, dynamic> record;
@@ -17,6 +14,9 @@ class SavedSizeCard extends StatelessWidget {
   final VoidCallback onDelete;
   // التغيير هنا: مسمى الزر أصبح بدء إنتاج بدلاً من طباعة
   final Function(Map<String, dynamic>) onStartProduction;
+  final bool canEdit;
+  final bool canDelete;
+  final bool canAdd;
 
   const SavedSizeCard({
     super.key,
@@ -24,6 +24,9 @@ class SavedSizeCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onStartProduction,
+    required this.canEdit,
+    required this.canDelete,
+    required this.canAdd,
   });
 
   // دالة مساعدة لجلب مسار مجلد الصور
@@ -101,29 +104,21 @@ class SavedSizeCard extends StatelessWidget {
                       : _showFullDetails(context, record),
                 ),
                 // ―― أزرار التعديل والحذف بناءً على الصلاحيات ――
-                if (Hive.isBoxOpen('workers'))
-                  ValueListenableBuilder<Box<Worker>>(
-                    valueListenable: Hive.box<Worker>('workers').listenable(),
-                    builder: (context, _, __) {
-                      final canEdit = PermissionHelper.canManageClientsEdit;
-                      final canDelete = PermissionHelper.canManageClientsDelete;
-                      return Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (canEdit)
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: onEdit,
-                            ),
-                          if (canDelete)
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: onDelete,
-                            ),
-                        ],
-                      );
-                    },
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (canEdit)
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: onEdit,
+                      ),
+                    if (canDelete)
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: onDelete,
+                      ),
+                  ],
+                ),
               ],
             ),
 
@@ -173,28 +168,22 @@ class SavedSizeCard extends StatelessWidget {
             const SizedBox(height: 12),
 
             // ―― أزرار الإنتاج بناءً على صلاحية canAdd ――
-            if (Hive.isBoxOpen('workers'))
-              ValueListenableBuilder<Box<Worker>>(
-                valueListenable: Hive.box<Worker>('workers').listenable(),
-                builder: (context, _, __) {
-                  if (!PermissionHelper.canAdd) return const SizedBox.shrink();
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () => onStartProduction(record),
-                          icon: const Icon(Icons.precision_manufacturing, size: 18),
-                          label: const Text("بدء إنتاج (فلكسو)"),
-                          style: OutlinedButton.styleFrom(
-                              visualDensity: VisualDensity.compact),
-                        ),
-                      ],
+            if (canAdd)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => onStartProduction(record),
+                      icon: const Icon(Icons.precision_manufacturing, size: 18),
+                      label: const Text("بدء إنتاج (فلكسو)"),
+                      style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
           ],
         ),
@@ -244,6 +233,8 @@ class SavedSizeCard extends StatelessWidget {
                       clipBehavior: Clip.antiAlias,
                       child: CachedNetworkImage(
                         imageUrl: images[i],
+                        memCacheWidth: 100,
+                        memCacheHeight: 100,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => const Center(
                           child: SizedBox(
@@ -330,6 +321,8 @@ class SavedSizeCard extends StatelessWidget {
                           child: path.startsWith('http')
                               ? CachedNetworkImage(
                                   imageUrl: path,
+                                  memCacheWidth: 100,
+                                  memCacheHeight: 100,
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) => const Center(
                                     child: SizedBox(
@@ -347,6 +340,8 @@ class SavedSizeCard extends StatelessWidget {
                                 )
                               : Image.file(
                                   File(path),
+                                  cacheWidth: 100,
+                                  cacheHeight: 100,
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) =>
                                       const Icon(Icons.broken_image, size: 20),
@@ -784,6 +779,31 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
             return PhotoView(
               imageProvider: CachedNetworkImageProvider(path),
               minScale: PhotoViewComputedScale.contained,
+              loadingBuilder: (context, event) => SizedBox.expand(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CachedNetworkImage(
+                      imageUrl: path,
+                      memCacheWidth: 100,
+                      memCacheHeight: 100,
+                      fit: BoxFit.contain,
+                    ),
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const CircularProgressIndicator(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               errorBuilder: (c, e, s) => Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

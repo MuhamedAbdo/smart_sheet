@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -31,25 +32,28 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
   String searchQuery = "";
   bool isSearching = false;
 
+  List<MapEntry<dynamic, Map<String, dynamic>>> _allClientRecords = [];
+  StreamSubscription? _boxSubscription;
+  Timer? _debounceTimer;
+  Timer? _searchDebounce;
+  late TextEditingController _searchController;
+  late FocusNode _searchFocusNode;
+
   @override
   void initState() {
     super.initState();
+    _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
     _initBox();
   }
 
   void _initBox() {
     if (Hive.isBoxOpen('savedSheetSizes')) {
-      setState(() {
-        _savedSheetSizesBox = Hive.box('savedSheetSizes');
-        _isLoading = false;
-      });
+      _setupBox(Hive.box('savedSheetSizes'));
     } else {
       Hive.openBox('savedSheetSizes').then((box) {
         if (mounted) {
-          setState(() {
-            _savedSheetSizesBox = box;
-            _isLoading = false;
-          });
+          _setupBox(box);
         }
       });
     }
@@ -63,63 +67,105 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     }
   }
 
+  void _setupBox(Box box) {
+    _savedSheetSizesBox = box;
+    _refreshLocalData();
+    
+    _boxSubscription = box.watch().listen((event) {
+      if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+      _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _refreshLocalData();
+        }
+      });
+    });
+    
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  void _refreshLocalData() {
+    if (_savedSheetSizesBox == null) return;
+    final box = _savedSheetSizesBox!;
+    final records = box.toMap().entries.where((e) {
+      if (e.value is! Map) return false;
+      return (e.value['clientName']?.toString().trim() ?? '') == widget.clientName.trim();
+    }).map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value))).toList();
+    
+    setState(() {
+      _allClientRecords = records;
+    });
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _boxSubscription?.cancel();
+    _debounceTimer?.cancel();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return ValueListenableBuilder(
-      valueListenable: _savedSheetSizesBox!.listenable(),
-      builder: (context, Box box, _) {
-        final query = _normalizeString(searchQuery);
+    final query = _normalizeString(searchQuery);
 
-        // جلب كافة السجلات المرتبطة بهذا العميل
-        final allClientRecords = box.toMap().entries.where((e) {
-          if (e.value is! Map) return false;
-          return (e.value['clientName']?.toString().trim() ?? '') ==
-              widget.clientName.trim();
+    // استخدام القائمة المحلية بدلاً من الحساب المباشر من الـ Box في كل build
+    final allClientRecords = _allClientRecords;
+
+    // السجلات التي تمثل "أصناف" فقط (ليست سجل العميل الأساسي)
+    final itemEntries = allClientRecords.where((e) {
+      return e.value['isClientRecord'] != true;
+    }).toList();
+
+    final filteredEntries = itemEntries
+        .where((e) {
+          if (query.isEmpty) return true;
+          final String pName =
+              _normalizeString((e.value['productName'] ?? '').toString());
+          final String pCode =
+              _normalizeString((e.value['productCode'] ?? '').toString());
+          return pName.contains(query) || pCode == query;
         }).toList();
 
-        // السجلات التي تمثل "أصناف" فقط (ليست سجل العميل الأساسي)
-        final itemEntries = allClientRecords.where((e) {
-          return e.value['isClientRecord'] != true;
-        }).toList();
+    // ترتيب تصاعدي بناءً على كود الصنف (رقمياً)
+    filteredEntries.sort((a, b) {
+      final codeA = int.tryParse(a.value['productCode']?.toString() ?? '') ?? 0;
+      final codeB = int.tryParse(b.value['productCode']?.toString() ?? '') ?? 0;
+      return codeA.compareTo(codeB);
+    });
 
-        final filteredEntries = itemEntries
-            .where((e) {
-              if (query.isEmpty) return true;
-              final String pName =
-                  _normalizeString((e.value['productName'] ?? '').toString());
-              final String pCode =
-                  _normalizeString((e.value['productCode'] ?? '').toString());
-              return pName.contains(query) || pCode == query;
-            })
-            .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
-            .toList();
-
-        // ترتيب أبجدي بحسب اسم الصنف
-        filteredEntries.sort((a, b) => (a.value['productName'] ?? '')
-            .toString()
-            .compareTo((b.value['productName'] ?? '').toString()));
-
-        // جلب كود العميل حصرياً من سجل العميل الأساسي (isClientRecord)
-        String clientCode = "غير مسجل";
-        for (var entry in allClientRecords) {
-          if (entry.value['isClientRecord'] == true) {
-            final code = entry.value['productCode']?.toString().trim() ?? '';
-            if (code.isNotEmpty) {
-              clientCode = code;
-            }
-            break;
-          }
+    // جلب كود العميل حصرياً من سجل العميل الأساسي (isClientRecord)
+    String clientCode = "غير مسجل";
+    for (var entry in allClientRecords) {
+      if (entry.value['isClientRecord'] == true) {
+        final code = entry.value['productCode']?.toString().trim() ?? '';
+        if (code.isNotEmpty) {
+          clientCode = code;
         }
+        break;
+      }
+    }
 
-        return Scaffold(
+    return Scaffold(
           appBar: AppBar(
           title: isSearching
               ? SavedSizeSearchBar(
-                  onChanged: (v) => setState(() => searchQuery = v))
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  onChanged: (v) {
+                    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+                    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+                      if (mounted) setState(() => searchQuery = v);
+                    });
+                  })
               : Text(widget.clientName),
           centerTitle: !isSearching,
           actions: [
@@ -156,7 +202,13 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
               icon: Icon(isSearching ? Icons.close : Icons.search),
               onPressed: () => setState(() {
                 isSearching = !isSearching;
-                if (!isSearching) searchQuery = "";
+                if (!isSearching) {
+                  searchQuery = "";
+                  _searchController.clear();
+                  _searchFocusNode.unfocus();
+                } else {
+                  _searchFocusNode.requestFocus();
+                }
               }),
             )
           ],
@@ -187,15 +239,17 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                     );
                   },
                 ),
-          body: _buildBody(allClientRecords, itemEntries.length, filteredEntries, clientCode),
-        );
-      },
+      body: _buildBody(allClientRecords, itemEntries.length, filteredEntries, clientCode),
     );
   }
 
   Widget _buildBody(List<MapEntry<dynamic, dynamic>> allClientRecords,
       int totalItemsCount, List<MapEntry<dynamic, Map<String, dynamic>>> filteredEntries, String clientCode) {
     
+    final canEdit = PermissionHelper.canManageClientsEdit;
+    final canDelete = PermissionHelper.canManageClientsDelete;
+    final canAdd = PermissionHelper.canAdd;
+
     // إذا لم يكن هناك أي سجل (حتى السجل الأساسي) - هذا لا يحدث إلا إذا تم الحذف
     if (allClientRecords.isEmpty && searchQuery.isEmpty) {
       return Center(
@@ -264,12 +318,17 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
             padding: const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 4),
             itemBuilder: (context, index) {
               final entry = filteredEntries[index];
-              return SavedSizeCard(
-                key: ValueKey(entry.key),
-                record: entry.value,
-                onEdit: () => _navigateToEdit(entry.key, entry.value),
-                onDelete: () => _confirmDelete(entry.key),
-                onStartProduction: (data) => _openProductionReportWithSheetData(context, data),
+              return RepaintBoundary(
+                child: SavedSizeCard(
+                  key: ValueKey(entry.key),
+                  record: entry.value,
+                  canEdit: canEdit,
+                  canDelete: canDelete,
+                  canAdd: canAdd,
+                  onEdit: () => _navigateToEdit(entry.key, entry.value),
+                  onDelete: () => _confirmDelete(entry.key),
+                  onStartProduction: (data) => _openProductionReportWithSheetData(context, data),
+                ),
               );
             },
           ),

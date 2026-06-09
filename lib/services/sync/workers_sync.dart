@@ -74,7 +74,11 @@ mixin WorkersSync on SyncServiceBase {
       }
       debugPrint('✅ WorkersSync: تم استرجاع ${res.length} workers ونشرهم في جميع boxes الأقسام.');
     } catch (e) {
-      debugPrint('❌ WorkersSync.initialize(workers): $e');
+      if (e.toString().contains('AuthRetryableFetchException') || e.toString().contains('SocketException')) {
+        debugPrint('⚠️ [WorkersSync] شبكة غير مستقرة أثناء جلب workers: $e');
+      } else {
+        debugPrint('❌ WorkersSync.initialize(workers): $e');
+      }
     }
   }
 
@@ -117,7 +121,11 @@ mixin WorkersSync on SyncServiceBase {
       }
       debugPrint('✅ WorkersSync: تم استرجاع ${res.length} worker_actions وربطها بالعمال.');
     } catch (e) {
-      debugPrint('❌ WorkersSync.initialize(worker_actions): $e');
+      if (e.toString().contains('AuthRetryableFetchException') || e.toString().contains('SocketException')) {
+        debugPrint('⚠️ [WorkersSync] شبكة غير مستقرة أثناء جلب worker_actions: $e');
+      } else {
+        debugPrint('❌ WorkersSync.initialize(worker_actions): $e');
+      }
     }
   }
 
@@ -152,13 +160,19 @@ mixin WorkersSync on SyncServiceBase {
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → workers (factory: $factoryId)');
-            _reconnectAttempts = 0;
+            _reconnectAttempts['workers_channels'] = 0;
           } else if (status == RealtimeSubscribeStatus.timedOut) {
             debugPrint('⏱️ TIMEOUT → workers — جدولة إعادة الاتصال...');
-            _scheduleReconnect();
+            _scheduleReconnect('workers_channels', () async {
+              await _tearDownWorkersChannels();
+              _setupWorkersChannels(factoryId);
+            });
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → workers: $error');
-            _scheduleReconnect();
+            _scheduleReconnect('workers_channels', () async {
+              await _tearDownWorkersChannels();
+              _setupWorkersChannels(factoryId);
+            });
           } else {
             debugPrint('📡 workers: $status ${error ?? ""}');
           }
@@ -186,13 +200,19 @@ mixin WorkersSync on SyncServiceBase {
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → worker_actions/attendance_logs (factory: $factoryId)');
-            _reconnectAttempts = 0;
+            _reconnectAttempts['workers_channels'] = 0;
           } else if (status == RealtimeSubscribeStatus.timedOut) {
             debugPrint('⏱️ TIMEOUT → worker_actions — جدولة إعادة الاتصال...');
-            _scheduleReconnect();
+            _scheduleReconnect('workers_channels', () async {
+              await _tearDownWorkersChannels();
+              _setupWorkersChannels(factoryId);
+            });
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → worker_actions: $error');
-            _scheduleReconnect();
+            _scheduleReconnect('workers_channels', () async {
+              await _tearDownWorkersChannels();
+              _setupWorkersChannels(factoryId);
+            });
           } else {
             debugPrint('📡 worker_actions: $status ${error ?? ""}');
           }

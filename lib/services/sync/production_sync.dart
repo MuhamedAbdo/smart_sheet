@@ -122,13 +122,19 @@ mixin ProductionSync on SyncServiceBase {
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → production_reports (factory: $factoryId)');
-            _reconnectAttempts = 0;
+            _reconnectAttempts['production_channels'] = 0;
           } else if (status == RealtimeSubscribeStatus.timedOut) {
             debugPrint('⏱️ TIMEOUT → production_reports — جدولة إعادة الاتصال...');
-            _scheduleReconnect();
+            _scheduleReconnect('production_channels', () async {
+              await _tearDownProductionChannels();
+              _setupProductionChannels(factoryId);
+            });
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → production_reports: $error');
-            _scheduleReconnect();
+            _scheduleReconnect('production_channels', () async {
+              await _tearDownProductionChannels();
+              _setupProductionChannels(factoryId);
+            });
           } else {
             debugPrint('📡 production_reports: $status ${error ?? ""}');
           }
@@ -153,13 +159,19 @@ mixin ProductionSync on SyncServiceBase {
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → live_sessions (factory: $factoryId)');
-            _reconnectAttempts = 0;
+            _reconnectAttempts['production_channels'] = 0;
           } else if (status == RealtimeSubscribeStatus.timedOut) {
             debugPrint('⏱️ TIMEOUT → live_sessions — جدولة إعادة الاتصال...');
-            _scheduleReconnect();
+            _scheduleReconnect('production_channels', () async {
+              await _tearDownProductionChannels();
+              _setupProductionChannels(factoryId);
+            });
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → live_sessions: $error');
-            _scheduleReconnect();
+            _scheduleReconnect('production_channels', () async {
+              await _tearDownProductionChannels();
+              _setupProductionChannels(factoryId);
+            });
           } else {
             debugPrint('📡 live_sessions: $status ${error ?? ""}');
           }

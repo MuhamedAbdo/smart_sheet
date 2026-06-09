@@ -35,7 +35,7 @@ import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
-import 'package:smart_sheet/models/maintenance_record_model.dart';
+// import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
@@ -63,14 +63,14 @@ abstract class SyncServiceBase {
   final SupabaseClient _supabase = Supabase.instance.client;
 
   // ─── Auto-Reconnect State ─────────────────────────────────────
-  int _reconnectAttempts = 0;
+  final Map<String, int> _reconnectAttempts = {};
   static const int _maxReconnectAttempts = 6;
-  Timer? _reconnectTimer;
+  final Map<String, Timer> _reconnectTimers = {};
   bool _isDisposed = false;
   String? _currentFactoryId;
 
-  /// جدولة إعادة الاتصال — يُنفَّذ في SyncService
-  void _scheduleReconnect();
+  /// جدولة إعادة الاتصال لقناة معينة لتفادي تدمير القنوات الأخرى الناجحة
+  void _scheduleReconnect(String channelName, Future<void> Function() reconnectAction);
 }
 
 // ==============================================================
@@ -159,6 +159,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       await _initCustomerProducts(factoryId);
 
       // 8. المزامنة المبدئية لـ machine_reports
+      // --- تم التعطيل لمنع خطأ PGRST205 ---
+      /*
       try {
         final res = await _supabase.from('machine_reports').select().eq('factory_id', factoryId);
         final box = Hive.isBoxOpen('maintenance_records_main')
@@ -171,7 +173,14 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
           await box.put(record.id, record);
         }
         debugPrint('✅ SyncService: تم استرجاع ${res.length} machine_reports.');
+      } on PostgrestException catch (e) {
+        if (e.code == 'PGRST205') {
+          debugPrint('⚠️ الجدول غير موجود (PGRST205). تم إيقاف المحاولة.');
+        } else {
+          debugPrint('❌ SyncService.initialize(machine_reports): $e');
+        }
       } catch (e) { debugPrint('❌ SyncService.initialize(machine_reports): $e'); }
+      */
 
       // إعداد قنوات Real-time بعد التحميل المبدئي بنجاح
       _setupChannels(factoryId);
@@ -179,14 +188,20 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
       debugPrint('✅ SyncService: تم التهيئة للمصنع: $factoryId');
     } catch (e) {
-      debugPrint('❌ SyncService.initialize: $e');
+      if (e.toString().contains('AuthRetryableFetchException') || e.toString().contains('SocketException')) {
+        debugPrint('⚠️ [SyncService] شبكة غير مستقرة أثناء التهيئة المبدئية: $e');
+      } else {
+        debugPrint('❌ SyncService.initialize: $e');
+      }
     }
   }
 
   Future<void> dispose() async {
     _isDisposed = true;
-    _reconnectTimer?.cancel();
-    _reconnectTimer = null;
+    for (final timer in _reconnectTimers.values) {
+      timer.cancel();
+    }
+    _reconnectTimers.clear();
     await _tearDownChannels();
     debugPrint('🔄 SyncService: تم الإغلاق.');
   }
@@ -286,7 +301,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
   void _setupChannels(String factoryId) {
     if (_isDisposed) return;
     _currentFactoryId = factoryId;
-    debugPrint('📡 SyncService: إعداد الـ channels لـ factory: $factoryId (محاولة #$_reconnectAttempts)');
+    debugPrint('📡 SyncService: إعداد الـ channels لـ factory: $factoryId');
 
     // ─── [CustomerSync]  customers + customer_products ─────────────
     _setupCustomerChannels(factoryId);
@@ -306,13 +321,15 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
     }
 
     // ─── [هنا] machine_reports ─────────────────────────────────────
-    _setupMachineReportsChannel(factoryId);
+    // _setupMachineReportsChannel(factoryId); // تم التعطيل لمنع PGRST205
 
   }
 
   Future<void> _tearDownChannels() async {
-    _reconnectTimer?.cancel();
-    _reconnectTimer = null;
+    for (final timer in _reconnectTimers.values) {
+      timer.cancel();
+    }
+    _reconnectTimers.clear();
     try {
       await _tearDownCustomerChannels();
       await _tearDownProductionChannels();
@@ -336,39 +353,11 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
 
 
+  /*
   void _setupMachineReportsChannel(String factoryId) {
-    final filter = PostgresChangeFilter(
-      type: PostgresChangeFilterType.eq,
-      column: 'factory_id',
-      value: factoryId,
-    );
-    _machineReportsChannel = _supabase
-        .channel('rt_machine_reports_${factoryId}_v1')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'machine_reports',
-          filter: filter,
-          callback: (payload) {
-            debugPrint('📥 [machine_reports] event=${payload.eventType} new=${payload.newRecord} old=${payload.oldRecord}');
-            _onMachineReportChange(payload, factoryId);
-          },
-        )
-        .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('✅ SUBSCRIBED → machine_reports (factory: $factoryId)');
-            _reconnectAttempts = 0;
-          } else if (status == RealtimeSubscribeStatus.timedOut) {
-            debugPrint('⏱️ TIMEOUT → machine_reports — جدولة إعادة الاتصال...');
-            _scheduleReconnect();
-          } else if (status == RealtimeSubscribeStatus.channelError) {
-            debugPrint('❌ CHANNEL ERROR → machine_reports: $error');
-            _scheduleReconnect();
-          } else {
-            debugPrint('📡 machine_reports: $status ${error ?? ""}');
-          }
-        });
+    // ... تم التعطيل ...
   }
+  */
 
   Future<void> showLocalNotification(String title, String body, String clientName) async {
     if (kIsWeb || !Platform.isAndroid) return;
@@ -403,30 +392,35 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
   /// جدولة إعادة الاتصال بعد انتهاء المهلة أو حدوث خطأ:
   /// #1 → 5ث | #2 → 10ث | #3 → 20ث | #4 → 40ث | #5 → 80ث | #6+ → توقف
+  /// جدولة إعادة الاتصال لقناة محددة فقط
   @override
-  void _scheduleReconnect() {
+  void _scheduleReconnect(String channelName, Future<void> Function() reconnectAction) {
     if (_isDisposed || _currentFactoryId == null) return;
-    if (_reconnectTimer?.isActive == true) return;
+    if (_reconnectTimers[channelName]?.isActive == true) return;
 
-    if (_reconnectAttempts >= SyncServiceBase._maxReconnectAttempts) {
+    final attempts = _reconnectAttempts[channelName] ?? 0;
+    if (attempts >= SyncServiceBase._maxReconnectAttempts) {
       debugPrint(
-        '⛔ SyncService: تجاوز الحد الأقصى (${SyncServiceBase._maxReconnectAttempts}). '
+        '⛔ SyncService: تجاوز الحد الأقصى ($SyncServiceBase._maxReconnectAttempts) للقناة $channelName. '
         'استخدم SyncService.instance.initialize() للإعادة يدوياً.',
       );
       return;
     }
 
-    _reconnectAttempts++;
-    final delaySeconds = (5 * (1 << (_reconnectAttempts - 1))).clamp(5, 80);
+    _reconnectAttempts[channelName] = attempts + 1;
+    final delaySeconds = (5 * (1 << attempts)).clamp(5, 80);
     final delay = Duration(seconds: delaySeconds);
 
-    debugPrint('⏳ SyncService: إعادة محاولة #$_reconnectAttempts خلال ${delay.inSeconds}ث...');
+    debugPrint('⏳ SyncService [$channelName]: إعادة محاولة #${attempts + 1} خلال ${delay.inSeconds}ث...');
 
-    _reconnectTimer = Timer(delay, () async {
+    _reconnectTimers[channelName] = Timer(delay, () async {
       if (_isDisposed || _currentFactoryId == null) return;
-      debugPrint('🔄 SyncService: بدء إعادة الاتصال (محاولة #$_reconnectAttempts)...');
-      await _tearDownChannels();
-      _setupChannels(_currentFactoryId!);
+      debugPrint('🔄 SyncService [$channelName]: بدء إعادة الاتصال...');
+      try {
+        await reconnectAction();
+      } catch (e) {
+        debugPrint('❌ SyncService [$channelName]: فشل إعادة الاتصال: $e');
+      }
     });
   }
 
@@ -436,6 +430,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
 
 
+  /*
   void _onMachineReportChange(PostgresChangePayload payload, String myFactoryId) async {
     try {
       final isDelete = payload.eventType == PostgresChangeEvent.delete;
@@ -472,6 +467,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       }
     } catch (e) { debugPrint('❌ _onMachineReportChange: $e'); }
   }
+  */
 
   // ==============================================================
   // Offline Queue Processing

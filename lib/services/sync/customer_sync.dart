@@ -68,7 +68,7 @@ mixin CustomerSync on SyncServiceBase {
   Future<void> _initCustomerProducts(String factoryId) async {
     try {
       final res = await _supabase
-          .from('customer_products')
+          .from('customers')
           .select()
           .eq('factory_id', factoryId);
 
@@ -83,7 +83,7 @@ mixin CustomerSync on SyncServiceBase {
       }
       debugPrint('✅ CustomerSync: تم استرجاع ${res.length} customer_products.');
     } catch (e) {
-      debugPrint('❌ CustomerSync._initCustomerProducts: $e');
+      debugPrint('❌ خطأ صامت في المزامنة: $e');
     }
   }
 
@@ -118,13 +118,19 @@ mixin CustomerSync on SyncServiceBase {
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → customers (factory: $factoryId)');
-            _reconnectAttempts = 0;
+            _reconnectAttempts['customer_channels'] = 0;
           } else if (status == RealtimeSubscribeStatus.timedOut) {
             debugPrint('⏱️ TIMEOUT → customers — جدولة إعادة الاتصال...');
-            _scheduleReconnect();
+            _scheduleReconnect('customer_channels', () async {
+              await _tearDownCustomerChannels();
+              _setupCustomerChannels(factoryId);
+            });
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → customers: $error');
-            _scheduleReconnect();
+            _scheduleReconnect('customer_channels', () async {
+              await _tearDownCustomerChannels();
+              _setupCustomerChannels(factoryId);
+            });
           } else {
             debugPrint('📡 customers: $status ${error ?? ""}');
           }
@@ -136,7 +142,7 @@ mixin CustomerSync on SyncServiceBase {
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'customer_products',
+          table: 'customers',
           filter: filter,
           callback: (payload) {
             debugPrint(
@@ -149,13 +155,19 @@ mixin CustomerSync on SyncServiceBase {
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → customer_products (factory: $factoryId)');
-            _reconnectAttempts = 0;
+            _reconnectAttempts['customer_channels'] = 0;
           } else if (status == RealtimeSubscribeStatus.timedOut) {
             debugPrint('⏱️ TIMEOUT → customer_products — جدولة إعادة الاتصال...');
-            _scheduleReconnect();
+            _scheduleReconnect('customer_channels', () async {
+              await _tearDownCustomerChannels();
+              _setupCustomerChannels(factoryId);
+            });
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → customer_products: $error');
-            _scheduleReconnect();
+            _scheduleReconnect('customer_channels', () async {
+              await _tearDownCustomerChannels();
+              _setupCustomerChannels(factoryId);
+            });
           } else {
             debugPrint('📡 customer_products: $status ${error ?? ""}');
           }

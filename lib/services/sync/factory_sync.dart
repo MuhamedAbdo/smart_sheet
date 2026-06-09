@@ -110,21 +110,26 @@ mixin FactorySync on SyncServiceBase {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint(
                 '✅ SUBSCRIBED → factories (factory: $factoryId)');
-            _reconnectAttempts = 0;
+            _reconnectAttempts['factory_channels'] = 0;
           } else if (status == RealtimeSubscribeStatus.timedOut) {
-            debugPrint(
-                '⏱️ TIMEOUT → factories — جدولة إعادة الاتصال...');
-            _scheduleReconnect();
+            debugPrint('⏱️ TIMEOUT → factories — جدولة إعادة الاتصال...');
+            _scheduleReconnect('factory_channels', () async {
+              await _tearDownFactoryChannel();
+              _setupFactoryChannel(factoryId, themeProvider);
+            });
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → factories: $error');
-            _scheduleReconnect();
+            _scheduleReconnect('factory_channels', () async {
+              await _tearDownFactoryChannel();
+              _setupFactoryChannel(factoryId, themeProvider);
+            });
           } else {
             debugPrint('📡 factories: $status ${error ?? ""}');
           }
         });
 
     // ─── قناة factory_schedule بجانب قناة factories ──────────────
-    _setupScheduleChannel(factoryId);
+    _setupScheduleChannel(factoryId, themeProvider);
   }
 
   // ==============================================================
@@ -133,7 +138,7 @@ mixin FactorySync on SyncServiceBase {
 
   /// إعداد قناة Realtime لـ factory_schedule مصفاة بـ factory_id.
   /// عند أي INSERT / UPDATE تُكتَب الصفوف فوراً في Hive 'factory_schedule'.
-  void _setupScheduleChannel(String factoryId) {
+  void _setupScheduleChannel(String factoryId, ThemeProvider themeProvider) {
     if (_scheduleChannel != null) return;
 
     _scheduleChannel = _supabase
@@ -156,13 +161,19 @@ mixin FactorySync on SyncServiceBase {
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → factory_schedule (factory: $factoryId)');
-            _reconnectAttempts = 0;
+            _reconnectAttempts['factory_channels'] = 0;
           } else if (status == RealtimeSubscribeStatus.timedOut) {
             debugPrint('⏱️ TIMEOUT → factory_schedule — جدولة إعادة الاتصال...');
-            _scheduleReconnect();
+            _scheduleReconnect('factory_channels', () async {
+              await _tearDownFactoryChannel();
+              _setupFactoryChannel(factoryId, themeProvider);
+            });
           } else if (status == RealtimeSubscribeStatus.channelError) {
             debugPrint('❌ CHANNEL ERROR → factory_schedule: $error');
-            _scheduleReconnect();
+            _scheduleReconnect('factory_channels', () async {
+              await _tearDownFactoryChannel();
+              _setupFactoryChannel(factoryId, themeProvider);
+            });
           } else {
             debugPrint('📡 factory_schedule: $status ${error ?? ""}');
           }

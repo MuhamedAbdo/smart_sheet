@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
@@ -27,16 +28,30 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
   bool isSearching = false;
   late Box _savedSheetSizesBox;
   bool _isLoading = true;
+  Timer? _searchDebounce;
+  late TextEditingController _searchController;
+  late FocusNode _searchFocusNode;
 
   @override
   void initState() {
     super.initState();
+    _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
     _initBox();
   }
 
   Future<void> _initBox() async {
     _savedSheetSizesBox = await Hive.openBox('savedSheetSizes');
     setState(() => _isLoading = false);
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
   }
 
   @override
@@ -49,7 +64,14 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
       appBar: AppBar(
         title: isSearching
             ? SavedSizeSearchBar(
-                onChanged: (v) => setState(() => searchQuery = v))
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                onChanged: (v) {
+                  if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+                  _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+                    if (mounted) setState(() => searchQuery = v);
+                  });
+                })
             : const Text("سجل العملاء"),
         centerTitle: true,
         actions: [
@@ -57,7 +79,13 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             icon: Icon(isSearching ? Icons.close : Icons.search),
             onPressed: () => setState(() {
               isSearching = !isSearching;
-              if (!isSearching) searchQuery = "";
+              if (!isSearching) {
+                searchQuery = "";
+                _searchController.clear();
+                _searchFocusNode.unfocus();
+              } else {
+                _searchFocusNode.requestFocus();
+              }
             }),
           ),
           PopupMenuButton<SortType>(
