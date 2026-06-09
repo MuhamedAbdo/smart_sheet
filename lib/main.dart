@@ -8,10 +8,12 @@ import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/utils/route_observer.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/home_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
+import 'package:smart_sheet/screens/client_items_screen.dart';
 
 import 'package:window_manager/window_manager.dart';
 import 'package:smart_sheet/widgets/desktop_title_bar.dart';
@@ -231,9 +233,52 @@ void _openBackgroundBoxes() {
 Future<void> _initializeNotifications() async {
   if (kIsWeb || !Platform.isAndroid) return;
   final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  
+  // طلب صلاحيات الإشعارات لأندرويد 13 فما فوق لضمان عملها على كل الأجهزة
   await flutterLocalNotificationsPlugin
-      .initialize(const InitializationSettings(android: androidSettings));
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.requestNotificationsPermission();
+
+  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  await flutterLocalNotificationsPlugin.initialize(
+    const InitializationSettings(android: androidSettings),
+    onDidReceiveNotificationResponse: (NotificationResponse response) async {
+      if (response.payload != null) {
+        try {
+          final payloadData = jsonDecode(response.payload!);
+          final clientName = payloadData['clientName']?.toString();
+          
+          if (clientName != null && clientName.isNotEmpty) {
+            // التحقق من وجود العميل محلياً قبل التوجيه
+            bool clientExists = false;
+            if (Hive.isBoxOpen('savedSheetSizes')) {
+              final box = Hive.box('savedSheetSizes');
+              for (var i = 0; i < box.length; i++) {
+                final item = box.getAt(i);
+                if (item is Map && (item['clientName']?.toString().trim() ?? '') == clientName.trim()) {
+                  clientExists = true;
+                  break;
+                }
+              }
+            }
+
+            if (clientExists) {
+              final authService = Provider.of<AuthService>(scaffoldMessengerKey.currentContext!, listen: false);
+              authService.navigatorKey.currentState?.push(
+                MaterialPageRoute(
+                  builder: (_) => ClientItemsScreen(clientName: clientName),
+                ),
+              );
+            } else {
+              debugPrint('⚠️ العميل غير موجود محلياً: $clientName');
+            }
+          }
+        } catch (e) {
+          debugPrint('❌ _initializeNotifications payload parsing error: $e');
+        }
+      }
+    },
+  );
 }
 
 class SmartSheetApp extends StatefulWidget {

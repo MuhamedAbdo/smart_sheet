@@ -215,4 +215,74 @@ class UIUtils {
       ),
     );
   }
+
+  /// يعرض شريط إشعارات من أعلى الشاشة (In-App Overlay Alert) متوافق مع الديسكتوب
+  static void showTopOverlay({
+    required String title,
+    required String message,
+    VoidCallback? onTap,
+    Color backgroundColor = Colors.green,
+    IconData icon = Icons.notifications_active,
+  }) {
+    final messenger = scaffoldMessengerKey.currentState;
+    final context = scaffoldMessengerKey.currentContext;
+    if (messenger == null || context == null) return;
+    
+    final mediaQuery = MediaQuery.of(context);
+    
+    messenger.removeCurrentSnackBar();
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: InkWell(
+          onTap: () {
+            messenger.hideCurrentSnackBar();
+            if (onTap != null) onTap();
+          },
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      message,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        backgroundColor: backgroundColor,
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(
+          bottom: mediaQuery.size.height - 130, // دفعه لأعلى الشاشة
+          left: 16,
+          right: 16,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 10,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+    );
+  }
 }

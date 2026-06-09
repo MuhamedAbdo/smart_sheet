@@ -37,21 +37,26 @@ mixin CustomerSync on SyncServiceBase {
           : await Hive.openBox('savedSheetSizes');
 
       for (final r in res) {
-        final hasSheetDetails = r['sheet_details'] != null;
-        final hiveRecord = _customerToHive(r);
-        final syncId = r['sync_id'] ?? r['id'];
-        hiveRecord['sync_id'] = syncId;
+        try {
+          final hasSheetDetails = r['sheet_details'] != null;
+          final hiveRecord = _customerToHive(r);
+          final syncId = r['sync_id'] ?? r['id'];
+          if (syncId == null) continue;
+          hiveRecord['sync_id'] = syncId;
 
-        dynamic existingKey = syncId;
-        for (var i = 0; i < box.length; i++) {
-          final item = box.getAt(i);
-          if (item is Map && item['sync_id'] == syncId) {
-            existingKey = box.keyAt(i);
-            _mergeLocalCustomerFields(hiveRecord, item, hasSheetDetails);
-            break;
+          dynamic existingKey = syncId;
+          for (var i = 0; i < box.length; i++) {
+            final item = box.getAt(i);
+            if (item is Map && item['sync_id'] == syncId) {
+              existingKey = box.keyAt(i);
+              _mergeLocalCustomerFields(hiveRecord, item, hasSheetDetails);
+              break;
+            }
           }
+          await box.put(existingKey, hiveRecord);
+        } catch (e) {
+          debugPrint('❌ CustomerSync._initCustomers record parsing error: $e');
         }
-        await box.put(existingKey, hiveRecord);
       }
       debugPrint('✅ CustomerSync: تم استرجاع ${res.length} customers.');
     } catch (e) {
@@ -230,22 +235,50 @@ mixin CustomerSync on SyncServiceBase {
 
         debugPrint('🌟 وصلت بيانات جديدة: $clientName (factory: $recordFactoryId) key=$syncId');
 
-        final hasSheetDetails = record['sheet_details'] != null;
-        final hiveRecord = _customerToHive(record);
-        hiveRecord['sync_id'] = syncId;
+        if (!isDelete && payload.eventType == PostgresChangeEvent.insert) {
+          final isClientRecord = record['is_client_record'] == true || record['is_client_record'] == 'true';
+          final title = isClientRecord ? "➕ عميل جديد" : "📦 صنف جديد مضاف";
+          final body = isClientRecord 
+              ? "تم تسجيل العميل: $clientName" 
+              : "تم إضافة صنف: ${record['product_name'] ?? ''} للعميل: $clientName";
+          
+          SyncService.instance.showLocalNotification(title, body, clientName);
 
-        dynamic existingKey = syncId;
-        for (var i = 0; i < box.length; i++) {
-          final item = box.getAt(i);
-          if (item is Map && item['sync_id'] == syncId) {
-            existingKey = box.keyAt(i);
-            _mergeLocalCustomerFields(hiveRecord, item, hasSheetDetails);
-            break;
-          }
+          UIUtils.showTopOverlay(
+            title: title,
+            message: body,
+            onTap: () {
+              final context = scaffoldMessengerKey.currentContext;
+              if (context != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ClientItemsScreen(clientName: clientName)),
+                );
+              }
+            },
+          );
         }
 
-        await box.put(existingKey, hiveRecord);
-        debugPrint('✅ [customers] تم حفظ محلياً: $clientName');
+        try {
+          final hasSheetDetails = record['sheet_details'] != null;
+          final hiveRecord = _customerToHive(record);
+          hiveRecord['sync_id'] = syncId;
+
+          dynamic existingKey = syncId;
+          for (var i = 0; i < box.length; i++) {
+            final item = box.getAt(i);
+            if (item is Map && item['sync_id'] == syncId) {
+              existingKey = box.keyAt(i);
+              _mergeLocalCustomerFields(hiveRecord, item, hasSheetDetails);
+              break;
+            }
+          }
+
+          await box.put(existingKey, hiveRecord);
+          debugPrint('✅ [customers] تم حفظ محلياً: $clientName');
+        } catch (e) {
+          debugPrint('❌ CustomerSync._onCustomerChange parsing error: $e');
+        }
       }
     } catch (e) {
       debugPrint('❌ _onCustomerChange: $e');
@@ -305,6 +338,27 @@ mixin CustomerSync on SyncServiceBase {
         }
         await box.put(existingKey, product);
         debugPrint('✅ [customer_products] تم حفظ/تحديث: $stableKey');
+
+        if (!isDelete && payload.eventType == PostgresChangeEvent.insert) {
+          final clientName = record['client_name']?.toString() ?? '';
+          const title = "📦 صنف جديد مضاف";
+          final body = "تم إضافة صنف: ${record['product_name'] ?? ''} للعميل: $clientName";
+          SyncService.instance.showLocalNotification(title, body, clientName);
+
+          UIUtils.showTopOverlay(
+            title: title,
+            message: body,
+            onTap: () {
+              final context = scaffoldMessengerKey.currentContext;
+              if (context != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ClientItemsScreen(clientName: clientName)),
+                );
+              }
+            },
+          );
+        }
       }
     } catch (e) {
       debugPrint('❌ _onCustomerProductChange: $e');
@@ -316,39 +370,48 @@ mixin CustomerSync on SyncServiceBase {
   // ==============================================================
 
   Map<String, dynamic> _customerToHive(Map<String, dynamic> r) {
-    final sheetDetails = r['sheet_details'] as Map<String, dynamic>? ?? {};
-    return {
-      'id':             r['id'],
-      'sync_id':        r['sync_id'],
-      'processType':    r['process_type'] ?? 'تفصيل',
-      'clientName':     r['client_name'] ?? '',
-      'productName':    r['product_name'] ?? '',
-      'productCode':    r['product_code'] ?? '',
-      'length':         r['length']?.toString() ?? '',
-      'width':          r['width']?.toString() ?? '',
-      'height':         r['height']?.toString() ?? '',
-      'isSheet':        r['is_sheet'] ?? false,
-      'date':           r['date'] ?? DateTime.now().toIso8601String(),
-      'factory_id':     r['factory_id'],
-      'imagePaths':     r['image_paths'] ?? [],
-      'isClientRecord': r['is_client_record'] ?? false,
-      'isOverFlap': sheetDetails['isOverFlap'] ?? false,
-      'isFlap': sheetDetails['isFlap'] ?? true,
-      'isOneFlap': sheetDetails['isOneFlap'] ?? false,
-      'isTwoFlap': sheetDetails['isTwoFlap'] ?? true,
-      'addTwoMm': sheetDetails['addTwoMm'] ?? false,
-      'isFullSize': sheetDetails['isFullSize'] ?? true,
-      'isQuarterSize': sheetDetails['isQuarterSize'] ?? false,
-      'isQuarterWidth': sheetDetails['isQuarterWidth'] ?? true,
-      'sheetLengthResult': sheetDetails['sheetLengthResult'] ?? '',
-      'sheetWidthResult': sheetDetails['sheetWidthResult'] ?? '',
-      'productionWidth1': sheetDetails['productionWidth1'] ?? '',
-      'productionHeight': sheetDetails['productionHeight'] ?? '',
-      'productionWidth2': sheetDetails['productionWidth2'] ?? '',
-      'sheetLengthManual': sheetDetails['sheetLengthManual'] ?? '',
-      'sheetWidthManual': sheetDetails['sheetWidthManual'] ?? '',
-      'cuttingType': sheetDetails['cuttingType'] ?? 'دوبل',
-    };
+    try {
+      final sheetDetails = r['sheet_details'] as Map<String, dynamic>? ?? {};
+      return {
+        'id':             r['id'],
+        'sync_id':        r['sync_id'],
+        'processType':    r['process_type']?.toString() ?? 'تفصيل',
+        'clientName':     r['client_name']?.toString() ?? '',
+        'productName':    r['product_name']?.toString() ?? '',
+        'productCode':    r['product_code']?.toString() ?? '',
+        'length':         r['length']?.toString() ?? '',
+        'width':          r['width']?.toString() ?? '',
+        'height':         r['height']?.toString() ?? '',
+        'isSheet':        r['is_sheet'] ?? false,
+        'date':           r['date']?.toString() ?? DateTime.now().toIso8601String(),
+        'factory_id':     r['factory_id'],
+        'imagePaths':     r['image_paths'] ?? [],
+        'isClientRecord': r['is_client_record'] ?? false,
+        'isOverFlap': sheetDetails['isOverFlap'] ?? false,
+        'isFlap': sheetDetails['isFlap'] ?? true,
+        'isOneFlap': sheetDetails['isOneFlap'] ?? false,
+        'isTwoFlap': sheetDetails['isTwoFlap'] ?? true,
+        'addTwoMm': sheetDetails['addTwoMm'] ?? false,
+        'isFullSize': sheetDetails['isFullSize'] ?? true,
+        'isQuarterSize': sheetDetails['isQuarterSize'] ?? false,
+        'isQuarterWidth': sheetDetails['isQuarterWidth'] ?? true,
+        'sheetLengthResult': sheetDetails['sheetLengthResult']?.toString() ?? '',
+        'sheetWidthResult': sheetDetails['sheetWidthResult']?.toString() ?? '',
+        'productionWidth1': sheetDetails['productionWidth1']?.toString() ?? '',
+        'productionHeight': sheetDetails['productionHeight']?.toString() ?? '',
+        'productionWidth2': sheetDetails['productionWidth2']?.toString() ?? '',
+        'sheetLengthManual': sheetDetails['sheetLengthManual']?.toString() ?? '',
+        'sheetWidthManual': sheetDetails['sheetWidthManual']?.toString() ?? '',
+        'cuttingType': sheetDetails['cuttingType']?.toString() ?? 'دوبل',
+      };
+    } catch (e) {
+      debugPrint('❌ CustomerSync._customerToHive error: $e');
+      return {
+        'id': r['id'],
+        'sync_id': r['sync_id'],
+        'clientName': r['client_name']?.toString() ?? 'خطأ في البيانات',
+      };
+    }
   }
 
   void _mergeLocalCustomerFields(

@@ -89,24 +89,28 @@ class FinishedProduct extends HiveObject {
   }
 
   factory FinishedProduct.fromJson(Map<String, dynamic> map) {
-    return FinishedProduct(
-      id: map['sync_id'] ?? map['id'],
-      clientName: map['client_name'] ?? map['clientName'],
-      productName: map['product_name'] ?? map['productName'],
-      operationOrder: map['operation_order'] ?? map['operationOrder'],
-      productCode: map['product_code'] ?? map['productCode'],
-      length: (map['length'] as num?)?.toDouble(),
-      width: (map['width'] as num?)?.toDouble(),
-      height: (map['height'] as num?)?.toDouble(),
-      count: map['count'] is int
-          ? map['count']
-          : int.tryParse(map['count'].toString()) ?? 0,
-      imagePaths:
-          List<String>.from(map['image_paths'] ?? map['imagePaths'] ?? []),
-      technician: map['technician'],
-      notes: map['notes'],
-      dateBacker: map['date_backer'] ?? map['dateBacker'],
-      factoryId: map['factory_id'] ?? map['factoryId'],
-    );
+    try {
+      return FinishedProduct(
+        id: map['sync_id']?.toString() ?? map['id']?.toString(),
+        clientName: map['client_name']?.toString() ?? map['clientName']?.toString() ?? '',
+        productName: map['product_name']?.toString() ?? map['productName']?.toString() ?? '',
+        operationOrder: map['operation_order']?.toString() ?? map['operationOrder']?.toString(),
+        productCode: map['product_code']?.toString() ?? map['productCode']?.toString() ?? '',
+        length: double.tryParse(map['length']?.toString() ?? ''),
+        width: double.tryParse(map['width']?.toString() ?? ''),
+        height: double.tryParse(map['height']?.toString() ?? ''),
+        count: int.tryParse(map['count']?.toString() ?? '') ?? 0,
+        imagePaths: map['image_paths'] is List ? List<String>.from(map['image_paths']) : (map['imagePaths'] is List ? List<String>.from(map['imagePaths']) : []),
+        technician: map['technician']?.toString(),
+        notes: map['notes']?.toString(),
+        dateBacker: map['date_backer']?.toString() ?? map['dateBacker']?.toString(),
+        factoryId: map['factory_id']?.toString() ?? map['factoryId']?.toString(),
+      );
+    } catch (e) {
+      return FinishedProduct(
+        id: map['sync_id']?.toString() ?? map['id']?.toString(),
+        clientName: 'خطأ في البيانات',
+      );
+    }
   }
 }

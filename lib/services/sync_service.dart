@@ -22,8 +22,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'dart:convert';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/models/worker_model.dart';
@@ -34,6 +38,9 @@ import 'package:smart_sheet/models/finished_product_model.dart';
 import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/screens/client_items_screen.dart';
+import 'package:smart_sheet/globals.dart';
 import 'package:uuid/uuid.dart';
 
 // 🔑 part files — جزء من نفس الـ library، ترى جميع التعريفات الـ private.
@@ -298,6 +305,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
     // ─── [هنا] machine_reports ─────────────────────────────────────
     _setupMachineReportsChannel(factoryId);
+
   }
 
   Future<void> _tearDownChannels() async {
@@ -358,6 +366,33 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
             debugPrint('📡 machine_reports: $status ${error ?? ""}');
           }
         });
+  }
+
+  Future<void> showLocalNotification(String title, String body, String clientName) async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+      const androidPlatformChannelSpecifics = AndroidNotificationDetails(
+        'factory_notifications_channel',
+        'Factory Notifications',
+        channelDescription: 'إشعارات لحظية للمصنع',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        icon: '@mipmap/ic_launcher',
+      );
+      const platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
+
+      await flutterLocalNotificationsPlugin.show(
+        DateTime.now().millisecond,
+        title,
+        body,
+        platformChannelSpecifics,
+        payload: jsonEncode({'clientName': clientName}),
+      );
+    } catch (e) {
+      debugPrint('❌ showLocalNotification: $e');
+    }
   }
 
   // ==============================================================
