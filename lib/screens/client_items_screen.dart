@@ -121,9 +121,17 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     final allClientRecords = _allClientRecords;
 
     // السجلات التي تمثل "أصناف" فقط (ليست سجل العميل الأساسي)
-    final itemEntries = allClientRecords.where((e) {
+    final rawItemEntries = allClientRecords.where((e) {
       return e.value['isClientRecord'] != true;
     }).toList();
+
+    // التصفية البرمجية للأصناف المكررة (Unique Filtering)
+    final Map<String, MapEntry<dynamic, Map<String, dynamic>>> uniqueItemsMap = {};
+    for (var entry in rawItemEntries) {
+      final uniqueId = (entry.value['sync_id'] ?? entry.value['id'] ?? entry.key).toString();
+      uniqueItemsMap[uniqueId] = entry;
+    }
+    final itemEntries = uniqueItemsMap.values.toList();
 
     final filteredEntries = itemEntries
         .where((e) {

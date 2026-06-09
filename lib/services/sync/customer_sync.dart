@@ -318,6 +318,11 @@ mixin CustomerSync on SyncServiceBase {
             }
           }
 
+          if (!isDelete && payload.eventType == PostgresChangeEvent.insert && box.containsKey(existingKey)) {
+            debugPrint('⏭️ [customers] السجل موجود مسبقاً، سيتم منع التكرار: $existingKey');
+            return;
+          }
+
           await box.put(existingKey, hiveRecord);
           debugPrint('✅ [customers] تم حفظ محلياً: $clientName');
         } catch (e) {
@@ -380,6 +385,12 @@ mixin CustomerSync on SyncServiceBase {
           final item = box.getAt(i);
           if (item != null && item.id == stableKey) { existingKey = box.keyAt(i); break; }
         }
+
+        if (!isDelete && payload.eventType == PostgresChangeEvent.insert && box.containsKey(existingKey)) {
+          debugPrint('⏭️ [customer_products] السجل موجود مسبقاً، سيتم منع التكرار: $existingKey');
+          return;
+        }
+
         await box.put(existingKey, product);
         debugPrint('✅ [customer_products] تم حفظ/تحديث: $stableKey');
 
