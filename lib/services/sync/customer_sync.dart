@@ -247,13 +247,45 @@ mixin CustomerSync on SyncServiceBase {
           UIUtils.showTopOverlay(
             title: title,
             message: body,
-            onTap: () {
-              final context = scaffoldMessengerKey.currentContext;
-              if (context != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => ClientItemsScreen(clientName: clientName)),
-                );
+            onTap: () async {
+              bool clientExists = false;
+              if (Hive.isBoxOpen('savedSheetSizes')) {
+                final box = Hive.box('savedSheetSizes');
+                for (var i = 0; i < box.length; i++) {
+                  final item = box.getAt(i);
+                  if (item is Map && (item['clientName']?.toString().trim() ?? '') == clientName.trim()) {
+                    clientExists = true;
+                    break;
+                  }
+                }
+              }
+
+              if (clientExists) {
+                final context = scaffoldMessengerKey.currentContext;
+                if (context != null) {
+                  final authService = Provider.of<AuthService>(context, listen: false);
+                  final nav = authService.navigatorKey.currentState;
+                  if (nav != null) {
+                    bool isAlreadyTop = false;
+                    nav.popUntil((route) {
+                      if (route.isCurrent && route.settings.name == 'ClientItemsScreen_$clientName') {
+                        isAlreadyTop = true;
+                      }
+                      return true; // Stop immediately, don't pop anything
+                    });
+
+                    if (!isAlreadyTop) {
+                      nav.push(
+                        MaterialPageRoute(
+                          settings: RouteSettings(name: 'ClientItemsScreen_$clientName'),
+                          builder: (_) => ClientItemsScreen(clientName: clientName),
+                        ),
+                      );
+                    }
+                  }
+                }
+              } else {
+                debugPrint('⚠️ العميل غير موجود محلياً (Tap): $clientName');
               }
             },
           );
@@ -348,13 +380,45 @@ mixin CustomerSync on SyncServiceBase {
           UIUtils.showTopOverlay(
             title: title,
             message: body,
-            onTap: () {
-              final context = scaffoldMessengerKey.currentContext;
-              if (context != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => ClientItemsScreen(clientName: clientName)),
-                );
+            onTap: () async {
+              bool clientExists = false;
+              if (Hive.isBoxOpen('savedSheetSizes')) {
+                final box = Hive.box('savedSheetSizes');
+                for (var i = 0; i < box.length; i++) {
+                  final item = box.getAt(i);
+                  if (item is Map && (item['clientName']?.toString().trim() ?? '') == clientName.trim()) {
+                    clientExists = true;
+                    break;
+                  }
+                }
+              }
+
+              if (clientExists) {
+                final context = scaffoldMessengerKey.currentContext;
+                if (context != null) {
+                  final authService = Provider.of<AuthService>(context, listen: false);
+                  final nav = authService.navigatorKey.currentState;
+                  if (nav != null) {
+                    bool isAlreadyTop = false;
+                    nav.popUntil((route) {
+                      if (route.isCurrent && route.settings.name == 'ClientItemsScreen_$clientName') {
+                        isAlreadyTop = true;
+                      }
+                      return true; // Stop immediately, don't pop anything
+                    });
+
+                    if (!isAlreadyTop) {
+                      nav.push(
+                        MaterialPageRoute(
+                          settings: RouteSettings(name: 'ClientItemsScreen_$clientName'),
+                          builder: (_) => ClientItemsScreen(clientName: clientName),
+                        ),
+                      );
+                    }
+                  }
+                }
+              } else {
+                debugPrint('⚠️ العميل غير موجود محلياً (Tap): $clientName');
               }
             },
           );

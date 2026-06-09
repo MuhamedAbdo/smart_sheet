@@ -264,11 +264,25 @@ Future<void> _initializeNotifications() async {
 
             if (clientExists) {
               final authService = Provider.of<AuthService>(scaffoldMessengerKey.currentContext!, listen: false);
-              authService.navigatorKey.currentState?.push(
-                MaterialPageRoute(
-                  builder: (_) => ClientItemsScreen(clientName: clientName),
-                ),
-              );
+              final nav = authService.navigatorKey.currentState;
+              if (nav != null) {
+                bool isAlreadyTop = false;
+                nav.popUntil((route) {
+                  if (route.isCurrent && route.settings.name == 'ClientItemsScreen_$clientName') {
+                    isAlreadyTop = true;
+                  }
+                  return true;
+                });
+
+                if (!isAlreadyTop) {
+                  nav.push(
+                    MaterialPageRoute(
+                      settings: RouteSettings(name: 'ClientItemsScreen_$clientName'),
+                      builder: (_) => ClientItemsScreen(clientName: clientName),
+                    ),
+                  );
+                }
+              }
             } else {
               debugPrint('⚠️ العميل غير موجود محلياً: $clientName');
             }

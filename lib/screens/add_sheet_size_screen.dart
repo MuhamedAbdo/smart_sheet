@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/screens/client_items_screen.dart';
 // الويدجات التالية محجوبة مؤقتاً من الـ UI لكنها تُستخدم في منطق التعديل
 // ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_buttons.dart';
@@ -341,7 +342,25 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         backgroundColor: Colors.green,
         icon: Icons.check_circle_outline,
       );
-      Navigator.pop(context);
+      final nav = Navigator.of(context);
+      bool isClientScreenInStack = false;
+      nav.popUntil((route) {
+        if (route.settings.name == 'ClientItemsScreen_$clientName') {
+          isClientScreenInStack = true;
+          return true;
+        }
+        if (route.isFirst) return true;
+        return false;
+      });
+
+      if (!isClientScreenInStack) {
+        nav.push(
+          MaterialPageRoute(
+            settings: RouteSettings(name: 'ClientItemsScreen_$clientName'),
+            builder: (_) => ClientItemsScreen(clientName: clientName),
+          ),
+        );
+      }
     }
   }
 

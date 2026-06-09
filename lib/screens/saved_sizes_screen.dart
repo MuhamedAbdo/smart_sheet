@@ -115,6 +115,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
+                          settings: RouteSettings(name: 'ClientItemsScreen_$clientName'),
                           builder: (ctx) => ClientItemsScreen(clientName: clientName),
                         ),
                       ),

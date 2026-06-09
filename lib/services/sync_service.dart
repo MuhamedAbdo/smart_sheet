@@ -40,6 +40,8 @@ import 'package:smart_sheet/models/day_schedule.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
+import 'package:smart_sheet/services/auth_service.dart';
+import 'package:provider/provider.dart';
 import 'package:smart_sheet/globals.dart';
 import 'package:uuid/uuid.dart';
 
