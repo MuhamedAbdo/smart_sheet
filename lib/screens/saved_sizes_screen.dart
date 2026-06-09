@@ -129,13 +129,20 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
                   itemCount: clients.length,
                   itemBuilder: (context, index) {
                     final String clientName = clients[index];
-                    final int itemCount = box.values
-                        .where((e) =>
-                            e is Map &&
-                            (e['clientName']?.toString().trim() ?? '') ==
-                                clientName &&
-                            e['isClientRecord'] != true)
-                        .length;
+                    final clientItems = box.values.where((e) =>
+                        e is Map &&
+                        (e['clientName']?.toString().trim() ?? '') ==
+                            clientName &&
+                        e['isClientRecord'] != true);
+                    final Set<String> uniqueCodes = {};
+                    for (var item in clientItems) {
+                      final pCode = item['productCode']?.toString().trim() ?? '';
+                      final uniqueId = pCode.isNotEmpty
+                          ? pCode
+                          : (item['sync_id'] ?? item['id'] ?? item.hashCode).toString();
+                      uniqueCodes.add(uniqueId);
+                    }
+                    final int itemCount = uniqueCodes.length;
 
                     return _ClientCard(
                       clientName: clientName,

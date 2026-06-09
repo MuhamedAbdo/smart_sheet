@@ -128,7 +128,10 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     // التصفية البرمجية للأصناف المكررة (Unique Filtering)
     final Map<String, MapEntry<dynamic, Map<String, dynamic>>> uniqueItemsMap = {};
     for (var entry in rawItemEntries) {
-      final uniqueId = (entry.value['sync_id'] ?? entry.value['id'] ?? entry.key).toString();
+      final productCode = entry.value['productCode']?.toString().trim() ?? '';
+      final uniqueId = productCode.isNotEmpty
+          ? productCode
+          : (entry.value['sync_id'] ?? entry.value['id'] ?? entry.key).toString();
       uniqueItemsMap[uniqueId] = entry;
     }
     final itemEntries = uniqueItemsMap.values.toList();
