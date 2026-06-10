@@ -23,6 +23,7 @@ import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/storage_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
+import 'package:smart_sheet/utils/cache_helper.dart';
 
 class AddSheetSizeScreen extends StatefulWidget {
   final Map? existingData;
@@ -707,6 +708,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                       onConfirm: () {
                         final messenger = ScaffoldMessenger.of(context);
                         setState(() => _capturedImages.removeAt(index));
+                        
+                        if (removedImage is String && removedImage.startsWith('http')) {
+                          CacheHelper.deleteImageCache(removedImage);
+                        }
 
                         messenger.clearSnackBars();
                         UIUtils.showUndoSnackBar(

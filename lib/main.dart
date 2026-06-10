@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:smart_sheet/globals.dart';
 import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/utils/route_observer.dart';
+import 'package:smart_sheet/utils/cache_helper.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
@@ -60,6 +61,9 @@ Future<void> main() async {
     // 1. التأكد من تهيئة نظام Flutter
     WidgetsFlutterBinding.ensureInitialized();
     HttpOverrides.global = MyHttpOverrides();
+
+    // تهيئة كاش الصور الموحد وتسريع الوصول المتزامن اللاحق
+    await CacheHelper.init();
 
     // 2. تهيئة قواعد بيانات Hive أولاً (لأنها ضرورية للثيم والإعدادات)
     if (!kIsWeb) {

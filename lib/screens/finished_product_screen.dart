@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/utils/cache_helper.dart';
 
 class FinishedProductScreen extends StatefulWidget {
   const FinishedProductScreen({super.key});
@@ -335,6 +336,15 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                                       final messenger =
                                           ScaffoldMessenger.of(context);
                                       await box.delete(key);
+
+                                      // تفريغ صور الصنف من الكاش المحلي
+                                      if (productToRemove.imagePaths != null) {
+                                        for (var path in productToRemove.imagePaths!) {
+                                          if (path.startsWith('http')) {
+                                            CacheHelper.deleteImageCache(path);
+                                          }
+                                        }
+                                      }
 
                                       messenger.clearSnackBars();
                                       if (!context.mounted) return;

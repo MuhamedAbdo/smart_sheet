@@ -14,6 +14,7 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/utils/cache_helper.dart';
 
 /// شاشة تعرض جميع الأصناف والمقاسات المرتبطة بعميل معين
 class ClientItemsScreen extends StatefulWidget {
@@ -435,10 +436,22 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     final backupRecord = box.get(key);
     if (backupRecord == null) return;
 
+    // استخراج مسارات الصور إذا كانت موجودة للحذف اليدوي من الكاش
+    final imagePaths = backupRecord['imagePaths'];
+
     // استخراج sync_id قبل الحذف لاستخدامه في المزامنة السحابية
     final syncId = backupRecord['sync_id']?.toString() ?? key.toString();
     final messenger = ScaffoldMessenger.of(context);
     await box.delete(key);
+
+    // تفريغ صور الصنف من الكاش المحلي (للموبايل والديسكتوب)
+    if (imagePaths is List) {
+      for (var path in imagePaths) {
+        if (path is String && path.startsWith('http')) {
+          CacheHelper.deleteImageCache(path);
+        }
+      }
+    }
 
     // ✅ إرسال أمر الحذف إلى Supabase عبر Queue
     SyncService.instance.pushToQueue(
