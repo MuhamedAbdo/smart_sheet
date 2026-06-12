@@ -28,7 +28,7 @@ class WorkersScreen extends StatelessWidget {
     } else if (departmentBoxName == 'workers_crushing') {
       filterDept = 'die_cutting';
     } else if (departmentBoxName == 'workers_staple') {
-      filterDept = 'die_cutting'; // الدبوس والتعبئة → نفس كود die_cutting
+      filterDept = 'staples'; // الدبوس والتعبئة — كود مستقل عن die_cutting (التكسير)
     } else if (departmentBoxName == 'workers_general_mgmt') {
       filterDept = 'general_mgmt';
     } else if (departmentBoxName == 'workers_technical_support') {

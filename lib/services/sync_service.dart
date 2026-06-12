@@ -132,6 +132,12 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
       await _tearDownChannels();
 
+      // ══════════════════════════════════════════════════════════════════
+      // 🔄 Delta Sync — جلب البيانات الفائتة عندما كان التطبيق مغلقاً
+      // ══════════════════════════════════════════════════════════════════
+      // يعمل قبل تفعيل قنوات الـ Realtime لضمان عدم فقدان أي حدث
+      await _performDeltaSync(factoryId);
+
       // 1. تنزيل الجلسات الحية النشطة [ProductionSync]
       await _initLiveSessions(factoryId);
 
@@ -158,33 +164,12 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       // 7. المزامنة المبدئية لـ customer_products [CustomerSync]
       await _initCustomerProducts(factoryId);
 
-      // 8. المزامنة المبدئية لـ machine_reports
-      // --- تم التعطيل لمنع خطأ PGRST205 ---
-      /*
-      try {
-        final res = await _supabase.from('machine_reports').select().eq('factory_id', factoryId);
-        final box = Hive.isBoxOpen('maintenance_records_main')
-            ? Hive.box<MaintenanceRecord>('maintenance_records_main')
-            : await Hive.openBox<MaintenanceRecord>('maintenance_records_main');
-
-        await box.clear();
-        for (final r in res) {
-          final record = MaintenanceRecord.fromJson(r);
-          await box.put(record.id, record);
-        }
-        debugPrint('✅ SyncService: تم استرجاع ${res.length} machine_reports.');
-      } on PostgrestException catch (e) {
-        if (e.code == 'PGRST205') {
-          debugPrint('⚠️ الجدول غير موجود (PGRST205). تم إيقاف المحاولة.');
-        } else {
-          debugPrint('❌ SyncService.initialize(machine_reports): $e');
-        }
-      } catch (e) { debugPrint('❌ SyncService.initialize(machine_reports): $e'); }
-      */
-
       // إعداد قنوات Real-time بعد التحميل المبدئي بنجاح
       _setupChannels(factoryId);
       unawaited(_processQueue());
+
+      // ✅ تحديث طابع آخر مزامنة ناجحة
+      _saveLastSyncedAt();
 
       debugPrint('✅ SyncService: تم التهيئة للمصنع: $factoryId');
     } catch (e) {
@@ -195,6 +180,139 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       }
     }
   }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // Delta Sync — جلب السجلات الجديدة منذ آخر مزامنة ناجحة
+  // ══════════════════════════════════════════════════════════════════════
+  //
+  // الفكرة: عند الإقلاع، نقرأ last_synced_at من Hive ثم نجلب فقط السجلات
+  // التي تم إنشاؤها بعد هذا التوقيت من Supabase (بدلاً من جلب الكل).
+  // السجلات الجديدة تُحقن في Hive مباشرةً وتُطلق إشعارات محلية للمستخدم.
+  //
+  Future<void> _performDeltaSync(String factoryId) async {
+    try {
+      final settingsBox = Hive.isBoxOpen('settings')
+          ? Hive.box('settings')
+          : null;
+      if (settingsBox == null) return;
+
+      final String? lastSyncedAt = settingsBox.get('last_synced_at');
+      if (lastSyncedAt == null) {
+        debugPrint('🔄 [DeltaSync] أول تشغيل — لا يوجد last_synced_at، تخطي.');
+        return;
+      }
+
+      debugPrint('🔄 [DeltaSync] جلب السجلات الجديدة منذ: $lastSyncedAt');
+      int totalNew = 0;
+
+      // ─── جلب العملاء الجدد ────────────────────────────────────────
+      try {
+        final newCustomers = await _supabase
+            .from('customers')
+            .select()
+            .eq('factory_id', factoryId)
+            .gt('created_at', lastSyncedAt)
+            .order('created_at');
+
+        if (newCustomers.isNotEmpty) {
+          debugPrint('📬 [DeltaSync] ${newCustomers.length} عميل/صنف جديد.');
+          final box = Hive.isBoxOpen('savedSheetSizes')
+              ? Hive.box('savedSheetSizes')
+              : await Hive.openBox('savedSheetSizes');
+
+          for (final row in newCustomers) {
+            // حقن في Hive — التحقق من عدم الوجود أولاً
+            final syncId = row['sync_id']?.toString() ?? row['id']?.toString();
+            if (syncId == null) continue;
+
+            // فحص إذا كان السجل موجوداً مسبقاً
+            bool exists = false;
+            for (var i = 0; i < box.length; i++) {
+              final existing = box.getAt(i);
+              if (existing is Map &&
+                  (existing['sync_id']?.toString() == syncId)) {
+                exists = true;
+                break;
+              }
+            }
+            if (exists) continue;
+
+            // بناء السجل المحلي من بيانات Supabase
+            final localRecord = <String, dynamic>{
+              'sync_id': syncId,
+              'clientName': row['client_name']?.toString() ?? '',
+              'productName': row['product_name']?.toString() ?? '',
+              'productCode': row['product_code']?.toString() ?? '',
+              'processType': row['process_type']?.toString() ?? 'تفصيل',
+              'length': row['length']?.toString() ?? '',
+              'width': row['width']?.toString() ?? '',
+              'height': row['height']?.toString() ?? '',
+              'isSheet': row['is_sheet'] ?? false,
+              'isClientRecord': row['is_client_record'] ?? false,
+              'imagePaths': (row['image_paths'] as List?)?.cast<String>() ?? [],
+              'date': row['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+            };
+            await box.add(localRecord);
+            totalNew++;
+
+            // إشعار محلي بالصنف/العميل الجديد
+            final clientName = localRecord['clientName'] as String;
+            final productName = localRecord['productName'] as String;
+            if (clientName.isNotEmpty && productName.isNotEmpty) {
+              await showLocalNotification(
+                '🆕 عميل/صنف جديد أثناء الغياب',
+                '$clientName — $productName',
+                clientName,
+              );
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ [DeltaSync] خطأ في جلب العملاء: $e');
+      }
+
+      // ─── جلب العمال الجدد ────────────────────────────────────────
+      try {
+        final newWorkers = await _supabase
+            .from('workers')
+            .select()
+            .eq('factory_id', factoryId)
+            .gt('created_at', lastSyncedAt)
+            .order('created_at');
+
+        if (newWorkers.isNotEmpty) {
+          debugPrint('📬 [DeltaSync] ${newWorkers.length} عامل جديد.');
+          // لا نُرسل إشعاراً للعمال الجدد — المدير يعرف بهم بالفعل
+          totalNew += newWorkers.length;
+        }
+      } catch (e) {
+        debugPrint('⚠️ [DeltaSync] خطأ في جلب العمال: $e');
+      }
+
+      if (totalNew > 0) {
+        debugPrint('✅ [DeltaSync] تم استرجاع $totalNew سجل جديد وإرسال الإشعارات.');
+      } else {
+        debugPrint('✅ [DeltaSync] لا توجد سجلات جديدة منذ آخر مزامنة.');
+      }
+    } catch (e) {
+      // لا نُوقف التطبيق بسبب فشل الـ Delta Sync — المزامنة الكاملة ستتم بعده
+      debugPrint('⚠️ [DeltaSync] خطأ عام: $e');
+    }
+  }
+
+  /// حفظ طابع آخر مزامنة ناجحة في Hive settings
+  void _saveLastSyncedAt() {
+    try {
+      if (!Hive.isBoxOpen('settings')) return;
+      final box = Hive.box('settings');
+      final now = DateTime.now().toUtc().toIso8601String();
+      box.put('last_synced_at', now);
+      debugPrint('🕐 [SyncService] last_synced_at = $now');
+    } catch (e) {
+      debugPrint('⚠️ [SyncService] تعذّر حفظ last_synced_at: $e');
+    }
+  }
+
 
   Future<void> dispose() async {
     _isDisposed = true;

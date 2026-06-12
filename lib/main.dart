@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/globals.dart';
@@ -70,19 +71,12 @@ Future<void> main() async {
       await Hive.initFlutter();
       _registerAdapters();
 
-      // ─── محاولة فتح settings مع retry للتعامل مع lock file ───
-      // يحدث عند وجود نسخة سابقة من التطبيق لم تُغلق بعد
-      try {
-        await Hive.openBox('settings');
-        // ✅ تأكد من أن كل جهاز يملك UUID ثابتاً منذ أول تشغيل
-        // ضروري لنظام ملكية الإجراءات (isOwner check في action cards)
-        await DeviceManager.getDeviceId();
-      } catch (lockError) {
-        debugPrint('⚠️ settings.lock محجوز، انتظار 1 ثانية وإعادة المحاولة: $lockError');
-        await Future.delayed(const Duration(seconds: 1));
-        await Hive.openBox('settings'); // إذا فشلت المرة الثانية → ستُرفع للـ catch الخارجي
-        await DeviceManager.getDeviceId();
-      }
+      // ─── محاولة فتح settings مع retry متقدم للتعامل مع lock file ───
+      // يحدث عند التثبيت فوق نسخة قديمة بدون إغلاق التطبيق أولاً
+      await _openSettingsBoxWithLockRecovery();
+      // ✅ تأكد من أن كل جهاز يملك UUID ثابتاً منذ أول تشغيل
+      // ضروري لنظام ملكية الإجراءات (isOwner check في action cards)
+      await DeviceManager.getDeviceId();
 
       // فتح صناديق العلاقات الأساسية
       await Hive.openBox<WorkerAction>('worker_actions');
@@ -232,6 +226,53 @@ void _openBackgroundBoxes() {
       onError: (e) => debugPrint("⚠️ Failed to open $box: $e"),
     );
   }
+}
+
+// ─── تحصين Hive Lock — 3 محاولات مع حذف Lock File آمن على Windows ───────────
+//
+// السبب: عند التثبيت فوق نسخة قديمة على Windows، يبقى ملف settings.lock
+// محجوزاً من العملية السابقة. إذا فشلت المحاولة الأولى والثانية، نحاول
+// حذف الـ lock file بأمان (طالما لا يوجد عملية فعلية تستخدمه) ثم إعادة الفتح.
+//
+Future<void> _openSettingsBoxWithLockRecovery() async {
+  // المحاولة الأولى — المسار الطبيعي السريع
+  try {
+    await Hive.openBox('settings');
+    debugPrint('✅ settings box: فُتح بنجاح (المحاولة 1)');
+    return;
+  } catch (e1) {
+    debugPrint('⚠️ settings.lock محجوز (محاولة 1): $e1');
+  }
+
+  // المحاولة الثانية — انتظار 1.5 ثانية ثم إعادة المحاولة
+  await Future.delayed(const Duration(milliseconds: 1500));
+  try {
+    await Hive.openBox('settings');
+    debugPrint('✅ settings box: فُتح بنجاح (المحاولة 2)');
+    return;
+  } catch (e2) {
+    debugPrint('⚠️ settings.lock لا يزال محجوزاً (محاولة 2): $e2');
+  }
+
+  // المحاولة الثالثة (Windows فقط) — حذف lock file بأمان
+  if (!kIsWeb && Platform.isWindows) {
+    try {
+      final hiveDir = await getApplicationDocumentsDirectory();
+      // Hive يستخدم documents directory على Windows
+      final lockFile = File('${hiveDir.path}/settings.lock');
+      if (lockFile.existsSync()) {
+        lockFile.deleteSync();
+        debugPrint('🔓 [HiveLock] تم حذف settings.lock المتعلق بأمان.');
+      }
+    } catch (deleteError) {
+      debugPrint('⚠️ [HiveLock] تعذّر حذف lock file: $deleteError');
+    }
+  }
+
+  await Future.delayed(const Duration(milliseconds: 500));
+  // المحاولة الأخيرة — إذا فشلت، تُرفع الاستثناء للـ catch الخارجي
+  await Hive.openBox('settings');
+  debugPrint('✅ settings box: فُتح بنجاح (المحاولة 3 بعد حذف اللوك)');
 }
 
 Future<void> _initializeNotifications() async {

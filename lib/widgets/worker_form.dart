@@ -50,6 +50,11 @@ class _WorkerFormState extends State<WorkerForm> {
   /// قائمة الوظائف المتاحة بناءً على القسم المختار — تُحدَّث ديناميكياً
   List<String> availableJobs = [];
 
+  /// قائمة الأقسام الكاملة الديناميكية (ثابتة + من Hive)
+  List<String> _allDepartmentCodes = [];
+  List<String> _allDepartmentLabels = [];
+
+
   // ✅ تعريف المشغل الخاص بالمكتبة الموجودة في pubspec.yaml
   final FlutterNativeContactPicker _contactPicker =
       FlutterNativeContactPicker();
@@ -64,9 +69,15 @@ class _WorkerFormState extends State<WorkerForm> {
     'قسم خط الإنتاج': [
       'رئيس القسم', 'مشرف', 'فني', 'مساعد', 'عامل',
     ],
+    // التكسير (die_cutting)
+    'قسم التكسير': [
+      'رئيس القسم', 'مشرف', 'فني', 'مساعد', 'عامل',
+    ],
+    // الدبوس والتعبئة (staples)
     'قسم الدبوس والتعبئة': [
       'رئيس القسم', 'مشرف', 'فني', 'مساعد', 'عامل',
     ],
+
     'الإدارة العامة وإدارة الإنتاج': [
       'مدير الإنتاج',
       'مشرف عام الإنتاج',
@@ -107,11 +118,14 @@ class _WorkerFormState extends State<WorkerForm> {
     ],
   };
 
-  /// ─── أقسام المصنع العشرة (key = كود Hive، value = المسمى الرسمي) ─────────
+
+  /// ─── أقسام المصنع (key = كود Hive، value = المسمى الرسمي) ─────────────────
+  // يجب أن يتطابق مع worker_card.dart (_getDepartmentArabicName) و workers_screen.dart
   static const Map<String, String> departmentOptions = {
     'flexo':             'قسم الفلكسو',
     'production_line':   'قسم خط الإنتاج',
-    'die_cutting':       'قسم الدبوس والتعبئة',
+    'die_cutting':       'قسم التكسير',          // workers_crushing → die_cutting
+    'staples':           'قسم الدبوس والتعبئة',  // workers_staple → staples (مستقل)
     'general_mgmt':      'الإدارة العامة وإدارة الإنتاج',
     'technical_support': 'قسم الدعم الفني والتجهيزات',
     'quality_control':   'قسم مراقبة الجودة',
@@ -120,6 +134,7 @@ class _WorkerFormState extends State<WorkerForm> {
     'sales':             'قسم المبيعات والتعاقدات',
     'secretariat':       'قسم السكرتارية والمكتب الأمامي',
   };
+
 
   @override
   void initState() {
@@ -131,16 +146,21 @@ class _WorkerFormState extends State<WorkerForm> {
     emailController =
         TextEditingController(text: widget.existingWorker?.email ?? '');
 
+    // بناء قوائم الأقسام الديناميكية (Static + Hive)
+    _buildDynamicDepartmentLists();
+
     // تحديد القسم الافتراضي
     String initialDept = widget.existingWorker?.department ??
         widget.defaultDepartment ??
         'flexo';
 
-    if (initialDept == 'staples') {
-      initialDept = 'die_cutting';
-    }
-    if (!departmentOptions.containsKey(initialDept)) {
-      initialDept = 'flexo';
+    // لا نحول 'staples' إلى 'die_cutting' — كل منهما كود مستقل الآن
+    // إذا كان القسم ليس في القائمة الثابتة ولا الديناميكية → أضفه كقسم مخصص
+    if (!_allDepartmentCodes.contains(initialDept)) {
+      _allDepartmentCodes.add(initialDept);
+      // إذا كان موجوداً في departmentOptions نأخذ مسماه من هناك، وإلا نستخدم الكود
+      final label = departmentOptions[initialDept] ?? initialDept;
+      _allDepartmentLabels.add(label);
     }
     
     selectedDepartment = initialDept;
@@ -156,23 +176,167 @@ class _WorkerFormState extends State<WorkerForm> {
     canManageClientsDelete = widget.existingWorker?.canManageClientsDelete ?? false;
   }
 
+  // ─── بناء قوائم الأقسام الديناميكية — Static + Hive extraction ────────────────────
+  //
+  // يقرأ جميع العمال المخزّنين في Hive ويستخرج الأقسام الفريدة غير المسجّلة في الـ Static Map.
+  // هذا يضمن ظهور أي قسم تمّ إضافته بالـ Inline Add سابقاً في الـ Dropdown مستقبلاً.
+  //
+  void _buildDynamicDepartmentLists() {
+    // نبدأ بالقائمة الثابتة
+    _allDepartmentCodes = List<String>.from(departmentOptions.keys);
+    _allDepartmentLabels = List<String>.from(departmentOptions.values);
+
+    // قراءة Workers Box واستخراج الأقسام الفريدة الغير موجودة في الـ Static Map
+    if (Hive.isBoxOpen('workers')) {
+      final workersBox = Hive.box<Worker>('workers');
+      for (final worker in workersBox.values) {
+        final dept = worker.department.trim();
+        if (dept.isNotEmpty && !_allDepartmentCodes.contains(dept)) {
+          _allDepartmentCodes.add(dept);
+          // إذا كان له مسمى رسمي في departmentOptions → استخدمه، وإلا الكود
+          _allDepartmentLabels.add(departmentOptions[dept] ?? dept);
+          debugPrint('🏭 [WorkerForm] قسم جديد من Hive: $dept');
+        }
+      }
+    }
+  }
+
+
   /// يُحدّث [availableJobs] عند تغيير القسم ويعيد تعيين الوظيفة المختارة.
   /// [existingJob] يُمرَّر فقط عند التهيئة الأولى للحفاظ على قيمة العامل الموجود.
   void _updateJobsForDepartment(String deptCode, {String? existingJob}) {
-    final deptLabel = departmentOptions[deptCode] ?? '';
-    final jobs = List<String>.from(departmentJobsMap[deptLabel] ?? []);
+    final deptLabel = departmentOptions[deptCode] ?? deptCode;
+    final staticJobs = List<String>.from(departmentJobsMap[deptLabel] ?? []);
+
+    // إضافة الوظائف الفريدة من Hive لهذا القسم
+    if (Hive.isBoxOpen('workers')) {
+      final workersBox = Hive.box<Worker>('workers');
+      for (final worker in workersBox.values) {
+        if (worker.department.trim() == deptCode) {
+          final job = worker.job.trim();
+          if (job.isNotEmpty && !staticJobs.contains(job)) {
+            staticJobs.add(job);
+            debugPrint('🛠 [WorkerForm] وظيفة جديدة من Hive: $job');
+          }
+        }
+      }
+    }
 
     // إذا القائمة فارغة (قسم غير معرَّف) أضف placeholder
-    if (jobs.isEmpty) jobs.add('عامل');
+    if (staticJobs.isEmpty) staticJobs.add('عامل');
 
-    availableJobs = jobs;
+    availableJobs = staticJobs;
 
     // إذا الوظيفة الحالية موجودة في القائمة الجديدة → أبقِها، وإلا → أول عنصر
     final jobToUse = existingJob ?? selectedJob;
-    selectedJob = (jobToUse != null && jobs.contains(jobToUse))
+    selectedJob = (jobToUse != null && staticJobs.contains(jobToUse))
         ? jobToUse
-        : jobs.first;
+        : staticJobs.first;
   }
+
+  // ─── ديالوج إضافة قسم جديد (Inline Add) ───────────────────────────────
+  Future<void> _showAddDepartmentDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.add_business, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('إضافة قسم جديد'),
+          ],
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textDirection: TextDirection.rtl,
+          decoration: const InputDecoration(
+            labelText: 'اسم القسم',
+            hintText: 'مثال: قسم التغليف...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('حفظ'),
+            onPressed: () {
+              final val = controller.text.trim();
+              if (val.isNotEmpty) Navigator.pop(ctx, val);
+            },
+          ),
+        ],
+      ),
+    );
+    if (result == null || result.isEmpty) return;
+
+    // الكود = المسمى نفسه (String صريح في Worker.department)
+    setState(() {
+      if (!_allDepartmentCodes.contains(result)) {
+        _allDepartmentCodes.add(result);
+        _allDepartmentLabels.add(result);
+      }
+      selectedDepartment = result;
+      _updateJobsForDepartment(result);
+    });
+    debugPrint('➕ [WorkerForm] قسم جديد مضاف: $result');
+  }
+
+  // ─── ديالوج إضافة وظيفة جديدة (Inline Add) ──────────────────────────
+  Future<void> _showAddJobDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.work_outline, color: Colors.green),
+            SizedBox(width: 8),
+            Text('إضافة وظيفة جديدة'),
+          ],
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textDirection: TextDirection.rtl,
+          decoration: const InputDecoration(
+            labelText: 'اسم الوظيفة',
+            hintText: 'مثال: مشغّل آلات...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('حفظ'),
+            onPressed: () {
+              final val = controller.text.trim();
+              if (val.isNotEmpty) Navigator.pop(ctx, val);
+            },
+          ),
+        ],
+      ),
+    );
+    if (result == null || result.isEmpty) return;
+
+    setState(() {
+      if (!availableJobs.contains(result)) {
+        availableJobs.add(result);
+      }
+      selectedJob = result;
+    });
+    debugPrint('➕ [WorkerForm] وظيفة جديدة مضافة: $result');
+  }
+
 
   // ✅ الدالة المعدلة لتتوافق مع flutter_native_contact_picker
   Future<void> _pickContact() async {
@@ -347,14 +511,37 @@ class _WorkerFormState extends State<WorkerForm> {
                     value: selectedDepartment,
                     isExpanded: true,
                     underline: const SizedBox.shrink(),
-                    items: departmentOptions.entries
-                        .map((e) => DropdownMenuItem(
-                              value: e.key,
-                              child: Text(e.value),
-                            ))
-                        .toList(),
+                    items: [
+                      // الأقسام الديناميكية (Static + Hive)
+                      ..._allDepartmentCodes.asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final code = entry.value;
+                        final label = i < _allDepartmentLabels.length
+                            ? _allDepartmentLabels[i]
+                            : code;
+                        return DropdownMenuItem(
+                          value: code,
+                          child: Text(label, overflow: TextOverflow.ellipsis),
+                        );
+                      }),
+                      // ➕ خيار إضافة قسم جديد (Inline Add)
+                      const DropdownMenuItem(
+                        value: '__add_new_dept__',
+                        child: Row(
+                          children: [
+                            Icon(Icons.add_circle_outline, color: Colors.blue, size: 18),
+                            SizedBox(width: 6),
+                            Text('➕ إضافة قسم جديد...', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ],
                     onChanged: (v) {
                       if (v == null) return;
+                      if (v == '__add_new_dept__') {
+                        _showAddDepartmentDialog();
+                        return;
+                      }
                       setState(() {
                         selectedDepartment = v;
                         _updateJobsForDepartment(v);
@@ -371,10 +558,29 @@ class _WorkerFormState extends State<WorkerForm> {
                   value: selectedJob,
                   isExpanded: true,
                   underline: const SizedBox.shrink(),
-                  items: availableJobs
-                      .map((j) => DropdownMenuItem(value: j, child: Text(j)))
-                      .toList(),
-                  onChanged: (v) => setState(() => selectedJob = v),
+                  items: [
+                    // الوظائف الديناميكية (Static + Hive)
+                    ...availableJobs.map((j) => DropdownMenuItem(value: j, child: Text(j))),
+                    // ➕ خيار إضافة وظيفة جديدة (Inline Add)
+                    const DropdownMenuItem(
+                      value: '__add_new_job__',
+                      child: Row(
+                        children: [
+                          Icon(Icons.add_circle_outline, color: Colors.green, size: 18),
+                          SizedBox(width: 6),
+                          Text('➕ إضافة وظيفة جديدة...', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onChanged: (v) {
+                    if (v == null) return;
+                    if (v == '__add_new_job__') {
+                      _showAddJobDialog();
+                      return;
+                    }
+                    setState(() => selectedJob = v);
+                  },
                 ),
               ),
               if (showPermissions && widget.defaultDepartment == null) ...[

@@ -200,16 +200,30 @@ class _WorkerCardState extends State<WorkerCard> {
         return '🖨️ قسم الفلكسو';
       case 'die_cutting':
         return '✂️ قسم التكسير';
+      case 'staples':
+        return '📌 قسم الدبوس والتعبئة';
       case 'production_line':
         return '⚙️ خط الإنتاج';
-      case 'staples':
-        return '📌 قسم الدبوس';
+      case 'general_mgmt':
+        return '🏢 الإدارة العامة';
+      case 'technical_support':
+        return '🔧 الدعم الفني';
+      case 'quality_control':
+        return '🔬 مراقبة الجودة';
+      case 'accounting':
+        return '💰 الحسابات والمالية';
       case 'stores':
         return '📦 المخازن';
+      case 'sales':
+        return '🤝 المبيعات';
+      case 'secretariat':
+        return '📋 السكرتارية';
       case 'silicates':
         return '🧪 السليكات';
       default:
-        return '❓ قسم غير معروف ($dept)';
+        // قسم مخصص أُضيف عبر Inline Add — نُظهر اسمه مباشرةً
+        return dept.isNotEmpty ? '🏭 $dept' : '❓ غير محدد';
     }
   }
+
 }
