@@ -350,6 +350,10 @@ class SmartSheetApp extends StatefulWidget {
 class _SmartSheetAppState extends State<SmartSheetApp>
     with WidgetsBindingObserver {
 
+  // ─── Debounce لمنع استدعاء initialize() أكثر من مرة عند resume ──
+  // يحدث على Windows عند إعادة التركيز على النافذة
+  DateTime? _lastResumeTime;
+
   @override
   void initState() {
     super.initState();
@@ -368,6 +372,14 @@ class _SmartSheetAppState extends State<SmartSheetApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      final now = DateTime.now();
+      // تجاهل أي استدعاء ثانٍ في غضون 3 ثوانٍ من الأول
+      if (_lastResumeTime != null &&
+          now.difference(_lastResumeTime!).inSeconds < 3) {
+        debugPrint('⏭️ SmartSheetApp: تجاهل resume مكرر (${now.difference(_lastResumeTime!).inMilliseconds}ms)');
+        return;
+      }
+      _lastResumeTime = now;
       debugPrint('▶️ SmartSheetApp: العودة للمقدمة → إعادة تهيئة المزامنة...');
       SyncService.instance.initialize().catchError((e) {
         debugPrint('❌ SmartSheetApp: فشل initialize() عند resume: $e');

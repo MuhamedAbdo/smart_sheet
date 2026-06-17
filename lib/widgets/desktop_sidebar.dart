@@ -144,26 +144,29 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
     final isSelected = _selectedIndex == index;
     final theme = Theme.of(context);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: isSelected ? theme.colorScheme.primary.withValues(alpha: 0.1) : Colors.transparent,
-      ),
-      child: ListTile(
-        leading: Icon(
-          icon,
-          color: color ?? (isSelected ? theme.colorScheme.primary : theme.iconTheme.color),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: color ?? (isSelected ? theme.colorScheme.primary : theme.textTheme.bodyMedium?.color),
+    // ✅ Material شفاف يُمكّن Ink Splashes من الظهور فوق الـ ColoredBox الخلفي
+    return Material(
+      color: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: ListTile(
+          leading: Icon(
+            icon,
+            color: color ?? (isSelected ? theme.colorScheme.primary : theme.iconTheme.color),
           ),
+          title: Text(
+            title,
+            style: TextStyle(
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: color ?? (isSelected ? theme.colorScheme.primary : theme.textTheme.bodyMedium?.color),
+            ),
+          ),
+          onTap: onTap,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          tileColor: isSelected
+              ? theme.colorScheme.primary.withValues(alpha: 0.1)
+              : Colors.transparent,
         ),
-        onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }

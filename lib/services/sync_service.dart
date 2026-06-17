@@ -104,6 +104,9 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
   Box? _queueBox;
   bool _isProcessingQueue = false;
+  // ✅ حارس منع الاستدعاءات المتوازية لـ initialize() —
+  // يحدث عند بدء التطبيق ومن حدث الـ resumed في نفس اللحظة
+  bool _isInitializing = false;
 
   /// يضمن أن _queueBox مفتوح دائماً — يُعيد فتحه إن أُغلق.
   Future<Box> _ensureQueueBox() async {
@@ -119,6 +122,12 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
   // ==============================================================
 
   Future<void> initialize() async {
+    // ─── حارس الاستدعاء المتوازي ───────────────────────────────
+    if (_isInitializing) {
+      debugPrint('⏭️ SyncService: initialize() تجاهل — تهيئة جارية بالفعل.');
+      return;
+    }
+    _isInitializing = true;
     try {
       _queueBox = Hive.isBoxOpen('sync_queue')
           ? Hive.box('sync_queue')
@@ -132,17 +141,18 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
       await _tearDownChannels();
 
-      // ══════════════════════════════════════════════════════════════════
-      // 🔄 Delta Sync — جلب البيانات الفائتة عندما كان التطبيق مغلقاً
-      // ══════════════════════════════════════════════════════════════════
-      // يعمل قبل تفعيل قنوات الـ Realtime لضمان عدم فقدان أي حدث
-      await _performDeltaSync(factoryId);
-
       // 1. تنزيل الجلسات الحية النشطة [ProductionSync]
       await _initLiveSessions(factoryId);
 
       // 2. المزامنة المبدئية لـ customers [CustomerSync]
       await _initCustomers(factoryId);
+
+      // ══════════════════════════════════════════════════════════════════
+      // 🔄 Delta Sync — جلب البيانات الفائتة عندما كان التطبيق مغلقاً
+      // ══════════════════════════════════════════════════════════════════
+      // يعمل بعد _initCustomers لضمان أن الـ UI جاهزة لعرض الـ overlays
+      // وقبل إعداد Realtime channels لتفادي أي تكرار في السجلات
+      await _performDeltaSync(factoryId);
 
       // 3. المزامنة المبدئية لـ workers
       await _initWorkers(factoryId);
@@ -178,6 +188,9 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       } else {
         debugPrint('❌ SyncService.initialize: $e');
       }
+    } finally {
+      // ✅ تحرير الحارس دائماً — حتى لو فشلت التهيئة
+      _isInitializing = false;
     }
   }
 
@@ -196,26 +209,41 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
           : null;
       if (settingsBox == null) return;
 
-      final String? lastSyncedAt = settingsBox.get('last_synced_at');
-      if (lastSyncedAt == null) {
+      final String? lastSyncedAtRaw = settingsBox.get('last_synced_at');
+      if (lastSyncedAtRaw == null) {
         debugPrint('🔄 [DeltaSync] أول تشغيل — لا يوجد last_synced_at، تخطي.');
         return;
       }
 
-      debugPrint('🔄 [DeltaSync] جلب السجلات الجديدة منذ: $lastSyncedAt');
+      // ✅ إضافة هامش أمان 90 ثانية للخلف لتفادي فقدان سجلات أُضيفت
+      // في نفس ثانية آخر مزامنة أو بسبب فارق الساعة بين الجهاز والسيرفر.
+      final lastSyncedAtParsed = DateTime.tryParse(lastSyncedAtRaw);
+      if (lastSyncedAtParsed == null) {
+        debugPrint('⚠️ [DeltaSync] تنسيق last_synced_at غير صالح: $lastSyncedAtRaw');
+        return;
+      }
+      final queryFrom = lastSyncedAtParsed
+          .subtract(const Duration(seconds: 90))
+          .toUtc()
+          .toIso8601String();
+
+      debugPrint('🔄 [DeltaSync] جلب السجلات الجديدة منذ: $queryFrom (raw=$lastSyncedAtRaw)');
       int totalNew = 0;
+      // قائمة السجلات الجديدة التي ستُعرض في overlay واحد
+      final List<Map<String, dynamic>> missedItems = [];
 
       // ─── جلب العملاء الجدد ────────────────────────────────────────
       try {
+        // ✅ جدول customers يستخدم updated_at وليس created_at
         final newCustomers = await _supabase
             .from('customers')
             .select()
             .eq('factory_id', factoryId)
-            .gt('created_at', lastSyncedAt)
-            .order('created_at');
+            .gt('updated_at', queryFrom)
+            .order('updated_at');
 
         if (newCustomers.isNotEmpty) {
-          debugPrint('📬 [DeltaSync] ${newCustomers.length} عميل/صنف جديد.');
+          debugPrint('📬 [DeltaSync] ${newCustomers.length} عميل/صنف محتمل للمزامنة.');
           final box = Hive.isBoxOpen('savedSheetSizes')
               ? Hive.box('savedSheetSizes')
               : await Hive.openBox('savedSheetSizes');
@@ -255,15 +283,15 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
             await box.add(localRecord);
             totalNew++;
 
-            // إشعار محلي بالصنف/العميل الجديد
+            // جمع الإشعارات للعرض لاحقاً بعد جاهزية الـ UI
             final clientName = localRecord['clientName'] as String;
             final productName = localRecord['productName'] as String;
             if (clientName.isNotEmpty && productName.isNotEmpty) {
-              await showLocalNotification(
-                '🆕 عميل/صنف جديد أثناء الغياب',
-                '$clientName — $productName',
-                clientName,
-              );
+              missedItems.add({
+                'isClientRecord': localRecord['isClientRecord'] == true,
+                'clientName': clientName,
+                'productName': productName,
+              });
             }
           }
         }
@@ -273,11 +301,12 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
       // ─── جلب العمال الجدد ────────────────────────────────────────
       try {
+        // ✅ جدول workers يملك created_at (وليس updated_at)
         final newWorkers = await _supabase
             .from('workers')
             .select()
             .eq('factory_id', factoryId)
-            .gt('created_at', lastSyncedAt)
+            .gt('created_at', queryFrom)
             .order('created_at');
 
         if (newWorkers.isNotEmpty) {
@@ -291,6 +320,35 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
       if (totalNew > 0) {
         debugPrint('✅ [DeltaSync] تم استرجاع $totalNew سجل جديد وإرسال الإشعارات.');
+
+        // ─── عرض الإشعارات بعد جاهزية الـ UI ──────────────────────
+        if (missedItems.isNotEmpty) {
+          final count = missedItems.length;
+
+          if (count == 1) {
+            // إشعار مفرد بتفاصيل كاملة
+            final item = missedItems.first;
+            final isClientRecord = item['isClientRecord'] == true;
+            final clientName = item['clientName'] as String;
+            final productName = item['productName'] as String;
+            final title = isClientRecord ? '🆕 عميل جديد أثناء الغياب' : '📦 صنف جديد أثناء الغياب';
+            final body  = isClientRecord ? 'تم تسجيل العميل: $clientName' : '$clientName — $productName';
+
+            await showLocalNotification(title, body, clientName);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              UIUtils.showTopOverlay(title: title, message: body, onTap: () {});
+            });
+          } else {
+            // إشعار ملخص لتفادي الإغراق
+            final title = '📋 $count عناصر جديدة أثناء الغياب';
+            final body  = 'تم إضافة $count عملاء/أصناف — اضغط للتحقق';
+
+            await showLocalNotification(title, body, '');
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              UIUtils.showTopOverlay(title: title, message: body, onTap: () {});
+            });
+          }
+        }
       } else {
         debugPrint('✅ [DeltaSync] لا توجد سجلات جديدة منذ آخر مزامنة.');
       }
@@ -301,13 +359,15 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
   }
 
   /// حفظ طابع آخر مزامنة ناجحة في Hive settings
+  /// ✅ نحفظ دائماً UTC لتوحيد المقارنة مع Supabase الذي يعمل بـ UTC
   void _saveLastSyncedAt() {
     try {
       if (!Hive.isBoxOpen('settings')) return;
       final box = Hive.box('settings');
+      // UTC مضمون — Supabase يحفظ created_at بـ UTC دائماً
       final now = DateTime.now().toUtc().toIso8601String();
       box.put('last_synced_at', now);
-      debugPrint('🕐 [SyncService] last_synced_at = $now');
+      debugPrint('🕐 [SyncService] last_synced_at (UTC) = $now');
     } catch (e) {
       debugPrint('⚠️ [SyncService] تعذّر حفظ last_synced_at: $e');
     }
@@ -477,31 +537,40 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
   }
   */
 
+  /// إرسال إشعار محلي:
+  ///   • Android → push notification عبر flutter_local_notifications
+  ///   • Windows/غير Android → لا push (المنصة لا تدعمه)، يكفي UIUtils.showTopOverlay
   Future<void> showLocalNotification(String title, String body, String clientName) async {
-    if (kIsWeb || !Platform.isAndroid) return;
-    try {
-      final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-      const androidPlatformChannelSpecifics = AndroidNotificationDetails(
-        'factory_notifications_channel',
-        'Factory Notifications',
-        channelDescription: 'إشعارات لحظية للمصنع',
-        importance: Importance.max,
-        priority: Priority.high,
-        playSound: true,
-        icon: '@mipmap/ic_launcher',
-      );
-      const platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
+    if (kIsWeb) return;
+    // ─── Android: إشعار push حقيقي ────────────────────────────────
+    if (Platform.isAndroid) {
+      try {
+        final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+        const androidPlatformChannelSpecifics = AndroidNotificationDetails(
+          'factory_notifications_channel',
+          'Factory Notifications',
+          channelDescription: 'إشعارات لحظية للمصنع',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+          icon: '@mipmap/ic_launcher',
+        );
+        const platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
 
-      await flutterLocalNotificationsPlugin.show(
-        DateTime.now().millisecond,
-        title,
-        body,
-        platformChannelSpecifics,
-        payload: jsonEncode({'clientName': clientName}),
-      );
-    } catch (e) {
-      debugPrint('❌ showLocalNotification: $e');
+        await flutterLocalNotificationsPlugin.show(
+          DateTime.now().millisecond,
+          title,
+          body,
+          platformChannelSpecifics,
+          payload: jsonEncode({'clientName': clientName}),
+        );
+      } catch (e) {
+        debugPrint('❌ showLocalNotification (Android): $e');
+      }
     }
+    // ─── Windows وغيره: الـ overlay يُعرض من المستدعي مباشرةً ────────
+    // (UIUtils.showTopOverlay لا يعمل هنا لأن context غير متاح — يُستدعى
+    //  من _onCustomerChange و _performDeltaSync مباشرةً قبل هذه الدالة)
   }
 
   // ==============================================================
