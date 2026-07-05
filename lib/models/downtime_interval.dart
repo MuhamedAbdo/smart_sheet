@@ -11,11 +11,12 @@ class DowntimeInterval {
   DateTime? end;
 
   DowntimeInterval({
-    required this.start,
-    this.end,
-  });
+    required DateTime start,
+    DateTime? end,
+  })  : start = start.toUtc(),
+        end = end?.toUtc();
 
-  Duration get duration => (end?.toLocal() ?? DateTime.now()).difference(start.toLocal()).abs();
+  Duration get duration => (end?.toUtc() ?? DateTime.now().toUtc()).difference(start.toUtc()).abs();
 
   Map<String, dynamic> toJson() {
     return {
@@ -32,10 +33,10 @@ class DowntimeInterval {
   }
 
   static DateTime _parseDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return DateTime.now();
+    if (dateStr == null || dateStr.isEmpty) return DateTime.now().toUtc();
     if (!dateStr.endsWith('Z') && !dateStr.contains('+') && !dateStr.contains('-')) {
       dateStr += 'Z';
     }
-    return DateTime.tryParse(dateStr)?.toLocal() ?? DateTime.now();
+    return DateTime.tryParse(dateStr)?.toUtc() ?? DateTime.now().toUtc();
   }
 }

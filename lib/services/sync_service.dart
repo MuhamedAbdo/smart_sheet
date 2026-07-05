@@ -729,10 +729,32 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
           }
         } else {
           final cleanPayload = _sanitizePayload(payload);
-          if (table == 'customers' || table == 'production_reports' || table == 'workers') {
-            await _supabase.from(table).upsert(cleanPayload, onConflict: 'sync_id');
-          } else {
-            await _supabase.from(table).upsert(cleanPayload);
+          try {
+            if (table == 'customers' ||
+                table == 'production_reports' ||
+                table == 'workers' ||
+                table == 'live_sessions') {
+              await _supabase.from(table).upsert(cleanPayload, onConflict: 'sync_id');
+            } else {
+              await _supabase.from(table).upsert(cleanPayload);
+            }
+          } on PostgrestException catch (e) {
+            // ✅ حماية ضد أخطاء اختلاف هيكل قاعدة البيانات (مثل عدم وجود عمود technician_id في جدول live_sessions بالسحابة)
+            if ((e.code == 'PGRST204' || e.code == '42703' || e.message.toLowerCase().contains('column')) &&
+                cleanPayload.containsKey('technician_id')) {
+              debugPrint('⚠️ [Queue] حقل technician_id غير موجود في جدول $table بسحابة Supabase، جاري الرفع بدونه...');
+              cleanPayload.remove('technician_id');
+              if (table == 'customers' ||
+                  table == 'production_reports' ||
+                  table == 'workers' ||
+                  table == 'live_sessions') {
+                await _supabase.from(table).upsert(cleanPayload, onConflict: 'sync_id');
+              } else {
+                await _supabase.from(table).upsert(cleanPayload);
+              }
+            } else {
+              rethrow;
+            }
           }
           debugPrint('✅ Queue: رُفع إلى $table');
         }

@@ -9,6 +9,7 @@ import 'package:smart_sheet/services/sync_service.dart'; // استيراد خد�
 import 'package:smart_sheet/services/supabase_manager.dart'; // استيراد مدير سوبابيز
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/utils/device_manager.dart'; // استيراد DeviceManager
+import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:uuid/uuid.dart'; // استيراد مكتبة الـ UUID
 
 class StartSessionDialog extends StatefulWidget {
@@ -139,6 +140,22 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                 final fId = await SupabaseManager.getFactoryId();
                 final deviceId = await DeviceManager.getDeviceId();
 
+                String? techId = PermissionHelper.currentWorker?.id;
+                if (techId == null && Hive.isBoxOpen('workers')) {
+                  try {
+                    techId = Hive.box<Worker>('workers').values.firstWhere(
+                      (w) => w.name.trim().toLowerCase() == techController.text.trim().toLowerCase(),
+                    ).id;
+                  } catch (_) {}
+                }
+                if (techId == null && Hive.isBoxOpen('workers_flexo')) {
+                  try {
+                    techId = Hive.box<Worker>('workers_flexo').values.firstWhere(
+                      (w) => w.name.trim().toLowerCase() == techController.text.trim().toLowerCase(),
+                    ).id;
+                  } catch (_) {}
+                }
+
                 // 2. إنشاء كائن الجلسة الحية
                 final session = LiveSession(
                   id: sessionId,
@@ -157,6 +174,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                       widget.initialData?['imagePaths'] ?? []),
                   factoryId: fId, // استخدام معرف المصنع الحقيقي
                   createdByDeviceId: deviceId,
+                  technicianId: techId,
                 );
 
                 // 3. الحفظ المحلي في Hive (لتحديث الواجهة فوراً)

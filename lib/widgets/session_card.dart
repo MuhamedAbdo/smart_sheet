@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/live_session.dart';
-import 'package:provider/provider.dart';
-import 'package:smart_sheet/services/auth_service.dart';
+import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 
 class SessionCard extends StatefulWidget {
   final LiveSession session;
@@ -28,35 +28,47 @@ class SessionCard extends StatefulWidget {
 class _SessionCardState extends State<SessionCard> {
   Timer? _timer;
   late Duration _displayDuration;
-  late bool _isOwner;
+
+  bool get _checkIsOwner {
+    final bool isDesktop = !kIsWeb && (
+      Platform.isWindows || Platform.isMacOS || Platform.isLinux
+    );
+    if (isDesktop) return false;
+
+    final String? currentWorkerId = PermissionHelper.currentWorker?.id;
+    if (currentWorkerId != null &&
+        widget.session.technicianId != null &&
+        currentWorkerId == widget.session.technicianId) {
+      return true;
+    }
+
+    final String? currentWorkerName = PermissionHelper.currentWorker?.name;
+    if (currentWorkerName != null &&
+        currentWorkerName.trim().isNotEmpty &&
+        widget.session.technicianName.trim().isNotEmpty &&
+        currentWorkerName.trim() == widget.session.technicianName.trim()) {
+      return true;
+    }
+
+    final String? currentDeviceId = Hive.isBoxOpen('settings')
+        ? Hive.box('settings').get('device_id')
+        : null;
+    if (currentDeviceId != null &&
+        currentDeviceId.isNotEmpty &&
+        widget.session.createdByDeviceId != null &&
+        widget.session.createdByDeviceId!.isNotEmpty &&
+        currentDeviceId == widget.session.createdByDeviceId) {
+      return true;
+    }
+
+    return false;
+  }
 
   @override
   void initState() {
     super.initState();
     _displayDuration = widget.session.netRunningTime;
-
-    // ✅ الديسكتوب (Windows/macOS/Linux) لا يكون مالكاً أبداً.
-    // الجلسات تُنشأ حصراً من الموبايل، لذلك نمنع التحكم من أي منصة سطح مكتب.
-    final bool isDesktop = !kIsWeb && (
-      Platform.isWindows || Platform.isMacOS || Platform.isLinux
-    );
-
-    if (!isDesktop) {
-      final String? currentDeviceId = Hive.isBoxOpen('settings')
-          ? Hive.box('settings').get('device_id')
-          : null;
-      _isOwner = currentDeviceId != null &&
-          currentDeviceId.isNotEmpty &&
-          widget.session.createdByDeviceId != null &&
-          widget.session.createdByDeviceId!.isNotEmpty &&
-          currentDeviceId == widget.session.createdByDeviceId;
-    } else {
-      _isOwner = false; // Desktop: عرض فقط بدون أي تحكم
-    }
-
-    if (_isOwner) {
-      _startTimer();
-    }
+    _startTimer();
   }
 
   void _startTimer() {
@@ -76,6 +88,9 @@ class _SessionCardState extends State<SessionCard> {
   }
 
   String _formatDuration(Duration duration) {
+    if (duration.isNegative) {
+      return "00:00:00";
+    }
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final hours = twoDigits(duration.inHours);
     final minutes = twoDigits(duration.inMinutes.remainder(60));
@@ -86,8 +101,7 @@ class _SessionCardState extends State<SessionCard> {
   @override
   Widget build(BuildContext context) {
     final bool isPaused = !widget.session.isRunning;
-    final bool isOwner = _isOwner;
-    final bool isAdmin = context.watch<AuthService>().isAdmin;
+    final bool isOwner = _checkIsOwner;
 
     return Card(
       elevation: 4,
@@ -137,7 +151,7 @@ class _SessionCardState extends State<SessionCard> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  if (isOwner || isAdmin)
+                  if (isOwner)
                     IconButton(
                       icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 22),
                       tooltip: 'إلغاء الجلسة',
@@ -289,10 +303,15 @@ class _SessionCardState extends State<SessionCard> {
       }
 
       setState(() {
-        widget.session.startTime = newStartTime;
+        widget.session.startTime = newStartTime.toUtc();
         _displayDuration = widget.session.netRunningTime;
       });
       widget.session.save();
+      SyncService.instance.pushToQueue(
+        'live_sessions',
+        widget.session.toJson(),
+        operation: 'upsert',
+      );
     }
   }
 
@@ -326,13 +345,18 @@ class _SessionCardState extends State<SessionCard> {
 
     setState(() {
       if (isStart) {
-        last.start = newTime;
+        last.start = newTime.toUtc();
       } else {
-        last.end = newTime;
+        last.end = newTime.toUtc();
       }
       _displayDuration = widget.session.netRunningTime;
     });
     widget.session.save();
+    SyncService.instance.pushToQueue(
+      'live_sessions',
+      widget.session.toJson(),
+      operation: 'upsert',
+    );
   }
 
   Widget _buildInfoRow(IconData icon, String text, {bool isEditable = false, Color? color}) {

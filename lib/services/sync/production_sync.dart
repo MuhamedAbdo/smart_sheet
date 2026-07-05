@@ -41,7 +41,7 @@ mixin ProductionSync on SyncServiceBase {
       for (final record in liveSessionsResponse) {
         final session = LiveSession.fromJson(record);
         // ✅ استبعاد الجلسات التي مر عليها أكثر من 24 ساعة (Ghost Sessions)
-        final sessionAge = now.difference(session.startTime);
+        final sessionAge = now.toUtc().difference(session.startTime.toUtc()).abs();
         if (sessionAge.inHours < 24) {
           sessionsMap[session.id] = session;
         } else {

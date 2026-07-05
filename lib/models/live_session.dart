@@ -53,6 +53,9 @@ class LiveSession extends HiveObject {
   @HiveField(15)
   final String? createdByDeviceId;
 
+  @HiveField(16)
+  final String? technicianId;
+
   LiveSession({
     required this.id,
     required this.machineName,
@@ -61,16 +64,25 @@ class LiveSession extends HiveObject {
     required this.productCode,
     required this.orderNumber,
     required this.technicianName,
-    required this.startTime,
+    required DateTime startTime,
     required this.downtimeIntervals,
     this.isRunning = true,
-    required this.lastStateChange,
+    required DateTime lastStateChange,
     this.dimensions,
     this.isSheet,
     this.imagePaths,
     this.factoryId,
     this.createdByDeviceId,
-  });
+    this.technicianId,
+  })  : startTime = startTime.toUtc(),
+        lastStateChange = lastStateChange.toUtc();
+
+  @override
+  Future<void> save() {
+    startTime = startTime.toUtc();
+    lastStateChange = lastStateChange.toUtc();
+    return super.save();
+  }
 
   Duration get totalDowntime {
     return downtimeIntervals.fold(
@@ -80,17 +92,17 @@ class LiveSession extends HiveObject {
   }
 
   Duration get netRunningTime {
-    final totalElapsed = DateTime.now().difference(startTime.toLocal()).abs();
+    final totalElapsed = DateTime.now().toUtc().difference(startTime.toUtc());
     final net = totalElapsed - totalDowntime;
-    return net.isNegative ? Duration.zero : net;
+    return net;
   }
 
   static DateTime _parseDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return DateTime.now();
+    if (dateStr == null || dateStr.isEmpty) return DateTime.now().toUtc();
     if (!dateStr.endsWith('Z') && !dateStr.contains('+') && !dateStr.contains('-')) {
       dateStr += 'Z';
     }
-    return DateTime.tryParse(dateStr)?.toLocal() ?? DateTime.now();
+    return DateTime.tryParse(dateStr)?.toUtc() ?? DateTime.now().toUtc();
   }
 
   Map<String, dynamic> toJson() {
@@ -111,6 +123,7 @@ class LiveSession extends HiveObject {
       'image_paths': imagePaths,
       'factory_id': factoryId,
       'created_by_device_id': createdByDeviceId,
+      'technician_id': technicianId,
     };
   }
 
@@ -139,6 +152,7 @@ class LiveSession extends HiveObject {
       imagePaths: json['image_paths'] != null ? List<String>.from(json['image_paths']) : null,
       factoryId: json['factory_id']?.toString(),
       createdByDeviceId: json['created_by_device_id']?.toString(),
+      technicianId: json['technician_id']?.toString() ?? json['technicianId']?.toString(),
     );
   }
 }
