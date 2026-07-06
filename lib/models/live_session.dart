@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:smart_sheet/services/server_time_service.dart';
 import 'downtime_interval.dart';
 
 part 'live_session.g.dart';
@@ -92,17 +93,17 @@ class LiveSession extends HiveObject {
   }
 
   Duration get netRunningTime {
-    final totalElapsed = DateTime.now().toUtc().difference(startTime.toUtc());
+    final totalElapsed = ServerTimeService.nowUtc.difference(startTime.toUtc());
     final net = totalElapsed - totalDowntime;
     return net;
   }
 
   static DateTime _parseDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return DateTime.now().toUtc();
+    if (dateStr == null || dateStr.isEmpty) return ServerTimeService.nowUtc;
     if (!dateStr.endsWith('Z') && !dateStr.contains('+') && !dateStr.contains('-')) {
       dateStr += 'Z';
     }
-    return DateTime.tryParse(dateStr)?.toUtc() ?? DateTime.now().toUtc();
+    return DateTime.tryParse(dateStr)?.toUtc() ?? ServerTimeService.nowUtc;
   }
 
   Map<String, dynamic> toJson() {

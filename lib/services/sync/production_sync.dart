@@ -387,6 +387,7 @@ mixin ProductionSync on SyncServiceBase {
       'totalDowntime':  r['totalDowntime']  ?? r['total_downtime'],
       'machineName':    r['machineName']    ?? r['machine_name'],
       'technicianName': r['technicianName'] ?? r['technician_name'],
+      'technician_id':  r['technician_id']  ?? r['technicianId'],
       'quantity':       r['quantity'],
       'lineWaste':      r['lineWaste']      ?? r['line_waste'],
       'printWaste':     r['printWaste']     ?? r['print_waste'],

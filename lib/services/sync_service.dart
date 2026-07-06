@@ -38,6 +38,7 @@ import 'package:smart_sheet/models/finished_product_model.dart';
 // import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
+import 'package:smart_sheet/services/server_time_service.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
@@ -140,6 +141,9 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       }
 
       await _tearDownChannels();
+
+      await ServerTimeService.instance.init();
+      unawaited(ServerTimeService.instance.syncServerTime());
 
       // 1. تنزيل الجلسات الحية النشطة [ProductionSync]
       await _initLiveSessions(factoryId);
@@ -461,7 +465,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
         'table': table,
         'data': Map<String, dynamic>.from(data),
         'operation': operation,
-        'timestamp': DateTime.now().toIso8601String(),
+        'timestamp': ServerTimeService.nowUtc.toIso8601String(),
         'retries': 0,
       });
 
@@ -679,6 +683,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
     debugPrint('📱 Mobile Queue: محاولة إرسال... (${queueBox.length} عنصر)');
     final hasInternet = await _checkInternet();
     if (!hasInternet) { debugPrint('📴 Queue: لا إنترنت.'); return; }
+    unawaited(ServerTimeService.instance.syncServerTime());
 
     _isProcessingQueue = true;
     debugPrint('🔄 Queue: معالجة ${queueBox.length} عنصر...');

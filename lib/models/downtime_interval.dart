@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:smart_sheet/services/server_time_service.dart';
 
 part 'downtime_interval.g.dart';
 
@@ -16,7 +17,7 @@ class DowntimeInterval {
   })  : start = start.toUtc(),
         end = end?.toUtc();
 
-  Duration get duration => (end?.toUtc() ?? DateTime.now().toUtc()).difference(start.toUtc()).abs();
+  Duration get duration => (end?.toUtc() ?? ServerTimeService.nowUtc).difference(start.toUtc()).abs();
 
   Map<String, dynamic> toJson() {
     return {
@@ -33,10 +34,10 @@ class DowntimeInterval {
   }
 
   static DateTime _parseDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return DateTime.now().toUtc();
+    if (dateStr == null || dateStr.isEmpty) return ServerTimeService.nowUtc;
     if (!dateStr.endsWith('Z') && !dateStr.contains('+') && !dateStr.contains('-')) {
       dateStr += 'Z';
     }
-    return DateTime.tryParse(dateStr)?.toUtc() ?? DateTime.now().toUtc();
+    return DateTime.tryParse(dateStr)?.toUtc() ?? ServerTimeService.nowUtc;
   }
 }

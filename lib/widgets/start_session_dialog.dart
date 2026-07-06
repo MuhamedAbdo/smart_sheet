@@ -7,6 +7,7 @@ import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/services/sync_service.dart'; // استيراد خدمة المزامنة
 import 'package:smart_sheet/services/supabase_manager.dart'; // استيراد مدير سوبابيز
+import 'package:smart_sheet/services/server_time_service.dart'; // خدمة الوقت الخادمي
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/utils/device_manager.dart'; // استيراد DeviceManager
 import 'package:smart_sheet/utils/permission_helper.dart';
@@ -165,9 +166,9 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                   productCode: productCodeController.text.trim(),
                   orderNumber: orderNumberController.text.trim(),
                   technicianName: techController.text.trim(),
-                  startTime: DateTime.now(),
+                  startTime: ServerTimeService.nowUtc,
                   downtimeIntervals: [],
-                  lastStateChange: DateTime.now(),
+                  lastStateChange: ServerTimeService.nowUtc,
                   dimensions: widget.initialData?['dimensions'],
                   isSheet: widget.initialData?['isSheet'] ?? false,
                   imagePaths: List<String>.from(

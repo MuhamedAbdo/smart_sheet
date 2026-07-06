@@ -4,6 +4,7 @@ import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/downtime_interval.dart';
 import 'package:smart_sheet/widgets/session_card.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/services/server_time_service.dart';
 
 class ActiveSessionsDashboard extends StatelessWidget {
   final Function(LiveSession) onFinishSession;
@@ -76,15 +77,15 @@ class ActiveSessionsDashboard extends StatelessWidget {
       // End the last downtime interval
       if (session.downtimeIntervals.isNotEmpty) {
         final last = session.downtimeIntervals.last;
-        last.end ??= DateTime.now();
+        last.end ??= ServerTimeService.nowUtc;
       }
       session.isRunning = true;
     } else {
       // Start a new downtime interval
-      session.downtimeIntervals.add(DowntimeInterval(start: DateTime.now()));
+      session.downtimeIntervals.add(DowntimeInterval(start: ServerTimeService.nowUtc));
       session.isRunning = false;
     }
-    session.lastStateChange = DateTime.now();
+    session.lastStateChange = ServerTimeService.nowUtc;
     session.save();
 
     // 📡 إرسال التحديث للسحابة ليعكس العطل على الديسكتوب

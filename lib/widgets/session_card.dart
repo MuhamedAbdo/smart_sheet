@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/services/server_time_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 
 class SessionCard extends StatefulWidget {
@@ -170,7 +171,7 @@ class _SessionCardState extends State<SessionCard> {
                 onTap: isOwner ? _selectStartTime : null,
                 child: _buildInfoRow(
                   Icons.access_time,
-                  "وقت البدء: ${widget.session.startTime.hour.toString().padLeft(2, '0')}:${widget.session.startTime.minute.toString().padLeft(2, '0')}",
+                  "وقت البدء: ${widget.session.startTime.toLocal().hour.toString().padLeft(2, '0')}:${widget.session.startTime.toLocal().minute.toString().padLeft(2, '0')}",
                   isEditable: isOwner,
                 ),
               ),
@@ -180,7 +181,7 @@ class _SessionCardState extends State<SessionCard> {
                   onTap: isOwner ? () => _selectDowntimeTime(true) : null,
                   child: _buildInfoRow(
                     Icons.pause_circle_filled,
-                    "بدء العطل: ${widget.session.downtimeIntervals.last.start.hour.toString().padLeft(2, '0')}:${widget.session.downtimeIntervals.last.start.minute.toString().padLeft(2, '0')}",
+                    "بدء العطل: ${widget.session.downtimeIntervals.last.start.toLocal().hour.toString().padLeft(2, '0')}:${widget.session.downtimeIntervals.last.start.toLocal().minute.toString().padLeft(2, '0')}",
                     isEditable: isOwner,
                     color: Colors.orange,
                   ),
@@ -191,7 +192,7 @@ class _SessionCardState extends State<SessionCard> {
                     onTap: isOwner ? () => _selectDowntimeTime(false) : null,
                     child: _buildInfoRow(
                       Icons.play_circle_filled,
-                      "نهاية العطل: ${widget.session.downtimeIntervals.last.end!.hour.toString().padLeft(2, '0')}:${widget.session.downtimeIntervals.last.end!.minute.toString().padLeft(2, '0')}",
+                      "نهاية العطل: ${widget.session.downtimeIntervals.last.end!.toLocal().hour.toString().padLeft(2, '0')}:${widget.session.downtimeIntervals.last.end!.toLocal().minute.toString().padLeft(2, '0')}",
                       isEditable: isOwner,
                       color: Colors.green,
                     ),
@@ -280,17 +281,18 @@ class _SessionCardState extends State<SessionCard> {
   }
 
   Future<void> _selectStartTime() async {
+    final localStartTime = widget.session.startTime.toLocal();
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(widget.session.startTime),
+      initialTime: TimeOfDay.fromDateTime(localStartTime),
     );
     if (!mounted) return;
     if (picked != null) {
-      final now = DateTime.now();
+      final now = ServerTimeService.nowLocal;
       final newStartTime = DateTime(
-        widget.session.startTime.year,
-        widget.session.startTime.month,
-        widget.session.startTime.day,
+        localStartTime.year,
+        localStartTime.month,
+        localStartTime.day,
         picked.hour,
         picked.minute,
       );
@@ -318,7 +320,7 @@ class _SessionCardState extends State<SessionCard> {
   Future<void> _selectDowntimeTime(bool isStart) async {
     if (widget.session.downtimeIntervals.isEmpty) return;
     final last = widget.session.downtimeIntervals.last;
-    final currentTime = isStart ? last.start : (last.end ?? DateTime.now());
+    final currentTime = (isStart ? last.start : (last.end ?? ServerTimeService.nowUtc)).toLocal();
 
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -327,7 +329,7 @@ class _SessionCardState extends State<SessionCard> {
 
     if (!mounted || picked == null) return;
 
-    final now = DateTime.now();
+    final now = ServerTimeService.nowLocal;
     final newTime = DateTime(
       currentTime.year,
       currentTime.month,

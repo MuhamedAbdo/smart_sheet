@@ -12,6 +12,7 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/flexo_report_drawer.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/services/server_time_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'dart:async';
@@ -201,7 +202,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             final archiveEntry = {
               'type': 'REPORT',
               'data': Map<String, dynamic>.from(entry.value),
-              'archiveDate': DateTime.now().toString().split('.')[0],
+              'archiveDate': ServerTimeService.nowLocal.toString().split('.')[0],
             };
             await archiveBox.add(archiveEntry);
           }
@@ -866,22 +867,23 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     _isFinishingSession = true;
     debugPrint('🟢 _finishSession: بدء إنهاء جلسة: ${session.machineName}');
 
-    final now = DateTime.now();
-    final startTimeStr = "${session.startTime.hour.toString().padLeft(2, '0')}:${session.startTime.minute.toString().padLeft(2, '0')}";
+    final now = ServerTimeService.nowLocal;
+    final startLocal = session.startTime.toLocal();
+    final startTimeStr = "${startLocal.hour.toString().padLeft(2, '0')}:${startLocal.minute.toString().padLeft(2, '0')}";
     final endTimeStr = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
     // إغلاق آخر فترة عطل مفتوحة إن وجدت
     if (!session.isRunning && session.downtimeIntervals.isNotEmpty) {
       final last = session.downtimeIntervals.last;
-      last.end ??= now;
+      last.end ??= ServerTimeService.nowUtc;
     }
 
     // تحديد أوقات العطل (أول بداية → آخر نهاية)
     String dStart = "";
     String dEnd = "";
     if (session.downtimeIntervals.isNotEmpty) {
-      final firstStart = session.downtimeIntervals.first.start;
-      final lastEnd = session.downtimeIntervals.last.end ?? now;
+      final firstStart = session.downtimeIntervals.first.start.toLocal();
+      final lastEnd = (session.downtimeIntervals.last.end ?? ServerTimeService.nowUtc).toLocal();
       dStart = "${firstStart.hour.toString().padLeft(2, '0')}:${firstStart.minute.toString().padLeft(2, '0')}";
       dEnd = "${lastEnd.hour.toString().padLeft(2, '0')}:${lastEnd.minute.toString().padLeft(2, '0')}";
     }
