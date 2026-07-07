@@ -793,16 +793,20 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
     final result = <String, dynamic>{};
     raw.forEach((key, value) {
       if (numericFields.contains(key)) {
-        if (value == null || value.toString().trim().isEmpty) {
+        if (value == null || value.toString().trim().isEmpty || value.toString().trim().toLowerCase() == 'null') {
           result[key] = null;
         } else {
           result[key] = double.tryParse(value.toString().trim());
         }
       } else if (uuidFields.contains(key)) {
         final strVal = value?.toString().trim() ?? '';
-        if (strVal.isEmpty) {
-          result[key] = const Uuid().v4();
-          debugPrint('⚠️ [sanitize] $key كان فارغاً، تم توليد UUID: ${result[key]}');
+        if (strVal.isEmpty || strVal.toLowerCase() == 'null') {
+          if (key == 'id') {
+            // لا نضيف مفتاح id إطلاقاً إذا كان فارغاً لترك السحابة تستخدم Default Value
+          } else {
+            result[key] = const Uuid().v4();
+            debugPrint('⚠️ [sanitize] $key كان فارغاً، تم توليد UUID: ${result[key]}');
+          }
         } else {
           result[key] = strVal;
         }
@@ -810,6 +814,15 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
         result[key] = value;
       }
     });
+
+    // الحذف القاطع لمفتاح id بدون أي شروط (Unconditional Remove) لتوحيد هيكل الدفعة
+    result.remove('id');
+
+    // تنظيف أي قيم null أخرى قد ترفضها السحابة إذا كانت الجداول لا تقبل Null
+    result.removeWhere((key, value) =>
+        value == null ||
+        (value is String && value.trim().toLowerCase() == 'null'));
+
     return result;
   }
 

@@ -101,35 +101,29 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     setState(() {
       _isLoading = true;
-      _message = 'جاري إرسال البيانات للمزامنة الفورية...';
+      _message = 'جاري الرفع المباشر لبيانات العملاء والأصناف دفعة واحدة...';
     });
 
     UIUtils.showInfoSnackBar(
-      message: "بدأت عملية المزامنة السحابية الإجبارية، تابع التقدم في الخلفية",
+      message: "بدأ الرفع المباشر لجميع سجلات العملاء إلى السحابة...",
       backgroundColor: Colors.blueAccent,
-      icon: Icons.sync,
+      icon: Icons.cloud_upload_outlined,
     );
 
-    final result = await SyncService.instance.forcePushAllLocalDataToServer();
-
-    if (mounted) {
-      setState(() {
-        _message = result;
-        _isLoading = false;
-      });
-
-      if (result.startsWith('✅')) {
-        UIUtils.showInfoSnackBar(
-          message: "تم بدء المزامنة بنجاح!",
-          backgroundColor: Colors.green,
-          icon: Icons.check_circle_outline,
-        );
-      } else {
-        UIUtils.showInfoSnackBar(
-          message: result,
-          backgroundColor: Colors.red,
-          icon: Icons.error_outline,
-        );
+    try {
+      await SyncService.instance.directPushAllCustomers();
+      if (mounted) {
+        setState(() {
+          _message = "✅ تم الانتهاء من الرفع المباشر بنجاح";
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _message = "❌ فشل الرفع المباشر: $e";
+          _isLoading = false;
+        });
       }
     }
   }

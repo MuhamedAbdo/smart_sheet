@@ -36,6 +36,16 @@ mixin CustomerSync on SyncServiceBase {
           ? Hive.box('savedSheetSizes')
           : await Hive.openBox('savedSheetSizes');
 
+      // منع المسح العكسي التلقائي (Safe Pull Logic)
+      if (res.isEmpty || (box.isNotEmpty && res.length < box.length * 0.5)) {
+        debugPrint(
+          '⚠️ [Safe Pull] البيانات القادمة من السيرفر لجدول customers فارغة أو بها نقص كبير '
+          '(السيرفر: ${res.length} | المحلي: ${box.length}). '
+          'يُمنع مسح أو تعديل صندوق savedSheetSizes حماية للبيانات.',
+        );
+        return;
+      }
+
       for (final r in res) {
         try {
           final hasSheetDetails = r['sheet_details'] != null;
@@ -76,6 +86,16 @@ mixin CustomerSync on SyncServiceBase {
           ? Hive.box<FinishedProduct>('finished_products')
           : await Hive.openBox<FinishedProduct>('finished_products');
 
+      // منع المسح العكسي التلقائي (Safe Pull Logic)
+      if (res.isEmpty || (box.isNotEmpty && res.length < box.length * 0.5)) {
+        debugPrint(
+          '⚠️ [Safe Pull] البيانات القادمة من السيرفر لجدول customer_products فارغة أو بها نقص كبير '
+          '(السيرفر: ${res.length} | المحلي: ${box.length}). '
+          'يُمنع مسح صندوق finished_products حماية للبيانات.',
+        );
+        return;
+      }
+
       await box.clear();
       for (final r in res) {
         final product = FinishedProduct.fromJson(r);
@@ -86,6 +106,153 @@ mixin CustomerSync on SyncServiceBase {
       debugPrint('❌ خطأ صامت في المزامنة: $e');
     }
   }
+
+  // ==============================================================
+  // Direct Push (Direct Batch Upsert)
+  // ==============================================================
+
+  /// الرفع المباشر المتزامن لكافة العملاء والأصناف من savedSheetSizes إلى جدول customers
+  Future<void> directPushAllCustomers() async {
+    try {
+      final factoryId = await SupabaseManager.getFactoryId();
+      if (factoryId == null) throw Exception('المصنع غير محدد (يجب تسجيل الدخول)');
+
+      final box = Hive.isBoxOpen('savedSheetSizes')
+          ? Hive.box('savedSheetSizes')
+          : await Hive.openBox('savedSheetSizes');
+
+      if (box.isEmpty) {
+        UIUtils.showInfoSnackBar(
+          message: "لا توجد سجلات محلياً في صندوق savedSheetSizes لرفعها",
+          backgroundColor: Colors.orange,
+          icon: Icons.info_outline,
+        );
+        return;
+      }
+
+      final recordsList = <Map<String, dynamic>>[];
+      for (final key in box.keys) {
+        final item = box.get(key);
+        if (item is! Map) continue;
+        final r = Map<String, dynamic>.from(item);
+
+        // تحديد sync_id أو توليده
+        final String syncId = (r['sync_id']?.toString().trim().isNotEmpty == true)
+            ? r['sync_id'].toString().trim()
+            : ((r['id']?.toString().trim().isNotEmpty == true)
+                ? r['id'].toString().trim()
+                : '${r['clientName'] ?? ''}_${factoryId}_${r['productCode'] ?? ''}');
+        if (syncId.isEmpty) continue;
+
+        // تجهيز تفاصيل الشيت
+        final sheetDetailsMap = (r['sheet_details'] is Map)
+            ? Map<String, dynamic>.from(r['sheet_details'])
+            : {
+                'isOverFlap': r['isOverFlap'] ?? false,
+                'isFlap': r['isFlap'] ?? true,
+                'isOneFlap': r['isOneFlap'] ?? false,
+                'isTwoFlap': r['isTwoFlap'] ?? true,
+                'addTwoMm': r['addTwoMm'] ?? false,
+                'isFullSize': r['isFullSize'] ?? true,
+                'isQuarterSize': r['isQuarterSize'] ?? false,
+                'isQuarterWidth': r['isQuarterWidth'] ?? true,
+                'sheetLengthResult': r['sheetLengthResult']?.toString() ?? '',
+                'sheetWidthResult': r['sheetWidthResult']?.toString() ?? '',
+                'productionWidth1': r['productionWidth1']?.toString() ?? '',
+                'productionHeight': r['productionHeight']?.toString() ?? '',
+                'productionWidth2': r['productionWidth2']?.toString() ?? '',
+                'sheetLengthManual': r['sheetLengthManual']?.toString() ?? '',
+                'sheetWidthManual': r['sheetWidthManual']?.toString() ?? '',
+                'cuttingType': r['cuttingType']?.toString() ?? 'دوبل',
+              };
+
+        final payload = <String, dynamic>{
+          'sync_id': syncId,
+          'factory_id': factoryId,
+          'client_name': r['clientName']?.toString() ?? r['client_name']?.toString() ?? '',
+          'product_name': r['productName']?.toString() ?? r['product_name']?.toString() ?? '',
+          'product_code': r['productCode']?.toString() ?? r['product_code']?.toString() ?? '',
+          'process_type': r['processType']?.toString() ?? r['process_type']?.toString() ?? 'تفصيل',
+          'length': double.tryParse(r['length']?.toString() ?? ''),
+          'width': double.tryParse(r['width']?.toString() ?? ''),
+          'height': double.tryParse(r['height']?.toString() ?? ''),
+          'is_sheet': r['isSheet'] == true || r['is_sheet'] == true || r['is_sheet'] == 'true',
+          'date': r['date']?.toString() ?? DateTime.now().toIso8601String(),
+          'is_client_record': r['isClientRecord'] == true || r['is_client_record'] == true || r['is_client_record'] == 'true',
+          'image_paths': (r['imagePaths'] ?? r['image_paths'] as List?)?.map((e) => e.toString()).toList() ?? [],
+          'sheet_details': sheetDetailsMap,
+        };
+
+        // الحذف القاطع لمفتاح id من جميع الخرائط بدون أي شروط (Unconditional Remove)
+        // لتوحيد هيكل الدفعة وتجنب فرض PostgREST إدخال null للسجلات التي لا تمتلك id
+        payload.remove('id');
+
+        // 2. حلقة لتنظيف أي قيم null أو سلاسل نصية 'null' أخرى قد ترفضها السحابة إذا كانت الجداول لا تقبل Null
+        payload.removeWhere((key, value) =>
+            value == null ||
+            (value is String && value.trim().toLowerCase() == 'null'));
+
+        recordsList.add(payload);
+      }
+
+      if (recordsList.isEmpty) {
+        UIUtils.showInfoSnackBar(
+          message: "لم يتم العثور على سجلات صالحة للرفع",
+          backgroundColor: Colors.orange,
+          icon: Icons.info_outline,
+        );
+        return;
+      }
+
+      // تصفية التكرارات باستخدام Map لضمان تفرد الـ sync_id وتجنب خطأ 21000
+      final Map<String, Map<String, dynamic>> uniqueRecords = {};
+      for (var record in recordsList) {
+        final syncId = record['sync_id']?.toString();
+        if (syncId != null && syncId.trim().isNotEmpty) {
+          // هذا السطر سيحتفظ تلقائياً بآخر نسخة في حال وجود تكرار
+          uniqueRecords[syncId] = record;
+        }
+      }
+
+      // تحويل الـ Map النظيف إلى قائمة جاهزة للرفع
+      final List<Map<String, dynamic>> finalRecordsToPush = uniqueRecords.values.toList();
+
+      debugPrint('📤 [directPushAllCustomers] جاري رفع ${finalRecordsToPush.length} سجل (بعد إزالة التكرار من أصل ${recordsList.length}) دفعة واحدة...');
+      await _supabase.from('customers').upsert(finalRecordsToPush, onConflict: 'sync_id');
+      debugPrint('✅ [directPushAllCustomers] تم رفع ${finalRecordsToPush.length} سجل بنجاح!');
+
+      // تصفية ومسح السجلات المرتبطة بالعملاء من sync_queue محلياً لأنها رُفعت بالفعل
+      final queueBox = Hive.isBoxOpen('sync_queue')
+          ? Hive.box('sync_queue')
+          : await Hive.openBox('sync_queue');
+      final keysToDelete = <dynamic>[];
+      for (var i = 0; i < queueBox.length; i++) {
+        final item = queueBox.getAt(i);
+        if (item is Map && item['table']?.toString() == 'customers') {
+          keysToDelete.add(queueBox.keyAt(i));
+        }
+      }
+      for (final k in keysToDelete) {
+        await queueBox.delete(k);
+      }
+      debugPrint('🧹 [directPushAllCustomers] تم مسح ${keysToDelete.length} سجل من sync_queue لأنها رُفعت بالفعل.');
+
+      UIUtils.showInfoSnackBar(
+        message: "تم رفع ${finalRecordsToPush.length} سجلاً بنجاح إلى السحابة وتحديث الطابور!",
+        backgroundColor: Colors.green,
+        icon: Icons.check_circle_outline,
+      );
+    } catch (e) {
+      debugPrint('❌ directPushAllCustomers error: $e');
+      UIUtils.showInfoSnackBar(
+        message: "فشل الرفع المباشر: $e",
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
+      );
+      rethrow;
+    }
+  }
+
 
   // ==============================================================
   // Channel Setup & Teardown
