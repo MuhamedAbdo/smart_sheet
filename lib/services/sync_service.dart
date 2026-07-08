@@ -161,8 +161,9 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       // 3. المزامنة المبدئية لـ workers
       await _initWorkers(factoryId);
 
-      // 4. المزامنة المبدئية لـ production_reports [ProductionSync]
+      // 4. المزامنة المبدئية لـ production_reports و archived_reports [ProductionSync]
       await _initProductionReports(factoryId);
+      await _initArchivedReports(factoryId);
 
       // 5. المزامنة المبدئية لـ machines [MachinesSync]
       await _initMachines(factoryId);

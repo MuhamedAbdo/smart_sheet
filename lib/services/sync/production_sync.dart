@@ -76,6 +76,14 @@ mixin ProductionSync on SyncServiceBase {
           ? Hive.box('inkReports')
           : await Hive.openBox('inkReports');
 
+      // منع المسح العكسي التلقائي (Safe Pull Logic)
+      if (res.isEmpty || (box.isNotEmpty && res.length < box.length * 0.5)) {
+        debugPrint(
+          '⚠️ [Safe Pull] بيانات التقارير/الأرشيف من السيرفر فارغة... يُمنع مسح الصندوق المحلي.',
+        );
+        return;
+      }
+
       final Map<dynamic, dynamic> reportsMap = {};
       for (final r in res) {
         final hiveRecord = _reportToHive(r);
@@ -88,6 +96,48 @@ mixin ProductionSync on SyncServiceBase {
       debugPrint('✅ ProductionSync: تم استرجاع ${res.length} production_reports.');
     } catch (e) {
       debugPrint('❌ ProductionSync._initProductionReports: $e');
+    }
+  }
+
+  /// المزامنة المبدئية لجدول archived_reports → Hive box: flexoArchive
+  Future<void> _initArchivedReports(String factoryId) async {
+    try {
+      final res = await _supabase
+          .from('archived_reports')
+          .select()
+          .eq('factory_id', factoryId)
+          .order('date', ascending: false);
+
+      final box = Hive.isBoxOpen('flexoArchive')
+          ? Hive.box('flexoArchive')
+          : await Hive.openBox('flexoArchive');
+
+      // منع المسح العكسي التلقائي (Safe Pull Logic)
+      if (res.isEmpty || (box.isNotEmpty && res.length < box.length * 0.5)) {
+        debugPrint(
+          '⚠️ [Safe Pull] بيانات التقارير/الأرشيف من السيرفر فارغة... يُمنع مسح الصندوق المحلي.',
+        );
+        return;
+      }
+
+      final Map<dynamic, dynamic> reportsMap = {};
+      for (final r in res) {
+        final hiveRecord = _reportToHive(r);
+        final syncId = r['sync_id'] ?? r['id'];
+        hiveRecord['sync_id'] = syncId;
+        final archiveEntry = {
+          'type': 'REPORT',
+          'data': hiveRecord,
+          'archiveDate': r['date']?.toString() ?? DateTime.now().toIso8601String(),
+        };
+        reportsMap[syncId] = archiveEntry;
+      }
+      for (var key in reportsMap.keys) {
+        await box.put(key, reportsMap[key]);
+      }
+      debugPrint('✅ ProductionSync: تم استرجاع ${res.length} archived_reports.');
+    } catch (e) {
+      debugPrint('❌ ProductionSync._initArchivedReports: $e');
     }
   }
 
@@ -397,5 +447,178 @@ mixin ProductionSync on SyncServiceBase {
       'colors':         r['colors']         ?? [],
       'dimensions':     r['dimensions']     ?? {},
     };
+  }
+
+  // ==============================================================
+  // Direct Push (Direct Batch Upsert) لتقارير الإنتاج والأرشيف
+  // ==============================================================
+
+  /// الرفع المباشر المتزامن لكافة التقارير والأرشيف إلى جداول production_reports و archived_reports
+  Future<void> directPushAllReports() async {
+    try {
+      final factoryId = await SupabaseManager.getFactoryId();
+      if (factoryId == null) throw Exception('المصنع غير محدد (يجب تسجيل الدخول)');
+
+      final prodBox = Hive.isBoxOpen('inkReports')
+          ? Hive.box('inkReports')
+          : await Hive.openBox('inkReports');
+
+      final archiveBox = Hive.isBoxOpen('flexoArchive')
+          ? Hive.box('flexoArchive')
+          : await Hive.openBox('flexoArchive');
+
+      if (prodBox.isEmpty && archiveBox.isEmpty) {
+        debugPrint('⚠️ [directPushAllReports] الصناديق المحلية للتقارير والأرشيف فارغة.');
+        return;
+      }
+
+      // ─── 1. تجميع وتنظيف تقارير الإنتاج (production_reports) ───
+      final rawProdRecords = <Map<String, dynamic>>[];
+      for (final key in prodBox.keys) {
+        final item = prodBox.get(key);
+        if (item is! Map) continue;
+        final payload = _normalizeReportPayload(Map<String, dynamic>.from(item), factoryId);
+        if (payload != null) {
+          rawProdRecords.add(payload);
+        }
+      }
+
+      final Map<String, Map<String, dynamic>> uniqueProdRecords = {};
+      for (var record in rawProdRecords) {
+        final syncId = record['sync_id']?.toString();
+        if (syncId != null && syncId.trim().isNotEmpty) {
+          uniqueProdRecords[syncId] = record;
+        }
+      }
+      final List<Map<String, dynamic>> productionReportsList = uniqueProdRecords.values.toList();
+
+      // ─── 2. تجميع وتنظيف تقارير الأرشيف (archived_reports) ───
+      final rawArchivedRecords = <Map<String, dynamic>>[];
+      for (final key in archiveBox.keys) {
+        final item = archiveBox.get(key);
+        if (item is! Map) continue;
+        final itemMap = Map<String, dynamic>.from(item);
+        final reportData = itemMap['data'] is Map
+            ? Map<String, dynamic>.from(itemMap['data'])
+            : itemMap;
+        final payload = _normalizeReportPayload(reportData, factoryId);
+        if (payload != null) {
+          rawArchivedRecords.add(payload);
+        }
+      }
+
+      final Map<String, Map<String, dynamic>> uniqueArchivedRecords = {};
+      for (var record in rawArchivedRecords) {
+        final syncId = record['sync_id']?.toString();
+        if (syncId != null && syncId.trim().isNotEmpty) {
+          uniqueArchivedRecords[syncId] = record;
+        }
+      }
+      final List<Map<String, dynamic>> archivedReportsList = uniqueArchivedRecords.values.toList();
+
+      // ─── 3. الرفع المباشر لجداول Supabase ───
+      if (productionReportsList.isNotEmpty) {
+        debugPrint('📤 [directPushAllReports] جاري رفع ${productionReportsList.length} تقرير إنتاج إلى production_reports...');
+        await _safeUpsertReports('production_reports', productionReportsList);
+        debugPrint('✅ [directPushAllReports] تم رفع ${productionReportsList.length} تقرير إنتاج بنجاح!');
+      }
+
+      if (archivedReportsList.isNotEmpty) {
+        debugPrint('📤 [directPushAllReports] جاري رفع ${archivedReportsList.length} تقرير أرشيف إلى archived_reports...');
+        await _safeUpsertReports('archived_reports', archivedReportsList);
+        debugPrint('✅ [directPushAllReports] تم رفع ${archivedReportsList.length} تقرير أرشيف بنجاح!');
+      }
+
+      // ─── 4. تنظيف طابور المزامنة من السجلات التي رُفعت بالفعل ───
+      final queueBox = Hive.isBoxOpen('sync_queue')
+          ? Hive.box('sync_queue')
+          : await Hive.openBox('sync_queue');
+      final keysToDelete = <dynamic>[];
+      for (var i = 0; i < queueBox.length; i++) {
+        final item = queueBox.getAt(i);
+        if (item is Map &&
+            (item['table']?.toString() == 'production_reports' ||
+             item['table']?.toString() == 'archived_reports')) {
+          keysToDelete.add(queueBox.keyAt(i));
+        }
+      }
+      for (final k in keysToDelete) {
+        await queueBox.delete(k);
+      }
+      debugPrint('🧹 [directPushAllReports] تم مسح ${keysToDelete.length} سجل من sync_queue.');
+    } catch (e) {
+      debugPrint('❌ directPushAllReports error: $e');
+      rethrow;
+    }
+  }
+
+  /// مساعد لتوحيد هيكل التقارير وتنظيفها (Sanitization)
+  Map<String, dynamic>? _normalizeReportPayload(Map<String, dynamic> r, String factoryId) {
+    final String syncId = (r['sync_id']?.toString().trim().isNotEmpty == true)
+        ? r['sync_id'].toString().trim()
+        : ((r['id']?.toString().trim().isNotEmpty == true)
+            ? r['id'].toString().trim()
+            : '');
+    if (syncId.isEmpty) return null;
+
+    final payload = <String, dynamic>{
+      'sync_id': syncId,
+      'factory_id': r['factory_id']?.toString().trim().isNotEmpty == true
+          ? r['factory_id'].toString().trim()
+          : factoryId,
+      'date': r['date']?.toString() ?? DateTime.now().toIso8601String(),
+      'client_name': r['client_name']?.toString() ?? r['clientName']?.toString() ?? '',
+      'product': r['product']?.toString() ?? r['product_name']?.toString() ?? '',
+      'product_code': r['product_code']?.toString() ?? r['productCode']?.toString() ?? '',
+      'dimensions': (r['dimensions'] is Map)
+          ? Map<String, dynamic>.from(r['dimensions'])
+          : {},
+      'colors': (r['colors'] is List)
+          ? List<dynamic>.from(r['colors'])
+          : [],
+      'quantity': int.tryParse(r['quantity']?.toString() ?? '') ?? 0,
+      'notes': r['notes']?.toString(),
+      'order_number': r['order_number']?.toString() ?? r['orderNumber']?.toString(),
+      'start_time': r['start_time']?.toString() ?? r['startTime']?.toString(),
+      'end_time': r['end_time']?.toString() ?? r['endTime']?.toString(),
+      'line_waste': int.tryParse((r['line_waste'] ?? r['lineWaste'])?.toString() ?? ''),
+      'print_waste': int.tryParse((r['print_waste'] ?? r['printWaste'])?.toString() ?? ''),
+      'downtime_start': r['downtime_start']?.toString() ?? r['downtimeStart']?.toString(),
+      'downtime_end': r['downtime_end']?.toString() ?? r['downtimeEnd']?.toString(),
+      'total_downtime': r['total_downtime']?.toString() ?? r['totalDowntime']?.toString(),
+      'machine_name': r['machine_name']?.toString() ?? r['machineName']?.toString(),
+      'technician_name': r['technician_name']?.toString() ?? r['technicianName']?.toString(),
+      'technician_id': r['technician_id']?.toString() ?? r['technicianId']?.toString(),
+      'is_sheet': r['is_sheet'] == true || r['isSheet'] == true || r['is_sheet'] == 'true',
+    };
+
+    // الحذف القاطع لمفتاح 'id' من جميع الخرائط (Unconditional Remove)
+    payload.remove('id');
+
+    // إزالة أو تنظيف أي قيم null
+    payload.removeWhere((key, value) =>
+        value == null ||
+        (value is String && value.trim().toLowerCase() == 'null'));
+
+    return payload;
+  }
+
+  /// رفع آمن مع التعامل مع احتمال اختلاف أعمدة الجدول بالسحابة
+  Future<void> _safeUpsertReports(String table, List<Map<String, dynamic>> records) async {
+    if (records.isEmpty) return;
+    try {
+      await _supabase.from(table).upsert(records, onConflict: 'sync_id');
+    } on PostgrestException catch (e) {
+      if (e.code == 'PGRST204' || e.code == '42703' || e.message.toLowerCase().contains('column')) {
+        debugPrint('⚠️ [directPushAllReports] حقل غير موجود في جدول $table (${e.message})، جاري إزالة الأعمدة الاختيارية وإعادة الرفع...');
+        for (var r in records) {
+          if (e.message.contains('technician_id')) r.remove('technician_id');
+          if (e.message.contains('is_sheet')) r.remove('is_sheet');
+        }
+        await _supabase.from(table).upsert(records, onConflict: 'sync_id');
+      } else {
+        rethrow;
+      }
+    }
   }
 }

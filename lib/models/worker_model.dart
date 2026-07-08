@@ -47,7 +47,7 @@ class Worker extends HiveObject {
   @HiveField(6)
   late String? id; // Unique ID for Supabase sync
 
-  @HiveField(7)
+  @HiveField(7, defaultValue: 'flexo')
   late String department; // flexo, production_line, die_cutting, staples, stores, silicates
 
   @HiveField(8, defaultValue: false)

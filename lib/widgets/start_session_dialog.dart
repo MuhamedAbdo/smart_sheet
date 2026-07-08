@@ -179,7 +179,9 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                 );
 
                 // 3. الحفظ المحلي في Hive (لتحديث الواجهة فوراً)
-                final liveBox = Hive.box<LiveSession>('flexo_live_sessions');
+                final liveBox = Hive.isBoxOpen('flexo_live_sessions')
+                    ? Hive.box<LiveSession>('flexo_live_sessions')
+                    : await Hive.openBox<LiveSession>('flexo_live_sessions');
                 await liveBox.put(sessionId, session);
 
                 // 4. الإرسال لقائمة المزامنة (ليرسل للسحابة والديسك توب)

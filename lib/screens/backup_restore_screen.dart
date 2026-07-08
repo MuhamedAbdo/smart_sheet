@@ -101,20 +101,21 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     setState(() {
       _isLoading = true;
-      _message = 'جاري الرفع المباشر لبيانات العملاء والأصناف دفعة واحدة...';
+      _message = 'جاري الرفع المباشر لبيانات العملاء والأصناف والتقارير والأرشيف دفعة واحدة...';
     });
 
     UIUtils.showInfoSnackBar(
-      message: "بدأ الرفع المباشر لجميع سجلات العملاء إلى السحابة...",
+      message: "بدأ الرفع المباشر لسجلات العملاء والتقارير والأرشيف إلى السحابة...",
       backgroundColor: Colors.blueAccent,
       icon: Icons.cloud_upload_outlined,
     );
 
     try {
       await SyncService.instance.directPushAllCustomers();
+      await SyncService.instance.directPushAllReports();
       if (mounted) {
         setState(() {
-          _message = "✅ تم الانتهاء من الرفع المباشر بنجاح";
+          _message = "✅ تم الانتهاء من الرفع المباشر (العملاء + التقارير + الأرشيف) بنجاح";
           _isLoading = false;
         });
       }

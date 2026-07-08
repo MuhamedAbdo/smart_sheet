@@ -503,6 +503,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       body: ValueListenableBuilder(
         valueListenable: _productionReportBox!.listenable(),
         builder: (context, Box box, _) {
+          final isLiveSessionsEmpty = !Hive.isBoxOpen('flexo_live_sessions') ||
+              Hive.box<LiveSession>('flexo_live_sessions').isEmpty;
           return CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
@@ -511,12 +513,12 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   onCancelSession: (session) => _cancelSession(session), // ✅ إضافة دالة الإلغاء
                 ),
               ),
-              if (box.isEmpty && Hive.box<LiveSession>('flexo_live_sessions').isEmpty)
+              if (box.isEmpty && isLiveSessionsEmpty)
                 const SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(child: Text("🚫 لا يوجد تقارير أو جلسات نشطة")),
                 ),
-              if (box.isNotEmpty || Hive.box<LiveSession>('flexo_live_sessions').isNotEmpty)
+              if (box.isNotEmpty || !isLiveSessionsEmpty)
                 ...[
                   if (_selectedDate != null)
                     SliverToBoxAdapter(
@@ -739,7 +741,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           const SizedBox(width: 8),
           Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(width: 8),
-          Text(value),
+          Expanded(child: Text(value)),
         ],
       ),
     );
@@ -750,7 +752,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         child: Row(children: [
           Text(l, style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(width: 8),
-          Text(v)
+          Expanded(child: Text(v))
         ]),
       );
 

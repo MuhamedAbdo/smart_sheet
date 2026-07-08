@@ -18,12 +18,12 @@ class WorkerAdapter extends TypeAdapter<Worker> {
     };
     return Worker(
       id: fields[6] as String?,
-      name: fields[0] as String,
-      phone: fields[1] as String,
-      job: fields[2] as String,
+      name: fields[0] == null ? '' : fields[0] as String,
+      phone: fields[1] == null ? '' : fields[1] as String,
+      job: fields[2] == null ? '' : fields[2] as String,
       hasMedicalInsurance: fields[4] == null ? false : fields[4] as bool,
       factoryId: fields[5] as String?,
-      department: fields[7] as String,
+      department: fields[7] == null ? 'flexo' : fields[7] as String,
       canAdd: fields[8] == null ? false : fields[8] as bool,
       canEdit: fields[9] == null ? false : fields[9] as bool,
       canDelete: fields[10] == null ? false : fields[10] as bool,

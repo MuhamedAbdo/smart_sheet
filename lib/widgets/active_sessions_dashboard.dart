@@ -18,14 +18,30 @@ class ActiveSessionsDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!Hive.isBoxOpen('flexo_live_sessions')) {
+      return FutureBuilder(
+        future: Hive.openBox<LiveSession>('flexo_live_sessions'),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done &&
+              Hive.isBoxOpen('flexo_live_sessions')) {
+            return _buildDashboardContent(context, Hive.box<LiveSession>('flexo_live_sessions'));
+          }
+          return const SizedBox.shrink();
+        },
+      );
+    }
+    return _buildDashboardContent(context, Hive.box<LiveSession>('flexo_live_sessions'));
+  }
+
+  Widget _buildDashboardContent(BuildContext context, Box<LiveSession> box) {
     return ValueListenableBuilder(
-      valueListenable: Hive.box<LiveSession>('flexo_live_sessions').listenable(),
-      builder: (context, Box<LiveSession> box, _) {
-        if (box.isEmpty) {
+      valueListenable: box.listenable(),
+      builder: (context, Box<LiveSession> openBox, _) {
+        if (openBox.isEmpty) {
           return const SizedBox.shrink();
         }
 
-        final sessions = box.values.toList().reversed.toList();
+        final sessions = openBox.values.toList().reversed.toList();
 
         return Container(
           height: 280,
