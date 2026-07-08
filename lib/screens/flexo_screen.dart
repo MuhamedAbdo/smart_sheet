@@ -1,5 +1,7 @@
 // lib/src/screens/flexo/flexo_screen.dart
 
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/calculator_screen.dart';
 import 'package:smart_sheet/screens/color_palette_screen.dart';
@@ -92,18 +94,19 @@ class FlexoScreen extends StatelessWidget {
                             Scaffold.of(context).openEndDrawer();
                           },
                         ),
-                        HomeButton(
-                          icon: Icons.build_circle,
-                          label: 'تركيب السيريل',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const SerialSetupScreen(),
-                            ),
-                          );
-                        },
-                      ),
+                        if (kIsWeb || (!Platform.isWindows && !Platform.isLinux && !Platform.isMacOS))
+                          HomeButton(
+                            icon: Icons.build_circle,
+                            label: 'تركيب السيريل',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const SerialSetupScreen(),
+                                ),
+                              );
+                            },
+                          ),
                       HomeButton(
                         icon: Icons.receipt,
                         label: 'تقرير الإنتاج',
