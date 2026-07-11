@@ -14,6 +14,7 @@ class SavedSizeCard extends StatelessWidget {
   final VoidCallback onDelete;
   // التغيير هنا: مسمى الزر أصبح بدء إنتاج بدلاً من طباعة
   final Function(Map<String, dynamic>) onStartProduction;
+  final Function(Map<String, dynamic>)? onStartProductionLine;
   final bool canEdit;
   final bool canDelete;
   final bool canAdd;
@@ -24,6 +25,7 @@ class SavedSizeCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onStartProduction,
+    this.onStartProductionLine,
     required this.canEdit,
     required this.canDelete,
     required this.canAdd,
@@ -182,6 +184,17 @@ class SavedSizeCard extends StatelessWidget {
                       style: OutlinedButton.styleFrom(
                           visualDensity: VisualDensity.compact),
                     ),
+                    if (onStartProductionLine != null)
+                      OutlinedButton.icon(
+                        onPressed: () => onStartProductionLine!(record),
+                        icon: const Icon(Icons.factory, size: 18),
+                        label: const Text("بدء إنتاج (خط الإنتاج)"),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.green.shade700,
+                          side: BorderSide(color: Colors.green.shade600),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
                   ],
                 ),
               ),

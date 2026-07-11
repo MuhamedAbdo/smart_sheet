@@ -14,14 +14,16 @@ import 'package:smart_sheet/widgets/flexo_report_drawer.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/server_time_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/screens/production_line/start_production_session_screen.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'dart:async';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 class ProductionReportScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
+  final String? department;
 
-  const ProductionReportScreen({super.key, this.initialData});
+  const ProductionReportScreen({super.key, this.initialData, this.department});
 
   @override
   State<ProductionReportScreen> createState() => _ProductionReportScreenState();
@@ -195,13 +197,22 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       confirmColor: Colors.blueAccent,
       onConfirm: () async {
         try {
-          final archiveBox = await Hive.openBox('flexoArchive');
+          final isProdLineDept = widget.department == 'production_line';
+          final archiveBoxName = isProdLineDept ? 'lineArchive' : 'flexoArchive';
+          final archiveBox = await Hive.openBox(archiveBoxName);
           final allReports = _productionReportBox!.toMap();
 
           for (var entry in allReports.entries) {
+            final r = Map<String, dynamic>.from(entry.value);
+            final dept = r['department']?.toString();
+            if (isProdLineDept) {
+              if (dept != 'production_line') continue;
+            } else {
+              if (dept == 'production_line') continue;
+            }
             final archiveEntry = {
               'type': 'REPORT',
-              'data': Map<String, dynamic>.from(entry.value),
+              'data': r,
               'archiveDate': ServerTimeService.nowLocal.toString().split('.')[0],
             };
             await archiveBox.add(archiveEntry);
@@ -385,7 +396,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   ),
                 ),
               )
-            : const Text("تقرير الإنتاج"),
+            : Text(widget.department == 'production_line'
+                ? "تقرير إنتاج خط الإنتاج 🏭"
+                : "تقرير الإنتاج"),
         centerTitle: !_isSearching,
         actions: [
           // ─── ربط القائمة بـ Hive لتحديث الصلاحيات فورياً ───
@@ -418,7 +431,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                       Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const FlexoArchiveScreen()));
+                              builder: (_) => FlexoArchiveScreen(
+                                    department: widget.department,
+                                  )));
                     } else if (value == 'clear') {
                       _deleteAllReports();
                     } else if (value == 'sort') {
@@ -509,6 +524,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             slivers: [
               SliverToBoxAdapter(
                 child: ActiveSessionsDashboard(
+                  department: widget.department,
                   onFinishSession: (session) => _finishSession(session),
                   onCancelSession: (session) => _cancelSession(session), // ✅ إضافة دالة الإلغاء
                 ),
@@ -563,7 +579,19 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               builder: (context, _, __) {
                 if (!PermissionHelper.canAdd) return const SizedBox.shrink();
                 return FloatingActionButton(
-                  onPressed: () => _showStartSessionDialog(),
+                  onPressed: () {
+                    if (widget.department == 'production_line') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const StartProductionSessionScreen(),
+                        ),
+                      );
+                    } else {
+                      _showStartSessionDialog();
+                    }
+                  },
                   child: const Icon(Icons.play_arrow),
                 );
               },
@@ -632,7 +660,69 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             _buildDimensionsText(record['dimensions'],
                 isSheet: record['isSheet'] ?? false),
             _buildQuantityText(record['quantity']),
-            _buildColorsList(record['colors'] ?? []),
+            Builder(
+              builder: (context) {
+                final dims = record['dimensions'] is Map
+                    ? record['dimensions'] as Map
+                    : {};
+                final w = record['weight'] ??
+                    record['weight_tons'] ??
+                    dims['weight'];
+                final double weightVal = w != null
+                    ? (w is num
+                        ? w.toDouble()
+                        : (double.tryParse(w.toString()) ?? 0.0))
+                    : 0.0;
+                if (weightVal <= 0) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      const Text("⚖️ الوزن: ",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.teal)),
+                      Text("$weightVal طن",
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                );
+              },
+            ),
+            Builder(
+              builder: (context) {
+                final dims = record['dimensions'] is Map
+                    ? record['dimensions'] as Map
+                    : {};
+                final rawLayers = record['paperLayers'] ??
+                    record['paper_layers'] ??
+                    dims['paperLayers'] ??
+                    dims['paper_layers'];
+                final List<String> layers = [];
+                if (rawLayers is List) {
+                  layers.addAll(rawLayers
+                      .map((e) => e.toString().trim())
+                      .where((e) => e.isNotEmpty));
+                }
+                if (layers.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("📜 طبقات الورق:",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, color: Colors.brown)),
+                      const SizedBox(height: 2),
+                      Text(layers.join('  |  '),
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                );
+              },
+            ),
+            if (widget.department != 'production_line')
+              _buildColorsList(record['colors'] ?? []),
             if (record['lineWaste'] != null || record['printWaste'] != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
@@ -640,8 +730,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   children: [
                     const Text("📉 الهالك: ",
                         style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(
-                        "إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
+                    Text(widget.department == 'production_line'
+                        ? "${record['lineWaste'] ?? 0}"
+                        : "إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
                   ],
                 ),
               ),
@@ -694,6 +785,12 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         .entries
         .where((e) {
           final r = e.value;
+          final dept = r['department']?.toString();
+          if (widget.department == 'production_line') {
+            if (dept != 'production_line') return false;
+          } else {
+            if (dept == 'production_line') return false;
+          }
           final q = query.toLowerCase();
           return (r['clientName']?.toString() ?? '')
                   .toLowerCase()
@@ -802,6 +899,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         isScrollControlled: true,
         builder: (c) => ProductionReportForm(
             initialData: data,
+            department: widget.department,
             onSave: (r) async {
               // FIX: UUID حقيقي بدلاً من millisecondsSinceEpoch
               final syncId = const Uuid().v4();
@@ -824,6 +922,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         builder: (c) => ProductionReportForm(
             initialData: record,
             reportKey: key.toString(),
+            department: widget.department,
             onSave: (r) async {
               // إعادة استخدام الـ sync_id الأصلي — لا نغيره عند التعديل
               final existingSyncId = record['sync_id']?.toString() ??
@@ -906,9 +1005,22 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       'totalDowntime': totalDowntimeMin,
       'machineName': session.machineName,
       'technicianName': session.technicianName,
-      'dimensions': session.dimensions,
+      'dimensions': {
+        ...?session.dimensions,
+        'weight': (session.dimensions != null && session.dimensions!['weight'] != null)
+            ? (double.tryParse(session.dimensions!['weight'].toString()) ?? 0.0)
+            : 0.0,
+        'paperLayers': session.paperLayers ?? [],
+      },
+      'weight': (session.dimensions != null && session.dimensions!['weight'] != null)
+          ? (double.tryParse(session.dimensions!['weight'].toString()) ?? 0.0)
+          : 0.0,
+      'shift': session.shift,
       'isSheet': session.isSheet,
       'imagePaths': session.imagePaths,
+      'department': session.department ?? widget.department ?? 'flexo',
+      'paperLayers': session.paperLayers ?? [],
+      'paper_layers': session.paperLayers ?? [],
       'notes': "",
     };
 
@@ -933,6 +1045,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         isDismissible: true,
         builder: (c) => ProductionReportForm(
           initialData: initialData,
+          department: session.department ?? widget.department,
           onSave: (r) async {
             try {
               final syncId = const Uuid().v4();

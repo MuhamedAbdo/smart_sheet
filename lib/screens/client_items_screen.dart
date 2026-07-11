@@ -8,6 +8,8 @@ import 'package:smart_sheet/screens/job_order_dialog.dart';
 import 'package:smart_sheet/screens/production_report_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
+import 'package:smart_sheet/screens/production_line/start_production_session_screen.dart';
+import 'package:smart_sheet/screens/production_line_screen.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
@@ -340,6 +342,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                   onEdit: () => _navigateToEdit(entry.key, entry.value),
                   onDelete: () => _confirmDelete(entry.key),
                   onStartProduction: (data) => _openProductionReportWithSheetData(context, data),
+                  onStartProductionLine: (data) => _openProductionLineSessionWithSheetData(context, data),
                 ),
               );
             },
@@ -563,6 +566,78 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     } catch (e) {
       if (context.mounted) Navigator.pop(context);
       debugPrint("Error preparing report: $e");
+    }
+  }
+
+  void _openProductionLineSessionWithSheetData(
+      BuildContext context, Map<String, dynamic> dataFromCard) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final List<String> finalImages = [];
+      final appDir = await getApplicationDocumentsDirectory();
+      final imageDir = Directory('${appDir.path}/images');
+
+      if (dataFromCard['imagePaths'] is List) {
+        for (var pathObj in dataFromCard['imagePaths']) {
+          String path = pathObj.toString();
+          if (path.startsWith('http')) {
+            finalImages.add(path);
+          } else {
+            String fileName = path.split('/').last.split('\\').last;
+            final file = File('${imageDir.path}/$fileName');
+            if (await file.exists()) {
+              finalImages.add(file.path);
+            } else {
+              finalImages.add(path);
+            }
+          }
+        }
+      }
+
+      final initialData = {
+        'date': DateTime.now().toString().split(' ')[0],
+        'clientName': dataFromCard['clientName'] ?? '',
+        'productName':
+            dataFromCard['productName'] ?? dataFromCard['product'] ?? '',
+        'productCode': dataFromCard['productCode'] ?? '',
+        'dimensions': {
+          'length': dataFromCard['length']?.toString() ?? '',
+          'width': dataFromCard['width']?.toString() ?? '',
+          'height': dataFromCard['height']?.toString() ?? '',
+        },
+        'imagePaths': finalImages,
+        'isSheet': dataFromCard['isSheet'] ?? false,
+        'notes': 'مستورد من قسم المقاسات',
+      };
+
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                StartProductionSessionScreen(initialData: initialData),
+          ),
+        );
+
+        if (result == true && context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ProductionLineScreen(),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      debugPrint("Error preparing production line session: $e");
     }
   }
 

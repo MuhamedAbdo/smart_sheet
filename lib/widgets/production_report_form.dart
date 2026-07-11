@@ -16,12 +16,14 @@ class ColorField {
 class ProductionReportForm extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final String? reportKey;
+  final String? department;
   final void Function(Map<String, dynamic>) onSave;
 
   const ProductionReportForm({
     super.key,
     this.initialData,
     this.reportKey,
+    this.department,
     required this.onSave,
   });
 
@@ -30,6 +32,10 @@ class ProductionReportForm extends StatefulWidget {
 }
 
 class _ProductionReportFormState extends State<ProductionReportForm> {
+  bool get isProductionLine =>
+      (widget.department == 'production_line') ||
+      (widget.initialData?['department'] == 'production_line');
+
   late TextEditingController dateController;
   late TextEditingController clientNameController;
   late TextEditingController productController;
@@ -38,7 +44,9 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
   late TextEditingController widthController;
   late TextEditingController heightController;
   late TextEditingController quantityController;
+  late TextEditingController weightController;
   late TextEditingController notesController;
+  List<TextEditingController> paperLayerControllers = [];
 
   // New Fields
   late TextEditingController orderNumberController;
@@ -73,6 +81,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     widthController = TextEditingController();
     heightController = TextEditingController();
     quantityController = TextEditingController();
+    weightController = TextEditingController();
     notesController = TextEditingController();
 
     orderNumberController = TextEditingController();
@@ -89,6 +98,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     // Default values for waste as requested
     lineWasteController.text = "0";
     printWasteController.text = "0";
+    paperLayerControllers = [];
 
     if (widget.initialData != null) {
       _loadInitialData(widget.initialData!);
@@ -96,6 +106,14 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
       final now = DateTime.now();
       dateController.text =
           "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    }
+
+    if (isProductionLine && paperLayerControllers.isEmpty) {
+      paperLayerControllers = [
+        TextEditingController(),
+        TextEditingController(),
+        TextEditingController(),
+      ];
     }
   }
 
@@ -113,6 +131,8 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     heightController.text = dimensions['height']?.toString() ?? '';
 
     quantityController.text = data['quantity']?.toString() ?? '';
+    weightController.text =
+        data['weight']?.toString() ?? dimensions['weight']?.toString() ?? '';
     notesController.text = data['notes']?.toString() ?? '';
 
     orderNumberController.text = data['orderNumber']?.toString() ?? data['order_number']?.toString() ?? '';
@@ -125,6 +145,18 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     totalDowntimeController.text = data['totalDowntime']?.toString() ?? '0';
     machineNameController.text = data['machineName']?.toString() ?? data['machine_name']?.toString() ?? '';
     technicianNameController.text = data['technicianName']?.toString() ?? data['technician_name']?.toString() ?? '';
+
+    paperLayerControllers.clear();
+    final pLayers = data['paperLayers'] ??
+        data['paper_layers'] ??
+        dimensions['paperLayers'] ??
+        dimensions['paper_layers'];
+    if (pLayers is List && pLayers.isNotEmpty) {
+      for (var layer in pLayers) {
+        final str = layer.toString().trim();
+        paperLayerControllers.add(TextEditingController(text: str));
+      }
+    }
 
     colors.clear();
     if (data['colors'] is List) {
@@ -144,6 +176,12 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     setState(() => _isSaving = true);
 
     try {
+      final wVal = double.tryParse(weightController.text.trim()) ?? 0.0;
+      final layersVal = paperLayerControllers
+          .map((c) => c.text.trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+
       final report = {
         'date': dateController.text,
         'clientName': clientNameController.text.trim(),
@@ -153,22 +191,35 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
           'length': lengthController.text.trim(),
           'width': widthController.text.trim(),
           'height': isSheet ? "0" : heightController.text.trim(),
+          'weight': wVal,
+          'paperLayers': layersVal,
         },
         'isSheet': isSheet,
 
-        'colors': colors
-            .map((c) => {
-                  'color': c.colorController.text.trim(),
-                  'quantity': double.tryParse(c.quantityController.text) ?? 0.0,
-                })
-            .toList(),
+        'colors': isProductionLine
+            ? []
+            : colors
+                .map((c) => {
+                      'color': c.colorController.text.trim(),
+                      'quantity':
+                          double.tryParse(c.quantityController.text) ?? 0.0,
+                    })
+                .toList(),
         'quantity': int.tryParse(quantityController.text) ?? 0,
+        'weight': wVal,
+        'paperLayers': layersVal,
+        'paper_layers': layersVal,
+        'department':
+            widget.department ?? widget.initialData?['department'] ?? 'flexo',
+        'shift': widget.initialData?['shift'],
         'notes': notesController.text.trim(),
         'orderNumber': orderNumberController.text.trim(),
         'startTime': startTimeController.text.trim(),
         'endTime': endTimeController.text.trim(),
         'lineWaste': int.tryParse(lineWasteController.text) ?? 0,
-        'printWaste': int.tryParse(printWasteController.text) ?? 0,
+        'printWaste': isProductionLine
+            ? 0
+            : (int.tryParse(printWasteController.text) ?? 0),
         'downtimeStart': downtimeStartController.text.trim(),
         'downtimeEnd': downtimeEndController.text.trim(),
         'totalDowntime': int.tryParse(totalDowntimeController.text) ?? 0,
@@ -198,6 +249,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     widthController.dispose();
     heightController.dispose();
     quantityController.dispose();
+    weightController.dispose();
     notesController.dispose();
     orderNumberController.dispose();
     startTimeController.dispose();
@@ -212,6 +264,9 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     for (var c in colors) {
       c.colorController.dispose();
       c.quantityController.dispose();
+    }
+    for (var c in paperLayerControllers) {
+      c.dispose();
     }
     super.dispose();
   }
@@ -296,24 +351,43 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
                     ),
 
                     const SizedBox(height: 20),
-                    _buildColorsSection(),
+                    if (isProductionLine)
+                      _buildPaperLayersSection()
+                    else
+                      _buildColorsSection(),
                     const SizedBox(height: 12),
                     _buildTextField(quantityController, "🔢 عدد الشيتات",
                         keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(lineWasteController, "📉 هالك الإنتاج",
-                              keyboardType: TextInputType.number, isRequired: false),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildTextField(printWasteController, "📉 هالك الطباعة",
-                              keyboardType: TextInputType.number, isRequired: false),
-                        ),
-                      ],
-                    ),
+                    if (isProductionLine) ...[
+                      _buildTextField(
+                        weightController,
+                        "⚖️ الوزن (بالطن)",
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        isRequired: false,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTextField(lineWasteController, "📉 الهالك",
+                          keyboardType: TextInputType.number, isRequired: false),
+                    ] else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTextField(
+                                lineWasteController, "📉 هالك الإنتاج",
+                                keyboardType: TextInputType.number,
+                                isRequired: false),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildTextField(
+                                printWasteController, "📉 هالك الطباعة",
+                                keyboardType: TextInputType.number,
+                                isRequired: false),
+                          ),
+                        ],
+                      ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
@@ -352,6 +426,68 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
           if (_isSaving) const Center(child: CircularProgressIndicator()),
         ],
       ),
+    );
+  }
+
+  void _addPaperLayer() {
+    setState(() {
+      paperLayerControllers.add(TextEditingController());
+    });
+  }
+
+  void _removePaperLayer(int index) {
+    if (paperLayerControllers.length > 1) {
+      setState(() {
+        paperLayerControllers[index].dispose();
+        paperLayerControllers.removeAt(index);
+      });
+    }
+  }
+
+  Widget _buildPaperLayersSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text("📜 طبقات وأنواع الورق",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            TextButton.icon(
+              onPressed: _addPaperLayer,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text("إضافة طبقة"),
+            ),
+          ],
+        ),
+        ...List.generate(paperLayerControllers.length, (index) {
+          final label = index == 0
+              ? 'الطبقة 1 (الوجه الخارجي)'
+              : index == 1
+                  ? 'الطبقة 2 (الفلوت)'
+                  : 'الطبقة ${index + 1}';
+          return Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    paperLayerControllers[index],
+                    label,
+                    icon: Icons.layers_outlined,
+                    isRequired: false,
+                  ),
+                ),
+                if (paperLayerControllers.length > 1)
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _removePaperLayer(index),
+                  ),
+              ],
+            ),
+          );
+        }),
+      ],
     );
   }
 

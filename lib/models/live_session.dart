@@ -57,6 +57,15 @@ class LiveSession extends HiveObject {
   @HiveField(16)
   final String? technicianId;
 
+  @HiveField(17)
+  final String? department;
+
+  @HiveField(18)
+  final String? shift;
+
+  @HiveField(19)
+  final List<String>? paperLayers;
+
   LiveSession({
     required this.id,
     required this.machineName,
@@ -75,6 +84,9 @@ class LiveSession extends HiveObject {
     this.factoryId,
     this.createdByDeviceId,
     this.technicianId,
+    this.department = 'flexo',
+    this.shift,
+    this.paperLayers,
   })  : startTime = startTime.toUtc(),
         lastStateChange = lastStateChange.toUtc();
 
@@ -125,6 +137,10 @@ class LiveSession extends HiveObject {
       'factory_id': factoryId,
       'created_by_device_id': createdByDeviceId,
       'technician_id': technicianId,
+      'department': department ?? 'flexo',
+      'shift': shift,
+      'paper_layers': paperLayers,
+      'paperLayers': paperLayers,
     };
   }
 
@@ -134,6 +150,17 @@ class LiveSession extends HiveObject {
       intervals = (json['downtime_intervals'] as List)
           .map((i) => DowntimeInterval.fromJson(Map<String, dynamic>.from(i)))
           .toList();
+    }
+
+    final rawLayers = json['paper_layers'] ?? json['paperLayers'];
+    String? dept = json['department']?.toString();
+    if (dept == null || dept.trim().isEmpty || dept == 'null') {
+      final mName = json['machine_name']?.toString() ?? '';
+      if (mName == 'خط الإنتاج') {
+        dept = 'production_line';
+      } else {
+        dept = 'flexo';
+      }
     }
 
     return LiveSession(
@@ -154,6 +181,9 @@ class LiveSession extends HiveObject {
       factoryId: json['factory_id']?.toString(),
       createdByDeviceId: json['created_by_device_id']?.toString(),
       technicianId: json['technician_id']?.toString() ?? json['technicianId']?.toString(),
+      department: dept,
+      shift: json['shift']?.toString(),
+      paperLayers: rawLayers != null ? List<String>.from(rawLayers) : null,
     );
   }
 }

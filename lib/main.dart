@@ -221,6 +221,7 @@ void _openBackgroundBoxes() {
     'savedSheetSizes',
     'inkReports',
     'flexoArchive',
+    'lineArchive',
     'serial_setup_state',
   ];
   for (var box in otherBoxes) {

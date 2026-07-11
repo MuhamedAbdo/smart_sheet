@@ -66,6 +66,12 @@ class ProductionReport extends HiveObject {
   @HiveField(19)
   final int? totalDowntime;
 
+  final double? weight;
+  final List<dynamic>? paperLayers;
+  final String? department;
+  final String? shift;
+  final bool? isSheet;
+
   ProductionReport({
     required this.id,
     required this.date,
@@ -87,9 +93,24 @@ class ProductionReport extends HiveObject {
     this.technicianName,
     this.factoryId,
     this.totalDowntime,
+    this.weight,
+    this.paperLayers,
+    this.department,
+    this.shift,
+    this.isSheet,
   });
 
   Map<String, dynamic> toJson() {
+    final Map<String, dynamic> enrichedDimensions =
+        Map<String, dynamic>.from(dimensions);
+    final numW = weight ?? enrichedDimensions['weight'] ?? 0.0;
+    final layers = paperLayers ??
+        enrichedDimensions['paperLayers'] ??
+        enrichedDimensions['paper_layers'] ??
+        [];
+    enrichedDimensions['weight'] = numW;
+    enrichedDimensions['paperLayers'] = layers;
+
     return {
       'id': id.toString(),
       'sync_id': id.toString(),
@@ -97,7 +118,7 @@ class ProductionReport extends HiveObject {
       'client_name': clientName,
       'product': product,
       'product_code': productCode,
-      'dimensions': dimensions,
+      'dimensions': enrichedDimensions,
       'colors': colors,
       'quantity': quantity,
       'notes': notes,
@@ -112,6 +133,13 @@ class ProductionReport extends HiveObject {
       'machine_name': machineName,
       'technician_name': technicianName,
       'factory_id': factoryId,
+      'weight': numW,
+      'paper_layers': layers,
+      'paperLayers': layers,
+      'department': department ?? 'flexo',
+      'shift': shift,
+      'is_sheet': isSheet ?? false,
+      'isSheet': isSheet ?? false,
     };
   }
 
@@ -124,15 +152,29 @@ class ProductionReport extends HiveObject {
   factory ProductionReport.fromJson(Map<String, dynamic> map) {
     List<dynamic> parsedColors = map['colors'] ?? [];
 
+    final dims = map['dimensions'] is Map
+        ? Map<String, dynamic>.from(map['dimensions'])
+        : <String, dynamic>{};
+
+    final rawWeight = map['weight'] ?? map['weight_tons'] ?? dims['weight'] ?? 0;
+    final double? weightVal = rawWeight is num
+        ? rawWeight.toDouble()
+        : double.tryParse(rawWeight.toString());
+
+    final rawLayers = map['paperLayers'] ??
+        map['paper_layers'] ??
+        dims['paperLayers'] ??
+        dims['paper_layers'] ??
+        [];
+    final List<dynamic> layersList = rawLayers is List ? rawLayers : [];
+
     return ProductionReport(
       id: map['sync_id']?.toString() ?? map['id']?.toString() ?? '',
       date: map['date']?.toString() ?? '',
       clientName: map['client_name'] ?? map['clientName'] ?? '',
       product: map['product'] ?? '',
       productCode: map['product_code'] ?? map['productCode'] ?? '',
-      dimensions: map['dimensions'] is Map
-          ? Map<String, dynamic>.from(map['dimensions'])
-          : {},
+      dimensions: dims,
       colors: parsedColors,
       quantity: _toInt(map['quantity']) ?? 0,
       notes: map['notes']?.toString(),
@@ -149,6 +191,11 @@ class ProductionReport extends HiveObject {
           (map['technician_name'] ?? map['technicianName'])?.toString(),
       factoryId: (map['factory_id'] ?? map['factoryId'])?.toString(),
       totalDowntime: _toInt(map['total_downtime'] ?? map['totalDowntime']),
+      weight: weightVal ?? 0.0,
+      paperLayers: layersList,
+      department: map['department']?.toString(),
+      shift: map['shift']?.toString(),
+      isSheet: map['is_sheet'] == true || map['isSheet'] == true,
     );
   }
 

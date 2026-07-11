@@ -87,8 +87,42 @@ mixin ProductionSync on SyncServiceBase {
       final Map<dynamic, dynamic> reportsMap = {};
       for (final r in res) {
         final hiveRecord = _reportToHive(r);
-        hiveRecord['sync_id'] = r['sync_id'] ?? r['id'];
-        reportsMap[hiveRecord['sync_id']] = hiveRecord;
+        final syncId = r['sync_id'] ?? r['id'];
+        hiveRecord['sync_id'] = syncId;
+
+        final existing = box.get(syncId);
+        if (existing is Map) {
+          final existingW = existing['weight'] ?? 0;
+          final double existingWeightVal = existingW is num
+              ? existingW.toDouble()
+              : (double.tryParse(existingW.toString()) ?? 0.0);
+          final currentW = hiveRecord['weight'] ?? 0;
+          final double currentWeightVal = currentW is num
+              ? currentW.toDouble()
+              : (double.tryParse(currentW.toString()) ?? 0.0);
+
+          if (currentWeightVal == 0 && existingWeightVal > 0) {
+            hiveRecord['weight'] = existingWeightVal;
+            if (hiveRecord['dimensions'] is Map) {
+              (hiveRecord['dimensions'] as Map)['weight'] = existingWeightVal;
+            }
+          }
+
+          final currentLayers = hiveRecord['paperLayers'] is List
+              ? (hiveRecord['paperLayers'] as List)
+              : [];
+          final existingLayers = existing['paperLayers'] is List
+              ? (existing['paperLayers'] as List)
+              : [];
+          if (currentLayers.isEmpty && existingLayers.isNotEmpty) {
+            hiveRecord['paperLayers'] = existingLayers;
+            if (hiveRecord['dimensions'] is Map) {
+              (hiveRecord['dimensions'] as Map)['paperLayers'] = existingLayers;
+            }
+          }
+        }
+
+        reportsMap[syncId] = hiveRecord;
       }
       for (var key in reportsMap.keys) {
         await box.put(key, reportsMap[key]);
@@ -99,7 +133,7 @@ mixin ProductionSync on SyncServiceBase {
     }
   }
 
-  /// المزامنة المبدئية لجدول archived_reports → Hive box: flexoArchive
+  /// المزامنة المبدئية لجدول archived_reports → Hive boxes: flexoArchive & lineArchive
   Future<void> _initArchivedReports(String factoryId) async {
     try {
       final res = await _supabase
@@ -108,34 +142,83 @@ mixin ProductionSync on SyncServiceBase {
           .eq('factory_id', factoryId)
           .order('date', ascending: false);
 
-      final box = Hive.isBoxOpen('flexoArchive')
+      final flexoBox = Hive.isBoxOpen('flexoArchive')
           ? Hive.box('flexoArchive')
           : await Hive.openBox('flexoArchive');
+      final lineBox = Hive.isBoxOpen('lineArchive')
+          ? Hive.box('lineArchive')
+          : await Hive.openBox('lineArchive');
 
-      // منع المسح العكسي التلقائي (Safe Pull Logic)
-      if (res.isEmpty || (box.isNotEmpty && res.length < box.length * 0.5)) {
+      if (res.isEmpty) {
         debugPrint(
-          '⚠️ [Safe Pull] بيانات التقارير/الأرشيف من السيرفر فارغة... يُمنع مسح الصندوق المحلي.',
+          '⚠️ [Safe Pull] بيانات الأرشيف من السيرفر فارغة... يُمنع مسح الصندوق المحلي.',
         );
         return;
       }
 
-      final Map<dynamic, dynamic> reportsMap = {};
       for (final r in res) {
         final hiveRecord = _reportToHive(r);
         final syncId = r['sync_id'] ?? r['id'];
+        if (syncId == null) continue;
         hiveRecord['sync_id'] = syncId;
+
+        // حدّد الـ box الصحيح حسب القسم
+        final dept = hiveRecord['department']?.toString() ?? 'flexo';
+        final isProdLine = dept == 'production_line' ||
+            (hiveRecord['machineName'] ?? hiveRecord['machine_name'])
+                    ?.toString() ==
+                'خط الإنتاج';
+        final targetBox = isProdLine ? lineBox : flexoBox;
+
+        final existing = targetBox.get(syncId);
+        if (existing is Map && existing['data'] is Map) {
+          final existingData = existing['data'] as Map;
+          final existingW = existingData['weight'] ?? 0;
+          final double existingWeightVal = existingW is num
+              ? existingW.toDouble()
+              : (double.tryParse(existingW.toString()) ?? 0.0);
+          final currentW = hiveRecord['weight'] ?? 0;
+          final double currentWeightVal = currentW is num
+              ? currentW.toDouble()
+              : (double.tryParse(currentW.toString()) ?? 0.0);
+
+          if (currentWeightVal == 0 && existingWeightVal > 0) {
+            hiveRecord['weight'] = existingWeightVal;
+            if (hiveRecord['dimensions'] is Map) {
+              (hiveRecord['dimensions'] as Map)['weight'] = existingWeightVal;
+            }
+          }
+
+          final currentLayers = hiveRecord['paperLayers'] is List
+              ? (hiveRecord['paperLayers'] as List)
+              : [];
+          final existingLayers = existingData['paperLayers'] is List
+              ? (existingData['paperLayers'] as List)
+              : [];
+          if (currentLayers.isEmpty && existingLayers.isNotEmpty) {
+            hiveRecord['paperLayers'] = existingLayers;
+            if (hiveRecord['dimensions'] is Map) {
+              (hiveRecord['dimensions'] as Map)['paperLayers'] = existingLayers;
+            }
+          }
+        }
+
+        // نقل أي سجل موجود في الـ box الخاطئ إلى الصحيح
+        final wrongBox = isProdLine ? flexoBox : lineBox;
+        if (wrongBox.containsKey(syncId)) {
+          await wrongBox.delete(syncId);
+        }
+
         final archiveEntry = {
           'type': 'REPORT',
           'data': hiveRecord,
-          'archiveDate': r['date']?.toString() ?? DateTime.now().toIso8601String(),
+          'archiveDate':
+              r['date']?.toString() ?? DateTime.now().toIso8601String(),
         };
-        reportsMap[syncId] = archiveEntry;
+        await targetBox.put(syncId, archiveEntry);
       }
-      for (var key in reportsMap.keys) {
-        await box.put(key, reportsMap[key]);
-      }
-      debugPrint('✅ ProductionSync: تم استرجاع ${res.length} archived_reports.');
+      debugPrint(
+          '✅ ProductionSync: تم استرجاع ${res.length} archived_reports (مُقسَّمة بين flexoArchive و lineArchive).');
     } catch (e) {
       debugPrint('❌ ProductionSync._initArchivedReports: $e');
     }
@@ -314,15 +397,23 @@ mixin ProductionSync on SyncServiceBase {
         debugPrint('🌟 وصلت بيانات جديدة [production_reports]: $clientName (key: $stableKey)');
 
         dynamic existingKey = stableKey;
+        Map<dynamic, dynamic>? existingRecord;
         for (var i = 0; i < box.length; i++) {
           final item = box.getAt(i);
           if (item is Map && item['sync_id'] == stableKey) {
-            existingKey = box.keyAt(i); break;
+            existingKey = box.keyAt(i);
+            existingRecord = item;
+            break;
           }
         }
 
         final hiveRecord = _reportToHive(record);
         hiveRecord['sync_id'] = stableKey;
+        if (existingRecord != null &&
+            existingRecord['department'] != null &&
+            existingRecord['department'].toString().isNotEmpty) {
+          hiveRecord['department'] = existingRecord['department'];
+        }
         await box.put(existingKey, hiveRecord);
         debugPrint('✅ [production_reports] تم حفظ محلياً: $stableKey');
       }
@@ -400,12 +491,43 @@ mixin ProductionSync on SyncServiceBase {
           debugPrint('⚠️ [live_sessions] لم يُعثر على الجلسة محلياً: $stableKey (ربما حُذف مسبقاً)');
         }
       } else {
-        final session = LiveSession.fromJson(record);
+        var session = LiveSession.fromJson(record);
         dynamic existingKey = stableKey;
+        LiveSession? existingSession;
         for (var i = 0; i < box.length; i++) {
           final item = box.getAt(i);
           if (item != null && item.id == stableKey) {
-            existingKey = box.keyAt(i); break;
+            existingKey = box.keyAt(i);
+            existingSession = item;
+            break;
+          }
+        }
+        if (existingSession != null) {
+          final keepLayers = (session.paperLayers == null || session.paperLayers!.isEmpty) &&
+              (existingSession.paperLayers != null && existingSession.paperLayers!.isNotEmpty);
+          if (keepLayers) {
+            session = LiveSession(
+              id: session.id,
+              machineName: session.machineName,
+              clientName: session.clientName,
+              productName: session.productName,
+              productCode: session.productCode,
+              orderNumber: session.orderNumber,
+              technicianName: session.technicianName,
+              startTime: session.startTime,
+              downtimeIntervals: session.downtimeIntervals,
+              isRunning: session.isRunning,
+              lastStateChange: session.lastStateChange,
+              dimensions: session.dimensions ?? existingSession.dimensions,
+              isSheet: session.isSheet ?? existingSession.isSheet,
+              imagePaths: session.imagePaths ?? existingSession.imagePaths,
+              factoryId: session.factoryId ?? existingSession.factoryId,
+              createdByDeviceId: session.createdByDeviceId ?? existingSession.createdByDeviceId,
+              technicianId: session.technicianId ?? existingSession.technicianId,
+              department: session.department ?? existingSession.department,
+              shift: session.shift ?? existingSession.shift,
+              paperLayers: existingSession.paperLayers,
+            );
           }
         }
         await box.put(existingKey, session);
@@ -422,30 +544,58 @@ mixin ProductionSync on SyncServiceBase {
   // ==============================================================
 
   Map<String, dynamic> _reportToHive(Map<String, dynamic> r) {
+    String? dept = r['department']?.toString();
+    if (dept == null || dept.trim().isEmpty || dept == 'null') {
+      final machineName =
+          (r['machineName'] ?? r['machine_name'])?.toString() ?? '';
+      if (machineName == 'خط الإنتاج') {
+        dept = 'production_line';
+      }
+      dept ??= 'flexo';
+    }
+
+    final dims = r['dimensions'] is Map
+        ? Map<String, dynamic>.from(r['dimensions'])
+        : <String, dynamic>{};
+
+    final rawW = r['weight'] ?? r['weight_tons'] ?? dims['weight'] ?? 0;
+    final double weightVal =
+        rawW is num ? rawW.toDouble() : (double.tryParse(rawW.toString()) ?? 0.0);
+
+    final rawLayers = r['paperLayers'] ??
+        r['paper_layers'] ??
+        dims['paperLayers'] ??
+        dims['paper_layers'] ??
+        [];
+    final List<dynamic> layersList = rawLayers is List ? rawLayers : [];
+
     return {
-      'sync_id':        r['sync_id'],
-      'id':             r['id'] ?? r['sync_id'],
-      'date':           r['date'],
-      'clientName':     r['clientName']     ?? r['client_name'],
-      'product':        r['product']        ?? r['product_name'],
-      'productCode':    r['productCode']    ?? r['product_code'],
-      'orderNumber':    r['orderNumber']    ?? r['order_number'],
-      'startTime':      r['startTime']      ?? r['start_time'],
-      'endTime':        r['endTime']        ?? r['end_time'],
-      'downtimeStart':  r['downtimeStart']  ?? r['downtime_start'],
-      'downtimeEnd':    r['downtimeEnd']    ?? r['downtime_end'],
-      'totalDowntime':  r['totalDowntime']  ?? r['total_downtime'],
-      'machineName':    r['machineName']    ?? r['machine_name'],
+      'sync_id': r['sync_id'],
+      'id': r['id'] ?? r['sync_id'],
+      'department': dept,
+      'date': r['date'],
+      'clientName': r['clientName'] ?? r['client_name'],
+      'product': r['product'] ?? r['product_name'],
+      'productCode': r['productCode'] ?? r['product_code'],
+      'orderNumber': r['orderNumber'] ?? r['order_number'],
+      'startTime': r['startTime'] ?? r['start_time'],
+      'endTime': r['endTime'] ?? r['end_time'],
+      'downtimeStart': r['downtimeStart'] ?? r['downtime_start'],
+      'downtimeEnd': r['downtimeEnd'] ?? r['downtime_end'],
+      'totalDowntime': r['totalDowntime'] ?? r['total_downtime'],
+      'machineName': r['machineName'] ?? r['machine_name'],
       'technicianName': r['technicianName'] ?? r['technician_name'],
-      'technician_id':  r['technician_id']  ?? r['technicianId'],
-      'quantity':       r['quantity'],
-      'lineWaste':      r['lineWaste']      ?? r['line_waste'],
-      'printWaste':     r['printWaste']     ?? r['print_waste'],
-      'notes':          r['notes'],
-      'isSheet':        r['isSheet']        ?? r['is_sheet'] ?? false,
-      'factory_id':     r['factory_id'],
-      'colors':         r['colors']         ?? [],
-      'dimensions':     r['dimensions']     ?? {},
+      'technician_id': r['technician_id'] ?? r['technicianId'],
+      'quantity': r['quantity'],
+      'weight': weightVal,
+      'paperLayers': layersList,
+      'lineWaste': r['lineWaste'] ?? r['line_waste'],
+      'printWaste': r['printWaste'] ?? r['print_waste'],
+      'notes': r['notes'],
+      'isSheet': r['isSheet'] ?? r['is_sheet'] ?? false,
+      'factory_id': r['factory_id'],
+      'colors': r['colors'] ?? [],
+      'dimensions': dims,
     };
   }
 
@@ -463,11 +613,14 @@ mixin ProductionSync on SyncServiceBase {
           ? Hive.box('inkReports')
           : await Hive.openBox('inkReports');
 
-      final archiveBox = Hive.isBoxOpen('flexoArchive')
+      final flexoArchiveBox = Hive.isBoxOpen('flexoArchive')
           ? Hive.box('flexoArchive')
           : await Hive.openBox('flexoArchive');
+      final lineArchiveBox = Hive.isBoxOpen('lineArchive')
+          ? Hive.box('lineArchive')
+          : await Hive.openBox('lineArchive');
 
-      if (prodBox.isEmpty && archiveBox.isEmpty) {
+      if (prodBox.isEmpty && flexoArchiveBox.isEmpty && lineArchiveBox.isEmpty) {
         debugPrint('⚠️ [directPushAllReports] الصناديق المحلية للتقارير والأرشيف فارغة.');
         return;
       }
@@ -492,18 +645,20 @@ mixin ProductionSync on SyncServiceBase {
       }
       final List<Map<String, dynamic>> productionReportsList = uniqueProdRecords.values.toList();
 
-      // ─── 2. تجميع وتنظيف تقارير الأرشيف (archived_reports) ───
+      // ─── 2. تجميع وتنظيف تقارير الأرشيف من كلا الـ boxes (archived_reports) ───
       final rawArchivedRecords = <Map<String, dynamic>>[];
-      for (final key in archiveBox.keys) {
-        final item = archiveBox.get(key);
-        if (item is! Map) continue;
-        final itemMap = Map<String, dynamic>.from(item);
-        final reportData = itemMap['data'] is Map
-            ? Map<String, dynamic>.from(itemMap['data'])
-            : itemMap;
-        final payload = _normalizeReportPayload(reportData, factoryId);
-        if (payload != null) {
-          rawArchivedRecords.add(payload);
+      for (final archiveBox in [flexoArchiveBox, lineArchiveBox]) {
+        for (final key in archiveBox.keys) {
+          final item = archiveBox.get(key);
+          if (item is! Map) continue;
+          final itemMap = Map<String, dynamic>.from(item);
+          final reportData = itemMap['data'] is Map
+              ? Map<String, dynamic>.from(itemMap['data'])
+              : itemMap;
+          final payload = _normalizeReportPayload(reportData, factoryId);
+          if (payload != null) {
+            rawArchivedRecords.add(payload);
+          }
         }
       }
 
@@ -561,6 +716,24 @@ mixin ProductionSync on SyncServiceBase {
             : '');
     if (syncId.isEmpty) return null;
 
+    final dims = (r['dimensions'] is Map)
+        ? Map<String, dynamic>.from(r['dimensions'])
+        : <String, dynamic>{};
+
+    final rawW = r['weight'] ?? r['weight_tons'] ?? dims['weight'] ?? 0;
+    final double weightVal =
+        rawW is num ? rawW.toDouble() : (double.tryParse(rawW.toString()) ?? 0.0);
+
+    final rawLayers = r['paperLayers'] ??
+        r['paper_layers'] ??
+        dims['paperLayers'] ??
+        dims['paper_layers'] ??
+        [];
+    final List<dynamic> layersList = rawLayers is List ? rawLayers : [];
+
+    dims['weight'] = weightVal;
+    dims['paperLayers'] = layersList;
+
     final payload = <String, dynamic>{
       'sync_id': syncId,
       'factory_id': r['factory_id']?.toString().trim().isNotEmpty == true
@@ -570,9 +743,7 @@ mixin ProductionSync on SyncServiceBase {
       'client_name': r['client_name']?.toString() ?? r['clientName']?.toString() ?? '',
       'product': r['product']?.toString() ?? r['product_name']?.toString() ?? '',
       'product_code': r['product_code']?.toString() ?? r['productCode']?.toString() ?? '',
-      'dimensions': (r['dimensions'] is Map)
-          ? Map<String, dynamic>.from(r['dimensions'])
-          : {},
+      'dimensions': dims,
       'colors': (r['colors'] is List)
           ? List<dynamic>.from(r['colors'])
           : [],
@@ -589,6 +760,14 @@ mixin ProductionSync on SyncServiceBase {
       'machine_name': r['machine_name']?.toString() ?? r['machineName']?.toString(),
       'technician_name': r['technician_name']?.toString() ?? r['technicianName']?.toString(),
       'technician_id': r['technician_id']?.toString() ?? r['technicianId']?.toString(),
+      'department': r['department']?.toString() ??
+          ((r['machine_name']?.toString() == 'خط الإنتاج' ||
+                  r['machineName']?.toString() == 'خط الإنتاج')
+              ? 'production_line'
+              : 'flexo'),
+      'paperLayers': layersList,
+      'paper_layers': layersList,
+      'weight': weightVal,
       'is_sheet': r['is_sheet'] == true || r['isSheet'] == true || r['is_sheet'] == 'true',
     };
 

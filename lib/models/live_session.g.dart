@@ -34,13 +34,16 @@ class LiveSessionAdapter extends TypeAdapter<LiveSession> {
       factoryId: fields[14] as String?,
       createdByDeviceId: fields[15] as String?,
       technicianId: fields[16] as String?,
+      department: fields[17] as String? ?? 'flexo',
+      shift: fields[18] as String?,
+      paperLayers: (fields[19] as List?)?.cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, LiveSession obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(20)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -74,7 +77,13 @@ class LiveSessionAdapter extends TypeAdapter<LiveSession> {
       ..writeByte(15)
       ..write(obj.createdByDeviceId)
       ..writeByte(16)
-      ..write(obj.technicianId);
+      ..write(obj.technicianId)
+      ..writeByte(17)
+      ..write(obj.department)
+      ..writeByte(18)
+      ..write(obj.shift)
+      ..writeByte(19)
+      ..write(obj.paperLayers);
   }
 
   @override

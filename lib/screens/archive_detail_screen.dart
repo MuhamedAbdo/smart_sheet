@@ -20,19 +20,156 @@ class ArchiveDetailScreen extends StatelessWidget {
             _buildSectionHeader(Icons.event_note, "معلومات أساسية"),
             _buildDetailRow(context, "📅 التاريخ:", record['date'] ?? '---'),
             _buildDetailRow(context, "👤 العميل:", record['clientName']?.toString() ?? '---'),
-            _buildDetailRow(context, "📦 الصنف:", record['product']?.toString() ?? '---'),
+            _buildDetailRow(context, "📦 الصنف:",
+                "${record['product']?.toString() ?? '---'} ${record['productCode'] != null && record['productCode'].toString().isNotEmpty ? '[ ${record['productCode']} ]' : ''}"),
+            if (record['orderNumber'] != null && record['orderNumber'].toString().isNotEmpty)
+              _buildDetailRow(context, "🔢 أمر التشغيل:", record['orderNumber'].toString()),
+            if (record['shift'] != null && record['shift'].toString().isNotEmpty && record['shift'] != 'null')
+              _buildDetailRow(context, "🔄 الوردية:", record['shift'].toString()),
             const SizedBox(height: 20),
-            
-            _buildSectionHeader(Icons.straighten, "المقاسات"),
+
+            _buildSectionHeader(Icons.precision_manufacturing, "بيانات التشغيل والماكينة"),
+            _buildDetailRow(context, "⚙️ الماكينة:",
+                (record['machineName'] ?? record['machine_name'])?.toString() ?? '---'),
+            if ((record['technicianName'] ?? record['technician_name']) != null &&
+                (record['technicianName'] ?? record['technician_name']).toString().isNotEmpty)
+              _buildDetailRow(context, "👤 الفني المسؤول:",
+                  (record['technicianName'] ?? record['technician_name']).toString()),
+            if ((record['startTime'] != null && record['startTime'].toString().isNotEmpty) ||
+                (record['endTime'] != null && record['endTime'].toString().isNotEmpty))
+              _buildDetailRow(context, "🕒 وقت التشغيل:",
+                  "${record['startTime'] ?? '--:--'} إلى ${record['endTime'] ?? '--:--'}"),
+            Builder(
+              builder: (context) {
+                final dStart = record['downtimeStart'] ?? record['downtime_start'];
+                final dEnd = record['downtimeEnd'] ?? record['downtime_end'];
+                final rawTotal = record['totalDowntime'];
+                final int totalDt = rawTotal is num
+                    ? rawTotal.toInt()
+                    : int.tryParse(rawTotal?.toString() ?? '0') ?? 0;
+                String dtDisplay = "";
+                if ((dStart != null && dStart.toString().isNotEmpty) ||
+                    (dEnd != null && dEnd.toString().isNotEmpty) ||
+                    totalDt > 0) {
+                  if (dStart != null && dStart.toString().isNotEmpty) {
+                    dtDisplay += "$dStart إلى ${dEnd ?? ''}";
+                  }
+                  if (totalDt > 0) {
+                    dtDisplay += " (إجمالي: $totalDt دقيقة)";
+                  }
+                }
+                if (dtDisplay.isEmpty) return const SizedBox.shrink();
+                return _buildDetailRow(context, "⏱️ وقت الأعطال:", dtDisplay.trim());
+              },
+            ),
+            const SizedBox(height: 20),
+
+            _buildSectionHeader(Icons.straighten, "المقاسات والكميات والأوزان"),
             _buildDimensionsDetails(context, record['dimensions']),
             _buildDetailRow(context, "🔢 الكمية:", "${record['quantity'] ?? 0}"),
+            Builder(
+              builder: (context) {
+                final dims = record['dimensions'] is Map
+                    ? record['dimensions'] as Map
+                    : {};
+                final w = record['weight'] ??
+                    record['weight_tons'] ??
+                    dims['weight'];
+                final double weightVal = w != null
+                    ? (w is num
+                        ? w.toDouble()
+                        : (double.tryParse(w.toString()) ?? 0.0))
+                    : 0.0;
+                if (weightVal <= 0) return const SizedBox.shrink();
+                return _buildDetailRow(context, "⚖️ الوزن:", "$weightVal طن");
+              },
+            ),
+            Builder(
+              builder: (context) {
+                final dept = record['department']?.toString();
+                final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
+                final isProdLine = dept == 'production_line' || mName == 'خط الإنتاج';
+                final lineWaste = record['lineWaste'] ?? 0;
+                final printWaste = record['printWaste'] ?? 0;
+                return _buildDetailRow(
+                  context,
+                  "📉 الهالك:",
+                  isProdLine
+                      ? "$lineWaste"
+                      : "إنتاج: $lineWaste | طباعة: $printWaste",
+                );
+              },
+            ),
             const SizedBox(height: 20),
-            
-            _buildSectionHeader(Icons.palette, "الألوان والأحبار"),
-            _buildColorsList(record['colors'] ?? []),
-            const SizedBox(height: 20),
-            
-            if (record['notes'] != null && record['notes'].toString().isNotEmpty) ...[
+
+            Builder(
+              builder: (context) {
+                final dims = record['dimensions'] is Map
+                    ? record['dimensions'] as Map
+                    : {};
+                final rawLayers = record['paperLayers'] ??
+                    record['paper_layers'] ??
+                    dims['paperLayers'] ??
+                    dims['paper_layers'];
+                final List<String> layers = [];
+                if (rawLayers is List) {
+                  layers.addAll(rawLayers
+                      .map((e) => e.toString().trim())
+                      .where((e) => e.isNotEmpty));
+                }
+                if (layers.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(Icons.layers, "طبقات الورق"),
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.brown.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.brown.withValues(alpha: 0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: layers
+                            .asMap()
+                            .entries
+                            .map((e) => Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Text(
+                                    " • الطبقة ${e.key + 1}: ${e.value}",
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold, fontSize: 15),
+                                  ),
+                                ))
+                            .toList(),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+
+            Builder(
+              builder: (context) {
+                final dept = record['department']?.toString();
+                final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
+                final isProdLine = dept == 'production_line' || mName == 'خط الإنتاج';
+                if (isProdLine) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(Icons.palette, "الألوان والأحبار"),
+                    _buildColorsList(record['colors'] ?? []),
+                    const SizedBox(height: 20),
+                  ],
+                );
+              },
+            ),
+
+            if (record['notes'] != null && record['notes'].toString().trim().isNotEmpty) ...[
               _buildSectionHeader(Icons.description, "ملاحظات إضافية"),
               Container(
                 width: double.infinity,
@@ -51,9 +188,10 @@ class ArchiveDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 20),
             ],
-            
-            const SizedBox(height: 30),
+
+            const SizedBox(height: 10),
             Center(
               child: Text(
                 "تاريخ الأرشفة: ${record['archiveDate'] ?? '---'}",
@@ -90,6 +228,7 @@ class ArchiveDetailScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,

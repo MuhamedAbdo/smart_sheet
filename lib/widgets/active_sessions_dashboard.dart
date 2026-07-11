@@ -7,11 +7,13 @@ import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/server_time_service.dart';
 
 class ActiveSessionsDashboard extends StatelessWidget {
+  final String? department;
   final Function(LiveSession) onFinishSession;
   final Function(LiveSession) onCancelSession; // ✅ إضافة دالة الإلغاء
 
   const ActiveSessionsDashboard({
     super.key,
+    this.department,
     required this.onFinishSession,
     required this.onCancelSession, // ✅ تمرير الدالة للمُنشئ
   });
@@ -37,11 +39,17 @@ class ActiveSessionsDashboard extends StatelessWidget {
     return ValueListenableBuilder(
       valueListenable: box.listenable(),
       builder: (context, Box<LiveSession> openBox, _) {
-        if (openBox.isEmpty) {
+        final sessions = openBox.values.where((s) {
+          if (department == 'production_line') {
+            return s.department == 'production_line';
+          } else {
+            return s.department == 'flexo' || s.department == null;
+          }
+        }).toList().reversed.toList();
+
+        if (sessions.isEmpty) {
           return const SizedBox.shrink();
         }
-
-        final sessions = openBox.values.toList().reversed.toList();
 
         return Container(
           height: 280,

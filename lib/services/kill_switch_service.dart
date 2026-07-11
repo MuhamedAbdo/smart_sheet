@@ -348,6 +348,7 @@ class KillSwitchService {
         'savedSheetSizes',
         'inkReports',
         'flexoArchive',
+        'lineArchive',
         'store_flexo',
         'maintenance_records_main',
         'flexo_machines',

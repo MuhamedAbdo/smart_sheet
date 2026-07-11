@@ -746,18 +746,67 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
               await _supabase.from(table).upsert(cleanPayload);
             }
           } on PostgrestException catch (e) {
-            // ✅ حماية ضد أخطاء اختلاف هيكل قاعدة البيانات (مثل عدم وجود عمود technician_id في جدول live_sessions بالسحابة)
-            if ((e.code == 'PGRST204' || e.code == '42703' || e.message.toLowerCase().contains('column')) &&
-                cleanPayload.containsKey('technician_id')) {
-              debugPrint('⚠️ [Queue] حقل technician_id غير موجود في جدول $table بسحابة Supabase، جاري الرفع بدونه...');
-              cleanPayload.remove('technician_id');
-              if (table == 'customers' ||
-                  table == 'production_reports' ||
-                  table == 'workers' ||
-                  table == 'live_sessions') {
-                await _supabase.from(table).upsert(cleanPayload, onConflict: 'sync_id');
+            // ✅ حماية ذكية ضد أخطاء اختلاف هيكل قاعدة البيانات (مثل عدم وجود عمود department أو shift أو technician_id في جدول live_sessions بالسحابة)
+            if (e.code == 'PGRST204' ||
+                e.code == '42703' ||
+                e.message.toLowerCase().contains('column')) {
+              final match = RegExp(r"Could not find the '([^']+)' column")
+                  .firstMatch(e.message);
+              final missingCol = match?.group(1);
+
+              bool modified = false;
+              if (missingCol != null && cleanPayload.containsKey(missingCol)) {
+                debugPrint(
+                    '⚠️ [Queue] حقل $missingCol غير موجود في جدول $table بسحابة Supabase، جاري الرفع بدونه...');
+                cleanPayload.remove(missingCol);
+                modified = true;
+              }
+              if (cleanPayload.containsKey('department') &&
+                  (missingCol == 'department' ||
+                      e.message.contains('department'))) {
+                cleanPayload.remove('department');
+                modified = true;
+              }
+              if (cleanPayload.containsKey('shift') &&
+                  (missingCol == 'shift' || e.message.contains('shift'))) {
+                cleanPayload.remove('shift');
+                modified = true;
+              }
+              if (cleanPayload.containsKey('technician_id') &&
+                  (missingCol == 'technician_id' ||
+                      e.message.contains('technician_id'))) {
+                cleanPayload.remove('technician_id');
+                modified = true;
+              }
+              if ((cleanPayload.containsKey('paper_layers') ||
+                      cleanPayload.containsKey('paperLayers')) &&
+                  (missingCol == 'paper_layers' ||
+                      missingCol == 'paperLayers' ||
+                      e.message.contains('paper_layers') ||
+                      e.message.contains('paperLayers'))) {
+                cleanPayload.remove('paper_layers');
+                cleanPayload.remove('paperLayers');
+                modified = true;
+              }
+              if (cleanPayload.containsKey('weight') &&
+                  (missingCol == 'weight' || e.message.contains('weight'))) {
+                cleanPayload.remove('weight');
+                modified = true;
+              }
+
+              if (modified) {
+                if (table == 'customers' ||
+                    table == 'production_reports' ||
+                    table == 'workers' ||
+                    table == 'live_sessions') {
+                  await _supabase
+                      .from(table)
+                      .upsert(cleanPayload, onConflict: 'sync_id');
+                } else {
+                  await _supabase.from(table).upsert(cleanPayload);
+                }
               } else {
-                await _supabase.from(table).upsert(cleanPayload);
+                rethrow;
               }
             } else {
               rethrow;

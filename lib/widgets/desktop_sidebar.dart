@@ -87,7 +87,24 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                     setState(() => _selectedIndex = 1);
                     final nav = context.read<AuthService>().navigatorKey.currentState;
                     nav?.popUntil((route) => route.isFirst);
-                    nav?.push(MaterialPageRoute(builder: (_) => const FlexoArchiveScreen()));
+                    nav?.push(MaterialPageRoute(
+                        builder: (_) => const FlexoArchiveScreen(
+                              department: 'flexo',
+                            )));
+                  },
+                ),
+                _buildNavItem(
+                  icon: Icons.archive_outlined,
+                  title: 'أرشيف خط الإنتاج',
+                  index: 3,
+                  onTap: () {
+                    setState(() => _selectedIndex = 3);
+                    final nav = context.read<AuthService>().navigatorKey.currentState;
+                    nav?.popUntil((route) => route.isFirst);
+                    nav?.push(MaterialPageRoute(
+                        builder: (_) => const FlexoArchiveScreen(
+                              department: 'production_line',
+                            )));
                   },
                 ),
                 const Divider(),

@@ -4,7 +4,8 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/screens/archive_detail_screen.dart';
 
 class FlexoArchiveScreen extends StatefulWidget {
-  const FlexoArchiveScreen({super.key});
+  final String? department;
+  const FlexoArchiveScreen({super.key, this.department});
 
   @override
   State<FlexoArchiveScreen> createState() => _FlexoArchiveScreenState();
@@ -19,7 +20,16 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
   @override
   void initState() {
     super.initState();
-    _archiveBox = Hive.box('flexoArchive');
+    final boxName = widget.department == 'production_line'
+        ? 'lineArchive'
+        : 'flexoArchive';
+    if (Hive.isBoxOpen(boxName)) {
+      _archiveBox = Hive.box(boxName);
+    } else {
+      Hive.openBox(boxName).then((box) {
+        if (mounted) setState(() => _archiveBox = box);
+      });
+    }
   }
 
   void _deleteEntry(dynamic key) {
@@ -133,6 +143,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
   List<MapEntry<dynamic, dynamic>> _getFilteredEntries(Box box) {
     final query = _normalizeString(_searchQuery);
     var entries = box.toMap().entries.toList();
+
+    // لا حاجة لفلترة بالـ department — كل box يحتوي على قسم واحد فقط
 
     // 1. الفلترة باسم العميل أو كود الصنف
     if (query.isNotEmpty) {
@@ -308,7 +320,9 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                   ),
                 ),
               )
-            : const Text("أرشيف تقارير الإنتاج"),
+            : Text(widget.department == 'production_line'
+                ? "أرشيف خط الإنتاج"
+                : "أرشيف تقارير الفلكسو"),
         centerTitle: !_isSearching,
         actions: [
           PopupMenuButton<String>(
@@ -497,17 +511,86 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     );
   }
 
+  Widget _buildArchiveInfoRow(IconData icon, String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.blueGrey),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: valueColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildArchiveCard(dynamic key, Map data) {
     final report = data['data'] ?? data;
     final String clientName = report['clientName'] ?? "بدون اسم";
     final String product = report['product'] ?? "بدون صنف";
+    final String productCode = report['productCode']?.toString() ?? '';
     final String displayDate = report['date'] ?? "---";
+    final String orderNumber = report['orderNumber']?.toString() ?? '';
+    final String startTime = report['startTime']?.toString() ?? '';
+    final String endTime = report['endTime']?.toString() ?? '';
+    final String machineName = (report['machineName'] ?? report['machine_name'])?.toString() ?? '';
+    final String technicianName = (report['technicianName'] ?? report['technician_name'])?.toString() ?? '';
+    final String dept = report['department']?.toString() ?? '';
+    final bool isProdLine = dept == 'production_line' || machineName == 'خط الإنتاج' || widget.department == 'production_line';
 
     final dims = report['dimensions'];
-    final String dimStr =
-        dims != null && (dims['length'] != 0 || dims['width'] != 0)
-            ? "${dims['length']} × ${dims['width']} × ${dims['height']}"
-            : "";
+    final bool isSheet = report['isSheet'] ?? false;
+    final String length = dims?['length']?.toString() ?? '0';
+    final String width = dims?['width']?.toString() ?? '0';
+    final String height = dims?['height']?.toString() ?? '0';
+    final String dimStr = dims != null && (dims['length'] != 0 || dims['width'] != 0)
+        ? (isSheet ? "$length / $width" : "$length / $width / $height")
+        : "";
+
+    final quantity = report['quantity'] ?? 0;
+    final lineWaste = report['lineWaste'] ?? 0;
+    final printWaste = report['printWaste'] ?? 0;
+
+    final w = report['weight'];
+    final double weightVal = w != null
+        ? (w is num ? w.toDouble() : (double.tryParse(w.toString()) ?? 0.0))
+        : 0.0;
+
+    final rawLayers = report['paperLayers'] ?? report['paper_layers'];
+    final List<String> layers = [];
+    if (rawLayers is List) {
+      layers.addAll(rawLayers.map((e) => e.toString().trim()).where((e) => e.isNotEmpty));
+    }
+
+    final downtimeStart = report['downtimeStart'] ?? report['downtime_start'];
+    final downtimeEnd = report['downtimeEnd'] ?? report['downtime_end'];
+    final rawTotalDowntime = report['totalDowntime'];
+    final int totalDowntime = rawTotalDowntime is num
+        ? rawTotalDowntime.toInt()
+        : int.tryParse(rawTotalDowntime?.toString() ?? '0') ?? 0;
+
+    String downtimeDisplay = "";
+    if ((downtimeStart != null && downtimeStart.toString().isNotEmpty) ||
+        (downtimeEnd != null && downtimeEnd.toString().isNotEmpty) ||
+        totalDowntime > 0) {
+      if (downtimeStart != null && downtimeStart.toString().isNotEmpty) {
+        downtimeDisplay += "$downtimeStart إلى ${downtimeEnd ?? ''}";
+      }
+      if (totalDowntime > 0) {
+        downtimeDisplay += " (إجمالي: $totalDowntime دقيقة)";
+      }
+    }
 
     final colors = report['colors'] as List? ?? [];
 
@@ -585,7 +668,6 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                   );
 
                   if (isNarrow) {
-                    // ─── شاشة الهاتف: صفّان ───────────────────────
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -602,7 +684,6 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                     );
                   }
 
-                  // ─── شاشة الديسكتوب: صف واحد ───────────────────
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -627,66 +708,66 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                       size: 18, color: Colors.blueGrey),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        RichText(
-                          text: TextSpan(
-                            style: TextStyle(
-                              color: Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? Colors.white70
-                                  : Colors.black87,
-                              fontSize: 15,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: product.replaceAll("\n", " "),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700),
-                              ),
-                              TextSpan(
-                                text: " [ ${report['productCode'] ?? '---'} ]",
-                                style: const TextStyle(
-                                  color: Colors.blueAccent,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
+                    child: RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white70
+                              : Colors.black87,
+                          fontSize: 15,
                         ),
-                        if (dimStr.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Row(
-                              children: [
-                                const Text("📏 المقاس: ",
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.grey)),
-                                Directionality(
-                                  textDirection: TextDirection.ltr,
-                                  child: Text(
-                                    dimStr,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blueAccent,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        children: [
+                          TextSpan(
+                            text: product.replaceAll("\n", " "),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
-                      ],
+                          if (productCode.isNotEmpty)
+                            TextSpan(
+                              text: " [ $productCode ]",
+                              style: const TextStyle(
+                                color: Colors.blueAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 6),
+              if (orderNumber.isNotEmpty)
+                _buildArchiveInfoRow(Icons.numbers, "أمر التشغيل:", orderNumber),
+              if (startTime.isNotEmpty || endTime.isNotEmpty)
+                _buildArchiveInfoRow(Icons.schedule, "وقت التشغيل:",
+                    "${startTime.isNotEmpty ? startTime : '--:--'} إلى ${endTime.isNotEmpty ? endTime : '--:--'}"),
+              if (dimStr.isNotEmpty)
+                _buildArchiveInfoRow(Icons.straighten, "المقاس:", dimStr,
+                    valueColor: Colors.blueAccent),
+              _buildArchiveInfoRow(Icons.format_list_numbered, "الكمية:", "$quantity"),
+              if (weightVal > 0)
+                _buildArchiveInfoRow(Icons.scale, "الوزن:", "$weightVal طن",
+                    valueColor: Colors.teal),
+              if (layers.isNotEmpty)
+                _buildArchiveInfoRow(Icons.layers, "طبقات الورق:", layers.join('  |  '),
+                    valueColor: Colors.brown),
+              _buildArchiveInfoRow(
+                Icons.trending_down,
+                "الهالك:",
+                isProdLine
+                    ? "$lineWaste"
+                    : "إنتاج: $lineWaste | طباعة: $printWaste",
+              ),
+              if (machineName.isNotEmpty)
+                _buildArchiveInfoRow(Icons.precision_manufacturing, "الماكينة:", machineName),
+              if (technicianName.isNotEmpty)
+                _buildArchiveInfoRow(Icons.person, "الفني المسؤول:", technicianName),
+              if (downtimeDisplay.isNotEmpty)
+                _buildArchiveInfoRow(Icons.timer_off, "وقت الأعطال:", downtimeDisplay,
+                    valueColor: Colors.redAccent),
               if (report['notes'] != null &&
-                  report['notes'].toString().isNotEmpty &&
+                  report['notes'].toString().trim().isNotEmpty &&
                   !report['notes'].toString().contains("مستورد"))
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
@@ -705,7 +786,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            report['notes'],
+                            report['notes'].toString(),
                             style: TextStyle(
                               fontSize: 13,
                               fontStyle: FontStyle.italic,
@@ -720,7 +801,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                     ),
                   ),
                 ),
-              if (colors.isNotEmpty) ...[
+              if (!isProdLine && colors.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,

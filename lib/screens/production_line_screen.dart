@@ -11,6 +11,10 @@ import 'package:smart_sheet/screens/machine_management_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
 
+import 'package:smart_sheet/screens/production_line/start_production_session_screen.dart';
+import 'package:smart_sheet/screens/production_report_screen.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
+
 // ✅ استيراد الشاشات
 
 class ProductionLineScreen extends StatelessWidget {
@@ -100,7 +104,15 @@ class ProductionLineScreen extends StatelessWidget {
                       HomeButton(
                         icon: Icons.receipt,
                         label: 'تقرير الإنتاج',
-                        onTap: () {},
+                        onTap: () async {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProductionReportScreen(
+                                  department: 'production_line'),
+                            ),
+                          );
+                        },
                       ),
                       HomeButton(
                         icon: Icons.inventory,
@@ -191,6 +203,25 @@ class ProductionLineScreen extends StatelessWidget {
           ],
         ),
       ),
+      floatingActionButton: !PermissionHelper.canAdd
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const StartProductionSessionScreen(),
+                  ),
+                );
+              },
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text(
+                'بدء إنتاج (خط الإنتاج)',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
     );
   }
 }
