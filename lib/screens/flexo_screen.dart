@@ -151,7 +151,10 @@ class FlexoScreen extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const MachineManagementScreen(),
+                                builder: (context) =>
+                                    const MachineManagementScreen(
+                                  department: 'flexo',
+                                ),
                               ),
                             );
                           },

@@ -40,7 +40,8 @@ mixin MachinesSync on SyncServiceBase {
             break;
           }
         }
-        await box.put(existingKey, FlexoMachine(id: stableKey, name: r['name']?.toString() ?? ''));
+        final dept = r['department']?.toString() ?? 'flexo';
+        await box.put(existingKey, FlexoMachine(id: stableKey, name: r['name']?.toString() ?? '', department: dept));
       }
       debugPrint('✅ MachinesSync: تم استرجاع ${res.length} machines.');
     } catch (e) {
@@ -144,8 +145,9 @@ mixin MachinesSync on SyncServiceBase {
           final m = box.getAt(i);
           if (m != null && m.id == stableKey) { existingKey = box.keyAt(i); break; }
         }
-        await box.put(existingKey, FlexoMachine(id: stableKey, name: machineName));
-        debugPrint('✅ [machines] تم حفظ/تحديث: $machineName (key=$existingKey)');
+        final dept = record['department']?.toString() ?? 'flexo';
+        await box.put(existingKey, FlexoMachine(id: stableKey, name: machineName, department: dept));
+        debugPrint('✅ [machines] تم حفظ/تحديث: $machineName | dept=$dept (key=$existingKey)');
       }
     } catch (e) { debugPrint('❌ _onMachineChange: $e'); }
   }

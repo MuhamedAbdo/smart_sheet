@@ -6,13 +6,20 @@ import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 
 class MachineManagementScreen extends StatelessWidget {
-  const MachineManagementScreen({super.key});
+  final String department;
+
+  const MachineManagementScreen({
+    super.key,
+    this.department = 'flexo',
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('إدارة ماكينات الفلكسو'),
+        title: Text(department == 'production_line'
+            ? 'إدارة ماكينات خط الإنتاج'
+            : 'إدارة ماكينات الفلكسو'),
         centerTitle: true,
         leading: Navigator.canPop(context)
             ? IconButton(
@@ -24,33 +31,42 @@ class MachineManagementScreen extends StatelessWidget {
       body: ValueListenableBuilder(
         valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
         builder: (context, Box<FlexoMachine> box, _) {
-          if (box.isEmpty) {
+          final machines = box.values.where((m) {
+            final mDept = m.department;
+            if (department == 'flexo') {
+              return mDept == 'flexo' || mDept.isEmpty;
+            }
+            return mDept == department;
+          }).toList();
+
+          if (machines.isEmpty) {
             return const Center(
-              child: Text('لا توجد ماكينات مسجلة حالياً'),
+              child: Text('لا توجد ماكينات مسجلة حالياً لهذا القسم'),
             );
           }
 
           return ListView.separated(
             padding: const EdgeInsets.all(16),
-            itemCount: box.length,
+            itemCount: machines.length,
             separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              final machine = box.getAt(index);
+              final machine = machines[index];
               return Card(
                 elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: Colors.blueAccent,
                     child: Icon(Icons.settings, color: Colors.white),
                   ),
                   title: Text(
-                    machine?.name ?? '',
+                    machine.name,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    onPressed: () => _deleteMachine(context, box, index),
+                    onPressed: () => _deleteMachine(context, machine),
                   ),
                 ),
               );
@@ -73,7 +89,8 @@ class MachineManagementScreen extends StatelessWidget {
         title: const Text('إضافة ماكينة جديدة'),
         content: SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -103,25 +120,30 @@ class MachineManagementScreen extends StatelessWidget {
 
                 // جلب factory_id من التخزين الآمن
                 final factoryId = await SupabaseManager.getFactoryId();
-                debugPrint('📤 [ماكينات] محاولة رفع ماكينة جديدة: "$name" | factory_id=${factoryId ?? "غير محدد"}');
+                debugPrint(
+                    '📤 [ماكينات] محاولة رفع ماكينة جديدة: "$name" | قسم: "$department" | factory_id=${factoryId ?? "غير محدد"}');
 
                 if (factoryId == null) {
-                  debugPrint('❌ [ماكينات] فشل رفع الماكينة "‏$name"‏: factory_id غير موجود. تأكد من ربط الجهاز بالمصنع.');
+                  debugPrint(
+                      '❌ [ماكينات] فشل رفع الماكينة "‏$name"‏: factory_id غير موجود. تأكد من ربط الجهاز بالمصنع.');
                   if (context.mounted) Navigator.pop(context);
                   return;
                 }
 
                 // توليد sync_id فريد وثابت لضمان المزامنة
-                final syncId = '${factoryId}_machine_${DateTime.now().millisecondsSinceEpoch}';
+                final syncId =
+                    '${factoryId}_machine_${DateTime.now().millisecondsSinceEpoch}';
 
                 final newMachine = FlexoMachine(
                   id: syncId,
                   name: name,
+                  department: department,
                 );
 
                 // حفظ محلياً بمفتاح ثابت
                 await box.put(syncId, newMachine);
-                debugPrint('✅ [ماكينات] تم حفظ محلياً: "$name" (sync_id=$syncId)');
+                debugPrint(
+                    '✅ [ماكينات] تم حفظ محلياً: "$name" | قسم: "$department" (sync_id=$syncId)');
 
                 // رفع لـ Supabase عبر طابور المزامنة
                 await SyncService.instance.pushToQueue(
@@ -131,10 +153,12 @@ class MachineManagementScreen extends StatelessWidget {
                     'id': syncId,
                     'name': name,
                     'factory_id': factoryId,
+                    'department': department,
                   },
                   operation: 'upsert',
                 );
-                debugPrint('📤 [ماكينات] تم إضافة الماكينة "‏$name"‏ لطابور المزامنة. سيتم رفعها لـ Supabase فوراً.');
+                debugPrint(
+                    '📤 [ماكينات] تم إضافة الماكينة "‏$name"‏ لطابور المزامنة.');
 
                 if (context.mounted) Navigator.pop(context);
               }
@@ -146,27 +170,27 @@ class MachineManagementScreen extends StatelessWidget {
     );
   }
 
-  void _deleteMachine(BuildContext context, Box<FlexoMachine> box, int index) {
+  void _deleteMachine(BuildContext context, FlexoMachine machine) {
     UIUtils.showDeleteConfirmation(
       context: context,
       title: 'حذف ماكينة',
       content: 'هل أنت متأكد من حذف هذه الماكينة؟',
       onConfirm: () async {
-        final machine = box.getAt(index);
-        final syncId = machine?.id;
-        final machineName = machine?.name ?? '';
+        final syncId = machine.id;
+        final machineName = machine.name;
 
         debugPrint('🗑️ [ماكينات] محاولة حذف: "$machineName" (sync_id=$syncId)');
-        await box.deleteAt(index);
+        await machine.delete();
 
         // حذف من Supabase عبر طابور المزامنة إذا كان عندنا sync_id
-        if (syncId != null && syncId.isNotEmpty) {
+        if (syncId.isNotEmpty) {
           await SyncService.instance.pushToQueue(
             'machines',
             {'sync_id': syncId, 'id': syncId},
             operation: 'delete',
           );
-          debugPrint('🗑️ [ماكينات] تم إضافة طلب الحذف لـ طابور المزامنة: "$machineName"');
+          debugPrint(
+              '🗑️ [ماكينات] تم إضافة طلب الحذف لـ طابور المزامنة: "$machineName"');
         }
       },
     );

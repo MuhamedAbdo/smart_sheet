@@ -81,7 +81,10 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
               valueListenable:
                   Hive.box<FlexoMachine>('flexo_machines').listenable(),
               builder: (context, Box<FlexoMachine> box, _) {
-                final machines = box.values.toList();
+                final machines = box.values
+                    .where((m) =>
+                        m.department == 'flexo' || m.department.isEmpty)
+                    .toList();
                 return DropdownButtonFormField<String>(
                   initialValue: selectedMachine,
                   decoration: const InputDecoration(
@@ -97,8 +100,10 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                       final name =
                           await _showSimplePrompt('اسم الماكينة الجديدة');
                       if (name != null && name.isNotEmpty) {
-                        box.add(
-                            FlexoMachine(id: const Uuid().v4(), name: name));
+                        box.add(FlexoMachine(
+                            id: const Uuid().v4(),
+                            name: name,
+                            department: 'flexo'));
                         setState(() => selectedMachine = name);
                       }
                     } else {

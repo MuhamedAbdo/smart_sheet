@@ -89,6 +89,7 @@ Future<void> main() async {
         Hive.openBox<Worker>('workers_staple'),
         Hive.openBox<FinishedProduct>('finished_products'),
         Hive.openBox<LiveSession>('flexo_live_sessions'),
+        Hive.openBox<FlexoMachine>('flexo_machines'),
         Hive.openBox<DaySchedule>('factory_schedule'), // جدول أيام الوردية
         Hive.openBox('sync_queue'), // قائمة انتظار المزامنة
       ]);

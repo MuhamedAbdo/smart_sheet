@@ -34,7 +34,10 @@ class FlexoReportDrawer extends StatelessWidget {
             child: ValueListenableBuilder(
               valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
               builder: (context, Box<FlexoMachine> machineBox, _) {
-                final machines = machineBox.values.toList();
+                final machines = machineBox.values
+                    .where((m) =>
+                        m.department == 'flexo' || m.department.isEmpty)
+                    .toList();
                 
                 if (machines.isEmpty) {
                   return const Center(child: Text("لا توجد ماكينات مسجلة"));

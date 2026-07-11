@@ -7,6 +7,7 @@ import 'package:smart_sheet/screens/new_sheet_size_screen.dart';
 import 'package:smart_sheet/screens/sheet_count_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
+import 'package:smart_sheet/screens/machine_management_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
 
@@ -134,7 +135,17 @@ class ProductionLineScreen extends StatelessWidget {
                       HomeButton(
                         icon: Icons.precision_manufacturing,
                         label: 'إدارة الماكينات',
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const MachineManagementScreen(
+                                department: 'production_line',
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       HomeButton(
                         icon: Icons.calculate,
