@@ -10,8 +10,11 @@ import '../../widgets/worker_action_card.dart';
 import '../../widgets/active_absence_card.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/globals.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/services/kill_switch_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
@@ -212,6 +215,48 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     // SyncService يتولى مزامنة worker_actions عبر _onAttendanceLogChange
     // الذي يُحدِّث Hive ثم يستدعي w.save() — يكفي الاستماع لـ Hive فقط.
     _setupHiveListener();
+    // ✅ جلب حالة ارتباط الجهاز من Supabase (الـ Hive المحلي قد يكون قديماً)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncDeviceLinkStatus();
+    });
+  }
+
+  /// جلب is_device_linked و device_id الحقيقية من Supabase سواء بالـ id أو بالـ email
+  /// لتحديث الـ UI بالحالة الفعلية — يتجاوز بيانات Hive القديمة.
+  Future<void> _syncDeviceLinkStatus() async {
+    final workerId = _worker.id;
+    final workerEmail = _worker.email;
+    if (!mounted) return;
+    try {
+      Map<String, dynamic>? res;
+      if (workerId != null && workerId.isNotEmpty) {
+        res = await Supabase.instance.client
+            .from('workers')
+            .select('is_device_linked, device_id')
+            .eq('id', workerId)
+            .maybeSingle();
+      }
+      if (res == null && workerEmail != null && workerEmail.isNotEmpty) {
+        res = await Supabase.instance.client
+            .from('workers')
+            .select('is_device_linked, device_id')
+            .eq('email', workerEmail)
+            .maybeSingle();
+      }
+      if (res != null && mounted) {
+        final isLinked = res['is_device_linked'] as bool? ?? false;
+        final deviceId = res['device_id']?.toString();
+        if (_worker.isDeviceLinked != isLinked || _worker.deviceId != deviceId) {
+          setState(() {
+            _worker.isDeviceLinked = isLinked;
+            _worker.deviceId = deviceId;
+          });
+          debugPrint('📱 WorkerDetails: حُدِّثت حالة الجهاز → isLinked=$isLinked, deviceId=$deviceId');
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ WorkerDetails._syncDeviceLinkStatus: $e');
+    }
   }
 
   @override
@@ -384,6 +429,49 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                           ),
                       ],
                     ),
+                    // ─── منطقة التحكم المركزي في الجهاز (للـ Admin فقط) ───────
+                    if (isSuperAdmin) ...[  
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 4),
+                      _buildDeviceLinkStatus(),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: Icon(
+                            Icons.link_off,
+                            color: _worker.isDeviceLinked ? Colors.white : Colors.grey.shade600,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _worker.isDeviceLinked
+                                ? 'فك ارتباط جهاز العامل'
+                                : 'تم فك ارتباط الجهاز بالفعل',
+                            style: TextStyle(
+                              color: _worker.isDeviceLinked ? Colors.white : Colors.grey.shade600,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _worker.isDeviceLinked
+                                ? const Color(0xFFD32F2F)
+                                : Colors.grey.shade300,
+                            foregroundColor: _worker.isDeviceLinked
+                                ? Colors.white
+                                : Colors.grey.shade600,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: _worker.isDeviceLinked ? 2 : 0,
+                          ),
+                          onPressed: _worker.isDeviceLinked
+                              ? () => _confirmUnlinkDevice(context)
+                              : null,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1316,4 +1404,251 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       }
     }
   }
+
+  // ==============================================================================
+  // Kill Switch UI — للـ Admin فقط
+  // ==============================================================================
+
+  /// شارة حالة ارتباط الجهاز: خضراء (مرتبط) أو حمراء (غير مرتبط).
+  Widget _buildDeviceLinkStatus() {
+    final bool isLinked = _worker.isDeviceLinked;
+    final String? deviceId = _worker.deviceId;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isLinked
+            ? Colors.green.withValues(alpha: 0.1)
+            : Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isLinked ? Colors.green.shade300 : Colors.orange.shade300,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isLinked ? Icons.smartphone : Icons.phonelink_erase,
+            color: isLinked ? Colors.green.shade600 : Colors.orange.shade600,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isLinked ? 'جهاز مرتبط' : 'لا يوجد جهاز مرتبط',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: isLinked
+                        ? Colors.green.shade700
+                        : Colors.orange.shade700,
+                  ),
+                ),
+                if (deviceId != null && deviceId.isNotEmpty)
+                  Text(
+                    'ID: ${deviceId.length > 16 ? '${deviceId.substring(0, 16)}...' : deviceId}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// dialog تأكيد فك الارتباط ثم استدعاء KillSwitchService.
+  Future<void> _confirmUnlinkDevice(BuildContext context) async {
+    final workerId = _worker.id;
+    // حفظ navigator و messenger قبل أي await لتفادي استخدام context عبر async gap
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    if (workerId == null || workerId.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('خطأ: معرف العامل غير متاح'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // ─── جلب الحالة الفعلية من Supabase سواء بالـ id أو بالـ email ───
+    bool remoteIsLinked = _worker.isDeviceLinked;
+    String? remoteDeviceId = _worker.deviceId;
+    final workerEmail = _worker.email;
+    try {
+      Map<String, dynamic>? res;
+      res = await Supabase.instance.client
+          .from('workers')
+          .select('is_device_linked, device_id')
+          .eq('id', workerId)
+          .maybeSingle();
+      if (res == null && workerEmail != null && workerEmail.isNotEmpty) {
+        res = await Supabase.instance.client
+            .from('workers')
+            .select('is_device_linked, device_id')
+            .eq('email', workerEmail)
+            .maybeSingle();
+      }
+      if (res != null) {
+        remoteIsLinked = res['is_device_linked'] as bool? ?? false;
+        remoteDeviceId = res['device_id']?.toString();
+      }
+    } catch (e) {
+      debugPrint('_confirmUnlinkDevice: فشل جلب الحالة من Supabase: $e');
+    }
+
+    // تحديث الـ UI بالبيانات الحديثة
+    if (mounted) {
+      setState(() {
+        _worker.isDeviceLinked = remoteIsLinked;
+        _worker.deviceId = remoteDeviceId;
+      });
+    }
+
+    if (!remoteIsLinked && (remoteDeviceId == null || remoteDeviceId.isEmpty)) {
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('تم فك ارتباط جهاز هذا العامل بالفعل'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: navigator.context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text(
+              'تأكيد فك الارتباط',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'هل أنت متأكد من فك ارتباط جهاز العامل "${_worker.name}"؟',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.red, size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'سيتم طرد العامل فوراً من التطبيق ولن يتمكن من الوصول إليه.',
+                      style: TextStyle(fontSize: 12, color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.link_off, color: Colors.white, size: 16),
+            label: const Text(
+              'فك الارتباط',
+              style: TextStyle(color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // تنفيذ فك الارتباط عبر Supabase
+    try {
+      await KillSwitchService.instance.unlinkDevice(workerId, email: _worker.email);
+
+      // تحديث الـ worker محلياً في Hive ليعكس التغيير فوراً في الـ UI
+      _worker.deviceId = null;
+      _worker.isDeviceLinked = false;
+      if (_worker.isInBox) await _worker.save();
+
+      // مزامنة التغيير مع السيرفر
+      SyncService.instance.pushToQueue(
+        'workers',
+        {
+          ..._worker.toJson(),
+          'device_id': null,
+          'is_device_linked': false,
+        },
+        operation: 'upsert',
+      );
+
+      if (!mounted) return;
+      setState(() {});
+
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'تم فك ارتباط جهاز العامل "${_worker.name}" بنجاح',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green.shade700,
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      debugPrint('_confirmUnlinkDevice error: $e');
+      if (!mounted) return;
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text('فشل فك الارتباط: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
 }
+

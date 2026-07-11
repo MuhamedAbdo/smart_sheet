@@ -31,13 +31,15 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       canManageClientsAdd: fields[12] == null ? false : fields[12] as bool,
       canManageClientsEdit: fields[13] == null ? false : fields[13] as bool,
       canManageClientsDelete: fields[14] == null ? false : fields[14] as bool,
+      deviceId: fields[15] as String?,
+      isDeviceLinked: fields[16] == null ? false : fields[16] as bool,
     ).._actions = (fields[3] as HiveList?)?.castHiveList();
   }
 
   @override
   void write(BinaryWriter writer, Worker obj) {
     writer
-      ..writeByte(15)
+      ..writeByte(17) // عدد الحقول الإجمالي
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -67,7 +69,11 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       ..writeByte(13)
       ..write(obj.canManageClientsEdit)
       ..writeByte(14)
-      ..write(obj.canManageClientsDelete);
+      ..write(obj.canManageClientsDelete)
+      ..writeByte(15)
+      ..write(obj.deviceId)
+      ..writeByte(16)
+      ..write(obj.isDeviceLinked);
   }
 
   @override

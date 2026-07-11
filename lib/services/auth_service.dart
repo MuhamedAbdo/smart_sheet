@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/pairing_service.dart';
+import 'package:smart_sheet/services/kill_switch_service.dart';
 
 class AuthService extends ChangeNotifier {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
@@ -129,8 +130,31 @@ class AuthService extends ChangeNotifier {
       if (response != null) {
         final role = response['role']?.toString() ?? 'employee';
         await storage.write(key: 'user_role', value: role);
-        
-        _factoryId = response['factory_id']?.toString();
+
+        // فحص أمني: هل تم فك ارتباط هذا العامل من الإدارة في جدول workers؟
+        bool isUnlinkedEmployee = false;
+        final userEmail = _supabaseClient.auth.currentUser?.email;
+        if (role != 'admin' && userEmail != null && userEmail.isNotEmpty) {
+          try {
+            final workerRecord = await _supabaseClient
+                .from('workers')
+                .select('is_device_linked')
+                .eq('email', userEmail)
+                .maybeSingle();
+            if (workerRecord != null) {
+              final isLinked = workerRecord['is_device_linked'] as bool? ?? true;
+              if (!isLinked) {
+                isUnlinkedEmployee = true;
+                debugPrint('🚨 AuthService: هذا الحساب تم فك ارتباطه من الإدارة! منع إعادة ربط المصنع...');
+                await _supabaseClient.from('profiles').update({'factory_id': null}).eq('id', userId);
+              }
+            }
+          } catch (e) {
+            debugPrint('⚠️ AuthService check is_device_linked error: $e');
+          }
+        }
+
+        _factoryId = isUnlinkedEmployee ? null : response['factory_id']?.toString();
         if (_factoryId != null) {
           await storage.write(key: 'factory_id', value: _factoryId!);
         } else {
@@ -259,6 +283,14 @@ class AuthService extends ChangeNotifier {
         'factory_id': factoryId,
         'role': 'employee',
       });
+
+      // تسجيل وتفعيل ارتباط الجهاز في جدول workers في Supabase
+      if (user.email != null && user.email!.isNotEmpty) {
+        await KillSwitchService.instance.registerDevice(
+          email: user.email!,
+          factoryId: factoryId,
+        );
+      }
 
       // تحديث الجلسة والبيانات لتفعيل الهوية الجديدة فوراً
       await refreshUserData();

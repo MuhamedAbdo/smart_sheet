@@ -29,6 +29,8 @@ import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/utils/device_manager.dart';
+import 'package:smart_sheet/services/kill_switch_service.dart';
+import 'package:smart_sheet/services/safe_secure_storage.dart';
 
 // استيراد الموديلات
 import 'package:smart_sheet/models/worker_action_model.dart';
@@ -358,12 +360,95 @@ class _SmartSheetAppState extends State<SmartSheetApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // ✅ بدء مستمع Kill Switch بعد أول بناء للتطبيق
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startKillSwitchListener();
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    KillSwitchService.instance.stopListening();
     super.dispose();
+  }
+
+  // ==============================================================================
+  // Kill Switch Listener
+  // ==============================================================================
+
+  /// يبدأ الاستماع لتغييرات ارتباط الجهاز — لأجهزة العمال فقط (employee).
+  /// لا يعمل على جهاز الآدمن أو عند عدم وجود ربط.
+  Future<void> _startKillSwitchListener() async {
+    try {
+      const storage = SafeSecureStorage();
+      final factoryId = await storage.read(key: 'factory_id');
+      final userRole = await storage.read(key: 'user_role');
+
+      // المستمع فقط للعمال المرتبطين (ليس للآدمن)
+      if (factoryId == null || userRole == 'admin') {
+        debugPrint('⏭️ KillSwitch: غير ممكّن (آدمن أو غير مرتبط بمصنع)');
+        return;
+      }
+
+      // 1. فحص الحالة الفورية من السحاب لتنفيذ الطرد القسري إن تم فك الارتباط
+      final loggedOut = await KillSwitchService.instance.checkAndEnforceKillSwitch(
+        onForcedLogout: _onForcedLogout,
+      );
+      if (loggedOut) return;
+
+      // 2. جلب معرّف العامل المحفوظ محلياً وبدء قناة الاستماع
+      final workerId = await KillSwitchService.instance.getLinkedWorkerId();
+      if (workerId != null && workerId.isNotEmpty) {
+        debugPrint('🔒 KillSwitch: تفعيل المستمع للعامل $workerId');
+        await KillSwitchService.instance.startListening(
+          workerId: workerId,
+          onForcedLogout: _onForcedLogout,
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ KillSwitch._startKillSwitchListener: $e');
+    }
+  }
+
+  /// الطرد القسري من التطبيق وإعادة التوجيه لشاشة الربط.
+  void _onForcedLogout() {
+    debugPrint('🚨 KillSwitch: تنفيذ الطرد القسري...');
+    // إعادة التوجيه لشاشة Auth (الربط بالمصنع)
+    if (!mounted) return;
+
+    final authService = context.read<AuthService>();
+    final nav = authService.navigatorKey.currentState;
+    if (nav != null) {
+      nav.pushNamedAndRemoveUntil(
+        AuthScreen.routeName,
+        (route) => false,
+      );
+    }
+
+    // عرض SnackBar بعد الانتقال
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.link_off, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'تم إغلاق الجلسة أو فك ارتباط الجهاز بواسطة الإدارة',
+                  style: TextStyle(color: Colors.white),
+                  textDirection: TextDirection.rtl,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Color(0xFFD32F2F),
+          duration: Duration(seconds: 6),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    });
   }
 
   /// إعادة تهيئة الـ Realtime channels عند العودة للمقدمة —
@@ -381,6 +466,7 @@ class _SmartSheetAppState extends State<SmartSheetApp>
       }
       _lastResumeTime = now;
       debugPrint('▶️ SmartSheetApp: العودة للمقدمة → إعادة تهيئة المزامنة...');
+      _startKillSwitchListener();
       SyncService.instance.initialize().catchError((e) {
         debugPrint('❌ SmartSheetApp: فشل initialize() عند resume: $e');
       });

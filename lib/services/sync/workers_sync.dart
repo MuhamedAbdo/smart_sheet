@@ -267,6 +267,7 @@ mixin WorkersSync on SyncServiceBase {
         }
       } else {
         debugPrint('🌟 [workers] وصلت بيانات جديدة: $workerName → ${allWorkerBoxes.length} boxes');
+        KillSwitchService.instance.handleRealtimeWorkerRecord(Map<String, dynamic>.from(record));
         try {
           final actionsList = record['actions'] as List? ?? [];
           final stableKey = record['sync_id']?.toString() ?? record['id']?.toString() ?? '${workerName}_$myFactoryId';

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/services/safe_secure_storage.dart';
+import 'package:smart_sheet/services/kill_switch_service.dart';
 
 /// خدمة إدارة أكواد الربط بين الأجهزة
 class PairingService {
@@ -131,7 +132,19 @@ class PairingService {
       
       // حذف الكود بعد الاستخدام (للأمان)
       await _supabase.from('pairing_codes').delete().eq('code', code);
-      
+
+      // ✅ تسجيل جهاز العامل في Supabase (device_id + is_device_linked = true)
+      // نُنفّذه في الخلفية لعدم تأخير استجابة الربط الأساسية
+      final userEmail = _supabase.auth.currentUser?.email;
+      if (userEmail != null) {
+        KillSwitchService.instance.registerDevice(
+          email: userEmail,
+          factoryId: factoryId,
+        ).catchError((e) {
+          debugPrint('⚠️ PairingService: فشل تسجيل الجهاز (غير حرج): $e');
+        });
+      }
+
       return {
         'success': true,
         'factory_id': factoryId,
