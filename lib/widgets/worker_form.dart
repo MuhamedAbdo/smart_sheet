@@ -9,6 +9,7 @@ import 'package:smart_sheet/services/sync_service.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class WorkerForm extends StatefulWidget {
   final Worker? existingWorker;
@@ -116,6 +117,16 @@ class _WorkerFormState extends State<WorkerForm> {
       'مسؤول إصدار أوامر التشغيل',
       'مدخل بيانات إداري',
     ],
+    'قسم الصيانة': [
+      'مهندس صيانة',
+      'فني صيانة',
+      'رئيس قسم',
+    ],
+    'قسم الموارد البشرية (HR)': [
+      'مدير موارد بشرية',
+      'أخصائي موارد بشرية',
+      'شؤون عاملين',
+    ],
   };
 
 
@@ -133,6 +144,8 @@ class _WorkerFormState extends State<WorkerForm> {
     'stores':            'قسم المخازن واللوجستيات',
     'sales':             'قسم المبيعات والتعاقدات',
     'secretariat':       'قسم السكرتارية والمكتب الأمامي',
+    'maintenance':       'قسم الصيانة',
+    'hr':                'قسم الموارد البشرية (HR)',
   };
 
 
@@ -174,26 +187,62 @@ class _WorkerFormState extends State<WorkerForm> {
     canManageClientsAdd    = widget.existingWorker?.canManageClientsAdd    ?? false;
     canManageClientsEdit   = widget.existingWorker?.canManageClientsEdit   ?? false;
     canManageClientsDelete = widget.existingWorker?.canManageClientsDelete ?? false;
+
+    // تحميل أي أقسام أو وظائف مخصصة محفوظة في SharedPreferences
+    _loadCustomDepartmentsAndJobsFromPrefs();
+  }
+
+  Future<void> _loadCustomDepartmentsAndJobsFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final customDepts = prefs.getStringList('custom_departments') ?? [];
+      bool changed = false;
+      for (final dept in customDepts) {
+        if (dept.trim().isNotEmpty && !_allDepartmentCodes.contains(dept)) {
+          _allDepartmentCodes.add(dept);
+          _allDepartmentLabels.add(departmentOptions[dept] ?? dept);
+          changed = true;
+        }
+      }
+      if (changed && mounted) {
+        setState(() {});
+      }
+      await _loadCustomJobsFromPrefs(selectedDepartment);
+    } catch (e) {
+      debugPrint('Error loading custom departments/jobs from prefs: $e');
+    }
+  }
+
+  Future<void> _loadCustomJobsFromPrefs(String deptCode) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final customJobs = prefs.getStringList('custom_jobs_$deptCode') ?? [];
+      bool changed = false;
+      for (final cJob in customJobs) {
+        if (cJob.trim().isNotEmpty && !availableJobs.contains(cJob)) {
+          availableJobs.add(cJob);
+          changed = true;
+        }
+      }
+      if (changed && mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Error loading custom jobs from prefs: $e');
+    }
   }
 
   // ─── بناء قوائم الأقسام الديناميكية — Static + Hive extraction ────────────────────
-  //
-  // يقرأ جميع العمال المخزّنين في Hive ويستخرج الأقسام الفريدة غير المسجّلة في الـ Static Map.
-  // هذا يضمن ظهور أي قسم تمّ إضافته بالـ Inline Add سابقاً في الـ Dropdown مستقبلاً.
-  //
   void _buildDynamicDepartmentLists() {
-    // نبدأ بالقائمة الثابتة
     _allDepartmentCodes = List<String>.from(departmentOptions.keys);
     _allDepartmentLabels = List<String>.from(departmentOptions.values);
 
-    // قراءة Workers Box واستخراج الأقسام الفريدة الغير موجودة في الـ Static Map
     if (Hive.isBoxOpen('workers')) {
       final workersBox = Hive.box<Worker>('workers');
       for (final worker in workersBox.values) {
         final dept = worker.department.trim();
         if (dept.isNotEmpty && !_allDepartmentCodes.contains(dept)) {
           _allDepartmentCodes.add(dept);
-          // إذا كان له مسمى رسمي في departmentOptions → استخدمه، وإلا الكود
           _allDepartmentLabels.add(departmentOptions[dept] ?? dept);
           debugPrint('🏭 [WorkerForm] قسم جديد من Hive: $dept');
         }
@@ -201,14 +250,10 @@ class _WorkerFormState extends State<WorkerForm> {
     }
   }
 
-
-  /// يُحدّث [availableJobs] عند تغيير القسم ويعيد تعيين الوظيفة المختارة.
-  /// [existingJob] يُمرَّر فقط عند التهيئة الأولى للحفاظ على قيمة العامل الموجود.
   void _updateJobsForDepartment(String deptCode, {String? existingJob}) {
     final deptLabel = departmentOptions[deptCode] ?? deptCode;
     final staticJobs = List<String>.from(departmentJobsMap[deptLabel] ?? []);
 
-    // إضافة الوظائف الفريدة من Hive لهذا القسم
     if (Hive.isBoxOpen('workers')) {
       final workersBox = Hive.box<Worker>('workers');
       for (final worker in workersBox.values) {
@@ -222,16 +267,16 @@ class _WorkerFormState extends State<WorkerForm> {
       }
     }
 
-    // إذا القائمة فارغة (قسم غير معرَّف) أضف placeholder
     if (staticJobs.isEmpty) staticJobs.add('عامل');
 
     availableJobs = staticJobs;
 
-    // إذا الوظيفة الحالية موجودة في القائمة الجديدة → أبقِها، وإلا → أول عنصر
     final jobToUse = existingJob ?? selectedJob;
     selectedJob = (jobToUse != null && staticJobs.contains(jobToUse))
         ? jobToUse
         : staticJobs.first;
+
+    _loadCustomJobsFromPrefs(deptCode);
   }
 
   // ─── ديالوج إضافة قسم جديد (Inline Add) ───────────────────────────────
@@ -275,7 +320,17 @@ class _WorkerFormState extends State<WorkerForm> {
     );
     if (result == null || result.isEmpty) return;
 
-    // الكود = المسمى نفسه (String صريح في Worker.department)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final customDepts = prefs.getStringList('custom_departments') ?? [];
+      if (!customDepts.contains(result)) {
+        customDepts.add(result);
+        await prefs.setStringList('custom_departments', customDepts);
+      }
+    } catch (e) {
+      debugPrint('Error saving custom department: $e');
+    }
+
     setState(() {
       if (!_allDepartmentCodes.contains(result)) {
         _allDepartmentCodes.add(result);
@@ -328,6 +383,18 @@ class _WorkerFormState extends State<WorkerForm> {
     );
     if (result == null || result.isEmpty) return;
 
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'custom_jobs_$selectedDepartment';
+      final customJobs = prefs.getStringList(key) ?? [];
+      if (!customJobs.contains(result)) {
+        customJobs.add(result);
+        await prefs.setStringList(key, customJobs);
+      }
+    } catch (e) {
+      debugPrint('Error saving custom job: $e');
+    }
+
     setState(() {
       if (!availableJobs.contains(result)) {
         availableJobs.add(result);
@@ -336,6 +403,325 @@ class _WorkerFormState extends State<WorkerForm> {
     });
     debugPrint('➕ [WorkerForm] وظيفة جديدة مضافة: $result');
   }
+
+  // ─── ميزة الحذف الآمن للأقسام والوظائف اليدوية ───────────────────────
+  Future<bool> _attemptDeleteCustomDepartment(String deptCode) async {
+    if (departmentOptions.containsKey(deptCode)) return false;
+
+    final workersBox = Hive.isBoxOpen('workers') ? Hive.box<Worker>('workers') : widget.box;
+    final isUsed = workersBox.values.any((w) {
+      final wDept = w.department.trim();
+      return wDept == deptCode.trim() ||
+          (departmentOptions[wDept] ?? wDept) == (departmentOptions[deptCode] ?? deptCode.trim());
+    });
+
+    if (isUsed) {
+      UIUtils.showInfoSnackBar(
+        message: "لا يمكن حذف هذا القسم/الوظيفة لوجود عمال مسجلين عليه حالياً. قم بنقل العمال أولاً.",
+        backgroundColor: Colors.redAccent,
+        icon: Icons.warning_amber_rounded,
+      );
+      return false;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('custom_departments') ?? [];
+      list.remove(deptCode);
+      await prefs.setStringList('custom_departments', list);
+      await prefs.remove('custom_jobs_$deptCode');
+    } catch (e) {
+      debugPrint('Error deleting custom department from prefs: $e');
+    }
+
+    setState(() {
+      final idx = _allDepartmentCodes.indexOf(deptCode);
+      if (idx != -1) {
+        _allDepartmentCodes.removeAt(idx);
+        if (idx < _allDepartmentLabels.length) {
+          _allDepartmentLabels.removeAt(idx);
+        }
+      }
+      if (selectedDepartment == deptCode) {
+        selectedDepartment = _allDepartmentCodes.isNotEmpty ? _allDepartmentCodes.first : 'flexo';
+        _updateJobsForDepartment(selectedDepartment);
+      }
+    });
+
+    UIUtils.showInfoSnackBar(
+      message: "تم حذف القسم بنجاح",
+      backgroundColor: Colors.green,
+      icon: Icons.check_circle,
+    );
+    return true;
+  }
+
+  Future<bool> _attemptDeleteCustomJob(String jobName) async {
+    final deptLabel = departmentOptions[selectedDepartment] ?? selectedDepartment;
+    final hardcodedJobs = departmentJobsMap[deptLabel] ?? [];
+    if (hardcodedJobs.contains(jobName)) return false;
+
+    final workersBox = Hive.isBoxOpen('workers') ? Hive.box<Worker>('workers') : widget.box;
+    final isUsed = workersBox.values.any((w) {
+      final wDept = w.department.trim();
+      final wJob = w.job.trim();
+      final isSameDept = wDept == selectedDepartment.trim() ||
+          (departmentOptions[wDept] ?? wDept) ==
+              (departmentOptions[selectedDepartment] ?? selectedDepartment.trim());
+      return isSameDept && wJob == jobName.trim();
+    });
+
+    if (isUsed) {
+      UIUtils.showInfoSnackBar(
+        message: "لا يمكن حذف هذا القسم/الوظيفة لوجود عمال مسجلين عليه حالياً. قم بنقل العمال أولاً.",
+        backgroundColor: Colors.redAccent,
+        icon: Icons.warning_amber_rounded,
+      );
+      return false;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'custom_jobs_$selectedDepartment';
+      final list = prefs.getStringList(key) ?? [];
+      list.remove(jobName);
+      await prefs.setStringList(key, list);
+    } catch (e) {
+      debugPrint('Error deleting custom job from prefs: $e');
+    }
+
+    setState(() {
+      availableJobs.remove(jobName);
+      if (selectedJob == jobName) {
+        selectedJob = availableJobs.isNotEmpty ? availableJobs.first : 'عامل';
+      }
+    });
+
+    UIUtils.showInfoSnackBar(
+      message: "تم حذف الوظيفة بنجاح",
+      backgroundColor: Colors.green,
+      icon: Icons.check_circle,
+    );
+    return true;
+  }
+
+  void _showDepartmentPickerBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.business, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'اختر القسم',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(sheetContext),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _allDepartmentCodes.length,
+                        itemBuilder: (context, idx) {
+                          final code = _allDepartmentCodes[idx];
+                          final label = idx < _allDepartmentLabels.length
+                              ? _allDepartmentLabels[idx]
+                              : code;
+                          final isSelected = code == selectedDepartment;
+                          final isHardcoded = departmentOptions.containsKey(code);
+
+                          return ListTile(
+                            leading: Icon(
+                              isHardcoded ? Icons.business : Icons.business_outlined,
+                              color: isSelected ? Colors.blue : Colors.grey[700],
+                            ),
+                            title: Text(
+                              label,
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? Colors.blue : null,
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (!isHardcoded)
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
+                                    tooltip: 'حذف القسم اليدوي',
+                                    onPressed: () async {
+                                      final success = await _attemptDeleteCustomDepartment(code);
+                                      if (success) {
+                                        setSheetState(() {});
+                                      }
+                                    },
+                                  ),
+                                if (isSelected)
+                                  const Icon(Icons.check_circle, color: Colors.blue, size: 20),
+                              ],
+                            ),
+                            onTap: () {
+                              setState(() {
+                                selectedDepartment = code;
+                                _updateJobsForDepartment(code);
+                              });
+                              Navigator.pop(sheetContext);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.add_circle_outline, color: Colors.blue),
+                      title: const Text(
+                        '➕ إضافة قسم جديد...',
+                        style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        await _showAddDepartmentDialog();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showJobPickerBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final deptLabel = departmentOptions[selectedDepartment] ?? selectedDepartment;
+            final hardcodedJobs = departmentJobsMap[deptLabel] ?? [];
+
+            return SafeArea(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.work, color: Colors.green),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'اختر الوظيفة',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(sheetContext),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: availableJobs.length,
+                        itemBuilder: (context, idx) {
+                          final job = availableJobs[idx];
+                          final isSelected = job == selectedJob;
+                          final isHardcoded = hardcodedJobs.contains(job);
+
+                          return ListTile(
+                            leading: Icon(
+                              isHardcoded ? Icons.work : Icons.work_outline,
+                              color: isSelected ? Colors.green : Colors.grey[700],
+                            ),
+                            title: Text(
+                              job,
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? Colors.green : null,
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (!isHardcoded)
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
+                                    tooltip: 'حذف الوظيفة اليدوية',
+                                    onPressed: () async {
+                                      final success = await _attemptDeleteCustomJob(job);
+                                      if (success) {
+                                        setSheetState(() {});
+                                      }
+                                    },
+                                  ),
+                                if (isSelected)
+                                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                              ],
+                            ),
+                            onTap: () {
+                              setState(() => selectedJob = job);
+                              Navigator.pop(sheetContext);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.add_circle_outline, color: Colors.green),
+                      title: const Text(
+                        '➕ إضافة وظيفة جديدة...',
+                        style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        await _showAddJobDialog();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
 
 
   // ✅ الدالة المعدلة لتتوافق مع flutter_native_contact_picker
@@ -505,82 +891,41 @@ class _WorkerFormState extends State<WorkerForm> {
               // ─── 1) القسم أولاً (يُظهر الوظائف المناسبة) ─────────────────
               // لا يظهر إذا تم تمرير قسم ثابت من الخارج
               if (widget.defaultDepartment == null) ...[
-                InputDecorator(
-                  decoration: const InputDecoration(labelText: "🏢 القسم"),
-                  child: DropdownButton<String>(
-                    value: selectedDepartment,
-                    isExpanded: true,
-                    underline: const SizedBox.shrink(),
-                    items: [
-                      // الأقسام الديناميكية (Static + Hive)
-                      ..._allDepartmentCodes.asMap().entries.map((entry) {
-                        final i = entry.key;
-                        final code = entry.value;
-                        final label = i < _allDepartmentLabels.length
-                            ? _allDepartmentLabels[i]
-                            : code;
-                        return DropdownMenuItem(
-                          value: code,
-                          child: Text(label, overflow: TextOverflow.ellipsis),
-                        );
-                      }),
-                      // ➕ خيار إضافة قسم جديد (Inline Add)
-                      const DropdownMenuItem(
-                        value: '__add_new_dept__',
-                        child: Row(
-                          children: [
-                            Icon(Icons.add_circle_outline, color: Colors.blue, size: 18),
-                            SizedBox(width: 6),
-                            Text('➕ إضافة قسم جديد...', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                    ],
-                    onChanged: (v) {
-                      if (v == null) return;
-                      if (v == '__add_new_dept__') {
-                        _showAddDepartmentDialog();
-                        return;
-                      }
-                      setState(() {
-                        selectedDepartment = v;
-                        _updateJobsForDepartment(v);
-                      });
-                    },
+                InkWell(
+                  onTap: _showDepartmentPickerBottomSheet,
+                  borderRadius: BorderRadius.circular(8),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: "🏢 القسم",
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                    ),
+                    child: Text(
+                      _allDepartmentLabels.isNotEmpty && _allDepartmentCodes.contains(selectedDepartment)
+                          ? _allDepartmentLabels[_allDepartmentCodes.indexOf(selectedDepartment)]
+                          : (departmentOptions[selectedDepartment] ?? selectedDepartment),
+                      style: const TextStyle(fontSize: 15),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
               ],
               // ─── 2) الوظيفة — ديناميكية حسب القسم المختار ────────────────
-              InputDecorator(
-                decoration: const InputDecoration(labelText: "🛠 الوظيفة"),
-                child: DropdownButton<String>(
-                  value: selectedJob,
-                  isExpanded: true,
-                  underline: const SizedBox.shrink(),
-                  items: [
-                    // الوظائف الديناميكية (Static + Hive)
-                    ...availableJobs.map((j) => DropdownMenuItem(value: j, child: Text(j))),
-                    // ➕ خيار إضافة وظيفة جديدة (Inline Add)
-                    const DropdownMenuItem(
-                      value: '__add_new_job__',
-                      child: Row(
-                        children: [
-                          Icon(Icons.add_circle_outline, color: Colors.green, size: 18),
-                          SizedBox(width: 6),
-                          Text('➕ إضافة وظيفة جديدة...', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ],
-                  onChanged: (v) {
-                    if (v == null) return;
-                    if (v == '__add_new_job__') {
-                      _showAddJobDialog();
-                      return;
-                    }
-                    setState(() => selectedJob = v);
-                  },
+              InkWell(
+                onTap: _showJobPickerBottomSheet,
+                borderRadius: BorderRadius.circular(8),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: "🛠 الوظيفة",
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.arrow_drop_down),
+                  ),
+                  child: Text(
+                    selectedJob ?? availableJobs.firstOrNull ?? 'عامل',
+                    style: const TextStyle(fontSize: 15),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
               if (showPermissions && widget.defaultDepartment == null) ...[

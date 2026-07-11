@@ -43,6 +43,10 @@ class WorkersScreen extends StatelessWidget {
       filterDept = 'sales';
     } else if (departmentBoxName == 'workers_secretariat') {
       filterDept = 'secretariat';
+    } else if (departmentBoxName == 'workers_maintenance') {
+      filterDept = 'maintenance';
+    } else if (departmentBoxName == 'workers_hr') {
+      filterDept = 'hr';
     }
 
     if (Hive.isBoxOpen('workers')) {

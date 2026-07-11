@@ -218,6 +218,10 @@ class _WorkerCardState extends State<WorkerCard> {
         return '🤝 المبيعات';
       case 'secretariat':
         return '📋 السكرتارية';
+      case 'maintenance':
+        return '🛠️ قسم الصيانة';
+      case 'hr':
+        return '👥 قسم الموارد البشرية (HR)';
       case 'silicates':
         return '🧪 السليكات';
       default:
