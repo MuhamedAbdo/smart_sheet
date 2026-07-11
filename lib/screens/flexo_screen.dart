@@ -88,6 +88,87 @@ class FlexoScreen extends StatelessWidget {
                       childAspectRatio: 1.1,
                       children: [
                         HomeButton(
+                          icon: Icons.group,
+                          label: 'طاقم الفلكسو',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const WorkersScreen(
+                                  departmentBoxName: 'workers_flexo',
+                                  departmentTitle: 'طاقم الفلكسو',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        HomeButton(
+                          icon: Icons.receipt,
+                          label: 'تقرير الإنتاج',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ProductionReportScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        HomeButton(
+                          icon: Icons.inventory,
+                          label: 'وارد المخزن',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const StoreEntryScreen(
+                                  boxName: 'store_flexo',
+                                  title: 'وارد مخزن الفلكسو',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        HomeButton(
+                          icon: Icons.settings,
+                          label: 'الصيانة',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const MaintenanceScreen(
+                                  boxName: 'maintenance_flexo_v2',
+                                  title: 'صيانة الفلكسو',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        HomeButton(
+                          icon: Icons.precision_manufacturing,
+                          label: 'إدارة الماكينات',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const MachineManagementScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        HomeButton(
+                          icon: Icons.calculate,
+                          label: 'الآلة الحاسبة',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const CalculatorScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        HomeButton(
                           icon: Icons.print_outlined,
                           label: 'تقارير الماكينات',
                           onTap: () {
@@ -107,99 +188,18 @@ class FlexoScreen extends StatelessWidget {
                               );
                             },
                           ),
-                      HomeButton(
-                        icon: Icons.receipt,
-                        label: 'تقرير الإنتاج',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ProductionReportScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      HomeButton(
-                        icon: Icons.inventory,
-                        label: 'وارد المخزن',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const StoreEntryScreen(
-                                boxName: 'store_flexo',
-                                title: 'وارد مخزن الفلكسو',
+                        HomeButton(
+                          icon: Icons.palette,
+                          label: 'بالتة الألوان',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ColorPaletteScreen(),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                      HomeButton(
-                        icon: Icons.settings,
-                        label: 'الصيانة',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const MaintenanceScreen(
-                                boxName: 'maintenance_flexo_v2',
-                                title: 'صيانة الفلكسو',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      HomeButton(
-                        icon: Icons.calculate,
-                        label: 'الآلة الحاسبة',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const CalculatorScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      HomeButton(
-                        icon: Icons.palette,
-                        label: 'بالتة الألوان',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ColorPaletteScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      HomeButton(
-                        icon: Icons.group,
-                        label: 'طاقم الفلكسو',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const WorkersScreen(
-                                departmentBoxName: 'workers_flexo',
-                                departmentTitle: 'طاقم الفلكسو',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      HomeButton(
-                        icon: Icons.precision_manufacturing,
-                        label: 'إدارة الماكينات',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const MachineManagementScreen(),
-                            ),
-                          );
-                        },
-                      ),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   );

@@ -7,6 +7,7 @@ import 'package:smart_sheet/screens/new_sheet_size_screen.dart';
 import 'package:smart_sheet/screens/sheet_count_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
+import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
 
 // ✅ استيراد الشاشات
@@ -27,7 +28,20 @@ class ProductionLineScreen extends StatelessWidget {
         ),
         centerTitle: true,
         elevation: 1,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {},
+          ),
+        ],
       ),
+      drawer: const AppDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -68,28 +82,24 @@ class ProductionLineScreen extends StatelessWidget {
                     childAspectRatio: 1.1,
                     children: [
                       HomeButton(
-                        icon: Icons.straighten,
-                        label: 'مقاس الشيت',
+                        icon: Icons.group,
+                        label: 'طاقم خط الإنتاج',
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const NewSheetSizeScreen(),
+                              builder: (context) => const WorkersScreen(
+                                departmentBoxName: 'workers_production',
+                                departmentTitle: 'طاقم خط الإنتاج',
+                              ),
                             ),
                           );
                         },
                       ),
                       HomeButton(
-                        icon: Icons.calculate,
-                        label: 'الآلة الحاسبة',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const CalculatorScreen(),
-                            ),
-                          );
-                        },
+                        icon: Icons.receipt,
+                        label: 'تقرير الإنتاج',
+                        onTap: () {},
                       ),
                       HomeButton(
                         icon: Icons.inventory,
@@ -122,16 +132,30 @@ class ProductionLineScreen extends StatelessWidget {
                         },
                       ),
                       HomeButton(
-                        icon: Icons.group,
-                        label: 'طاقم خط الإنتاج',
+                        icon: Icons.precision_manufacturing,
+                        label: 'إدارة الماكينات',
+                        onTap: () {},
+                      ),
+                      HomeButton(
+                        icon: Icons.calculate,
+                        label: 'الآلة الحاسبة',
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const WorkersScreen(
-                                departmentBoxName: 'workers_production',
-                                departmentTitle: 'طاقم خط الإنتاج',
-                              ),
+                              builder: (context) => const CalculatorScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.straighten,
+                        label: 'مقاس الشيت',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NewSheetSizeScreen(),
                             ),
                           );
                         },
