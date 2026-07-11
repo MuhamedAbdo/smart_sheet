@@ -41,7 +41,14 @@ mixin MachinesSync on SyncServiceBase {
           }
         }
         final dept = r['department']?.toString() ?? 'flexo';
-        await box.put(existingKey, FlexoMachine(id: stableKey, name: r['name']?.toString() ?? '', department: dept));
+        final dbId = r['id']?.toString();
+        await box.put(
+            existingKey,
+            FlexoMachine(
+                id: stableKey,
+                name: r['name']?.toString() ?? '',
+                department: dept,
+                dbId: dbId));
       }
       debugPrint('✅ MachinesSync: تم استرجاع ${res.length} machines.');
     } catch (e) {
@@ -121,34 +128,75 @@ mixin MachinesSync on SyncServiceBase {
       if (!Hive.isBoxOpen('flexo_machines')) await Hive.openBox<FlexoMachine>('flexo_machines');
       final box = Hive.box<FlexoMachine>('flexo_machines');
       final stableKey = record['sync_id']?.toString() ?? record['id']?.toString();
-      if (stableKey == null) { debugPrint('⚠️ [machines] لا يوجد sync_id أو id!'); return; }
 
       if (isDelete) {
-        dynamic existingKey;
+        final deletedId = record['id']?.toString();
+        final deletedSyncId = record['sync_id']?.toString();
+
+        FlexoMachine? machineToDelete;
+        dynamic keyToDelete;
         for (var i = 0; i < box.length; i++) {
           final m = box.getAt(i);
-          if (m != null && m.id == stableKey) { existingKey = box.keyAt(i); break; }
+          if (m != null) {
+            if ((deletedSyncId != null &&
+                    deletedSyncId.isNotEmpty &&
+                    m.id == deletedSyncId) ||
+                (deletedId != null &&
+                    deletedId.isNotEmpty &&
+                    (m.id == deletedId || m.dbId == deletedId))) {
+              machineToDelete = m;
+              keyToDelete = box.keyAt(i);
+              break;
+            }
+          }
         }
-        if (existingKey != null) {
-          await box.delete(existingKey);
-          debugPrint('🗑️ [machines] hُذفت محلياً: $stableKey');
-        } else if (box.containsKey(stableKey)) {
-          await box.delete(stableKey);
-          debugPrint('🗑️ [machines] hُذفت بالمفتاح المباشر: $stableKey');
+
+        if (keyToDelete != null) {
+          await box.delete(keyToDelete);
+          debugPrint(
+              '🗑️ [machines] حُذفت الماكينة "${machineToDelete?.name}" محلياً بنجاح (key=$keyToDelete)');
+        } else if (deletedSyncId != null &&
+            deletedSyncId.isNotEmpty &&
+            box.containsKey(deletedSyncId)) {
+          await box.delete(deletedSyncId);
+          debugPrint(
+              '🗑️ [machines] حُذفت بالمفتاح المباشر (sync_id=$deletedSyncId)');
+        } else if (deletedId != null &&
+            deletedId.isNotEmpty &&
+            box.containsKey(deletedId)) {
+          await box.delete(deletedId);
+          debugPrint('🗑️ [machines] حُذفت بالمفتاح المباشر (id=$deletedId)');
         } else {
-          debugPrint('⚠️ [machines] لم يُعثر على الماكينة: $stableKey');
+          debugPrint(
+              'ℹ️ [machines] الماكينة غير موجودة محلياً (قد تكون حُذفت بالفعل عند إجراء الحذف من هذا الجهاز): id=$deletedId | sync_id=$deletedSyncId');
         }
-      } else {
-        final machineName = record['name']?.toString() ?? '';
-        dynamic existingKey = stableKey;
-        for (var i = 0; i < box.length; i++) {
-          final m = box.getAt(i);
-          if (m != null && m.id == stableKey) { existingKey = box.keyAt(i); break; }
-        }
-        final dept = record['department']?.toString() ?? 'flexo';
-        await box.put(existingKey, FlexoMachine(id: stableKey, name: machineName, department: dept));
-        debugPrint('✅ [machines] تم حفظ/تحديث: $machineName | dept=$dept (key=$existingKey)');
+        return;
       }
-    } catch (e) { debugPrint('❌ _onMachineChange: $e'); }
+
+      if (stableKey == null) {
+        debugPrint('⚠️ [machines] لا يوجد sync_id أو id للتحديث!');
+        return;
+      }
+
+      final machineName = record['name']?.toString() ?? '';
+      dynamic existingKey = stableKey;
+      for (var i = 0; i < box.length; i++) {
+        final m = box.getAt(i);
+        if (m != null && m.id == stableKey) {
+          existingKey = box.keyAt(i);
+          break;
+        }
+      }
+      final dept = record['department']?.toString() ?? 'flexo';
+      final dbId = record['id']?.toString();
+      await box.put(
+          existingKey,
+          FlexoMachine(
+              id: stableKey, name: machineName, department: dept, dbId: dbId));
+      debugPrint(
+          '✅ [machines] تم حفظ/تحديث: $machineName | dept=$dept (key=$existingKey)');
+    } catch (e) {
+      debugPrint('❌ _onMachineChange: $e');
+    }
   }
 }

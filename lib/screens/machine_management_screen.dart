@@ -145,16 +145,11 @@ class MachineManagementScreen extends StatelessWidget {
                 debugPrint(
                     '✅ [ماكينات] تم حفظ محلياً: "$name" | قسم: "$department" (sync_id=$syncId)');
 
-                // رفع لـ Supabase عبر طابور المزامنة
+                // رفع لـ Supabase عبر طابور المزامنة باستخدام toJson() الآمنة
+                final payload = newMachine.toJson()..['factory_id'] = factoryId;
                 await SyncService.instance.pushToQueue(
                   'machines',
-                  {
-                    'sync_id': syncId,
-                    'id': syncId,
-                    'name': name,
-                    'factory_id': factoryId,
-                    'department': department,
-                  },
+                  payload,
                   operation: 'upsert',
                 );
                 debugPrint(
