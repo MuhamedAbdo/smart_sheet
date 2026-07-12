@@ -138,6 +138,14 @@ class SavedSizeCard extends StatelessWidget {
 
             // --- بيانات الشيت حسب النوع ---
             if (processType == 'تكسير') ...[
+              if ((record['formNumber']?.toString().isNotEmpty ?? false) ||
+                  (record['form_number']?.toString().isNotEmpty ?? false))
+                _buildInfoRow(
+                    "📑 رقم الفورمة",
+                    record['formNumber']?.toString().isNotEmpty == true
+                        ? record['formNumber'].toString()
+                        : record['form_number'].toString(),
+                    isBold: true),
               _buildInfoRow(
                   "📦 طول الشيت", "${record['sheetLengthManual'] ?? '—'} سم",
                   isBold: true),
@@ -413,6 +421,10 @@ class SavedSizeCard extends StatelessWidget {
             if (product.isNotEmpty) Text("🏷️ الصنف: $product"),
             if (code.isNotEmpty) Text("🔢 الكود: $code"),
             const Divider(),
+            if ((record['formNumber']?.toString().isNotEmpty ?? false) ||
+                (record['form_number']?.toString().isNotEmpty ?? false))
+              Text(
+                  "📑 رقم الفورمة: ${record['formNumber']?.toString().isNotEmpty == true ? record['formNumber'] : record['form_number']}"),
             Text("📏 طول الشيت: ${record['sheetLengthManual'] ?? '—'} سم"),
             Text("📐 عرض الشيت: ${record['sheetWidthManual'] ?? '—'} سم"),
             Text("🔧 النوع: ${record['cuttingType'] ?? '—'}"),

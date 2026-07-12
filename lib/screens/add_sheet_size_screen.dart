@@ -59,6 +59,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   final heightController = TextEditingController();
   final sheetLengthManualController = TextEditingController();
   final sheetWidthManualController = TextEditingController();
+  final formNumberController = TextEditingController();
 
   bool _isProcessing = false;
   bool _isUploading = false; // حالة رفع الصور إلى Cloud
@@ -245,6 +246,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'isSheet': isSheet,
       'isClientRecord': isAddingClientOnly,
       'factoryId': '', // سيُملأ بواسطة SyncService
+      'formNumber': _processType == 'تكسير' ? formNumberController.text.trim() : null,
+      'form_number': _processType == 'تكسير' ? formNumberController.text.trim() : null,
     };
 
     if (_processType == "تفصيل") {
@@ -268,6 +271,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         'sheetLengthManual': sheetLengthManualController.text,
         'sheetWidthManual': sheetWidthManualController.text,
         'cuttingType': _cuttingType,
+        'formNumber': formNumberController.text.trim(),
+        'form_number': formNumberController.text.trim(),
       });
     }
 
@@ -380,6 +385,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'date': r['date'],
       'is_client_record': r['isClientRecord'],
       'image_paths': r['imagePaths'] ?? [],
+      'form_number': r['form_number'] ?? r['formNumber'],
       'sheet_details': {
         'isOverFlap': r['isOverFlap'],
         'isFlap': r['isFlap'],
@@ -397,6 +403,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         'sheetLengthManual': r['sheetLengthManual'],
         'sheetWidthManual': r['sheetWidthManual'],
         'cuttingType': r['cuttingType'],
+        'formNumber': r['formNumber'] ?? r['form_number'],
+        'form_number': r['form_number'] ?? r['formNumber'],
       },
     };
   }
@@ -482,6 +490,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
           data['sheetLengthManual']?.toString() ?? '';
       sheetWidthManualController.text =
           data['sheetWidthManual']?.toString() ?? '';
+      formNumberController.text =
+          data['formNumber']?.toString() ?? data['form_number']?.toString() ?? '';
       isOverFlap = data['isOverFlap'] ?? false;
       isFlap = data['isFlap'] ?? true;
       isOneFlap = data['isOneFlap'] ?? false;
@@ -614,6 +624,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     heightController.dispose();
     sheetLengthManualController.dispose();
     sheetWidthManualController.dispose();
+    formNumberController.dispose();
     super.dispose();
   }
 
@@ -669,6 +680,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 heightController: heightController,
                 sheetLengthManualController: sheetLengthManualController,
                 sheetWidthManualController: sheetWidthManualController,
+                formNumberController: formNumberController,
                 cuttingType: _cuttingType,
                 onCuttingTypeChanged: (v) =>
                     setState(() => _cuttingType = v ?? 'دوبل'),

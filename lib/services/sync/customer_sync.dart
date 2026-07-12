@@ -164,6 +164,8 @@ mixin CustomerSync on SyncServiceBase {
                 'sheetLengthManual': r['sheetLengthManual']?.toString() ?? '',
                 'sheetWidthManual': r['sheetWidthManual']?.toString() ?? '',
                 'cuttingType': r['cuttingType']?.toString() ?? 'دوبل',
+                'formNumber': r['formNumber']?.toString() ?? r['form_number']?.toString() ?? '',
+                'form_number': r['form_number']?.toString() ?? r['formNumber']?.toString() ?? '',
               };
 
         final payload = <String, dynamic>{
@@ -180,6 +182,7 @@ mixin CustomerSync on SyncServiceBase {
           'date': r['date']?.toString() ?? DateTime.now().toIso8601String(),
           'is_client_record': r['isClientRecord'] == true || r['is_client_record'] == true || r['is_client_record'] == 'true',
           'image_paths': (r['imagePaths'] ?? r['image_paths'] as List?)?.map((e) => e.toString()).toList() ?? [],
+          'form_number': r['form_number']?.toString() ?? r['formNumber']?.toString() ?? '',
           'sheet_details': sheetDetailsMap,
         };
 
@@ -657,6 +660,8 @@ mixin CustomerSync on SyncServiceBase {
         'sheetLengthManual': sheetDetails['sheetLengthManual']?.toString() ?? '',
         'sheetWidthManual': sheetDetails['sheetWidthManual']?.toString() ?? '',
         'cuttingType': sheetDetails['cuttingType']?.toString() ?? 'دوبل',
+        'formNumber': sheetDetails['formNumber']?.toString() ?? sheetDetails['form_number']?.toString() ?? r['form_number']?.toString() ?? '',
+        'form_number': sheetDetails['form_number']?.toString() ?? sheetDetails['formNumber']?.toString() ?? r['form_number']?.toString() ?? '',
       };
     } catch (e) {
       debugPrint('❌ CustomerSync._customerToHive error: $e');

@@ -17,6 +17,7 @@ class SheetSizeForm extends StatelessWidget {
   // --- للتكسير ---
   final TextEditingController? sheetLengthManualController;
   final TextEditingController? sheetWidthManualController;
+  final TextEditingController? formNumberController;
   final String? cuttingType; // "دوبل" | "سنجل C" | "سنجل E"
   final ValueChanged<String?>? onCuttingTypeChanged;
 
@@ -46,6 +47,7 @@ class SheetSizeForm extends StatelessWidget {
     required this.heightController,
     this.sheetLengthManualController,
     this.sheetWidthManualController,
+    this.formNumberController,
     this.cuttingType,
     this.onCuttingTypeChanged,
     required this.processType,
@@ -133,6 +135,9 @@ class SheetSizeForm extends StatelessWidget {
           // --- حقول التكسير ---
           if (processType == "تكسير") ...[
             const SizedBox(height: 16),
+            if (formNumberController != null)
+              _buildTextField(
+                  "رقم الفورمة", formNumberController!, type: TextInputType.number),
             _buildTextField(
                 "طول الشيت", sheetLengthManualController!, type: TextInputType.number),
             _buildTextField(

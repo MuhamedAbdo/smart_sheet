@@ -49,6 +49,9 @@ class FinishedProduct extends HiveObject {
   @HiveField(13)
   String? id; // تم الإضافة للمزامنة
 
+  @HiveField(14)
+  String? formNumber; // رقم الفورمة (خاص بعملية التكسير)
+
   FinishedProduct({
     this.clientName,
     this.productName,
@@ -64,6 +67,7 @@ class FinishedProduct extends HiveObject {
     this.dateBacker,
     this.factoryId,
     this.id,
+    this.formNumber,
   }) {
     id ??= const Uuid().v4(); // توليد معرف تلقائي لو لم يوجد
   }
@@ -85,6 +89,7 @@ class FinishedProduct extends HiveObject {
       'notes': notes,
       'date_backer': dateBacker,
       'factory_id': factoryId,
+      'form_number': formNumber,
     };
   }
 
@@ -105,6 +110,7 @@ class FinishedProduct extends HiveObject {
         notes: map['notes']?.toString(),
         dateBacker: map['date_backer']?.toString() ?? map['dateBacker']?.toString(),
         factoryId: map['factory_id']?.toString() ?? map['factoryId']?.toString(),
+        formNumber: map['form_number']?.toString() ?? map['formNumber']?.toString(),
       );
     } catch (e) {
       return FinishedProduct(
