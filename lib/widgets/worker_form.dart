@@ -47,6 +47,9 @@ class _WorkerFormState extends State<WorkerForm> {
   late bool canManageClientsAdd;
   late bool canManageClientsEdit;
   late bool canManageClientsDelete;
+  late bool canAddWorker;
+  late bool canEditWorker;
+  late bool canDeleteWorker;
 
   /// قائمة الوظائف المتاحة بناءً على القسم المختار — تُحدَّث ديناميكياً
   List<String> availableJobs = [];
@@ -82,7 +85,7 @@ class _WorkerFormState extends State<WorkerForm> {
     'الإدارة العامة وإدارة الإنتاج': [
       'مدير الإنتاج',
       'مشرف عام الإنتاج',
-      'مدير HR / شؤون عاملين',
+      'مشرف وردية',
       'موظف إداري',
     ],
     'قسم الدعم الفني والتجهيزات': [
@@ -187,6 +190,9 @@ class _WorkerFormState extends State<WorkerForm> {
     canManageClientsAdd    = widget.existingWorker?.canManageClientsAdd    ?? false;
     canManageClientsEdit   = widget.existingWorker?.canManageClientsEdit   ?? false;
     canManageClientsDelete = widget.existingWorker?.canManageClientsDelete ?? false;
+    canAddWorker    = widget.existingWorker?.canAddWorker    ?? false;
+    canEditWorker   = widget.existingWorker?.canEditWorker   ?? false;
+    canDeleteWorker = widget.existingWorker?.canDeleteWorker ?? false;
 
     // تحميل أي أقسام أو وظائف مخصصة محفوظة في SharedPreferences
     _loadCustomDepartmentsAndJobsFromPrefs();
@@ -796,6 +802,9 @@ class _WorkerFormState extends State<WorkerForm> {
         canManageClientsAdd: canManageClientsAdd,
         canManageClientsEdit: canManageClientsEdit,
         canManageClientsDelete: canManageClientsDelete,
+        canAddWorker: canAddWorker,
+        canEditWorker: canEditWorker,
+        canDeleteWorker: canDeleteWorker,
         email: emailVal,
       );
 
@@ -818,6 +827,9 @@ class _WorkerFormState extends State<WorkerForm> {
       w.canManageClientsAdd = canManageClientsAdd;
       w.canManageClientsEdit = canManageClientsEdit;
       w.canManageClientsDelete = canManageClientsDelete;
+      w.canAddWorker = canAddWorker;
+      w.canEditWorker = canEditWorker;
+      w.canDeleteWorker = canDeleteWorker;
       w.email = emailVal;
       // نستخدم widget.box.put بدلاً من w.save() لتجنب خطأ (This object is currently not in a box)
       await widget.box.put(w.syncId!, w);
@@ -935,23 +947,23 @@ class _WorkerFormState extends State<WorkerForm> {
                   alignment: Alignment.centerRight,
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("🔒 صلاحيات المشرفين (Supabase):", style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text("🔒 صلاحيات الإنتاج:", style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
                 CheckboxListTile(
-                  title: const Text("إضافة تقارير (canAdd)"),
+                  title: const Text("إضافة تقارير"),
                   value: canAdd,
                   dense: true,
                   onChanged: (val) => setState(() => canAdd = val ?? false),
                 ),
                 CheckboxListTile(
-                  title: const Text("تعديل تقارير (canEdit)"),
+                  title: const Text("تعديل تقارير"),
                   value: canEdit,
                   dense: true,
                   onChanged: (val) => setState(() => canEdit = val ?? false),
                 ),
                 CheckboxListTile(
-                  title: const Text("حذف تقارير (canDelete)"),
+                  title: const Text("حذف تقارير"),
                   value: canDelete,
                   dense: true,
                   onChanged: (val) => setState(() => canDelete = val ?? false),
@@ -962,7 +974,7 @@ class _WorkerFormState extends State<WorkerForm> {
                   alignment: Alignment.centerRight,
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("🔒 صلاحيات العملاء والأصناف (Supabase):", style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text("🔒 صلاحيات العملاء والأصناف:", style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
                 CheckboxListTile(
@@ -982,6 +994,33 @@ class _WorkerFormState extends State<WorkerForm> {
                   value: canManageClientsDelete,
                   dense: true,
                   onChanged: (val) => setState(() => canManageClientsDelete = val ?? false),
+                ),
+                const SizedBox(height: 10),
+                const Divider(),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4.0),
+                    child: Text("🔒 صلاحيات شؤون العاملين:", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                CheckboxListTile(
+                  title: const Text("إضافة عامل"),
+                  value: canAddWorker,
+                  dense: true,
+                  onChanged: (val) => setState(() => canAddWorker = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text("تعديل عامل"),
+                  value: canEditWorker,
+                  dense: true,
+                  onChanged: (val) => setState(() => canEditWorker = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text("حذف عامل"),
+                  value: canDeleteWorker,
+                  dense: true,
+                  onChanged: (val) => setState(() => canDeleteWorker = val ?? false),
                 ),
               ],
             ],

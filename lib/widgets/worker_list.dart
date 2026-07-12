@@ -6,7 +6,7 @@ import 'package:smart_sheet/screens/worker_details_screen.dart';
 import 'package:smart_sheet/widgets/worker_form.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
-import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/utils/auth_helper.dart';
 
 class WorkerList extends StatelessWidget {
   final Box<Worker> box; // ✅ إضافة الحقل
@@ -31,14 +31,15 @@ class WorkerList extends StatelessWidget {
           return const Center(child: Text("🚫 لا يوجد عمال في هذا القسم بعد"));
         }
 
-        // ✅ نفحص الصلاحيات هنا — الـ ValueListenableBuilder سيعيد البناء تلقائياً عند تغيير الـ box
-        final canEdit = PermissionHelper.canEdit;
-        final canDelete = PermissionHelper.canDelete;
-
         return ListView.builder(
           itemCount: filteredWorkers.length,
           itemBuilder: (context, index) {
             final worker = filteredWorkers[index];
+            // ✅ فحص RBAC لكل عامل بناءً على قسمه الفعلي — يمنع التعديل/الحذف على عمال أقسام أخرى
+            final canEdit = AuthHelper.currentUserCanManageWorkers(
+                worker.department, 'canEditWorker');
+            final canDelete = AuthHelper.currentUserCanManageWorkers(
+                worker.department, 'canDeleteWorker');
             return WorkerCard(
               worker: worker,
               onEdit: canEdit

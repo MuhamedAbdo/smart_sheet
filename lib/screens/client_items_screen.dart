@@ -15,6 +15,7 @@ import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/utils/auth_helper.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/utils/cache_helper.dart';
 
@@ -262,7 +263,10 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     
     final canEdit = PermissionHelper.canManageClientsEdit;
     final canDelete = PermissionHelper.canManageClientsDelete;
-    final canAdd = PermissionHelper.canAdd;
+    // صلاحية بدء إنتاج فلكسو — تعتمد على قسم المستخدم + صلاحية canAdd
+    final canAddFlexo = AuthHelper.currentUserCanManageProduction('flexo', 'canAdd');
+    // صلاحية بدء إنتاج خط الإنتاج — مستقلة عن الفلكسو
+    final canAddProductionLine = AuthHelper.currentUserCanManageProduction('production_line', 'canAdd');
 
     // إذا لم يكن هناك أي سجل (حتى السجل الأساسي) - هذا لا يحدث إلا إذا تم الحذف
     if (allClientRecords.isEmpty && searchQuery.isEmpty) {
@@ -338,7 +342,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                   record: entry.value,
                   canEdit: canEdit,
                   canDelete: canDelete,
-                  canAdd: canAdd,
+                  canAddFlexo: canAddFlexo,
+                  canAddProductionLine: canAddProductionLine,
                   onEdit: () => _navigateToEdit(entry.key, entry.value),
                   onDelete: () => _confirmDelete(entry.key),
                   onStartProduction: (data) => _openProductionReportWithSheetData(context, data),

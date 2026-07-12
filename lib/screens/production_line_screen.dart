@@ -13,7 +13,7 @@ import 'package:smart_sheet/widgets/home_button.dart';
 
 import 'package:smart_sheet/screens/production_line/start_production_session_screen.dart';
 import 'package:smart_sheet/screens/production_report_screen.dart';
-import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/utils/auth_helper.dart';
 
 // ✅ استيراد الشاشات
 
@@ -203,7 +203,8 @@ class ProductionLineScreen extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: !PermissionHelper.canAdd
+      floatingActionButton: !AuthHelper.currentUserCanManageProduction(
+              'production_line', 'canAdd')
           ? null
           : FloatingActionButton.extended(
               onPressed: () {

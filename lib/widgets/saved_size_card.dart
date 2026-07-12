@@ -17,7 +17,8 @@ class SavedSizeCard extends StatelessWidget {
   final Function(Map<String, dynamic>)? onStartProductionLine;
   final bool canEdit;
   final bool canDelete;
-  final bool canAdd;
+  final bool canAddFlexo;
+  final bool canAddProductionLine;
 
   const SavedSizeCard({
     super.key,
@@ -28,7 +29,8 @@ class SavedSizeCard extends StatelessWidget {
     this.onStartProductionLine,
     required this.canEdit,
     required this.canDelete,
-    required this.canAdd,
+    required this.canAddFlexo,
+    this.canAddProductionLine = false,
   });
 
   // دالة مساعدة لجلب مسار مجلد الصور
@@ -169,22 +171,23 @@ class SavedSizeCard extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // ―― أزرار الإنتاج بناءً على صلاحية canAdd ――
-            if (canAdd)
+            // ―― أزرار الإنتاج بناءً على صلاحية كل قسم ――
+            if (canAddFlexo || canAddProductionLine)
               Align(
                 alignment: Alignment.centerLeft,
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 4,
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: () => onStartProduction(record),
-                      icon: const Icon(Icons.precision_manufacturing, size: 18),
-                      label: const Text("بدء إنتاج (فلكسو)"),
-                      style: OutlinedButton.styleFrom(
-                          visualDensity: VisualDensity.compact),
-                    ),
-                    if (onStartProductionLine != null)
+                    if (canAddFlexo)
+                      OutlinedButton.icon(
+                        onPressed: () => onStartProduction(record),
+                        icon: const Icon(Icons.precision_manufacturing, size: 18),
+                        label: const Text("بدء إنتاج (فلكسو)"),
+                        style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact),
+                      ),
+                    if (canAddProductionLine && onStartProductionLine != null)
                       OutlinedButton.icon(
                         onPressed: () => onStartProductionLine!(record),
                         icon: const Icon(Icons.factory, size: 18),

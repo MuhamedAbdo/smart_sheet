@@ -14,6 +14,7 @@ import 'package:smart_sheet/widgets/flexo_report_drawer.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/server_time_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/utils/auth_helper.dart';
 import 'package:smart_sheet/screens/production_line/start_production_session_screen.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'dart:async';
@@ -577,7 +578,11 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           : ValueListenableBuilder<Box<Worker>>(
               valueListenable: _workersBox!.listenable(),
               builder: (context, _, __) {
-                if (!PermissionHelper.canAdd) return const SizedBox.shrink();
+                // فحص RBAC ديناميكي بناءً على قسم التقرير (فلكسو أو خط الإنتاج)
+                final dept = widget.department ?? 'flexo';
+                if (!AuthHelper.currentUserCanManageProduction(dept, 'canAdd')) {
+                  return const SizedBox.shrink();
+                }
                 return FloatingActionButton(
                   onPressed: () {
                     if (widget.department == 'production_line') {
@@ -749,8 +754,14 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               ValueListenableBuilder<Box<Worker>>(
                 valueListenable: _workersBox!.listenable(),
                 builder: (context, _, __) {
-                  final canEdit = PermissionHelper.canEdit;
-                  final canDelete = PermissionHelper.canDelete;
+                  // فحص RBAC ديناميكي: يستخدم قسم التقرير نفسه (مخزّن في record['department'])
+                  // هذا يجعل الفحص متوافقاً تلقائياً إذا كانت الشاشة مشتركة بين القسمين
+                  final reportDept =
+                      record['department']?.toString() ?? (widget.department ?? 'flexo');
+                  final canEdit = AuthHelper.currentUserCanManageProduction(
+                      reportDept, 'canEdit');
+                  final canDelete = AuthHelper.currentUserCanManageProduction(
+                      reportDept, 'canDelete');
                   if (!canEdit && !canDelete) return const SizedBox.shrink();
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.end,

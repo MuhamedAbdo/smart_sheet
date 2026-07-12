@@ -79,6 +79,18 @@ class Worker extends HiveObject {
   @HiveField(16, defaultValue: false)
   late bool isDeviceLinked;
 
+  /// صلاحية إضافة عامل جديد في شؤون العاملين
+  @HiveField(17, defaultValue: false)
+  late bool canAddWorker;
+
+  /// صلاحية تعديل بيانات عامل في شؤون العاملين
+  @HiveField(18, defaultValue: false)
+  late bool canEditWorker;
+
+  /// صلاحية حذف عامل في شؤون العاملين
+  @HiveField(19, defaultValue: false)
+  late bool canDeleteWorker;
+
   /// Alias for [id] — kept for backward compatibility with SyncService
   String? get syncId => id;
 
@@ -100,6 +112,9 @@ class Worker extends HiveObject {
     this.canManageClientsDelete = false,
     this.deviceId,
     this.isDeviceLinked = false,
+    this.canAddWorker = false,
+    this.canEditWorker = false,
+    this.canDeleteWorker = false,
   }) {
     // Generate valid UUID v4 if not provided or invalid (fixes 22P02 error in Supabase)
     if (id == null || !id!.contains('-')) {
@@ -276,6 +291,9 @@ class Worker extends HiveObject {
       'can_manage_clients_delete': canManageClientsDelete,
       'device_id': deviceId,
       'is_device_linked': isDeviceLinked,
+      'can_add_worker': canAddWorker,
+      'can_edit_worker': canEditWorker,
+      'can_delete_worker': canDeleteWorker,
     };
   }
 
@@ -302,6 +320,9 @@ class Worker extends HiveObject {
       canManageClientsDelete: map['can_manage_clients_delete'] ?? map['canManageClientsDelete'] ?? false,
       deviceId: map['device_id']?.toString(),
       isDeviceLinked: map['is_device_linked'] ?? false,
+      canAddWorker: map['can_add_worker'] ?? map['canAddWorker'] ?? false,
+      canEditWorker: map['can_edit_worker'] ?? map['canEditWorker'] ?? false,
+      canDeleteWorker: map['can_delete_worker'] ?? map['canDeleteWorker'] ?? false,
     );
   }
 }
