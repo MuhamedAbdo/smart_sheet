@@ -296,17 +296,15 @@ class JobOrderService {
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.center,
               children: [
-                pw.Text(_ar("أمر تشغيل رقم ( "), style: titleStyle),
-                pw.Directionality(
-                  textDirection: pw.TextDirection.ltr,
-                  child: pw.Text(
-                    data.orderNumber.isEmpty
-                        ? "          "
-                        : " ${data.orderNumber} ",
-                    style: titleStyle.copyWith(color: redColor),
-                  ),
+                pw.Text(_ar("أمر تشغيل رقم "), style: titleStyle),
+                pw.Text(" ) ", style: titleStyle),
+                pw.Text(
+                  data.orderNumber.isEmpty
+                      ? "          "
+                      : " ${data.orderNumber} ",
+                  style: titleStyle.copyWith(color: redColor),
                 ),
-                pw.Text(" )", style: titleStyle),
+                pw.Text(" ( ", style: titleStyle),
               ],
             ),
           ),
