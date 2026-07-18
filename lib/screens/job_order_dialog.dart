@@ -336,21 +336,42 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
             children: [
               _buildHeader(isDark),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Left panel — form fields
-                    Expanded(flex: 5, child: _buildFormPanel(isDark)),
-                    // Divider
-                    VerticalDivider(
-                      width: 1,
-                      color: isDark
-                          ? Colors.white12
-                          : Colors.grey.shade200,
-                    ),
-                    // Right panel — item selection
-                    Expanded(flex: 4, child: _buildItemsPanel(isDark)),
-                  ],
+                child: FocusTraversalGroup(
+                  policy: OrderedTraversalPolicy(),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Right side (in RTL) — form fields
+                      Expanded(
+                        flex: 5,
+                        child: FocusTraversalOrder(
+                          order: const NumericFocusOrder(1),
+                          child: FocusTraversalGroup(
+                            policy: WidgetOrderTraversalPolicy(),
+                            child: _buildFormPanel(isDark),
+                          ),
+                        ),
+                      ),
+                      // Divider
+                      VerticalDivider(
+                        width: 1,
+                        color: isDark
+                            ? Colors.white12
+                            : Colors.grey.shade200,
+                      ),
+                      // Left side (in RTL) — item selection & specifications
+                      Expanded(
+                        flex: 4,
+                        child: FocusTraversalOrder(
+                          order: const NumericFocusOrder(2),
+                          child: FocusTraversalGroup(
+                            policy: WidgetOrderTraversalPolicy(),
+                            child: _buildItemsPanel(isDark),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               _buildFooter(isDark),

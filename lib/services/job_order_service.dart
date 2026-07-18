@@ -126,12 +126,25 @@ class JobOrderService {
     final regularFont = pw.Font.ttf(regularFontData);
     final boldFont = pw.Font.ttf(boldFontData);
 
+    final theme = pw.ThemeData.withFont(base: regularFont, bold: boldFont);
+
+    // الصفحة الأولى
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        build: (pw.Context ctx) =>
-            _buildSinglePage(data, regularFont, boldFont),
+        margin: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        theme: theme,
+        build: (pw.Context ctx) => _buildPage1(data, regularFont, boldFont),
+      ),
+    );
+
+    // الصفحة الثانية
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        theme: theme,
+        build: (pw.Context ctx) => _buildPage2(data, regularFont, boldFont),
       ),
     );
 
@@ -242,452 +255,132 @@ class JobOrderService {
 
   // ── Layout Builders ─────────────────────────────────────────────────────────
 
-  static pw.Widget _buildSinglePage(
+  static pw.Widget _buildPage1(
       JobOrderData data, pw.Font regularFont, pw.Font boldFont) {
-    final regularStyle = pw.TextStyle(font: regularFont, fontSize: 8);
+    final regularStyle = pw.TextStyle(font: regularFont, fontSize: 7.5);
     final boldStyle = pw.TextStyle(
-        font: boldFont, fontSize: 8, fontWeight: pw.FontWeight.bold);
+        font: boldFont, fontSize: 7.5, fontWeight: pw.FontWeight.bold);
     final titleStyle = pw.TextStyle(
-        font: boldFont, fontSize: 11, fontWeight: pw.FontWeight.bold);
+        font: boldFont, fontSize: 12, fontWeight: pw.FontWeight.bold);
+    final barStyle = pw.TextStyle(
+        font: boldFont,
+        fontSize: 8.5,
+        color: PdfColors.white,
+        fontWeight: pw.FontWeight.bold);
 
-    final headerColor = PdfColor.fromHex('#5b796d');
-    final redColor = PdfColor.fromHex('#e53e3e');
+    final headerBarColor = PdfColor.fromHex('#3b3b3b');
+    final labelBgColor = PdfColor.fromHex('#e9e9e9');
+    final sigBgColor = PdfColor.fromHex('#eeeeee');
+    final redColor = PdfColor.fromHex('#b30000');
 
-    final List<JobOrderItem> paddedItems = List.from(data.items);
-    while (paddedItems.length < 5) {
-      paddedItems.add(JobOrderItem(
-        productName: '',
-        productCode: '',
-        length: '',
-        width: '',
-        height: '',
-        quantity: '',
-        itemNotes: '',
-        review: '',
-      ));
-    }
-
-    final paddedData = JobOrderData(
-      orderNumber: data.orderNumber,
-      jobNumber: data.jobNumber,
-      orderDate: data.orderDate,
-      createdBy: data.createdBy,
-      customerName: data.customerName,
-      clientCode: data.clientCode,
-      address: data.address,
-      startDate: data.startDate,
-      supervisor: data.supervisor,
-      deliveryDate: data.deliveryDate,
-      phone: data.phone,
-      receivedDate: data.receivedDate,
-      generalNotes: data.generalNotes,
-      items: paddedItems,
-    );
-
-    return pw.Stack(
-      children: [
-        pw.Container(
-          padding: const pw.EdgeInsets.only(bottom: 10),
-          child: pw.FittedBox(
-            fit: pw.BoxFit.scaleDown,
-            alignment: pw.Alignment.topCenter,
-            child: pw.Container(
-              width: PdfPageFormat.a4.width - 32,
-              child: pw.Directionality(
-                textDirection: pw.TextDirection.rtl,
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                  children: [
-                    // 1. Header
-                    _buildHeader(paddedData, titleStyle, boldStyle, redColor),
-                    pw.SizedBox(height: 4),
-
-                    // 2. Client & Order Info
-                    _buildClientInfo(paddedData, boldStyle, regularStyle),
-                    pw.SizedBox(height: 4),
-
-                    // 3. Items Table
-                    _buildItemsTable(
-                        paddedData, boldStyle, regularStyle, headerColor),
-                    pw.SizedBox(height: 4),
-
-                    // 4. Corrugation Section
-                    _buildCorrugationSection(
-                        paddedData, boldStyle, regularStyle, headerColor),
-                    pw.SizedBox(height: 4),
-
-                    // 5. Bottom Section
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                      children: [
-                        _buildCorrugationReportTable(
-                            paddedData, boldStyle, regularStyle),
-                        pw.SizedBox(height: 4),
-                        _buildDeliveriesTable(
-                            boldStyle, regularStyle, headerColor),
-                        pw.SizedBox(height: 4),
-                        _buildAttachmentsTable(
-                            boldStyle, regularStyle, headerColor),
-                        pw.SizedBox(height: 4),
-                        pw.Row(
-                            mainAxisAlignment:
-                                pw.MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Column(
-                                  crossAxisAlignment:
-                                      pw.CrossAxisAlignment.start,
-                                  children: [
-                                    pw.Text(_ar("تقرير الإقفال"),
-                                        style: boldStyle.copyWith(fontSize: 9)),
-                                    pw.SizedBox(height: 4),
-                                    pw.Text(_ar("بتاريخ :"),
-                                        style: boldStyle.copyWith(fontSize: 8)),
-                                  ]),
-                              pw.Column(
-                                  crossAxisAlignment:
-                                      pw.CrossAxisAlignment.center,
-                                  children: [
-                                    pw.Text(_ar("المخازن"),
-                                        style: boldStyle.copyWith(fontSize: 9)),
-                                    pw.SizedBox(height: 10),
-                                    pw.Container(
-                                      width: 80,
-                                      decoration: const pw.BoxDecoration(
-                                          border: pw.Border(
-                                              bottom:
-                                                  pw.BorderSide(width: 1.0))),
-                                    )
-                                  ])
-                            ]),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        pw.Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: pw.Directionality(
-            textDirection: pw.TextDirection.rtl,
-            child: pw.Center(
-              child: pw.Text(
-                  _ar("وثيقة تشغيل - العاشر للطباعة والنشر والتغليف"),
-                  style: regularStyle.copyWith(
-                      fontSize: 7.0, color: PdfColors.grey700)),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  static pw.Widget _buildHeader(JobOrderData data, pw.TextStyle titleStyle,
-      pw.TextStyle boldStyle, PdfColor redColor) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        // Right (Company name)
-        pw.Expanded(
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(_ar("العاشر للطباعة والنشر والتغليف"),
-                  style: boldStyle.copyWith(fontSize: 12)),
-              pw.Text(_ar("( كارتبرس )"),
-                  style: boldStyle.copyWith(fontSize: 12)),
-            ],
-          ),
-        ),
-        // Center: Order number
-        pw.Expanded(
-          child: pw.Center(
-            child: pw.Container(
-              margin: const pw.EdgeInsets.only(top: 10),
-              child: pw.Row(
-                mainAxisSize: pw.MainAxisSize.min,
-                children: [
-                  pw.Text(_ar("أمر تشغيل رقم "), style: titleStyle),
-                  pw.Directionality(
-                    textDirection: pw.TextDirection.ltr,
-                    child: pw.Row(
-                      mainAxisSize: pw.MainAxisSize.min,
-                      children: [
-                        pw.Text("(", style: titleStyle),
-                        pw.Text(
-                          " ${data.orderNumber.isEmpty ? '____' : data.orderNumber} ",
-                          style: titleStyle.copyWith(color: redColor),
-                        ),
-                        pw.Text(")", style: titleStyle),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        // Left: Box with info
-        pw.Expanded(
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: [
-              pw.Text(_ar("بسم الله الرحمن الرحيم"),
-                  style: boldStyle.copyWith(fontSize: 9)),
-              pw.SizedBox(height: 2),
-              pw.Container(
-                padding: const pw.EdgeInsets.all(4),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.black, width: 1.5),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                  children: [
-                    _infoRow(_ar("طلبية رقم :"), data.jobNumber, boldStyle,
-                        isNumber: true),
-                    _infoRow(
-                        _ar("بتاريخ :"),
-                        data.orderDate.isEmpty ? _today() : data.orderDate,
-                        boldStyle,
-                        isNumber: true),
-                    _infoRow(
-                        _ar("محرر أمر التشغيل :"), data.createdBy, boldStyle,
-                        isNumber: false),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  static pw.Widget _infoRow(String label, String value, pw.TextStyle style,
-      {bool isNumber = false}) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 2),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Text(label, style: style.copyWith(fontSize: 9)),
-          value.isEmpty
-              ? _dottedLine(width: 50)
-              : isNumber
-                  ? pw.Directionality(
-                      textDirection: pw.TextDirection.ltr,
-                      child: pw.Text(value, style: style.copyWith(fontSize: 9)),
-                    )
-                  : pw.Text(_ar(value), style: style.copyWith(fontSize: 9)),
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _buildClientInfo(
-      JobOrderData data, pw.TextStyle boldStyle, pw.TextStyle regularStyle) {
-    return pw.Container(
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.black, width: 1.5),
-      ),
-      padding: const pw.EdgeInsets.all(4),
+    return pw.Directionality(
+      textDirection: pw.TextDirection.rtl,
       child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          pw.Row(
-            children: [
-              pw.Expanded(
-                  child: pw.Text(
-                      _ar("العميل : ${data.customerName.isEmpty ? '________________' : data.customerName}"),
-                      style: boldStyle)),
-              pw.Expanded(
-                child: pw.Row(
-                  mainAxisSize: pw.MainAxisSize.min,
-                  children: [
-                    pw.Text(_ar("كود العميل : "), style: boldStyle),
-                    pw.Directionality(
-                      textDirection: pw.TextDirection.ltr,
-                      child: pw.Text(
-                          data.clientCode.isEmpty
-                              ? '________'
-                              : data.clientCode,
-                          style: boldStyle),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          // بسم الله الرحمن الرحيم
+          pw.Container(
+            alignment: pw.Alignment.topRight,
+            margin: const pw.EdgeInsets.only(bottom: 1),
+            child: pw.Text(_ar("بسم الله الرحمن الرحيم"),
+                style: boldStyle.copyWith(fontSize: 8.5)),
           ),
+
+          // 1. Header (Company + Order Box)
+          _buildPage1Header(data, boldStyle, regularStyle),
+
+          // Title
+          pw.Container(
+            margin: const pw.EdgeInsets.symmetric(vertical: 2),
+            alignment: pw.Alignment.center,
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              children: [
+                pw.Text(_ar("أمر تشغيل رقم ( "), style: titleStyle),
+                pw.Directionality(
+                  textDirection: pw.TextDirection.ltr,
+                  child: pw.Text(
+                    data.orderNumber.isEmpty
+                        ? "          "
+                        : " ${data.orderNumber} ",
+                    style: titleStyle.copyWith(color: redColor),
+                  ),
+                ),
+                pw.Text(" )", style: titleStyle),
+              ],
+            ),
+          ),
+
+          // 2. Top Info Table
+          _buildPage1TopInfo(data, boldStyle, regularStyle),
+          pw.SizedBox(height: 2),
+
+          // 3. Items Table (prep-table - exactly 5 rows, 6 columns)
+          _buildPage1ItemsTable(data, boldStyle, regularStyle, headerBarColor),
+          pw.SizedBox(height: 2),
+
+          // 4. Notes & Technical Prep (side-by-side flex-notes-tech)
+          _buildPage1NotesTech(data, boldStyle, regularStyle, barStyle,
+              headerBarColor, labelBgColor),
+          pw.SizedBox(height: 2),
+
+          // 5. Preparatory Equipment (تجهيزات تحضيرية)
+          _buildPage1PrepEquipment(boldStyle, regularStyle, barStyle,
+              headerBarColor, labelBgColor, sigBgColor),
+          pw.SizedBox(height: 2),
+
+          // 6. Carton Preparations (تجهيزات الكرتون)
+          _buildPage1CartonPrep(boldStyle, regularStyle, barStyle,
+              headerBarColor, labelBgColor),
+          pw.SizedBox(height: 2),
+
+          // 7. Offset Printing (طباعة الأوفست)
+          _buildPage1OffsetPrinting(
+              boldStyle, regularStyle, barStyle, headerBarColor),
+          pw.SizedBox(height: 2),
+
+          // 8. Flexo Printing (طباعة الفلكسو)
+          _buildPage1FlexoPrinting(boldStyle, regularStyle, barStyle,
+              headerBarColor, sigBgColor),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildPage2(
+      JobOrderData data, pw.Font regularFont, pw.Font boldFont) {
+    final regularStyle = pw.TextStyle(font: regularFont, fontSize: 8.5);
+    final boldStyle = pw.TextStyle(
+        font: boldFont, fontSize: 8.5, fontWeight: pw.FontWeight.bold);
+    final headerColor = PdfColor.fromHex('#3b3b3b');
+
+    return pw.Directionality(
+      textDirection: pw.TextDirection.rtl,
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          _buildCorrugationSection(data, boldStyle, regularStyle, headerColor),
           pw.SizedBox(height: 4),
-          pw.Row(
-            children: [
-              pw.Expanded(
-                child: pw.Row(
-                  mainAxisSize: pw.MainAxisSize.min,
-                  children: [
-                    pw.Text(_ar("تاريخ بدء التشغيل : "), style: boldStyle),
-                    pw.Directionality(
-                      textDirection: pw.TextDirection.ltr,
-                      child: pw.Text(
-                          data.startDate.isEmpty
-                              ? '________________'
-                              : data.startDate,
-                          style: boldStyle),
-                    ),
-                  ],
-                ),
-              ),
-              pw.Expanded(
-                child: pw.Row(
-                  mainAxisSize: pw.MainAxisSize.min,
-                  children: [
-                    pw.Text(_ar("ميعاد التسليم : "), style: boldStyle),
-                    pw.Directionality(
-                      textDirection: pw.TextDirection.ltr,
-                      child: pw.Text(
-                          data.deliveryDate.isEmpty
-                              ? '________________'
-                              : data.deliveryDate,
-                          style: boldStyle),
-                    ),
-                  ],
-                ),
-              ),
-              pw.Expanded(
-                child: pw.Row(
-                  mainAxisSize: pw.MainAxisSize.min,
-                  children: [
-                    pw.Text(_ar("تاريخ الانتهاء : "), style: boldStyle),
-                    pw.Directionality(
-                      textDirection: pw.TextDirection.ltr,
-                      child: pw.Text(
-                          data.receivedDate.isEmpty
-                              ? '________________'
-                              : data.receivedDate,
-                          style: boldStyle),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          _buildCorrugationReportTable(data, boldStyle, regularStyle, headerColor),
+          pw.SizedBox(height: 4),
+          _buildDeliveriesTable(boldStyle, regularStyle, headerColor),
+          pw.SizedBox(height: 4),
+          _buildAttachmentsTable(boldStyle, regularStyle, headerColor),
+          pw.SizedBox(height: 4),
+          _buildClosingReport(boldStyle),
+          pw.SizedBox(height: 2),
+          pw.Align(
+            alignment: pw.Alignment.centerLeft,
+            child: pw.Text(_ar("88% من الحجم الأصلى   ( 2 / 2 )"),
+                style: regularStyle.copyWith(fontSize: 7.5)),
           ),
         ],
       ),
     );
   }
 
-  static pw.Widget _buildItemsTable(JobOrderData data, pw.TextStyle boldStyle,
-      pw.TextStyle regularStyle, PdfColor headerColor) {
-    // Reversing table layout for RTL rendering in pdf package.
-    // LTR columns render left-to-right. To make "م" appear on the right, it must be the last column.
-    // Order: 0=Notes, 1=Dimensions, 2=Quantity, 3=Item Name, 4=Index
-    return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.black, width: 1.0),
-      columnWidths: {
-        0: const pw.FlexColumnWidth(3.0), // Notes
-        1: const pw.FlexColumnWidth(2.0), // Dimensions
-        2: const pw.FlexColumnWidth(1.2), // Quantity
-        3: const pw.FlexColumnWidth(3.0), // Item Name
-        4: const pw.FlexColumnWidth(0.6), // Index (م)
-      },
-      children: [
-        pw.TableRow(
-          decoration: pw.BoxDecoration(color: headerColor),
-          children: [
-            _cellText(
-                "ملاحظات الصنف", boldStyle.copyWith(color: PdfColors.white),
-                alignCenter: true),
-            _cellText("الأبعاد (ط × ع × إ)",
-                boldStyle.copyWith(color: PdfColors.white),
-                alignCenter: true),
-            _cellText("الكمية", boldStyle.copyWith(color: PdfColors.white),
-                alignCenter: true),
-            _cellText("بيان الصنف", boldStyle.copyWith(color: PdfColors.white),
-                alignCenter: true),
-            _cellText("م", boldStyle.copyWith(color: PdfColors.white),
-                alignCenter: true),
-          ],
-        ),
-        if (data.items.isEmpty)
-          pw.TableRow(
-            children: List.generate(5, (_) => _cellText("", regularStyle)),
-          ),
-        for (int i = 0; i < data.items.length; i++) ...[
-          pw.TableRow(
-            children: [
-              _cellText(data.items[i].itemNotes, regularStyle),
-              _cellWidget(
-                pw.Directionality(
-                  textDirection: pw.TextDirection.ltr,
-                  child: pw.Text(
-                    "${data.items[i].height} × ${data.items[i].width} × ${data.items[i].length}"
-                        .replaceAll(RegExp(r'^[ ×]+|[ ×]+$'), ''),
-                    style: boldStyle,
-                    textAlign: pw.TextAlign.center,
-                  ),
-                ),
-                alignCenter: true,
-              ),
-              _cellText(data.items[i].quantity, boldStyle, alignCenter: true),
-              _cellWidget(
-                pw.Row(
-                  mainAxisSize: pw.MainAxisSize.min,
-                  children: [
-                    pw.Text(_ar(data.items[i].productName), style: boldStyle),
-                    if (data.items[i].productCode.isNotEmpty) ...[
-                      pw.SizedBox(width: 4),
-                      pw.Directionality(
-                        textDirection: pw.TextDirection.ltr,
-                        child: pw.Text("(${data.items[i].productCode})",
-                            style: boldStyle),
-                      ),
-                    ],
-                  ],
-                ),
-                alignCenter: false,
-              ),
-              _cellWidget(
-                pw.Directionality(
-                  textDirection: pw.TextDirection.ltr,
-                  child: pw.Text(
-                      i < _arabicNumerals.length
-                          ? _arabicNumerals[i]
-                          : '${i + 1}',
-                      style: boldStyle,
-                      textAlign: pw.TextAlign.center),
-                ),
-                alignCenter: true,
-              ),
-            ],
-          ),
-        ]
-      ],
-    );
-  }
-
-  static pw.Widget _buildCorrugationSection(JobOrderData data,
-      pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor headerColor) {
-    var corrugationItems = data.items;
-
-    if (corrugationItems.isEmpty) return pw.SizedBox();
-
-    double rowHeight = 0;
-    for (int i = 0; i < corrugationItems.length; i++) {
-      if (corrugationItems.length > 1) rowHeight += 12; // product name header
-      rowHeight += 14; // corrugation checkboxes row
-      rowHeight += 12; // box size + sheet size + roll width row
-      if (corrugationItems[i].paperLayers.isNotEmpty) {
-        rowHeight += 14; // paper layers row
-      }
-      if (i < corrugationItems.length - 1) rowHeight += 1.0; // border
-    }
-
+  static pw.Widget _buildClosingReport(pw.TextStyle boldStyle) {
     return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 6),
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.black, width: 1.0),
       ),
@@ -695,116 +388,1309 @@ class JobOrderService {
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           pw.Container(
-            color: headerColor,
-            padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
-            alignment: pw.Alignment.center,
-            child: pw.Text(_ar("التضليع"),
-                style: boldStyle.copyWith(color: PdfColors.white)),
-          ),
-          pw.Container(
-            height: rowHeight,
+            height: 16,
             decoration: const pw.BoxDecoration(
                 border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
                 pw.Expanded(
-                  flex: 78,
+                  flex: 80,
                   child: pw.Container(
+                    alignment: pw.Alignment.centerRight,
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 6),
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(left: pw.BorderSide(width: 1.0))),
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                      children: List.generate(corrugationItems.length, (idx) {
-                        return _buildSingleCorrugationItemBlock(
-                            corrugationItems[idx],
-                            isLast: idx == corrugationItems.length - 1,
-                            boldStyle: boldStyle,
-                            regularStyle: regularStyle,
-                            headerColor: headerColor,
-                            itemIndex: idx,
-                            totalItems: corrugationItems.length);
-                      }),
-                    ),
+                    child: pw.Text(_ar("تقرير الإقفال     بتاريخ :"),
+                        style: boldStyle.copyWith(fontSize: 8.5)),
                   ),
                 ),
                 pw.Expanded(
-                  flex: 22,
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                    children: [
-                      pw.Expanded(
-                        child: pw.Container(
-                          decoration: const pw.BoxDecoration(
-                              border:
-                                  pw.Border(bottom: pw.BorderSide(width: 1.0))),
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                            mainAxisAlignment: pw.MainAxisAlignment.start,
-                            children: [
-                              pw.Container(
-                                padding:
-                                    const pw.EdgeInsets.symmetric(vertical: 1),
-                                decoration: const pw.BoxDecoration(
-                                    border: pw.Border(
-                                        bottom: pw.BorderSide(width: 1.0))),
-                                child: pw.Text(_ar("ملاحظات وتعليمات عامة"),
-                                    style: boldStyle.copyWith(fontSize: 7.5),
-                                    textAlign: pw.TextAlign.center),
-                              ),
-                              if (data.generalNotes.isNotEmpty)
-                                pw.Padding(
-                                  padding: const pw.EdgeInsets.all(2),
-                                  child: pw.Text(_ar(data.generalNotes),
-                                      style:
-                                          regularStyle.copyWith(fontSize: 7)),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      pw.Expanded(
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                          mainAxisAlignment: pw.MainAxisAlignment.start,
-                          children: [
-                            pw.Container(
-                              padding:
-                                  const pw.EdgeInsets.symmetric(vertical: 1),
-                              decoration: const pw.BoxDecoration(
-                                  border: pw.Border(
-                                      bottom: pw.BorderSide(width: 1.0))),
-                              child: pw.Text(_ar("توقيع فني التضليع والتاريخ"),
-                                  style: boldStyle.copyWith(fontSize: 7.5),
-                                  textAlign: pw.TextAlign.center),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  flex: 20,
+                  child: pw.Container(
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(_ar("المخازن"),
+                        style: boldStyle.copyWith(fontSize: 8.5)),
                   ),
                 ),
               ],
             ),
           ),
           pw.Container(
-              height: 14,
-              child: pw.Row(
+            height: 26,
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Expanded(
+                  flex: 80,
+                  child: pw.Container(
+                    decoration: const pw.BoxDecoration(
+                        border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 20,
+                  child: pw.Container(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildPage1Header(
+      JobOrderData data, pw.TextStyle boldStyle, pw.TextStyle regularStyle) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        // Company Name
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(_ar("العاشر للطباعة والنشر والتغليف"),
+                style: boldStyle.copyWith(fontSize: 12.5)),
+            pw.Text(_ar("( كارتبرس )"),
+                style: boldStyle.copyWith(fontSize: 11)),
+          ],
+        ),
+        // Order Box (طلبية رقم / بتاريخ / محرر أمر التشغيل)
+        pw.Container(
+          width: 145,
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.black, width: 1.0),
+          ),
+          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              _orderBoxRow(
+                  "طلبية رقم :", data.jobNumber, boldStyle, regularStyle, true),
+              _orderBoxRow(
+                  "بتاريخ :",
+                  data.orderDate.isEmpty ? _today() : data.orderDate,
+                  boldStyle,
+                  regularStyle,
+                  true),
+              _orderBoxRow("محرر أمر التشغيل :", data.createdBy, boldStyle,
+                  regularStyle, false),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _orderBoxRow(String label, String val,
+      pw.TextStyle boldStyle, pw.TextStyle regularStyle, bool isNum) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 1),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(_ar(label), style: boldStyle.copyWith(fontSize: 8)),
+          isNum && val.isNotEmpty
+              ? pw.Directionality(
+                  textDirection: pw.TextDirection.ltr,
+                  child: pw.Text(val, style: boldStyle.copyWith(fontSize: 8)),
+                )
+              : pw.Text(_ar(val), style: boldStyle.copyWith(fontSize: 8)),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildPage1TopInfo(
+      JobOrderData data, pw.TextStyle boldStyle, pw.TextStyle regularStyle) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.black, width: 1.0)),
+      child: pw.Column(
+        children: [
+          // Row 1
+          pw.Row(children: [
+            pw.Expanded(
+                flex: 70,
+                child: pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 2),
+                    child: pw.Text(
+                        _ar("العميل : ${data.customerName.isEmpty ? '..........................................................................' : data.customerName}"),
+                        style: boldStyle.copyWith(fontSize: 9)))),
+            pw.Container(width: 1, height: 16, color: PdfColors.black),
+            pw.Expanded(
+                flex: 30,
+                child: pw.Container(
+                    alignment: pw.Alignment.centerRight,
+                    padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 2),
+                    child: pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.start,
+                        children: [
+                          pw.Text(_ar("كود العميل : "),
+                              style: boldStyle.copyWith(fontSize: 9)),
+                          pw.Directionality(
+                            textDirection: pw.TextDirection.ltr,
+                            child: pw.Text(
+                                data.clientCode.isEmpty
+                                    ? '..........................'
+                                    : data.clientCode,
+                                style: boldStyle.copyWith(fontSize: 9)),
+                          ),
+                        ]))),
+          ]),
+          pw.Container(height: 1, color: PdfColors.black),
+          // Row 2
+          pw.Row(children: [
+            pw.Expanded(
+                flex: 33,
+                child: pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 2),
+                    child: pw.Row(children: [
+                      pw.Text(_ar("تاريخ بدء التشغيل : "),
+                          style: regularStyle.copyWith(fontSize: 9)),
+                      pw.Directionality(
+                          textDirection: pw.TextDirection.ltr,
+                          child: pw.Text(
+                              data.startDate.isEmpty
+                                  ? '.......................'
+                                  : data.startDate,
+                              style: boldStyle.copyWith(fontSize: 9))),
+                    ]))),
+            pw.Container(width: 1, height: 16, color: PdfColors.black),
+            pw.Expanded(
+                flex: 34,
+                child: pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 2),
+                    child: pw.Row(children: [
+                      pw.Text(_ar("ميعاد التسليم : "),
+                          style: regularStyle.copyWith(fontSize: 9)),
+                      pw.Directionality(
+                          textDirection: pw.TextDirection.ltr,
+                          child: pw.Text(
+                              data.deliveryDate.isEmpty
+                                  ? '.......................'
+                                  : data.deliveryDate,
+                              style: boldStyle.copyWith(fontSize: 9))),
+                    ]))),
+            pw.Container(width: 1, height: 16, color: PdfColors.black),
+            pw.Expanded(
+                flex: 33,
+                child: pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 2),
+                    child: pw.Row(children: [
+                      pw.Text(_ar("تاريخ الانتهاء : "),
+                          style: regularStyle.copyWith(fontSize: 9)),
+                      pw.Directionality(
+                          textDirection: pw.TextDirection.ltr,
+                          child: pw.Text(
+                              data.receivedDate.isEmpty
+                                  ? '.......................'
+                                  : data.receivedDate,
+                              style: boldStyle.copyWith(fontSize: 9))),
+                    ]))),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  static String _formatNumberWithCommas(String input) {
+    if (input.isEmpty) return "";
+    final clean = input.replaceAll(',', '').trim();
+    final number = double.tryParse(clean);
+    if (number != null) {
+      if (number == number.truncateToDouble()) {
+        final intNum = number.truncate();
+        final str = intNum.toString();
+        return str.replaceAllMapped(
+            RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
+      } else {
+        final parts = clean.split('.');
+        final intPart = parts[0].replaceAllMapped(
+            RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
+        return '$intPart.${parts.length > 1 ? parts[1] : ""}';
+      }
+    }
+    return input;
+  }
+
+  static pw.Widget _buildPage1ItemsTable(
+      JobOrderData data,
+      pw.TextStyle boldStyle,
+      pw.TextStyle regularStyle,
+      PdfColor headerBarColor) {
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.black, width: 1.0),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(20),
+        1: const pw.FlexColumnWidth(20),
+        2: const pw.FlexColumnWidth(12),
+        3: const pw.FlexColumnWidth(33),
+        4: const pw.FlexColumnWidth(10),
+        5: const pw.FlexColumnWidth(5),
+      },
+      children: [
+        pw.TableRow(
+          decoration: pw.BoxDecoration(color: headerBarColor),
+          children: [
+            _tableHeaderCell("ملاحظات الصنف", boldStyle),
+            _tableHeaderCell("الابعاد ( ط × ع × ا )", boldStyle),
+            _tableHeaderCell("الكمية", boldStyle),
+            _tableHeaderCell("بيان الصنف", boldStyle),
+            _tableHeaderCell("كود", boldStyle),
+            _tableHeaderCell("م", boldStyle),
+          ],
+        ),
+        for (int i = 0; i < 5; i++)
+          pw.TableRow(
+            children: [
+              _itemBodyCell(
+                  i < data.items.length ? data.items[i].itemNotes : "",
+                  regularStyle,
+                  false,
+                  false),
+              _itemBodyCell(
+                  i < data.items.length
+                      ? "${data.items[i].height} × ${data.items[i].width} × ${data.items[i].length}"
+                          .replaceAll(RegExp(r'^[ ×]+|[ ×]+$'), '')
+                      : "",
+                  boldStyle,
+                  true,
+                  true),
+              _itemBodyCell(
+                  i < data.items.length
+                      ? _formatNumberWithCommas(data.items[i].quantity)
+                      : "",
+                  boldStyle,
+                  true,
+                  true),
+              _itemBodyCell(
+                  i < data.items.length ? data.items[i].productName : "",
+                  boldStyle,
+                  false,
+                  false),
+              _itemBodyCell(
+                  i < data.items.length ? data.items[i].productCode : "",
+                  boldStyle,
+                  true,
+                  true),
+              _itemBodyCell(
+                  i < _arabicNumerals.length ? _arabicNumerals[i] : "${i + 1}",
+                  boldStyle,
+                  true,
+                  false),
+            ],
+          ),
+      ],
+    );
+  }
+
+  static pw.Widget _tableHeaderCell(String text, pw.TextStyle boldStyle) {
+    return pw.Container(
+      height: 16,
+      alignment: pw.Alignment.center,
+      padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 2),
+      child: pw.Text(_ar(text),
+          style: boldStyle.copyWith(color: PdfColors.white, fontSize: 8.5),
+          textAlign: pw.TextAlign.center),
+    );
+  }
+
+  static pw.Widget _itemBodyCell(
+      String text, pw.TextStyle style, bool center, bool isLTR) {
+    return pw.Container(
+      height: 16,
+      alignment: center ? pw.Alignment.center : pw.Alignment.centerRight,
+      padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 3),
+      child: text.isEmpty
+          ? pw.SizedBox()
+          : isLTR
+              ? pw.Directionality(
+                  textDirection: pw.TextDirection.ltr,
+                  child: pw.Text(text,
+                      style: style.copyWith(fontSize: 8.5),
+                      textAlign:
+                          center ? pw.TextAlign.center : pw.TextAlign.right),
+                )
+              : pw.Text(_ar(text),
+                  style: style.copyWith(fontSize: 8.5),
+                  textAlign: center ? pw.TextAlign.center : pw.TextAlign.right),
+    );
+  }
+
+  static pw.Widget _buildPage1NotesTech(
+      JobOrderData data,
+      pw.TextStyle boldStyle,
+      pw.TextStyle regularStyle,
+      pw.TextStyle barStyle,
+      PdfColor headerBarColor,
+      PdfColor labelBgColor) {
+    return pw.Container(
+      height: 154,
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // Right: التجهيزات الفنية (67%)
+          pw.Expanded(
+            flex: 67,
+            child: pw.Container(
+              decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.black, width: 1.0)),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Container(
+                    height: 14,
+                    color: headerBarColor,
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(_ar("التجهيزات الفنية"), style: barStyle),
+                  ),
+                  _techRow(
+                      "سكانر",
+                      _techValCheckboxText(
+                          "مقاس", "                ", "عدد", "                "),
+                      boldStyle,
+                      regularStyle,
+                      labelBgColor),
+                  _techRow("كمبيوتر", _techValCompRow(boldStyle, regularStyle),
+                      boldStyle, regularStyle, labelBgColor),
+                  _techRow("بروفة", _techValProofRow(boldStyle, regularStyle),
+                      boldStyle, regularStyle, labelBgColor),
+                  _techRow(
+                      "كلك",
+                      _techValThreeCells("عدد                ",
+                          "مقاس                ", "استرالون                ", regularStyle),
+                      boldStyle,
+                      regularStyle,
+                      labelBgColor,
+                      isSplit: true),
+                  _techRow(
+                      "أفلام",
+                      _techValThreeCells("عدد                ",
+                          "مقاس                ", "ألوان                ", regularStyle),
+                      boldStyle,
+                      regularStyle,
+                      labelBgColor,
+                      isSplit: true),
+                  _techRow("Cyrel", pw.Container(height: 13), boldStyle,
+                      regularStyle, labelBgColor),
+                  _techRow(
+                      "اسم الملف",
+                      _techValTwoCells("صفحة                ",
+                          "داخل مجلد                ", regularStyle),
+                      boldStyle,
+                      regularStyle,
+                      labelBgColor,
+                      isSplit: true),
+                  _techRow("أرشيف", _techValArchiveRow(boldStyle, regularStyle),
+                      boldStyle, regularStyle, labelBgColor),
+                  _techRow("ملاحظات", pw.Container(height: 13), boldStyle,
+                      regularStyle, labelBgColor,
+                      isLast: true),
+                ],
+              ),
+            ),
+          ),
+          pw.SizedBox(width: 3),
+          // Left: ملاحظات وتعليمات (33%)
+          pw.Expanded(
+            flex: 33,
+            child: pw.Container(
+              decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.black, width: 1.0)),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Container(
+                    height: 14,
+                    color: headerBarColor,
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(_ar("ملاحظات وتعليمات"), style: barStyle),
+                  ),
+                  pw.Container(
+                    alignment: pw.Alignment.center,
+                    padding: const pw.EdgeInsets.symmetric(vertical: 1),
+                    child: pw.Text(
+                        _ar("ملء الخانات النادرة بواسطة الفني المختص"),
+                        style: regularStyle.copyWith(fontSize: 7.5)),
+                  ),
+                  if (data.generalNotes.isNotEmpty)
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(4),
+                      child: pw.Text(_ar(data.generalNotes),
+                          style: regularStyle.copyWith(fontSize: 8)),
+                    ),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: pw.Column(
+                      children: List.generate(
+                          data.generalNotes.isNotEmpty ? 4 : 8,
+                          (_) => pw.Padding(
+                                padding: const pw.EdgeInsets.symmetric(vertical: 5.5),
+                                child: pw.Container(
+                                  height: 1,
+                                  color: PdfColors.grey400,
+                                ),
+                              )),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _techRow(String label, pw.Widget content,
+      pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor labelBgColor,
+      {bool isSplit = false, bool isLast = false}) {
+    final bottomBorder = isLast
+        ? pw.BorderSide.none
+        : const pw.BorderSide(color: PdfColors.black, width: 1.8);
+    return pw.Container(
+      height: isLast || label == "Cyrel" ? 13 : 14,
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            width: 60,
+            alignment: pw.Alignment.center,
+            decoration: pw.BoxDecoration(
+                color: labelBgColor,
+                border: pw.Border(
+                    left: const pw.BorderSide(color: PdfColors.black, width: 1.0),
+                    bottom: bottomBorder)),
+            padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 2),
+            child: pw.Text(_ar(label),
+                style: boldStyle.copyWith(fontSize: 8),
+                textAlign: pw.TextAlign.center),
+          ),
+          pw.Expanded(
+            child: isSplit
+                ? pw.Container(
+                    decoration: pw.BoxDecoration(
+                        border: pw.Border(bottom: bottomBorder)),
+                    child: content,
+                  )
+                : pw.Container(
+                    decoration: pw.BoxDecoration(
+                        border: pw.Border(bottom: bottomBorder)),
+                    padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 1),
+                    alignment: pw.Alignment.centerRight,
+                    child: content,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _techValCheckboxText(
+      String l1, String v1, String l2, String v2) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.start,
+      children: [
+        _plainCheckboxWithLabel(l1),
+        pw.Text(_ar(v1)),
+        pw.SizedBox(width: 8),
+        _plainCheckboxWithLabel(l2),
+        pw.Text(_ar(v2)),
+      ],
+    );
+  }
+
+  static pw.Widget _techValCompRow(
+      pw.TextStyle boldStyle, pw.TextStyle regularStyle) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.start,
+      children: [
+        _plainCheckboxWithLabel("جمع"),
+        pw.SizedBox(width: 6),
+        _plainCheckboxWithLabel("تصميم"),
+        pw.SizedBox(width: 6),
+        pw.Text(_ar("عدد                 مقاس                 "),
+            style: regularStyle.copyWith(fontSize: 8)),
+        pw.SizedBox(width: 6),
+        _plainCheckboxWithLabel("بدون"),
+      ],
+    );
+  }
+
+  static pw.Widget _techValProofRow(
+      pw.TextStyle boldStyle, pw.TextStyle regularStyle) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.start,
+      children: [
+        pw.Text(_ar("1 B.W. "), style: regularStyle.copyWith(fontSize: 8)),
+        _squareCheckbox(),
+        pw.SizedBox(width: 10),
+        pw.Directionality(
+          textDirection: pw.TextDirection.ltr,
+          child: pw.Row(children: [
+            pw.Text("2 Color Ink Jet  Photo Glossy Paper / Film ",
+                style: regularStyle.copyWith(fontSize: 7.5)),
+            _squareCheckbox(),
+          ]),
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _techValThreeCells(
+      String c1, String c2, String c3, pw.TextStyle style) {
+    return pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        pw.Expanded(
+            child: pw.Container(
+                alignment: pw.Alignment.centerRight,
+                padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                decoration: const pw.BoxDecoration(
+                    border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                child: pw.Text(_ar(c1), style: style.copyWith(fontSize: 8)))),
+        pw.Expanded(
+            child: pw.Container(
+                alignment: pw.Alignment.centerRight,
+                padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                decoration: const pw.BoxDecoration(
+                    border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                child: pw.Text(_ar(c2), style: style.copyWith(fontSize: 8)))),
+        pw.Expanded(
+            child: pw.Container(
+                alignment: pw.Alignment.centerRight,
+                padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                child: pw.Text(_ar(c3), style: style.copyWith(fontSize: 8)))),
+      ],
+    );
+  }
+
+  static pw.Widget _techValTwoCells(
+      String c1, String c2, pw.TextStyle style) {
+    return pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        pw.Expanded(
+            flex: 35,
+            child: pw.Container(
+                alignment: pw.Alignment.centerRight,
+                padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                decoration: const pw.BoxDecoration(
+                    border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                child: pw.Text(_ar(c1), style: style.copyWith(fontSize: 8)))),
+        pw.Expanded(
+            flex: 65,
+            child: pw.Container(
+                alignment: pw.Alignment.centerRight,
+                padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                child: pw.Text(_ar(c2), style: style.copyWith(fontSize: 8)))),
+      ],
+    );
+  }
+
+  static pw.Widget _techValArchiveRow(
+      pw.TextStyle boldStyle, pw.TextStyle regularStyle) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.start,
+      children: [
+        _squareCheckbox(),
+        pw.SizedBox(width: 6),
+        pw.Directionality(
+          textDirection: pw.TextDirection.ltr,
+          child: pw.Text(
+              "CD's No.                                                    ",
+              style: regularStyle.copyWith(fontSize: 8)),
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _plainCheckboxWithLabel(String label) {
+    return pw.Row(
+      mainAxisSize: pw.MainAxisSize.min,
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        pw.Text(_ar(label), style: const pw.TextStyle(fontSize: 8)),
+        pw.SizedBox(width: 3),
+        _squareCheckbox(),
+      ],
+    );
+  }
+
+  static pw.Widget _squareCheckbox() {
+    return pw.Container(
+      width: 8,
+      height: 8,
+      decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.black, width: 1.0)),
+    );
+  }
+
+  static pw.Widget _buildPage1PrepEquipment(
+      pw.TextStyle boldStyle,
+      pw.TextStyle regularStyle,
+      pw.TextStyle barStyle,
+      PdfColor headerBarColor,
+      PdfColor labelBgColor,
+      PdfColor sigBgColor) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        pw.Container(
+          decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.black, width: 1.0)),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              pw.Container(
+                height: 14,
+                color: headerBarColor,
+                alignment: pw.Alignment.center,
+                child: pw.Text(_ar("تجهيزات تحضيرية"), style: barStyle),
+              ),
+              pw.Container(
+                height: 167,
+                child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                   children: [
+                    // Main rows (right)
                     pw.Expanded(
-                        flex: 12,
-                        child: pw.Container(
-                            alignment: pw.Alignment.centerRight,
-                            padding:
-                                const pw.EdgeInsets.symmetric(horizontal: 4),
-                            decoration: const pw.BoxDecoration(
-                                border:
-                                    pw.Border(left: pw.BorderSide(width: 1.0))),
-                            child: pw.Text(_ar("ملاحظات"),
-                                style: boldStyle.copyWith(fontSize: 9)))),
-                    pw.Expanded(flex: 88, child: pw.Container(height: 14)),
-                  ])),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                        children: [
+                          _prepRow(
+                              "ورق خارجى",
+                              _prepValPaper(
+                                  "يؤخذ من ورق (             )  نوع (             )",
+                                  "وزن (             ) جم",
+                                  "عدد (             )",
+                                  "عدد بعد القص (             ) فرخ",
+                                  "مقاس (             )",
+                                  regularStyle),
+                              boldStyle,
+                              regularStyle,
+                              labelBgColor),
+                          _prepRow(
+                              "داخلى( أصل )",
+                              _prepValPaper(
+                                  "نوع (             )",
+                                  "وزن (             ) جم",
+                                  "عدد (             )",
+                                  "عدد بعد القص (             ) فرخ",
+                                  "مقاس (             )",
+                                  regularStyle),
+                              boldStyle,
+                              regularStyle,
+                              labelBgColor),
+                          _prepRow(
+                              "داخلى(صورة 1)",
+                              _prepValPaper(
+                                  "نوع (             )",
+                                  "وزن (             ) جم",
+                                  "عدد (             )",
+                                  "عدد بعد القص (             ) فرخ",
+                                  "مقاس (             )",
+                                  regularStyle),
+                              boldStyle,
+                              regularStyle,
+                              labelBgColor),
+                          _prepRow(
+                              "داخلى(صورة 2)",
+                              _prepValPaper(
+                                  "نوع (             )",
+                                  "وزن (             ) جم",
+                                  "عدد (             )",
+                                  "عدد بعد القص (             ) فرخ",
+                                  "مقاس (             )",
+                                  regularStyle),
+                              boldStyle,
+                              regularStyle,
+                              labelBgColor),
+                          _prepRow(
+                              "داخلى(صورة 3)",
+                              _prepValPaper(
+                                  "نوع (             )",
+                                  "وزن (             ) جم",
+                                  "عدد (             )",
+                                  "عدد بعد القص (             ) فرخ",
+                                  "مقاس (             )",
+                                  regularStyle),
+                              boldStyle,
+                              regularStyle,
+                              labelBgColor),
+                          _prepRow(
+                              "داخلى(صورة 4)",
+                              _prepValPaper(
+                                  "نوع (             )",
+                                  "وزن (             ) جم",
+                                  "عدد (             )",
+                                  "عدد بعد القص (             ) فرخ",
+                                  "مقاس (             )",
+                                  regularStyle),
+                              boldStyle,
+                              regularStyle,
+                              labelBgColor),
+                          _prepRow("زنكات", _prepValZincRow(regularStyle),
+                              boldStyle, regularStyle, labelBgColor),
+                          _prepRow(
+                              "أحبار",
+                              _prepValInksRow(regularStyle),
+                              boldStyle,
+                              regularStyle,
+                              labelBgColor),
+                          _prepRow("أحبار مستهلكة",
+                              _prepValUsedInksRow(regularStyle), boldStyle, regularStyle, labelBgColor),
+                          _prepRow("تغطية", _prepValCoveringRow(regularStyle),
+                              boldStyle, regularStyle, labelBgColor),
+                          _prepRow("ملاحظات", pw.Container(height: 13), boldStyle,
+                              regularStyle, labelBgColor,
+                              isLast: true),
+                        ],
+                      ),
+                    ),
+                    // Left sig col
+                    pw.Container(
+                      width: 45,
+                      alignment: pw.Alignment.topCenter,
+                      padding: const pw.EdgeInsets.only(top: 8),
+                      decoration: pw.BoxDecoration(
+                          color: sigBgColor,
+                          border: const pw.Border(right: pw.BorderSide(width: 1.0))),
+                      child: pw.Text(_ar("توقيع المختص"),
+                          style: boldStyle.copyWith(fontSize: 8),
+                          textAlign: pw.TextAlign.center),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _prepRow(String label, pw.Widget content,
+      pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor labelBgColor,
+      {bool isLast = false}) {
+    final bottomBorder = isLast
+        ? pw.BorderSide.none
+        : const pw.BorderSide(color: PdfColors.black, width: 1.5);
+    return pw.Container(
+      height: isLast ? 13 : 14,
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            width: 68,
+            alignment: pw.Alignment.center,
+            decoration: pw.BoxDecoration(
+                color: labelBgColor,
+                border: pw.Border(
+                    left: const pw.BorderSide(color: PdfColors.black, width: 1.0),
+                    bottom: bottomBorder)),
+            padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 2),
+            child: pw.Text(_ar(label),
+                style: boldStyle.copyWith(fontSize: 8),
+                textAlign: pw.TextAlign.center),
+          ),
+          pw.Expanded(
+            child: pw.Container(
+              decoration: pw.BoxDecoration(
+                  border: pw.Border(bottom: bottomBorder)),
+              padding:
+                  const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+              alignment: pw.Alignment.centerRight,
+              child: content,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _prepValPaper(String c1, String c2, String c3, String c4,
+      String c5, pw.TextStyle style) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(_ar(c1), style: style.copyWith(fontSize: 7.5)),
+        pw.Text(_ar(c2), style: style.copyWith(fontSize: 7.5)),
+        pw.Text(_ar(c3), style: style.copyWith(fontSize: 7.5)),
+        pw.Text(_ar(c4), style: style.copyWith(fontSize: 7.5)),
+        pw.Text(_ar(c5), style: style.copyWith(fontSize: 7.5)),
+      ],
+    );
+  }
+
+  static pw.Widget _prepValZincRow(pw.TextStyle style) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.start,
+      children: [
+        pw.Text(_ar("عدد الزنكات (             )"),
+            style: style.copyWith(fontSize: 8)),
+        pw.SizedBox(width: 12),
+        _plainCheckboxWithLabel("رولاند"),
+        pw.SizedBox(width: 12),
+        _plainCheckboxWithLabel("توك"),
+        pw.SizedBox(width: 12),
+        _plainCheckboxWithLabel("أخرى"),
+      ],
+    );
+  }
+
+  static pw.Widget _prepValInksRow(pw.TextStyle style) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Row(children: [
+          _plainCheckboxWithLabel("C"),
+          pw.SizedBox(width: 4),
+          _plainCheckboxWithLabel("M"),
+          pw.SizedBox(width: 4),
+          _plainCheckboxWithLabel("Y"),
+          pw.SizedBox(width: 4),
+          _plainCheckboxWithLabel("K"),
+          pw.SizedBox(width: 4),
+          _plainCheckboxWithLabel("S"),
+          pw.SizedBox(width: 4),
+          _plainCheckboxWithLabel("G"),
+        ]),
+        pw.Text(
+            _ar("أحبار أخرى لون (            )  لون (            )  لون (            )"),
+            style: style.copyWith(fontSize: 7.5)),
+      ],
+    );
+  }
+
+  static pw.Widget _prepValUsedInksRow(pw.TextStyle style) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(_ar("C (          ) كجم"),
+            style: style.copyWith(fontSize: 7.5)),
+        pw.Text(_ar("M (          ) كجم"),
+            style: style.copyWith(fontSize: 7.5)),
+        pw.Text(_ar("Y (          ) كجم"),
+            style: style.copyWith(fontSize: 7.5)),
+        pw.Text(_ar("K (          ) كجم"),
+            style: style.copyWith(fontSize: 7.5)),
+        pw.Text(_ar("أخرى . كجم      كجم"),
+            style: style.copyWith(fontSize: 7.5)),
+      ],
+    );
+  }
+
+  static pw.Widget _prepValCoveringRow(pw.TextStyle style) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.start,
+      children: [
+        pw.Text(_ar("مواد مساعدة :   "), style: style.copyWith(fontSize: 8)),
+        _plainCheckboxWithLabel("بدون"),
+        pw.SizedBox(width: 10),
+        _plainCheckboxWithLabel("U.V."),
+        pw.SizedBox(width: 10),
+        _plainCheckboxWithLabel("سلوفان"),
+        pw.SizedBox(width: 10),
+        _plainCheckboxWithLabel("ورنيش"),
+        pw.SizedBox(width: 10),
+        _plainCheckboxWithLabel("أخرى"),
+      ],
+    );
+  }
+
+  static pw.Widget _buildPage1CartonPrep(
+      pw.TextStyle boldStyle,
+      pw.TextStyle regularStyle,
+      pw.TextStyle barStyle,
+      PdfColor headerBarColor,
+      PdfColor labelBgColor) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        pw.Container(
+          decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.black, width: 1.0)),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              pw.Container(
+                height: 14,
+                color: headerBarColor,
+                alignment: pw.Alignment.center,
+                child: pw.Text(_ar("تجهيزات الكرتون"), style: barStyle),
+              ),
+              _prepRow(
+                  "فرمة تكسير",
+                  pw.Text(
+                      _ar("مقاس (             )    لعدد (             ) . علبة    التوقيع والتاريخ :"),
+                      style: regularStyle.copyWith(fontSize: 8)),
+                  boldStyle,
+                  regularStyle,
+                  labelBgColor),
+              pw.Container(
+                height: 14,
+                child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    _cartonHalfRow("ريجة", _squareCheckbox(), boldStyle,
+                        labelBgColor, true),
+                    _cartonHalfRow("تفتيح", _squareCheckbox(), boldStyle,
+                        labelBgColor, false),
+                  ],
+                ),
+              ),
+              pw.Container(
+                height: 14,
+                child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    _cartonHalfRow("دبوس", _squareCheckbox(), boldStyle,
+                        labelBgColor, true),
+                    _cartonHalfRow(
+                        "لصق عادى . آلى",
+                        pw.Row(children: [
+                          _squareCheckbox(),
+                          pw.SizedBox(width: 6),
+                          _squareCheckbox()
+                        ]),
+                        boldStyle,
+                        labelBgColor,
+                        false),
+                  ],
+                ),
+              ),
+              pw.Container(
+                height: 15,
+                child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    _sigQuarterCell("التوقيع :", regularStyle, true),
+                    _sigQuarterCell("التوقيع :", regularStyle, true),
+                    _sigQuarterCell("التوقيع :", regularStyle, true),
+                    _sigQuarterCell("التوقيع :", regularStyle, false),
+                  ],
+                ),
+              ),
+              _prepRow("ملاحظات", pw.Container(height: 13), boldStyle,
+                  regularStyle, labelBgColor,
+                  isLast: true),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _cartonHalfRow(String label, pw.Widget content,
+      pw.TextStyle boldStyle, PdfColor labelBgColor, bool hasLeftBorder) {
+    const bottomBorder = pw.BorderSide(color: PdfColors.black, width: 1.5);
+    const sideBorder = pw.BorderSide(color: PdfColors.black, width: 1.5);
+    return pw.Expanded(
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            width: 68,
+            alignment: pw.Alignment.center,
+            decoration: pw.BoxDecoration(
+                color: labelBgColor,
+                border: pw.Border(
+                    left: hasLeftBorder
+                        ? const pw.BorderSide(color: PdfColors.black, width: 1.0)
+                        : sideBorder,
+                    right: sideBorder,
+                    bottom: bottomBorder)),
+            padding:
+                const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 2),
+            child: pw.Text(_ar(label),
+                style: boldStyle.copyWith(fontSize: 8),
+                textAlign: pw.TextAlign.center),
+          ),
+          pw.Expanded(
+            child: pw.Container(
+              decoration: const pw.BoxDecoration(
+                  border: pw.Border(bottom: bottomBorder)),
+              padding:
+                  const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              alignment: pw.Alignment.centerRight,
+              child: content,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _sigQuarterCell(
+      String text, pw.TextStyle style, bool hasLeftBorder) {
+    const bottomBorder = pw.BorderSide(color: PdfColors.black, width: 1.5);
+    return pw.Expanded(
+      child: pw.Container(
+        decoration: pw.BoxDecoration(
+            border: pw.Border(
+                left: hasLeftBorder
+                    ? const pw.BorderSide(color: PdfColors.black, width: 1.0)
+                    : pw.BorderSide.none,
+                bottom: bottomBorder)),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        alignment: pw.Alignment.centerRight,
+        child: pw.Text(_ar(text), style: style.copyWith(fontSize: 8)),
+      ),
+    );
+  }
+
+  static pw.Widget _buildPage1OffsetPrinting(
+      pw.TextStyle boldStyle,
+      pw.TextStyle regularStyle,
+      pw.TextStyle barStyle,
+      PdfColor headerBarColor) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.black, width: 1.0)),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            height: 14,
+            color: headerBarColor,
+            alignment: pw.Alignment.center,
+            child: pw.Text(_ar("طباعة الأوفست"), style: barStyle),
+          ),
+          pw.Container(
+            height: 30,
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Expanded(
+                  flex: 80,
+                  child: pw.Container(
+                    padding:
+                        const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    alignment: pw.Alignment.topRight,
+                    child: pw.Text(_ar("تقرير رئيس القسم .."),
+                        style: regularStyle.copyWith(fontSize: 8)),
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 20,
+                  child: pw.Container(
+                    decoration: const pw.BoxDecoration(
+                        border: pw.Border(right: pw.BorderSide(width: 1.0))),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                      children: [
+                        pw.Container(
+                          height: 14,
+                          alignment: pw.Alignment.center,
+                          decoration: const pw.BoxDecoration(
+                              border:
+                                  pw.Border(bottom: pw.BorderSide(width: 1.0))),
+                          child: pw.Text(_ar("التوقيع والتاريخ"),
+                              style: boldStyle.copyWith(fontSize: 8)),
+                        ),
+                        pw.Container(height: 16),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildPage1FlexoPrinting(
+      pw.TextStyle boldStyle,
+      pw.TextStyle regularStyle,
+      pw.TextStyle barStyle,
+      PdfColor headerBarColor,
+      PdfColor sigBgColor) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.black, width: 1.0)),
+      child: pw.Container(
+        height: 53,
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Container(
+                    height: 14,
+                    color: headerBarColor,
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(_ar("طباعة الفلكسو"), style: barStyle),
+                  ),
+                  pw.Container(
+                    height: 13,
+                    padding:
+                        const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: const pw.BoxDecoration(
+                        border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
+                    child: pw.Text(
+                        _ar("طباعة   ألوان (             ) - إجمالى عدد الألوان ............................."),
+                        style: regularStyle.copyWith(fontSize: 8)),
+                  ),
+                  pw.Container(
+                    height: 13,
+                    padding:
+                        const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: const pw.BoxDecoration(
+                        border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
+                    child: pw.Row(
+                      children: [
+                        pw.Text(_ar("فرز طباعة    "),
+                            style: regularStyle.copyWith(fontSize: 8)),
+                        _plainCheckboxWithLabel("أول"),
+                        pw.SizedBox(width: 12),
+                        _plainCheckboxWithLabel("ثانى"),
+                        pw.SizedBox(width: 12),
+                        _plainCheckboxWithLabel("هالك"),
+                      ],
+                    ),
+                  ),
+                  pw.Container(
+                    height: 13,
+                    padding:
+                        const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    child: pw.Text(_ar("ملاحظات"),
+                        style: boldStyle.copyWith(fontSize: 8)),
+                  ),
+                ],
+              ),
+            ),
+            pw.Container(
+              width: 45,
+              alignment: pw.Alignment.center,
+              decoration: pw.BoxDecoration(
+                  color: sigBgColor,
+                  border: const pw.Border(right: pw.BorderSide(width: 1.0))),
+              child: pw.Text(_ar("توقيع المختص"),
+                  style: boldStyle.copyWith(fontSize: 8),
+                  textAlign: pw.TextAlign.center),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _buildCorrugationSection(JobOrderData data,
+      pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor headerColor) {
+    const int totalSlots = 5;
+    final List<JobOrderItem> corrugationItems = [];
+    for (int i = 0; i < totalSlots; i++) {
+      if (i < data.items.length) {
+        corrugationItems.add(data.items[i]);
+      } else {
+        corrugationItems.add(JobOrderItem(
+            productName: '',
+            productCode: '',
+            quantity: '',
+            itemNotes: ''));
+      }
+    }
+
+    double rowHeight = 14; // header
+    for (int i = 0; i < totalSlots; i++) {
+      rowHeight += 12; // product name header
+      rowHeight += 14; // corrugation checkboxes row
+      rowHeight += 12; // box size + sheet size + roll width row
+      rowHeight += 14; // paper layers row
+      if (i < totalSlots - 1) rowHeight += 1.5; // border
+    }
+
+    return pw.Container(
+      height: rowHeight,
+      margin: const pw.EdgeInsets.only(bottom: 2),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Expanded(
+            flex: 76,
+            child: pw.Container(
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.black, width: 1.0),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Container(
+                    height: 14,
+                    color: headerColor,
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(_ar("التضليع"),
+                        style: boldStyle.copyWith(color: PdfColors.white)),
+                  ),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                      children: List.generate(totalSlots, (idx) {
+                        return _buildSingleCorrugationItemBlock(
+                            corrugationItems[idx],
+                            isLast: idx == totalSlots - 1,
+                            boldStyle: boldStyle,
+                            regularStyle: regularStyle,
+                            headerColor: headerColor,
+                            itemIndex: idx,
+                            totalItems: totalSlots);
+                      }),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          pw.SizedBox(width: 3),
+          pw.Expanded(
+            flex: 24,
+            child: pw.Container(
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.black, width: 1.0),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Container(
+                    height: 14,
+                    color: headerColor,
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(_ar("ملاحظات وتعليمات عامة"),
+                        style: boldStyle.copyWith(
+                            color: PdfColors.white, fontSize: 7.5)),
+                  ),
+                  pw.Container(
+                    height: 14,
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(_ar("توقيع فنى التضليع والتاريخ"),
+                        style: boldStyle.copyWith(fontSize: 7.5)),
+                  ),
+                  pw.Expanded(
+                    child: pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                      child: pw.Column(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+                        children: List.generate(14, (_) => _dottedLine()),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -819,271 +1705,334 @@ class JobOrderService {
     required int itemIndex,
     required int totalItems,
   }) {
-    final hasLayers = item.paperLayers.isNotEmpty;
-
+    final bool isEmptyItem = item.productName.isEmpty && item.productCode.isEmpty;
     return pw.Container(
-        decoration: isLast
-            ? null
-            : const pw.BoxDecoration(
+      decoration: isLast
+          ? null
+          : const pw.BoxDecoration(
+              border: pw.Border(
+                  bottom: pw.BorderSide(width: 1.5, color: PdfColors.black))),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            height: 12,
+            color: PdfColors.grey400,
+            padding: const pw.EdgeInsets.symmetric(vertical: 1),
+            alignment: pw.Alignment.center,
+            child: isEmptyItem
+                ? pw.SizedBox()
+                : pw.Text(_ar("${item.productName} - ${item.productCode}"),
+                    style: boldStyle.copyWith(fontSize: 8)),
+          ),
+          pw.Container(
+            height: 14,
+            decoration: const pw.BoxDecoration(
                 border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
-        child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              if (totalItems > 1)
-                pw.Container(
-                    height: 12,
-                    color: PdfColors.grey300,
-                    padding: const pw.EdgeInsets.symmetric(vertical: 1),
-                    alignment: pw.Alignment.center,
-                    child: pw.Text(
-                        _ar("${item.productName} - ${item.productCode}"),
-                        style: boldStyle.copyWith(fontSize: 8))),
-              // ── صف التضليع (checkboxes)
-              pw.Container(
-                  height: 14,
-                  decoration: const pw.BoxDecoration(
-                      border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
-                  child: pw.Row(
-                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                      children: [
-                        pw.Expanded(
-                            flex: 18,
-                            child: pw.Container(
-                                decoration: const pw.BoxDecoration(
-                                    border: pw.Border(
-                                        left: pw.BorderSide(width: 1.0))),
-                                alignment: pw.Alignment.centerRight,
-                                padding: const pw.EdgeInsets.symmetric(
-                                    horizontal: 4),
-                                child: pw.Text(_ar("التضليع"),
-                                    style: boldStyle.copyWith(fontSize: 9)))),
-                        pw.Expanded(
-                            flex: 82,
-                            child: pw.Padding(
-                                padding: const pw.EdgeInsets.symmetric(
-                                    horizontal: 2, vertical: 3),
-                                child: pw.Row(
-                                    mainAxisAlignment: pw.MainAxisAlignment.end,
-                                    children: [
-                                      _corrugationCheckbox(
-                                          'E',
-                                          item.corrugationTypes.contains('E'),
-                                          boldStyle),
-                                      pw.SizedBox(width: 4),
-                                      _corrugationCheckbox(
-                                          'C',
-                                          item.corrugationTypes.contains('C'),
-                                          boldStyle),
-                                      pw.SizedBox(width: 4),
-                                      _corrugationCheckbox(
-                                          'E/E',
-                                          item.corrugationTypes.contains('E/E'),
-                                          boldStyle),
-                                      pw.SizedBox(width: 4),
-                                      _corrugationCheckbox(
-                                          'C/C',
-                                          item.corrugationTypes.contains('C/C'),
-                                          boldStyle),
-                                      pw.SizedBox(width: 4),
-                                      _corrugationCheckbox(
-                                          'C/E',
-                                          item.corrugationTypes.contains('C/E'),
-                                          boldStyle),
-                                      pw.SizedBox(width: 12),
-                                      if (item.customCorrugation.isNotEmpty)
-                                        _corrugationCheckbox(
-                                            "(${item.customCorrugation})",
-                                            true,
-                                            boldStyle)
-                                      else
-                                        pw.Directionality(
-                                            textDirection: pw.TextDirection.ltr,
-                                            child: pw.Row(
-                                                mainAxisSize:
-                                                    pw.MainAxisSize.min,
-                                                children: [
-                                                  pw.Transform.translate(
-                                                    offset:
-                                                        const PdfPoint(0, 2.5),
-                                                    child: pw.Text(
-                                                        "(           )",
-                                                        style:
-                                                            boldStyle.copyWith(
-                                                                fontSize: 8)),
-                                                  ),
-                                                  pw.SizedBox(width: 4),
-                                                  pw.Container(
-                                                    width: 8,
-                                                    height: 8,
-                                                    decoration:
-                                                        pw.BoxDecoration(
-                                                      border: pw.Border.all(
-                                                          color:
-                                                              PdfColors.black,
-                                                          width: 1.0),
-                                                    ),
-                                                  ),
-                                                ])),
-                                      pw.Spacer(),
-                                    ]))),
-                      ])),
-              // ── صف: مقاس العلبة + مقاس الشريحة + عرض البكر
-              pw.Container(
-                  height: 12,
-                  decoration: const pw.BoxDecoration(
-                      border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
-                  child: pw.Row(
-                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                      children: [
-                        // عرض البكر المستهدف
-                        pw.Expanded(
-                            flex: 20,
-                            child: pw.Container(
-                                decoration: const pw.BoxDecoration(
-                                    border: pw.Border(
-                                        left: pw.BorderSide(width: 1.0))),
-                                alignment: pw.Alignment.centerRight,
-                                padding: const pw.EdgeInsets.symmetric(
-                                    horizontal: 3),
-                                child: pw.Text(_ar("عرض البكر"),
-                                    style: boldStyle.copyWith(fontSize: 7.5)))),
-                        pw.Expanded(
-                            flex: 15,
-                            child: pw.Container(
-                                decoration: const pw.BoxDecoration(
-                                    border: pw.Border(
-                                        left: pw.BorderSide(width: 1.0))),
-                                alignment: pw.Alignment.center,
-                                child: pw.Directionality(
-                                    textDirection: pw.TextDirection.ltr,
-                                    child: pw.Text(
-                                        item.rollWidth.isEmpty
-                                            ? '______'
-                                            : item.rollWidth,
-                                        style:
-                                            boldStyle.copyWith(fontSize: 8))))),
-                        // مقاس العلبة — label
-                        pw.Expanded(
-                            flex: 18,
-                            child: pw.Container(
-                                decoration: const pw.BoxDecoration(
-                                    border: pw.Border(
-                                        left: pw.BorderSide(width: 1.0))),
-                                alignment: pw.Alignment.centerRight,
-                                padding: const pw.EdgeInsets.symmetric(
-                                    horizontal: 3),
-                                child: pw.Text(_ar("مقاس العلبة"),
-                                    style: boldStyle.copyWith(fontSize: 7.5)))),
-                        // مقاس العلبة — قيمة
-                        pw.Expanded(
-                            flex: 20,
-                            child: pw.Container(
-                                decoration: const pw.BoxDecoration(
-                                    border: pw.Border(
-                                        left: pw.BorderSide(width: 1.0))),
-                                alignment: pw.Alignment.center,
-                                child: pw.Directionality(
-                                    textDirection: pw.TextDirection.ltr,
-                                    child: pw.Text(
-                                        item.corrugationBoxSize.isEmpty
-                                            ? '  /  '
-                                            : item.corrugationBoxSize
-                                                .split('/')
-                                                .map((e) => e.trim())
-                                                .toList()
-                                                .reversed
-                                                .join(' / '),
-                                        style:
-                                            boldStyle.copyWith(fontSize: 8))))),
-                        // مقاس الشريحة — label
-                        pw.Expanded(
-                            flex: 18,
-                            child: pw.Container(
-                                decoration: const pw.BoxDecoration(
-                                    border: pw.Border(
-                                        left: pw.BorderSide(width: 1.0))),
-                                alignment: pw.Alignment.centerRight,
-                                padding: const pw.EdgeInsets.symmetric(
-                                    horizontal: 3),
-                                child: pw.Text(_ar("مقاس الشريحة"),
-                                    style: boldStyle.copyWith(fontSize: 7.5)))),
-                        // مقاس الشريحة — قيمة
-                        pw.Expanded(
-                            flex: 20,
-                            child: pw.Container(
-                                alignment: pw.Alignment.center,
-                                child: pw.Directionality(
-                                    textDirection: pw.TextDirection.ltr,
-                                    child: pw.Text(
-                                        item.corrugationSheetSize.isEmpty
-                                            ? '  /  '
-                                            : item.corrugationSheetSize
-                                                .split('/')
-                                                .map((e) => e.trim())
-                                                .toList()
-                                                .reversed
-                                                .join(' / '),
-                                        style:
-                                            boldStyle.copyWith(fontSize: 8))))),
-                      ])),
-              // ── صف أنواع الورق (الطبقات)
-              if (hasLayers)
-                pw.Container(
-                    constraints: const pw.BoxConstraints(minHeight: 12),
-                    padding: const pw.EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 2),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Expanded(
+                  flex: 36,
+                  child: pw.Container(
                     decoration: const pw.BoxDecoration(
-                        border: pw.Border(
-                            bottom: pw.BorderSide(
-                                width: 0.5, color: PdfColors.grey400))),
+                        border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                    alignment: pw.Alignment.centerRight,
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                    child: pw.Text(
+                        _ar("عرض البكر : ${item.rollWidth.isEmpty ? '______' : item.rollWidth}"),
+                        style: boldStyle.copyWith(fontSize: 8)),
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 64,
+                  child: pw.Container(
+                    alignment: pw.Alignment.centerRight,
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 4),
                     child: pw.Row(
-                      crossAxisAlignment: pw.CrossAxisAlignment.center,
                       children: [
-                        pw.Text(_ar("أنواع الورق : "),
-                            style: boldStyle.copyWith(fontSize: 7)),
+                        pw.Text(_ar("التضليع : "),
+                            style: boldStyle.copyWith(fontSize: 8.5)),
                         pw.Expanded(
-                          child: pw.Wrap(
-                            spacing: 6,
-                            runSpacing: 2,
-                            children:
-                                List.generate(item.paperLayers.length, (i) {
-                              // نفصل رقم الطبقة (LTR) عن اسم الورق (عربي)
-                              // حلاً لمشكلة كسر حرف (ي) عند الـ reshape
-                              return pw.Container(
-                                padding: const pw.EdgeInsets.symmetric(
-                                    horizontal: 3, vertical: 1),
-                                decoration: pw.BoxDecoration(
-                                  border: pw.Border.all(
-                                      color: PdfColors.grey500, width: 0.5),
-                                ),
-                                child: pw.Row(
-                                  mainAxisSize: pw.MainAxisSize.min,
-                                  children: [
-                                    pw.Directionality(
-                                      textDirection: pw.TextDirection.ltr,
-                                      child: pw.Text(
-                                        "T${i + 1} :",
-                                        style: boldStyle.copyWith(fontSize: 7),
-                                      ),
-                                    ),
-                                    pw.SizedBox(width: 4),
-                                    pw.Text(
-                                      _ar(item.paperLayers[i]),
-                                      style: regularStyle.copyWith(fontSize: 7),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
+                          child: pw.Row(
+                            mainAxisAlignment: isEmptyItem
+                                ? pw.MainAxisAlignment.end
+                                : pw.MainAxisAlignment.center,
+                            children: isEmptyItem
+                                ? [
+                                    _corrugationCheckbox('E', false, boldStyle),
+                                    pw.SizedBox(width: 6),
+                                    _corrugationCheckbox('C', false, boldStyle),
+                                    pw.SizedBox(width: 6),
+                                    _corrugationCheckbox('E/E', false, boldStyle),
+                                    pw.SizedBox(width: 6),
+                                    _corrugationCheckbox('C/C', false, boldStyle),
+                                    pw.SizedBox(width: 6),
+                                    _corrugationCheckbox('C/E', false, boldStyle),
+                                  ]
+                                : (item.corrugationTypes.isEmpty &&
+                                        item.customCorrugation.isEmpty
+                                    ? []
+                                    : (item.corrugationTypes.isNotEmpty
+                                        ? item.corrugationTypes
+                                            .asMap()
+                                            .entries
+                                            .map((e) {
+                                            final i = e.key;
+                                            final type = e.value;
+                                            return pw.Row(
+                                              mainAxisSize: pw.MainAxisSize.min,
+                                              children: [
+                                                if (i > 0) pw.SizedBox(width: 10),
+                                                _corrugationCheckbox(
+                                                    type, true, boldStyle,
+                                                    isSolidBlack: true),
+                                              ],
+                                            );
+                                          }).toList()
+                                        : [
+                                            _corrugationCheckbox(
+                                                item.customCorrugation,
+                                                true,
+                                                boldStyle,
+                                                isSolidBlack: true)
+                                          ])),
                           ),
                         ),
                       ],
-                    ))
-            ]));
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          pw.Container(
+            height: 12,
+            decoration: const pw.BoxDecoration(
+                border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Expanded(
+                  flex: 36,
+                  child: pw.Container(
+                    decoration: const pw.BoxDecoration(
+                        border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                    alignment: pw.Alignment.centerRight,
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                    child: pw.Text(
+                        _ar("مقاس العلبة : ${item.corrugationBoxSize.isEmpty ? '______' : item.corrugationBoxSize}"),
+                        style: boldStyle.copyWith(fontSize: 8)),
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 64,
+                  child: pw.Container(
+                    alignment: pw.Alignment.centerRight,
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                    child: pw.Row(
+                      children: [
+                        pw.Text(_ar("مقاس الشريحة : "),
+                            style: boldStyle.copyWith(fontSize: 8.5)),
+                        pw.Expanded(
+                          child: pw.Container(
+                            alignment: pw.Alignment.center,
+                            child: pw.Directionality(
+                              textDirection: pw.TextDirection.ltr,
+                              child: pw.Text(
+                                  item.corrugationSheetSize.isEmpty
+                                      ? '  /  '
+                                      : item.corrugationSheetSize
+                                          .split('/')
+                                          .map((e) => e.trim())
+                                          .toList()
+                                          .reversed
+                                          .join(' / '),
+                                  style: boldStyle.copyWith(fontSize: 8)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          pw.Container(
+            height: 14,
+            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(_ar("طبقات الورق : "),
+                    style: boldStyle.copyWith(fontSize: 7.5)),
+                if (item.paperLayers.isNotEmpty)
+                  ...item.paperLayers.asMap().entries.expand((e) {
+                    final i = e.key;
+                    final layer = e.value;
+                    return [
+                      if (i > 0) ...[
+                        pw.SizedBox(width: 6),
+                        pw.Text(_ar("/"),
+                            style: boldStyle.copyWith(fontSize: 7.5)),
+                        pw.SizedBox(width: 6),
+                      ],
+                      pw.Directionality(
+                        textDirection: pw.TextDirection.ltr,
+                        child: pw.Text("L${i + 1}",
+                            style: boldStyle.copyWith(fontSize: 7.5)),
+                      ),
+                      pw.SizedBox(width: 8),
+                      pw.Text(_ar(layer),
+                          style: regularStyle.copyWith(fontSize: 7.5)),
+                    ];
+                  }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildCorrugationReportTable(JobOrderData data,
+      pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor headerColor) {
+    int rowCount = 10;
+    final numbersAr = ["١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩", "١٠"];
+
+    return pw.Container(
+      height: 152,
+      margin: const pw.EdgeInsets.only(bottom: 2),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Expanded(
+            flex: 78,
+            child: pw.Container(
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.black, width: 1.0),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Container(
+                    height: 18,
+                    alignment: pw.Alignment.center,
+                    decoration: const pw.BoxDecoration(
+                        border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
+                    child: pw.Text(
+                      _ar("تقرير قسم التضليع ( تدوين الدفعات التى تم تشغيلها فى حالة تنفيذ الأمر على عدة دفعات )"),
+                      style: boldStyle.copyWith(fontSize: 7.5),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                  ),
+                  pw.Container(
+                    height: 14,
+                    decoration: const pw.BoxDecoration(
+                        border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
+                    child: pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                      children: [
+                        pw.Expanded(flex: 8, child: pw.SizedBox()),
+                        pw.Expanded(
+                          flex: 92,
+                          child: pw.Container(
+                            alignment: pw.Alignment.center,
+                            decoration: const pw.BoxDecoration(
+                                border: pw.Border(
+                                    left: pw.BorderSide(width: 1.0))),
+                            child: pw.Text(
+                              _ar("اسم القائم بالتشغيل مع التوقيع والتاريخ ."),
+                              style: boldStyle.copyWith(fontSize: 7.5),
+                              textAlign: pw.TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ...List.generate(rowCount, (index) {
+                    return pw.Container(
+                      height: 12,
+                      decoration: index == rowCount - 1
+                          ? null
+                          : const pw.BoxDecoration(
+                              border: pw.Border(
+                                  bottom: pw.BorderSide(width: 1.0))),
+                      child: pw.Row(
+                        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                        children: [
+                          pw.Expanded(
+                            flex: 8,
+                            child: pw.Container(
+                              alignment: pw.Alignment.center,
+                              child: pw.Text(_ar(numbersAr[index]),
+                                  style: boldStyle.copyWith(fontSize: 8)),
+                            ),
+                          ),
+                          pw.Expanded(
+                            flex: 92,
+                            child: pw.Container(
+                              decoration: const pw.BoxDecoration(
+                                  border: pw.Border(
+                                      left: pw.BorderSide(width: 1.0))),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+          pw.SizedBox(width: 3),
+          pw.Expanded(
+            flex: 22,
+            child: pw.Container(
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.black, width: 1.0),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Container(
+                    height: 14,
+                    color: headerColor,
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(_ar("ملاحظات وتعليمات"),
+                        style: boldStyle.copyWith(
+                            color: PdfColors.white, fontSize: 7.5)),
+                  ),
+                  pw.Container(
+                    height: 14,
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(
+                        _ar("( ملء الخانات النادرة بواسطة الفني المختص )"),
+                        style: regularStyle.copyWith(fontSize: 7)),
+                  ),
+                  pw.Expanded(
+                    child: pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                      child: pw.Column(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+                        children: List.generate(12, (_) => _dottedLine()),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   static pw.Widget _corrugationCheckbox(
-      String label, bool isChecked, pw.TextStyle style) {
+      String label, bool isChecked, pw.TextStyle style,
+      {bool isSolidBlack = false}) {
     return pw.Directionality(
       textDirection: pw.TextDirection.ltr,
       child: pw.Row(
@@ -1099,9 +2048,10 @@ class JobOrderService {
             width: 8,
             height: 8,
             decoration: pw.BoxDecoration(
+              color: isSolidBlack ? PdfColors.black : null,
               border: pw.Border.all(color: PdfColors.black, width: 1.0),
             ),
-            child: isChecked
+            child: isChecked && !isSolidBlack
                 ? pw.CustomPaint(
                     size: const PdfPoint(8, 8),
                     painter: (PdfGraphics canvas, PdfPoint size) {
@@ -1121,92 +2071,6 @@ class JobOrderService {
 
   // ── Helper Widgets ──────────────────────────────────────────────────────────
 
-  static pw.Widget _cellText(String text, pw.TextStyle style,
-      {bool alignCenter = false}) {
-    return pw.Container(
-      alignment: alignCenter ? pw.Alignment.center : pw.Alignment.centerRight,
-      padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 3),
-      child: pw.Text(_ar(text),
-          style: style,
-          textAlign: alignCenter ? pw.TextAlign.center : pw.TextAlign.right),
-    );
-  }
-
-  static pw.Widget _cellWidget(pw.Widget child, {bool alignCenter = false}) {
-    return pw.Container(
-      alignment: alignCenter ? pw.Alignment.center : pw.Alignment.centerRight,
-      padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 3),
-      child: child,
-    );
-  }
-
-  static pw.Widget _buildCorrugationReportTable(
-      JobOrderData data, pw.TextStyle boldStyle, pw.TextStyle regularStyle) {
-    int rowCount = 5;
-
-    return pw
-        .Column(crossAxisAlignment: pw.CrossAxisAlignment.stretch, children: [
-      pw.Row(children: [
-        pw.Expanded(
-          flex: 8,
-          child: pw.SizedBox(),
-        ),
-        pw.Expanded(
-          flex: 56,
-          child: pw.Text(
-            _ar("تقرير قسم التضليع ( تدوين المقاسات التي تم تشغيلها في حالة تشغيل أمر على عدة مهمات )"),
-            style: regularStyle.copyWith(fontSize: 7),
-            textAlign: pw.TextAlign.right,
-          ),
-        ),
-        pw.Expanded(
-          flex: 28,
-          child: pw.Text(
-            _ar("اسم القائم بالتشغيل مع التوقيع والتاريخ"),
-            style: regularStyle.copyWith(fontSize: 7),
-            textAlign: pw.TextAlign.right,
-          ),
-        ),
-      ]),
-      pw.SizedBox(height: 2),
-      pw.Container(
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.black, width: 1.0),
-          ),
-          child: pw.Column(
-              children: List.generate(rowCount, (index) {
-            return pw.Container(
-                height: 12,
-                decoration: index == rowCount - 1
-                    ? null
-                    : const pw.BoxDecoration(
-                        border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
-                child: pw.Row(children: [
-                  pw.Expanded(
-                      flex: 8,
-                      child: pw.Container(
-                        alignment: pw.Alignment.center,
-                        decoration: const pw.BoxDecoration(
-                            border: pw.Border(left: pw.BorderSide(width: 1.0))),
-                        child: pw.Directionality(
-                            textDirection: pw.TextDirection.ltr,
-                            child: pw.Text("${index + 1}",
-                                style: boldStyle.copyWith(fontSize: 8))),
-                      )),
-                  pw.Expanded(
-                      flex: 56,
-                      child: pw.Container(
-                        decoration: const pw.BoxDecoration(
-                            border: pw.Border(left: pw.BorderSide(width: 1.0))),
-                      )),
-                  pw.Expanded(
-                    flex: 28,
-                    child: pw.Container(),
-                  ),
-                ]));
-          })))
-    ]);
-  }
 
   // ignore: unused_element
   static pw.Widget _buildFlexoTable(
@@ -1476,15 +2340,16 @@ class JobOrderService {
                             "توقيع المخازن", 12, boldStyle, false),
                       ])),
               ...List.generate(6, (index) {
+                final numbersAr = ["١", "٢", "٣", "٤", "٥", "٦"];
                 return pw.Container(
-                    height: 10,
+                    height: 12,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(top: pw.BorderSide(width: 1.0))),
                     child: pw.Row(
                         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                         children: [
                           _buildDeliveriesEmptyCell(4, true, regularStyle,
-                              _ar((index + 1).toString())),
+                              _ar(numbersAr[index])),
                           _buildDeliveriesEmptyCell(16, true, regularStyle),
                           _buildDeliveriesEmptyCell(8, true, regularStyle),
                           _buildDeliveriesEmptyCell(7, true, regularStyle),
@@ -1523,20 +2388,20 @@ class JobOrderService {
     return pw.Expanded(
         flex: flex,
         child: pw.Container(
-          height: 10,
           alignment: pw.Alignment.center,
           decoration: hasLeftBorder
               ? const pw.BoxDecoration(
                   border: pw.Border(left: pw.BorderSide(width: 1.0)))
               : null,
           child: text.isNotEmpty
-              ? pw.Text(text, style: style.copyWith(fontSize: 6))
+              ? pw.Text(text, style: style.copyWith(fontSize: 7))
               : pw.SizedBox(),
         ));
   }
 
   static pw.Widget _buildAttachmentsTable(
       pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor headerColor) {
+    final numbersAr = ["١", "٢"];
     return pw.Container(
         decoration: pw.BoxDecoration(
           border: pw.Border.all(color: PdfColors.black, width: 1.0),
@@ -1561,14 +2426,14 @@ class JobOrderService {
                       ])),
               ...List.generate(2, (index) {
                 return pw.Container(
-                    height: 10,
+                    height: 12,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(top: pw.BorderSide(width: 1.0))),
                     child: pw.Row(
                         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                         children: [
                           _buildDeliveriesEmptyCell(5, true, regularStyle,
-                              _ar((index + 1).toString())),
+                              _ar(numbersAr[index])),
                           _buildDeliveriesEmptyCell(15, true, regularStyle),
                           _buildDeliveriesEmptyCell(40, true, regularStyle),
                           _buildDeliveriesEmptyCell(20, true, regularStyle),
