@@ -521,6 +521,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         builder: (context, Box box, _) {
           final isLiveSessionsEmpty = !Hive.isBoxOpen('flexo_live_sessions') ||
               Hive.box<LiveSession>('flexo_live_sessions').isEmpty;
+          final allRecords = _filterAndSortRecords(box, _searchQuery, _sortDescending);
           return CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
@@ -537,6 +538,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 ),
               if (box.isNotEmpty || !isLiveSessionsEmpty)
                 ...[
+                  SliverToBoxAdapter(
+                    child: _buildSummaryBar(allRecords.length),
+                  ),
                   if (_selectedDate != null)
                     SliverToBoxAdapter(
                       child: Container(
@@ -561,10 +565,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          final allRecords = _filterAndSortRecords(box, _searchQuery, _sortDescending);
                           return _buildReportCard(allRecords[index]);
                         },
-                        childCount: _filterAndSortRecords(box, _searchQuery, _sortDescending).length,
+                        childCount: allRecords.length,
                       ),
                     ),
                   ),
@@ -601,6 +604,43 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 );
               },
             ),
+    );
+  }
+
+  Widget _buildSummaryBar(int totalReports) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade900, Colors.blue.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.receipt_long, color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            '$totalReports تقرير مسجل',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
