@@ -115,7 +115,9 @@ mixin CustomerSync on SyncServiceBase {
   Future<void> directPushAllCustomers() async {
     try {
       final factoryId = await SupabaseManager.getFactoryId();
-      if (factoryId == null) throw Exception('المصنع غير محدد (يجب تسجيل الدخول)');
+      if (factoryId == null) {
+        throw Exception('المصنع غير محدد (يجب تسجيل الدخول)');
+      }
 
       final box = Hive.isBoxOpen('savedSheetSizes')
           ? Hive.box('savedSheetSizes')
@@ -137,7 +139,8 @@ mixin CustomerSync on SyncServiceBase {
         final r = Map<String, dynamic>.from(item);
 
         // تحديد sync_id أو توليده
-        final String syncId = (r['sync_id']?.toString().trim().isNotEmpty == true)
+        final String syncId = (r['sync_id']?.toString().trim().isNotEmpty ==
+                true)
             ? r['sync_id'].toString().trim()
             : ((r['id']?.toString().trim().isNotEmpty == true)
                 ? r['id'].toString().trim()
@@ -164,25 +167,44 @@ mixin CustomerSync on SyncServiceBase {
                 'sheetLengthManual': r['sheetLengthManual']?.toString() ?? '',
                 'sheetWidthManual': r['sheetWidthManual']?.toString() ?? '',
                 'cuttingType': r['cuttingType']?.toString() ?? 'دوبل',
-                'formNumber': r['formNumber']?.toString() ?? r['form_number']?.toString() ?? '',
-                'form_number': r['form_number']?.toString() ?? r['formNumber']?.toString() ?? '',
+                'formNumber': r['formNumber']?.toString() ??
+                    r['form_number']?.toString() ??
+                    '',
+                'form_number': r['form_number']?.toString() ??
+                    r['formNumber']?.toString() ??
+                    '',
               };
 
         final payload = <String, dynamic>{
           'sync_id': syncId,
           'factory_id': factoryId,
-          'client_name': r['clientName']?.toString() ?? r['client_name']?.toString() ?? '',
-          'product_name': r['productName']?.toString() ?? r['product_name']?.toString() ?? '',
-          'product_code': r['productCode']?.toString() ?? r['product_code']?.toString() ?? '',
-          'process_type': r['processType']?.toString() ?? r['process_type']?.toString() ?? 'تفصيل',
+          'client_name':
+              r['clientName']?.toString() ?? r['client_name']?.toString() ?? '',
+          'product_name': r['productName']?.toString() ??
+              r['product_name']?.toString() ??
+              '',
+          'product_code': r['productCode']?.toString() ??
+              r['product_code']?.toString() ??
+              '',
+          'process_type': r['processType']?.toString() ??
+              r['process_type']?.toString() ??
+              'تفصيل',
           'length': double.tryParse(r['length']?.toString() ?? ''),
           'width': double.tryParse(r['width']?.toString() ?? ''),
           'height': double.tryParse(r['height']?.toString() ?? ''),
-          'is_sheet': r['isSheet'] == true || r['is_sheet'] == true || r['is_sheet'] == 'true',
+          'is_sheet': r['isSheet'] == true ||
+              r['is_sheet'] == true ||
+              r['is_sheet'] == 'true',
           'date': r['date']?.toString() ?? DateTime.now().toIso8601String(),
-          'is_client_record': r['isClientRecord'] == true || r['is_client_record'] == true || r['is_client_record'] == 'true',
-          'image_paths': (r['imagePaths'] ?? r['image_paths'] as List?)?.map((e) => e.toString()).toList() ?? [],
-          'form_number': r['form_number']?.toString() ?? r['formNumber']?.toString() ?? '',
+          'is_client_record': r['isClientRecord'] == true ||
+              r['is_client_record'] == true ||
+              r['is_client_record'] == 'true',
+          'image_paths': (r['imagePaths'] ?? r['image_paths'] as List?)
+                  ?.map((e) => e.toString())
+                  .toList() ??
+              [],
+          'form_number':
+              r['form_number']?.toString() ?? r['formNumber']?.toString() ?? '',
           'sheet_details': sheetDetailsMap,
         };
 
@@ -218,11 +240,16 @@ mixin CustomerSync on SyncServiceBase {
       }
 
       // تحويل الـ Map النظيف إلى قائمة جاهزة للرفع
-      final List<Map<String, dynamic>> finalRecordsToPush = uniqueRecords.values.toList();
+      final List<Map<String, dynamic>> finalRecordsToPush =
+          uniqueRecords.values.toList();
 
-      debugPrint('📤 [directPushAllCustomers] جاري رفع ${finalRecordsToPush.length} سجل (بعد إزالة التكرار من أصل ${recordsList.length}) دفعة واحدة...');
-      await _supabase.from('customers').upsert(finalRecordsToPush, onConflict: 'sync_id');
-      debugPrint('✅ [directPushAllCustomers] تم رفع ${finalRecordsToPush.length} سجل بنجاح!');
+      debugPrint(
+          '📤 [directPushAllCustomers] جاري رفع ${finalRecordsToPush.length} سجل (بعد إزالة التكرار من أصل ${recordsList.length}) دفعة واحدة...');
+      await _supabase
+          .from('customers')
+          .upsert(finalRecordsToPush, onConflict: 'sync_id');
+      debugPrint(
+          '✅ [directPushAllCustomers] تم رفع ${finalRecordsToPush.length} سجل بنجاح!');
 
       // تصفية ومسح السجلات المرتبطة بالعملاء من sync_queue محلياً لأنها رُفعت بالفعل
       final queueBox = Hive.isBoxOpen('sync_queue')
@@ -238,10 +265,12 @@ mixin CustomerSync on SyncServiceBase {
       for (final k in keysToDelete) {
         await queueBox.delete(k);
       }
-      debugPrint('🧹 [directPushAllCustomers] تم مسح ${keysToDelete.length} سجل من sync_queue لأنها رُفعت بالفعل.');
+      debugPrint(
+          '🧹 [directPushAllCustomers] تم مسح ${keysToDelete.length} سجل من sync_queue لأنها رُفعت بالفعل.');
 
       UIUtils.showInfoSnackBar(
-        message: "تم رفع ${finalRecordsToPush.length} سجلاً بنجاح إلى السحابة وتحديث الطابور!",
+        message:
+            "تم رفع ${finalRecordsToPush.length} سجلاً بنجاح إلى السحابة وتحديث الطابور!",
         backgroundColor: Colors.green,
         icon: Icons.check_circle_outline,
       );
@@ -255,7 +284,6 @@ mixin CustomerSync on SyncServiceBase {
       rethrow;
     }
   }
-
 
   // ==============================================================
   // Channel Setup & Teardown
@@ -286,25 +314,25 @@ mixin CustomerSync on SyncServiceBase {
           },
         )
         .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('✅ SUBSCRIBED → customers (factory: $factoryId)');
-            _reconnectAttempts['customer_channels'] = 0;
-          } else if (status == RealtimeSubscribeStatus.timedOut) {
-            debugPrint('⏱️ TIMEOUT → customers — جدولة إعادة الاتصال...');
-            _scheduleReconnect('customer_channels', () async {
-              await _tearDownCustomerChannels();
-              _setupCustomerChannels(factoryId);
-            });
-          } else if (status == RealtimeSubscribeStatus.channelError) {
-            debugPrint('❌ CHANNEL ERROR → customers: $error');
-            _scheduleReconnect('customer_channels', () async {
-              await _tearDownCustomerChannels();
-              _setupCustomerChannels(factoryId);
-            });
-          } else {
-            debugPrint('📡 customers: $status ${error ?? ""}');
-          }
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        debugPrint('✅ SUBSCRIBED → customers (factory: $factoryId)');
+        _reconnectAttempts['customer_channels'] = 0;
+      } else if (status == RealtimeSubscribeStatus.timedOut) {
+        debugPrint('⏱️ TIMEOUT → customers — جدولة إعادة الاتصال...');
+        _scheduleReconnect('customer_channels', () async {
+          await _tearDownCustomerChannels();
+          _setupCustomerChannels(factoryId);
         });
+      } else if (status == RealtimeSubscribeStatus.channelError) {
+        debugPrint('❌ CHANNEL ERROR → customers: $error');
+        _scheduleReconnect('customer_channels', () async {
+          await _tearDownCustomerChannels();
+          _setupCustomerChannels(factoryId);
+        });
+      } else {
+        debugPrint('📡 customers: $status ${error ?? ""}');
+      }
+    });
 
     // ─── customer_products ─────────────────────────────────────────
     _customerProductsChannel = _supabase
@@ -323,25 +351,25 @@ mixin CustomerSync on SyncServiceBase {
           },
         )
         .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('✅ SUBSCRIBED → customer_products (factory: $factoryId)');
-            _reconnectAttempts['customer_channels'] = 0;
-          } else if (status == RealtimeSubscribeStatus.timedOut) {
-            debugPrint('⏱️ TIMEOUT → customer_products — جدولة إعادة الاتصال...');
-            _scheduleReconnect('customer_channels', () async {
-              await _tearDownCustomerChannels();
-              _setupCustomerChannels(factoryId);
-            });
-          } else if (status == RealtimeSubscribeStatus.channelError) {
-            debugPrint('❌ CHANNEL ERROR → customer_products: $error');
-            _scheduleReconnect('customer_channels', () async {
-              await _tearDownCustomerChannels();
-              _setupCustomerChannels(factoryId);
-            });
-          } else {
-            debugPrint('📡 customer_products: $status ${error ?? ""}');
-          }
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        debugPrint('✅ SUBSCRIBED → customer_products (factory: $factoryId)');
+        _reconnectAttempts['customer_channels'] = 0;
+      } else if (status == RealtimeSubscribeStatus.timedOut) {
+        debugPrint('⏱️ TIMEOUT → customer_products — جدولة إعادة الاتصال...');
+        _scheduleReconnect('customer_channels', () async {
+          await _tearDownCustomerChannels();
+          _setupCustomerChannels(factoryId);
         });
+      } else if (status == RealtimeSubscribeStatus.channelError) {
+        debugPrint('❌ CHANNEL ERROR → customer_products: $error');
+        _scheduleReconnect('customer_channels', () async {
+          await _tearDownCustomerChannels();
+          _setupCustomerChannels(factoryId);
+        });
+      } else {
+        debugPrint('📡 customer_products: $status ${error ?? ""}');
+      }
+    });
   }
 
   /// إغلاق قناتَي العملاء وتحريرهما
@@ -401,76 +429,96 @@ mixin CustomerSync on SyncServiceBase {
 
       if (isDelete) {
         final clientName = record['client_name']?.toString() ?? '';
-        final syncId   = record['sync_id']?.toString();
+        final syncId = record['sync_id']?.toString();
         final remoteId = record['id']?.toString();
-        debugPrint('🗑️ [customers] وصل طلب حذف: $clientName (sync_id=$syncId, id=$remoteId)');
-        final deleted = await _deleteFromBoxByAnyId(box, syncId: syncId, remoteId: remoteId);
+        debugPrint(
+            '🗑️ [customers] وصل طلب حذف: $clientName (sync_id=$syncId, id=$remoteId)');
+        final deleted = await _deleteFromBoxByAnyId(box,
+            syncId: syncId, remoteId: remoteId);
         if (!deleted) {
           await _deleteFromBoxByClientName(box, clientName);
         }
         debugPrint('🗑️ [customers] اكتمل الحذف: $clientName');
       } else {
         final clientName = record['client_name']?.toString() ?? '';
-        final rawSyncId = record['sync_id']?.toString() ?? record['id']?.toString();
+        final rawSyncId =
+            record['sync_id']?.toString() ?? record['id']?.toString();
         final syncId = rawSyncId ??
             '${clientName}_${myFactoryId}_${record['product_code'] ?? ''}';
 
-        debugPrint('🌟 وصلت بيانات جديدة: $clientName (factory: $recordFactoryId) key=$syncId');
+        debugPrint(
+            '🌟 وصلت بيانات جديدة: $clientName (factory: $recordFactoryId) key=$syncId');
 
         if (!isDelete && payload.eventType == PostgresChangeEvent.insert) {
-          final isClientRecord = record['is_client_record'] == true || record['is_client_record'] == 'true';
+          final isClientRecord = record['is_client_record'] == true ||
+              record['is_client_record'] == 'true';
           final title = isClientRecord ? "➕ عميل جديد" : "📦 صنف جديد مضاف";
-          final body = isClientRecord 
-              ? "تم تسجيل العميل: $clientName" 
+          final body = isClientRecord
+              ? "تم تسجيل العميل: $clientName"
               : "تم إضافة صنف: ${record['product_name'] ?? ''} للعميل: $clientName";
-          
+
           // ℹ️ الإشعار يصل عبر FCM Edge Function — لا نحتاج showLocalNotification هنا
           // نُظهر فقط الـ overlay المرئي عند فتح التطبيق
+
+          void onTapCallback() async {
+            bool clientExists = false;
+            if (Hive.isBoxOpen('savedSheetSizes')) {
+              final box = Hive.box('savedSheetSizes');
+              for (var i = 0; i < box.length; i++) {
+                final item = box.getAt(i);
+                if (item is Map &&
+                    (item['clientName']?.toString().trim() ?? '') ==
+                        clientName.trim()) {
+                  clientExists = true;
+                  break;
+                }
+              }
+            }
+
+            if (clientExists) {
+              final context = scaffoldMessengerKey.currentContext;
+              if (context != null) {
+                final authService =
+                    Provider.of<AuthService>(context, listen: false);
+                final nav = authService.navigatorKey.currentState;
+                if (nav != null) {
+                  bool isAlreadyTop = false;
+                  nav.popUntil((route) {
+                    if (route.isCurrent &&
+                        route.settings.name ==
+                            'ClientItemsScreen_$clientName') {
+                      isAlreadyTop = true;
+                    }
+                    return true; // Stop immediately, don't pop anything
+                  });
+
+                  if (!isAlreadyTop) {
+                    nav.push(
+                      MaterialPageRoute(
+                        settings: RouteSettings(
+                            name: 'ClientItemsScreen_$clientName'),
+                        builder: (_) =>
+                            ClientItemsScreen(clientName: clientName),
+                      ),
+                    );
+                  }
+                }
+              }
+            } else {
+              debugPrint('⚠️ العميل غير موجود محلياً (Tap): $clientName');
+            }
+          }
 
           UIUtils.showTopOverlay(
             title: title,
             message: body,
-            onTap: () async {
-              bool clientExists = false;
-              if (Hive.isBoxOpen('savedSheetSizes')) {
-                final box = Hive.box('savedSheetSizes');
-                for (var i = 0; i < box.length; i++) {
-                  final item = box.getAt(i);
-                  if (item is Map && (item['clientName']?.toString().trim() ?? '') == clientName.trim()) {
-                    clientExists = true;
-                    break;
-                  }
-                }
-              }
+            onTap: onTapCallback,
+          );
 
-              if (clientExists) {
-                final context = scaffoldMessengerKey.currentContext;
-                if (context != null) {
-                  final authService = Provider.of<AuthService>(context, listen: false);
-                  final nav = authService.navigatorKey.currentState;
-                  if (nav != null) {
-                    bool isAlreadyTop = false;
-                    nav.popUntil((route) {
-                      if (route.isCurrent && route.settings.name == 'ClientItemsScreen_$clientName') {
-                        isAlreadyTop = true;
-                      }
-                      return true; // Stop immediately, don't pop anything
-                    });
-
-                    if (!isAlreadyTop) {
-                      nav.push(
-                        MaterialPageRoute(
-                          settings: RouteSettings(name: 'ClientItemsScreen_$clientName'),
-                          builder: (_) => ClientItemsScreen(clientName: clientName),
-                        ),
-                      );
-                    }
-                  }
-                }
-              } else {
-                debugPrint('⚠️ العميل غير موجود محلياً (Tap): $clientName');
-              }
-            },
+          UIUtils.showDesktopNotification(
+            title: title,
+            body: body,
+            onClick: onTapCallback,
           );
         }
 
@@ -489,8 +537,11 @@ mixin CustomerSync on SyncServiceBase {
             }
           }
 
-          if (!isDelete && payload.eventType == PostgresChangeEvent.insert && box.containsKey(existingKey)) {
-            debugPrint('⏭️ [customers] السجل موجود مسبقاً، سيتم منع التكرار: $existingKey');
+          if (!isDelete &&
+              payload.eventType == PostgresChangeEvent.insert &&
+              box.containsKey(existingKey)) {
+            debugPrint(
+                '⏭️ [customers] السجل موجود مسبقاً، سيتم منع التكرار: $existingKey');
             return;
           }
 
@@ -534,14 +585,18 @@ mixin CustomerSync on SyncServiceBase {
         await Hive.openBox<FinishedProduct>('finished_products');
       }
       final box = Hive.box<FinishedProduct>('finished_products');
-      final stableKey = record['sync_id']?.toString() ?? record['id']?.toString();
+      final stableKey =
+          record['sync_id']?.toString() ?? record['id']?.toString();
       if (stableKey == null) return;
 
       if (isDelete) {
         dynamic existingKey = stableKey;
         for (var i = 0; i < box.length; i++) {
           final item = box.getAt(i);
-          if (item != null && item.id == stableKey) { existingKey = box.keyAt(i); break; }
+          if (item != null && item.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
         }
         if (existingKey != null && box.containsKey(existingKey)) {
           await box.delete(existingKey);
@@ -554,11 +609,17 @@ mixin CustomerSync on SyncServiceBase {
         dynamic existingKey = stableKey;
         for (var i = 0; i < box.length; i++) {
           final item = box.getAt(i);
-          if (item != null && item.id == stableKey) { existingKey = box.keyAt(i); break; }
+          if (item != null && item.id == stableKey) {
+            existingKey = box.keyAt(i);
+            break;
+          }
         }
 
-        if (!isDelete && payload.eventType == PostgresChangeEvent.insert && box.containsKey(existingKey)) {
-          debugPrint('⏭️ [customer_products] السجل موجود مسبقاً، سيتم منع التكرار: $existingKey');
+        if (!isDelete &&
+            payload.eventType == PostgresChangeEvent.insert &&
+            box.containsKey(existingKey)) {
+          debugPrint(
+              '⏭️ [customer_products] السجل موجود مسبقاً، سيتم منع التكرار: $existingKey');
           return;
         }
 
@@ -568,53 +629,69 @@ mixin CustomerSync on SyncServiceBase {
         if (!isDelete && payload.eventType == PostgresChangeEvent.insert) {
           final clientName = record['client_name']?.toString() ?? '';
           const title = "📦 صنف جديد مضاف";
-          final body = "تم إضافة صنف: ${record['product_name'] ?? ''} للعميل: $clientName";
+          final body =
+              "تم إضافة صنف: ${record['product_name'] ?? ''} للعميل: $clientName";
           // ℹ️ الإشعار يصل عبر FCM Edge Function — لا نحتاج showLocalNotification هنا
+
+          void onTapCallback() async {
+            bool clientExists = false;
+            if (Hive.isBoxOpen('savedSheetSizes')) {
+              final box = Hive.box('savedSheetSizes');
+              for (var i = 0; i < box.length; i++) {
+                final item = box.getAt(i);
+                if (item is Map &&
+                    (item['clientName']?.toString().trim() ?? '') ==
+                        clientName.trim()) {
+                  clientExists = true;
+                  break;
+                }
+              }
+            }
+
+            if (clientExists) {
+              final context = scaffoldMessengerKey.currentContext;
+              if (context != null) {
+                final authService =
+                    Provider.of<AuthService>(context, listen: false);
+                final nav = authService.navigatorKey.currentState;
+                if (nav != null) {
+                  bool isAlreadyTop = false;
+                  nav.popUntil((route) {
+                    if (route.isCurrent &&
+                        route.settings.name ==
+                            'ClientItemsScreen_$clientName') {
+                      isAlreadyTop = true;
+                    }
+                    return true; // Stop immediately, don't pop anything
+                  });
+
+                  if (!isAlreadyTop) {
+                    nav.push(
+                      MaterialPageRoute(
+                        settings: RouteSettings(
+                            name: 'ClientItemsScreen_$clientName'),
+                        builder: (_) =>
+                            ClientItemsScreen(clientName: clientName),
+                      ),
+                    );
+                  }
+                }
+              }
+            } else {
+              debugPrint('⚠️ العميل غير موجود محلياً (Tap): $clientName');
+            }
+          }
 
           UIUtils.showTopOverlay(
             title: title,
             message: body,
-            onTap: () async {
-              bool clientExists = false;
-              if (Hive.isBoxOpen('savedSheetSizes')) {
-                final box = Hive.box('savedSheetSizes');
-                for (var i = 0; i < box.length; i++) {
-                  final item = box.getAt(i);
-                  if (item is Map && (item['clientName']?.toString().trim() ?? '') == clientName.trim()) {
-                    clientExists = true;
-                    break;
-                  }
-                }
-              }
+            onTap: onTapCallback,
+          );
 
-              if (clientExists) {
-                final context = scaffoldMessengerKey.currentContext;
-                if (context != null) {
-                  final authService = Provider.of<AuthService>(context, listen: false);
-                  final nav = authService.navigatorKey.currentState;
-                  if (nav != null) {
-                    bool isAlreadyTop = false;
-                    nav.popUntil((route) {
-                      if (route.isCurrent && route.settings.name == 'ClientItemsScreen_$clientName') {
-                        isAlreadyTop = true;
-                      }
-                      return true; // Stop immediately, don't pop anything
-                    });
-
-                    if (!isAlreadyTop) {
-                      nav.push(
-                        MaterialPageRoute(
-                          settings: RouteSettings(name: 'ClientItemsScreen_$clientName'),
-                          builder: (_) => ClientItemsScreen(clientName: clientName),
-                        ),
-                      );
-                    }
-                  }
-                }
-              } else {
-                debugPrint('⚠️ العميل غير موجود محلياً (Tap): $clientName');
-              }
-            },
+          UIUtils.showDesktopNotification(
+            title: title,
+            body: body,
+            onClick: onTapCallback,
           );
         }
       }
@@ -631,19 +708,19 @@ mixin CustomerSync on SyncServiceBase {
     try {
       final sheetDetails = r['sheet_details'] as Map<String, dynamic>? ?? {};
       return {
-        'id':             r['id'],
-        'sync_id':        r['sync_id'],
-        'processType':    r['process_type']?.toString() ?? 'تفصيل',
-        'clientName':     r['client_name']?.toString() ?? '',
-        'productName':    r['product_name']?.toString() ?? '',
-        'productCode':    r['product_code']?.toString() ?? '',
-        'length':         r['length']?.toString() ?? '',
-        'width':          r['width']?.toString() ?? '',
-        'height':         r['height']?.toString() ?? '',
-        'isSheet':        r['is_sheet'] ?? false,
-        'date':           r['date']?.toString() ?? DateTime.now().toIso8601String(),
-        'factory_id':     r['factory_id'],
-        'imagePaths':     r['image_paths'] ?? [],
+        'id': r['id'],
+        'sync_id': r['sync_id'],
+        'processType': r['process_type']?.toString() ?? 'تفصيل',
+        'clientName': r['client_name']?.toString() ?? '',
+        'productName': r['product_name']?.toString() ?? '',
+        'productCode': r['product_code']?.toString() ?? '',
+        'length': r['length']?.toString() ?? '',
+        'width': r['width']?.toString() ?? '',
+        'height': r['height']?.toString() ?? '',
+        'isSheet': r['is_sheet'] ?? false,
+        'date': r['date']?.toString() ?? DateTime.now().toIso8601String(),
+        'factory_id': r['factory_id'],
+        'imagePaths': r['image_paths'] ?? [],
         'isClientRecord': r['is_client_record'] ?? false,
         'isOverFlap': sheetDetails['isOverFlap'] ?? false,
         'isFlap': sheetDetails['isFlap'] ?? true,
@@ -653,16 +730,24 @@ mixin CustomerSync on SyncServiceBase {
         'isFullSize': sheetDetails['isFullSize'] ?? true,
         'isQuarterSize': sheetDetails['isQuarterSize'] ?? false,
         'isQuarterWidth': sheetDetails['isQuarterWidth'] ?? true,
-        'sheetLengthResult': sheetDetails['sheetLengthResult']?.toString() ?? '',
+        'sheetLengthResult':
+            sheetDetails['sheetLengthResult']?.toString() ?? '',
         'sheetWidthResult': sheetDetails['sheetWidthResult']?.toString() ?? '',
         'productionWidth1': sheetDetails['productionWidth1']?.toString() ?? '',
         'productionHeight': sheetDetails['productionHeight']?.toString() ?? '',
         'productionWidth2': sheetDetails['productionWidth2']?.toString() ?? '',
-        'sheetLengthManual': sheetDetails['sheetLengthManual']?.toString() ?? '',
+        'sheetLengthManual':
+            sheetDetails['sheetLengthManual']?.toString() ?? '',
         'sheetWidthManual': sheetDetails['sheetWidthManual']?.toString() ?? '',
         'cuttingType': sheetDetails['cuttingType']?.toString() ?? 'دوبل',
-        'formNumber': sheetDetails['formNumber']?.toString() ?? sheetDetails['form_number']?.toString() ?? r['form_number']?.toString() ?? '',
-        'form_number': sheetDetails['form_number']?.toString() ?? sheetDetails['formNumber']?.toString() ?? r['form_number']?.toString() ?? '',
+        'formNumber': sheetDetails['formNumber']?.toString() ??
+            sheetDetails['form_number']?.toString() ??
+            r['form_number']?.toString() ??
+            '',
+        'form_number': sheetDetails['form_number']?.toString() ??
+            sheetDetails['formNumber']?.toString() ??
+            r['form_number']?.toString() ??
+            '',
       };
     } catch (e) {
       debugPrint('❌ CustomerSync._customerToHive error: $e');
@@ -681,11 +766,22 @@ mixin CustomerSync on SyncServiceBase {
   ) {
     if (hasSheetDetails) return;
     const localFields = [
-      'isOverFlap', 'isFlap', 'isOneFlap', 'isTwoFlap', 'addTwoMm',
-      'isFullSize', 'isQuarterSize', 'isQuarterWidth',
-      'sheetLengthResult', 'sheetWidthResult',
-      'productionWidth1', 'productionHeight', 'productionWidth2',
-      'sheetLengthManual', 'sheetWidthManual', 'cuttingType',
+      'isOverFlap',
+      'isFlap',
+      'isOneFlap',
+      'isTwoFlap',
+      'addTwoMm',
+      'isFullSize',
+      'isQuarterSize',
+      'isQuarterWidth',
+      'sheetLengthResult',
+      'sheetWidthResult',
+      'productionWidth1',
+      'productionHeight',
+      'productionWidth2',
+      'sheetLengthManual',
+      'sheetWidthManual',
+      'cuttingType',
     ];
     for (var field in localFields) {
       if (existingRecord.containsKey(field)) {
@@ -714,18 +810,20 @@ mixin CustomerSync on SyncServiceBase {
       final v = box.getAt(i);
       if (v is! Map) continue;
       final vSyncId = v['sync_id']?.toString();
-      final vId     = v['id']?.toString();
-      final matched = (syncId  != null && vSyncId == syncId)  ||
-                      (remoteId != null && vSyncId == remoteId) ||
-                      (remoteId != null && vId     == remoteId) ||
-                      (syncId  != null && vId     == syncId);
+      final vId = v['id']?.toString();
+      final matched = (syncId != null && vSyncId == syncId) ||
+          (remoteId != null && vSyncId == remoteId) ||
+          (remoteId != null && vId == remoteId) ||
+          (syncId != null && vId == syncId);
       if (matched) {
         await box.delete(box.keyAt(i));
-        debugPrint('🗑️ [box] ✅ حُذف بالبحث الخطي (sync_id=$vSyncId | id=$vId)');
+        debugPrint(
+            '🗑️ [box] ✅ حُذف بالبحث الخطي (sync_id=$vSyncId | id=$vId)');
         return true;
       }
     }
-    debugPrint('⚠️ [box] ❌ لم يُعثر على السجل (sync_id=$syncId | id=$remoteId)');
+    debugPrint(
+        '⚠️ [box] ❌ لم يُعثر على السجل (sync_id=$syncId | id=$remoteId)');
     return false;
   }
 
@@ -738,6 +836,8 @@ mixin CustomerSync on SyncServiceBase {
         keysToDelete.add(box.keyAt(i));
       }
     }
-    for (final k in keysToDelete) { await box.delete(k); }
+    for (final k in keysToDelete) {
+      await box.delete(k);
+    }
   }
 }

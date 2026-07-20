@@ -416,6 +416,28 @@ mixin ProductionSync on SyncServiceBase {
         }
         await box.put(existingKey, hiveRecord);
         debugPrint('✅ [production_reports] تم حفظ محلياً: $stableKey');
+
+        if (payload.eventType == PostgresChangeEvent.insert) {
+          final productName = record['product']?.toString() ?? record['product_name']?.toString() ?? '';
+          final machineName = record['machine_name']?.toString() ?? record['machineName']?.toString() ?? '';
+          const title = "📊 تقرير إنتاج جديد";
+          final bodyParts = <String>[
+            if (clientName.toString().trim().isNotEmpty) "العميل: $clientName",
+            if (productName.trim().isNotEmpty) "الصنف: $productName",
+            if (machineName.trim().isNotEmpty) "الماكينة: $machineName",
+          ];
+          final body = bodyParts.isNotEmpty ? bodyParts.join(' | ') : "تم إضافة تقرير إنتاج جديد";
+
+          UIUtils.showTopOverlay(
+            title: title,
+            message: body,
+          );
+
+          UIUtils.showDesktopNotification(
+            title: title,
+            body: body,
+          );
+        }
       }
     } catch (e) {
       debugPrint('❌ _onProductionReportChange: $e');

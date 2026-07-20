@@ -8,6 +8,7 @@ import 'package:smart_sheet/globals.dart';
 import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/utils/route_observer.dart';
 import 'package:smart_sheet/utils/cache_helper.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
@@ -18,6 +19,7 @@ import 'package:smart_sheet/screens/settings_screen.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
 
 import 'package:window_manager/window_manager.dart';
+import 'package:local_notifier/local_notifier.dart';
 import 'package:smart_sheet/widgets/desktop_title_bar.dart';
 import 'package:smart_sheet/widgets/desktop_sidebar.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
@@ -142,6 +144,20 @@ Future<void> main() async {
     } catch (e) {
       debugPrint(
           '⚠️ Notifications/FCM: تعذّرت التهيئة (مقبول): $e');
+    }
+
+    // 3c. تهيئة إشعارات سطح المكتب (Windows Native Notifications) قبل تشغيل خدمات المزامنة
+    if (!kIsWeb && Platform.isWindows) {
+      try {
+        await localNotifier.setup(
+          appName: 'Smart Sheet',
+          shortcutPolicy: ShortcutPolicy.requireCreate,
+        );
+        UIUtils.markLocalNotifierReady();
+        debugPrint("✅ Local Notifier setup successfully");
+      } catch (e) {
+        debugPrint("⚠️ Local Notifier Setup Failed: $e");
+      }
     }
 
     // تشغيل المزامنة السحابية في الخلفية دون حظر التطبيق (Background execution)

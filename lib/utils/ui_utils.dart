@@ -1,4 +1,8 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:local_notifier/local_notifier.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:smart_sheet/globals.dart';
 
 class UIUtils {
@@ -284,5 +288,73 @@ class UIUtils {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );
+  }
+
+  static bool _isLocalNotifierSetup = false;
+  static bool _isSetupInProgress = false;
+
+  /// تأكيد تهيئة localNotifier من main.dart
+  static void markLocalNotifierReady() {
+    _isLocalNotifierSetup = true;
+  }
+
+  /// دالة مساعدة لعرض إشعار سطح المكتب (Windows Native Notification)
+  /// تظهر في شريط إشعارات الويندوز حتى لو كان التطبيق مصغراً (Minimized) في شريط المهام
+  static void showDesktopNotification({
+    required String title,
+    required String body,
+    VoidCallback? onClick,
+  }) async {
+    if (kIsWeb || !Platform.isWindows) return;
+    try {
+      if (!_isLocalNotifierSetup) {
+        if (_isSetupInProgress) {
+          for (int i = 0; i < 20 && _isSetupInProgress; i++) {
+            await Future.delayed(const Duration(milliseconds: 100));
+          }
+        }
+        if (!_isLocalNotifierSetup) {
+          _isSetupInProgress = true;
+          try {
+            await localNotifier.setup(
+              appName: 'Smart Sheet',
+              shortcutPolicy: ShortcutPolicy.requireCreate,
+            );
+            _isLocalNotifierSetup = true;
+          } catch (e) {
+            debugPrint('⚠️ [showDesktopNotification] localNotifier auto-setup failed: $e');
+          } finally {
+            _isSetupInProgress = false;
+          }
+        }
+      }
+
+      if (!_isLocalNotifierSetup) {
+        debugPrint('⚠️ [showDesktopNotification] تم إلغاء عرض الإشعار لأن تهيئة local_notifier لم تنجح (تأكد من إعادة بناء التطبيق بالكامل بالـ C++ وليس Hot Reload).');
+        return;
+      }
+
+      final notification = LocalNotification(
+        title: title,
+        body: body,
+      );
+      notification.onClick = () async {
+        try {
+          // إعادة التركيز على النافذة وإظهارها عند الضغط على الإشعار من شريط المهام
+          await windowManager.show();
+          await windowManager.focus();
+        } catch (e) {
+          debugPrint('⚠️ [showDesktopNotification] Window focus error: $e');
+        }
+        if (onClick != null) {
+          onClick();
+        }
+      };
+      await notification.show();
+      _isLocalNotifierSetup = true;
+      debugPrint('🔔 [Windows Native Notification] Displayed: $title | $body');
+    } catch (e) {
+      debugPrint('⚠️ [Windows Native Notification] Error showing notification: $e');
+    }
   }
 }
