@@ -59,6 +59,7 @@ class MyHttpOverrides extends HttpOverrides {
 
 Future<void> main() async {
   bool initSuccess = false;
+  String? initErrorDetails;
 
   try {
     // 1. التأكد من تهيئة نظام Flutter
@@ -96,7 +97,7 @@ Future<void> main() async {
       _openBackgroundBoxes();
       // تهيئة القيم الافتراضية لجدول أيام الوردية إذا كان فارغاً
       _initDefaultSchedule();
-      
+
       // إغلاق أي أذونات أو إجراءات بالساعات مفتوحة من الأيام السابقة
       Worker.autoCloseHourlyActionsGlobal();
     }
@@ -106,7 +107,8 @@ Future<void> main() async {
       await Supabase.initialize(
         url: supabaseUrl.trim(),
         anonKey: supabaseAnonKey.trim(),
-        authOptions: const FlutterAuthClientOptions(authFlowType: AuthFlowType.pkce),
+        authOptions:
+            const FlutterAuthClientOptions(authFlowType: AuthFlowType.pkce),
       ).timeout(const Duration(seconds: 5));
       debugPrint("✅ Supabase initialized successfully");
     } catch (e) {
@@ -125,10 +127,10 @@ Future<void> main() async {
 
     // تشغيل المزامنة السحابية في الخلفية دون حظر التطبيق (Background execution)
     SyncService.instance.initialize().catchError((e) {
-      debugPrint("⚠️ سيرفر Supabase غير متاح حالياً، التطبيق يعمل في وضع الأوفلاين: $e");
+      debugPrint(
+          "⚠️ سيرفر Supabase غير متاح حالياً، التطبيق يعمل في وضع الأوفلاين: $e");
     });
-    debugPrint(
-        '✅ SyncService: تم استدعاء initialize() للعمل في الخلفية.');
+    debugPrint('✅ SyncService: تم استدعاء initialize() للعمل في الخلفية.');
 
     // 4. تهيئة نافذة سطح المكتب
     if (!kIsWeb && Platform.isWindows) {
@@ -153,8 +155,9 @@ Future<void> main() async {
     }
 
     initSuccess = true; // ✅ نجح كل شيء
-  } catch (e) {
-    debugPrint("❌ Critical Initialization Error: $e");
+  } catch (e, st) {
+    initErrorDetails = e.toString();
+    debugPrint("❌ Critical Initialization Error: $e\n$st");
     // لا نكمل — نُظهر شاشة خطأ واضحة بدلاً من الـ crash الصامت
   }
 
@@ -171,7 +174,7 @@ Future<void> main() async {
             ],
             child: const SmartSheetApp(),
           )
-        : const _InitErrorApp(),
+        : _InitErrorApp(errorMessage: initErrorDetails),
   );
 }
 
@@ -215,7 +218,6 @@ void _initDefaultSchedule() {
 void _openBackgroundBoxes() {
   Hive.openBox<StoreEntry>('store_flexo');
   Hive.openBox<MaintenanceRecord>('maintenance_records_main');
-  Hive.openBox<FlexoMachine>('flexo_machines');
 
   final otherBoxes = [
     'savedSheetSizes',
@@ -232,11 +234,11 @@ void _openBackgroundBoxes() {
   }
 }
 
-// ─── تحصين Hive Lock — 3 محاولات مع حذف Lock File آمن على Windows ───────────
+// ─── تحصين Hive Lock — 3 محاولات مع حذف Lock File آمن على جميع الأنظمة ───────────
 //
-// السبب: عند التثبيت فوق نسخة قديمة على Windows، يبقى ملف settings.lock
+// السبب: عند التثبيت فوق نسخة قديمة، يبقى ملف settings.lock
 // محجوزاً من العملية السابقة. إذا فشلت المحاولة الأولى والثانية، نحاول
-// حذف الـ lock file بأمان (طالما لا يوجد عملية فعلية تستخدمه) ثم إعادة الفتح.
+// حذف الـ lock file بأمان ثم إعادة الفتح.
 //
 Future<void> _openSettingsBoxWithLockRecovery() async {
   // المحاولة الأولى — المسار الطبيعي السريع
@@ -258,11 +260,10 @@ Future<void> _openSettingsBoxWithLockRecovery() async {
     debugPrint('⚠️ settings.lock لا يزال محجوزاً (محاولة 2): $e2');
   }
 
-  // المحاولة الثالثة (Windows فقط) — حذف lock file بأمان
-  if (!kIsWeb && Platform.isWindows) {
+  // المحاولة الثالثة — حذف lock file بأمان (على جميع الأنظمة Windows & Android)
+  if (!kIsWeb) {
     try {
       final hiveDir = await getApplicationDocumentsDirectory();
-      // Hive يستخدم documents directory على Windows
       final lockFile = File('${hiveDir.path}/settings.lock');
       if (lockFile.existsSync()) {
         lockFile.deleteSync();
@@ -282,10 +283,11 @@ Future<void> _openSettingsBoxWithLockRecovery() async {
 Future<void> _initializeNotifications() async {
   if (kIsWeb || !Platform.isAndroid) return;
   final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-  
+
   // طلب صلاحيات الإشعارات لأندرويد 13 فما فوق لضمان عملها على كل الأجهزة
   await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
       ?.requestNotificationsPermission();
 
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -296,7 +298,7 @@ Future<void> _initializeNotifications() async {
         try {
           final payloadData = jsonDecode(response.payload!);
           final clientName = payloadData['clientName']?.toString();
-          
+
           if (clientName != null && clientName.isNotEmpty) {
             // التحقق من وجود العميل محلياً قبل التوجيه
             bool clientExists = false;
@@ -304,7 +306,9 @@ Future<void> _initializeNotifications() async {
               final box = Hive.box('savedSheetSizes');
               for (var i = 0; i < box.length; i++) {
                 final item = box.getAt(i);
-                if (item is Map && (item['clientName']?.toString().trim() ?? '') == clientName.trim()) {
+                if (item is Map &&
+                    (item['clientName']?.toString().trim() ?? '') ==
+                        clientName.trim()) {
                   clientExists = true;
                   break;
                 }
@@ -312,12 +316,15 @@ Future<void> _initializeNotifications() async {
             }
 
             if (clientExists) {
-              final authService = Provider.of<AuthService>(scaffoldMessengerKey.currentContext!, listen: false);
+              final authService = Provider.of<AuthService>(
+                  scaffoldMessengerKey.currentContext!,
+                  listen: false);
               final nav = authService.navigatorKey.currentState;
               if (nav != null) {
                 bool isAlreadyTop = false;
                 nav.popUntil((route) {
-                  if (route.isCurrent && route.settings.name == 'ClientItemsScreen_$clientName') {
+                  if (route.isCurrent &&
+                      route.settings.name == 'ClientItemsScreen_$clientName') {
                     isAlreadyTop = true;
                   }
                   return true;
@@ -326,7 +333,8 @@ Future<void> _initializeNotifications() async {
                 if (!isAlreadyTop) {
                   nav.push(
                     MaterialPageRoute(
-                      settings: RouteSettings(name: 'ClientItemsScreen_$clientName'),
+                      settings:
+                          RouteSettings(name: 'ClientItemsScreen_$clientName'),
                       builder: (_) => ClientItemsScreen(clientName: clientName),
                     ),
                   );
@@ -353,7 +361,6 @@ class SmartSheetApp extends StatefulWidget {
 
 class _SmartSheetAppState extends State<SmartSheetApp>
     with WidgetsBindingObserver {
-
   // ─── Debounce لمنع استدعاء initialize() أكثر من مرة عند resume ──
   // يحدث على Windows عند إعادة التركيز على النافذة
   DateTime? _lastResumeTime;
@@ -394,7 +401,8 @@ class _SmartSheetAppState extends State<SmartSheetApp>
       }
 
       // 1. فحص الحالة الفورية من السحاب لتنفيذ الطرد القسري إن تم فك الارتباط
-      final loggedOut = await KillSwitchService.instance.checkAndEnforceKillSwitch(
+      final loggedOut =
+          await KillSwitchService.instance.checkAndEnforceKillSwitch(
         onForcedLogout: _onForcedLogout,
       );
       if (loggedOut) return;
@@ -463,7 +471,8 @@ class _SmartSheetAppState extends State<SmartSheetApp>
       // تجاهل أي استدعاء ثانٍ في غضون 3 ثوانٍ من الأول
       if (_lastResumeTime != null &&
           now.difference(_lastResumeTime!).inSeconds < 3) {
-        debugPrint('⏭️ SmartSheetApp: تجاهل resume مكرر (${now.difference(_lastResumeTime!).inMilliseconds}ms)');
+        debugPrint(
+            '⏭️ SmartSheetApp: تجاهل resume مكرر (${now.difference(_lastResumeTime!).inMilliseconds}ms)');
         return;
       }
       _lastResumeTime = now;
@@ -567,7 +576,8 @@ class _SmartSheetAppState extends State<SmartSheetApp>
 // تُعرض عوضاً عن الـ crash الصامت عند فشل التهيئة
 // السبب الأكثر شيوعاً: ملف settings.lock محجوز بسبب نسخة سابقة من التطبيق
 class _InitErrorApp extends StatelessWidget {
-  const _InitErrorApp();
+  final String? errorMessage;
+  const _InitErrorApp({this.errorMessage});
 
   @override
   Widget build(BuildContext context) {
@@ -581,7 +591,8 @@ class _InitErrorApp extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline, color: Color(0xFFE94560), size: 72),
+                const Icon(Icons.error_outline,
+                    color: Color(0xFFE94560), size: 72),
                 const SizedBox(height: 24),
                 const Text(
                   'فشل تشغيل التطبيق',
@@ -593,9 +604,12 @@ class _InitErrorApp extends StatelessWidget {
                   textDirection: TextDirection.rtl,
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'تأكد من إغلاق أي نسخة أخرى من التطبيق تعمل في الخلفية، ثم أعد التشغيل.',
-                  style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 14, height: 1.6),
+                Text(
+                  errorMessage != null
+                      ? 'السبب التفصيلي: $errorMessage'
+                      : 'تأكد من إغلاق أي نسخة أخرى من التطبيق تعمل في الخلفية، ثم أعد التشغيل.',
+                  style: const TextStyle(
+                      color: Color(0xFFAAAAAA), fontSize: 14, height: 1.6),
                   textAlign: TextAlign.center,
                   textDirection: TextDirection.rtl,
                 ),
@@ -603,13 +617,17 @@ class _InitErrorApp extends StatelessWidget {
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE94560),
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.refresh, color: Colors.white),
-                  label: const Text('تحقق من اللوجات', style: TextStyle(color: Colors.white)),
+                  label: const Text('تحقق من اللوجات',
+                      style: TextStyle(color: Colors.white)),
                   onPressed: () {
-                    debugPrint('🔄 _InitErrorApp: المستخدم طلب مراجعة اللوجات.');
+                    debugPrint(
+                        '🔄 _InitErrorApp: المستخدم طلب مراجعة اللوجات.');
                   },
                 ),
               ],

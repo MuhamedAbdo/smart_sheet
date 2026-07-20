@@ -22,7 +22,7 @@ android {
 
     defaultConfig {
         applicationId = "com.muhamed.smart_sheet"
-        // minSdk = 21 مطلوب بواسطة flutter_foreground_task v9+
+        // minSdk = 23 مطلوب بواسطة mobile_scanner و flutter_foreground_task
         minSdk = flutter.minSdkVersion
         targetSdk = 36 
         versionCode = flutter.versionCode
