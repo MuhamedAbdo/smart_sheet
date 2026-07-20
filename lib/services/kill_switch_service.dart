@@ -20,6 +20,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/utils/device_manager.dart';
+import 'package:smart_sheet/services/push_notification_service.dart';
 
 class KillSwitchService {
   // ─── Singleton ─────────────────────────────────────────────────────────────
@@ -160,11 +161,15 @@ class KillSwitchService {
       final deviceId = await DeviceManager.getDeviceId();
       debugPrint('📱 KillSwitch: تسجيل الجهاز | email=$email | device=$deviceId');
 
+      // جلب FCM Token لحفظه مع معرّف الجهاز
+      final fcmToken = await PushNotificationService.getToken();
+
       await _supabase
           .from('workers')
           .update({
             'device_id': deviceId,
             'is_device_linked': true,
+            if (fcmToken != null && fcmToken.isNotEmpty) 'fcm_token': fcmToken,
           })
           .eq('email', email);
 

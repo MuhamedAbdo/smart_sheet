@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -53,6 +54,9 @@ flutter {
 dependencies {
     // المحافظة على نسخة Desugaring التي تعمل بها
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Firebase BOM — يوحّد إصدارات جميع مكتبات Firebase
+    implementation(platform("com.google.firebase:firebase-bom:33.6.0"))
+    implementation("com.google.firebase:firebase-messaging")
 }
 
 // Force specific AndroidX versions to avoid SDK 36 requirements

@@ -31,6 +31,9 @@ import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/utils/device_manager.dart';
 import 'package:smart_sheet/services/kill_switch_service.dart';
 import 'package:smart_sheet/services/safe_secure_storage.dart';
+import 'package:smart_sheet/services/push_notification_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 // استيراد الموديلات
 import 'package:smart_sheet/models/worker_action_model.dart';
@@ -102,7 +105,21 @@ Future<void> main() async {
       Worker.autoCloseHourlyActionsGlobal();
     }
 
-    // 3. تهيئة Supabase بذكاء (بدون تعطيل التطبيق)
+    // 3. تهيئة Firebase وتسجيل Background Handler
+    // ⚠️ يجب تسجيل onBackgroundMessage فوراً بعد Firebase.initializeApp()
+    //    وقبل أي عمل آخر — هذا شرط حتمي لـ Android native plugin
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        await Firebase.initializeApp();
+        // تسجيل Background Handler مباشرةً بعد init — هذا هو السبب الدقيق لـ MissingPluginException
+        FirebaseMessaging.onBackgroundMessage(fcmBackgroundHandler);
+        debugPrint('✅ Firebase + FCM Background Handler: تمت التهيئة بنجاح.');
+      } catch (e) {
+        debugPrint('⚠️ Firebase init failed: $e');
+      }
+    }
+
+    // 3a. تهيئة Supabase بذكاء (بدون تعطيل التطبيق)
     try {
       await Supabase.initialize(
         url: supabaseUrl.trim(),
@@ -115,14 +132,16 @@ Future<void> main() async {
       debugPrint("⚠️ Supabase Initialization failed (Offline Mode): $e");
     }
 
-    // 3b. تهيئة الإشعارات — مغلّفة بـ try/catch لمنع MissingPluginException
-    //     من إيقاف التطبيق (تحدث على المحاكي أو عند التشغيل بعد Clean Build)
+    // 3b. تهيئة الإشعارات المحلية + Firebase Cloud Messaging
+    //     مغلّفة بـ try/catch لمنع MissingPluginException من إيقاف التطبيق
     try {
       await _initializeNotifications();
-      debugPrint('✅ Notifications: تمت التهيئة بنجاح.');
+      // تهيئة FCM بعد التهيئة المحلية (Android فقط)
+      await PushNotificationService.init();
+      debugPrint('✅ Notifications + FCM: تمت التهيئة بنجاح.');
     } catch (e) {
       debugPrint(
-          '⚠️ Notifications: تعذّرت التهيئة (MissingPluginException مقبول): $e');
+          '⚠️ Notifications/FCM: تعذّرت التهيئة (مقبول): $e');
     }
 
     // تشغيل المزامنة السحابية في الخلفية دون حظر التطبيق (Background execution)

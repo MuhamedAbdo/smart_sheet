@@ -424,7 +424,8 @@ mixin CustomerSync on SyncServiceBase {
               ? "تم تسجيل العميل: $clientName" 
               : "تم إضافة صنف: ${record['product_name'] ?? ''} للعميل: $clientName";
           
-          SyncService.instance.showLocalNotification(title, body, clientName);
+          // ℹ️ الإشعار يصل عبر FCM Edge Function — لا نحتاج showLocalNotification هنا
+          // نُظهر فقط الـ overlay المرئي عند فتح التطبيق
 
           UIUtils.showTopOverlay(
             title: title,
@@ -568,7 +569,7 @@ mixin CustomerSync on SyncServiceBase {
           final clientName = record['client_name']?.toString() ?? '';
           const title = "📦 صنف جديد مضاف";
           final body = "تم إضافة صنف: ${record['product_name'] ?? ''} للعميل: $clientName";
-          SyncService.instance.showLocalNotification(title, body, clientName);
+          // ℹ️ الإشعار يصل عبر FCM Edge Function — لا نحتاج showLocalNotification هنا
 
           UIUtils.showTopOverlay(
             title: title,

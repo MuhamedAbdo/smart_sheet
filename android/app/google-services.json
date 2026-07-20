@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "637670537997",
+    "project_id": "smartsheet-notifications",
+    "storage_bucket": "smartsheet-notifications.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:637670537997:android:718bc8894f9db3d23b0e44",
+        "android_client_info": {
+          "package_name": "com.muhamed.smart_sheet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqx7ZPrKvwOzhIv0UerlnuCvhGM9NhyGU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

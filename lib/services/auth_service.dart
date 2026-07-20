@@ -7,6 +7,7 @@ import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/pairing_service.dart';
 import 'package:smart_sheet/services/kill_switch_service.dart';
+import 'package:smart_sheet/services/push_notification_service.dart';
 
 class AuthService extends ChangeNotifier {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
@@ -16,10 +17,13 @@ class AuthService extends ChangeNotifier {
   UserState get state => _state;
   bool get isAuthenticated {
     if (Hive.isBoxOpen('settings')) {
-      return Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
+      return Hive.box('settings')
+              .get('is_user_logged_in', defaultValue: false) ==
+          true;
     }
     return false;
   }
+
   String? get factoryId => _factoryId;
   bool get isAdmin => _state.role?.trim().toLowerCase() == 'admin';
   String? get currentUserEmail => _state.user?.email;
@@ -47,18 +51,21 @@ class AuthService extends ChangeNotifier {
       // التوجه تلقائياً إلى شاشة تحديث كلمة المرور
       navigatorKey.currentState?.pushNamed('/update-password');
     }
-    
+
     if (session != null) {
       // Keep existing role if available to avoid flicker before fetch
       _state = UserState.authenticated(session.user, role: _state.role);
       if (Hive.isBoxOpen('settings')) {
         Hive.box('settings').put('is_user_logged_in', true);
       }
-      if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.initialSession) {
+      if (event == AuthChangeEvent.signedIn ||
+          event == AuthChangeEvent.initialSession) {
         _fetchAndStoreUserData(session.user.id);
       }
     } else {
-      final isLocalLoggedIn = Hive.isBoxOpen('settings') && Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
+      final isLocalLoggedIn = Hive.isBoxOpen('settings') &&
+          Hive.box('settings').get('is_user_logged_in', defaultValue: false) ==
+              true;
       if (!isLocalLoggedIn) {
         _state = UserState.unauthenticated();
         _clearUserData();
@@ -69,7 +76,9 @@ class AuthService extends ChangeNotifier {
 
   void _checkInitialSession() {
     final session = _supabaseClient.auth.currentSession;
-    final isLocalLoggedIn = Hive.isBoxOpen('settings') && Hive.box('settings').get('is_user_logged_in', defaultValue: false) == true;
+    final isLocalLoggedIn = Hive.isBoxOpen('settings') &&
+        Hive.box('settings').get('is_user_logged_in', defaultValue: false) ==
+            true;
 
     if (session != null) {
       _state = UserState.authenticated(session.user, role: _state.role);
@@ -120,13 +129,13 @@ class AuthService extends ChangeNotifier {
   Future<void> _fetchAndStoreUserData(String userId) async {
     try {
       const storage = SafeSecureStorage();
-      
+
       final response = await _supabaseClient
           .from('profiles')
           .select('factory_id, role')
           .eq('id', userId)
           .maybeSingle();
-      
+
       if (response != null) {
         final role = response['role']?.toString() ?? 'employee';
         await storage.write(key: 'user_role', value: role);
@@ -142,11 +151,15 @@ class AuthService extends ChangeNotifier {
                 .eq('email', userEmail)
                 .maybeSingle();
             if (workerRecord != null) {
-              final isLinked = workerRecord['is_device_linked'] as bool? ?? true;
+              final isLinked =
+                  workerRecord['is_device_linked'] as bool? ?? true;
               if (!isLinked) {
                 isUnlinkedEmployee = true;
-                debugPrint('🚨 AuthService: هذا الحساب تم فك ارتباطه من الإدارة! منع إعادة ربط المصنع...');
-                await _supabaseClient.from('profiles').update({'factory_id': null}).eq('id', userId);
+                debugPrint(
+                    '🚨 AuthService: هذا الحساب تم فك ارتباطه من الإدارة! منع إعادة ربط المصنع...');
+                await _supabaseClient
+                    .from('profiles')
+                    .update({'factory_id': null}).eq('id', userId);
               }
             }
           } catch (e) {
@@ -154,22 +167,30 @@ class AuthService extends ChangeNotifier {
           }
         }
 
-        _factoryId = isUnlinkedEmployee ? null : response['factory_id']?.toString();
+        _factoryId =
+            isUnlinkedEmployee ? null : response['factory_id']?.toString();
         if (_factoryId != null) {
           await storage.write(key: 'factory_id', value: _factoryId!);
         } else {
           await storage.delete(key: 'factory_id');
         }
-        
+
         _state = _state.copyWith(role: role);
         notifyListeners();
 
         // تفعيل Real-time channels والمزامنة المبدئية بعد تخزين factory_id
         await SyncService.instance.initialize();
+
+        // 🔔 رفع FCM Token للعامل بعد التهيئة الناجحة (Android فقط)
+        // نُرسل التوكن بعد المزامنة لضمان وجود سجل العامل في Supabase
+        if (userEmail != null && userEmail.isNotEmpty) {
+          unawaited(PushNotificationService.uploadToken(userEmail));
+        }
       } else {
         // Profile not found (could be due to RLS policies blocking the select)
         _state = _state.copyWith(
-          errorMessage: 'لم يتم العثور على ملف المستخدم. قد يكون بسبب سياسات الأمان (RLS) في Supabase.',
+          errorMessage:
+              'لم يتم العثور على ملف المستخدم. قد يكون بسبب سياسات الأمان (RLS) في Supabase.',
         );
         notifyListeners();
       }
@@ -238,7 +259,8 @@ class AuthService extends ChangeNotifier {
       _state = _state.copyWith(isLoading: false);
       notifyListeners();
 
-      if ((oldRole != null && oldRole != newRole) || (oldFactoryId != null && oldFactoryId != newFactoryId)) {
+      if ((oldRole != null && oldRole != newRole) ||
+          (oldFactoryId != null && oldFactoryId != newFactoryId)) {
         // تم تغيير الصلاحيات أو المصنع، يجب تسجيل الخروج للمزامنة الكاملة
         await signOut();
         return "⚠️ تم اكتشاف تغيير في الصلاحيات أو المصنع.\nتم تسجيل الخروج تلقائياً لضمان سلامة البيانات.";
@@ -268,12 +290,13 @@ class AuthService extends ChangeNotifier {
       // إذا كان الكود قصيراً (6 خانات أو أقل)، نتحقق من خدمة الربط
       if (factoryId.length <= 6) {
         final pairingResult = await PairingService().verifyAndLink(factoryId);
-        
+
         if (pairingResult != null && pairingResult['success'] == true) {
           factoryId = pairingResult['factory_id'];
           debugPrint('✅ Resolved pairing code $inputCode to $factoryId');
         } else {
-          throw Exception(pairingResult?['error'] ?? 'كود الربط غير صحيح أو منتهي الصلاحية');
+          throw Exception(pairingResult?['error'] ??
+              'كود الربط غير صحيح أو منتهي الصلاحية');
         }
       }
 
@@ -351,7 +374,7 @@ class AuthService extends ChangeNotifier {
       await _supabaseClient.auth.resetPasswordForEmail(email);
       _state = _state.copyWith(isLoading: false);
       notifyListeners();
-      
+
       return '✅ تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.\n\nيرجى فتح بريدك والضغط على الرابط لتعيين كلمة مرور جديدة.';
     } on AuthException catch (e) {
       _state = _state.copyWith(isLoading: false, errorMessage: e.message);
@@ -376,7 +399,7 @@ class AuthService extends ChangeNotifier {
       );
       _state = _state.copyWith(isLoading: false);
       notifyListeners();
-      
+
       return '✅ تم تحديث كلمة المرور بنجاح';
     } on AuthException catch (e) {
       _state = _state.copyWith(isLoading: false, errorMessage: e.message);
@@ -412,7 +435,7 @@ class AuthService extends ChangeNotifier {
     const storage = SafeSecureStorage();
     await storage.delete(key: 'factory_id');
     _factoryId = null;
-    
+
     // إيقاف القنوات
     unawaited(SyncService.instance.dispose());
 
@@ -420,12 +443,14 @@ class AuthService extends ChangeNotifier {
     try {
       final user = _supabaseClient.auth.currentUser;
       if (user != null) {
-        await _supabaseClient.from('profiles').update({'factory_id': null}).eq('id', user.id);
+        await _supabaseClient
+            .from('profiles')
+            .update({'factory_id': null}).eq('id', user.id);
       }
     } catch (e) {
       debugPrint('Error clearing factory_id from profiles: $e');
     }
-    
+
     notifyListeners();
   }
 }
