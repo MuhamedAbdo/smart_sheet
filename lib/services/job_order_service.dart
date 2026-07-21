@@ -117,6 +117,7 @@ class JobOrderService {
 
   /// يولد وثيقة PDF أصلية (Native) بدون الحاجة إلى HTML
   static Future<Uint8List> generateNativePdf(JobOrderData data) async {
+    debugPrint("📄 generateNativePdf: start generating for job ${data.jobNumber}...");
     final doc = pw.Document();
 
     final regularFontData =
@@ -128,27 +129,29 @@ class JobOrderService {
 
     final theme = pw.ThemeData.withFont(base: regularFont, bold: boldFont);
 
-    // الصفحة الأولى
+    // الصفحة الأولى: البيانات الأساسية، جدول الأصناف، التضليع، تجهيزات الكرتون، وطباعة الأوفست والفلكسو
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        margin: const pw.EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         theme: theme,
         build: (pw.Context ctx) => _buildPage1(data, regularFont, boldFont),
       ),
     );
 
-    // الصفحة الثانية
+    // الصفحة الثانية: تسليمات منتج تام، بيان مرفقات العميل، وتقرير الإقفال
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        margin: const pw.EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         theme: theme,
         build: (pw.Context ctx) => _buildPage2(data, regularFont, boldFont),
       ),
     );
 
-    return await doc.save();
+    final bytes = await doc.save();
+    debugPrint("✅ generateNativePdf: finished generating PDF bytes (${bytes.length} bytes).");
+    return bytes;
   }
 
   /// يفتح نافذة معاينة الـ PDF التفاعلية
@@ -244,10 +247,15 @@ class JobOrderService {
   /// يفتح نافذة الطباعة مباشرة
   static Future<void> openForPrinting(JobOrderData data) async {
     try {
+      debugPrint("🖨️ openForPrinting: Calling Printing.layoutPdf...");
       await Printing.layoutPdf(
-        onLayout: (format) async => await generateNativePdf(data),
+        onLayout: (format) async {
+          debugPrint("🖨️ layoutPdf onLayout triggered with format: $format");
+          return await generateNativePdf(data);
+        },
         name: 'job_order_${data.jobNumber}',
       );
+      debugPrint("🖨️ openForPrinting: Printing dialog closed or completed.");
     } catch (e) {
       debugPrint("⚠️ Printing failed: $e");
     }
@@ -311,31 +319,29 @@ class JobOrderService {
 
           // 2. Top Info Table
           _buildPage1TopInfo(data, boldStyle, regularStyle),
-          pw.SizedBox(height: 2),
+          pw.SizedBox(height: 1.2),
 
-          // 3. Items Table (prep-table - exactly 5 rows, 6 columns)
+          // 3. Items Table (5 rows, 6 columns)
           _buildPage1ItemsTable(data, boldStyle, regularStyle, headerBarColor),
-          pw.SizedBox(height: 2),
+          pw.SizedBox(height: 1.2),
 
-          // 4. Notes & Technical Prep (side-by-side flex-notes-tech)
-          _buildPage1NotesTech(data, boldStyle, regularStyle, barStyle,
-              headerBarColor, labelBgColor),
-          pw.SizedBox(height: 2),
+          // 4. التضليع
+          _buildCorrugationSection(data, boldStyle, regularStyle, headerBarColor),
+          pw.SizedBox(height: 1.0),
 
-          // 5. Preparatory Equipment (تجهيزات تحضيرية)
-          _buildPage1PrepEquipment(boldStyle, regularStyle, barStyle,
-              headerBarColor, labelBgColor, sigBgColor),
-          pw.SizedBox(height: 2),
+          // 5. تقرير قسم التضليع (5 صفوف)
+          _buildCorrugationReportTable(data, boldStyle, regularStyle, headerBarColor),
+          pw.SizedBox(height: 1.2),
 
           // 6. Carton Preparations (تجهيزات الكرتون)
           _buildPage1CartonPrep(boldStyle, regularStyle, barStyle,
               headerBarColor, labelBgColor),
-          pw.SizedBox(height: 2),
+          pw.SizedBox(height: 1.2),
 
           // 7. Offset Printing (طباعة الأوفست)
           _buildPage1OffsetPrinting(
               boldStyle, regularStyle, barStyle, headerBarColor),
-          pw.SizedBox(height: 2),
+          pw.SizedBox(height: 1.2),
 
           // 8. Flexo Printing (طباعة الفلكسو)
           _buildPage1FlexoPrinting(boldStyle, regularStyle, barStyle,
@@ -347,35 +353,42 @@ class JobOrderService {
 
   static pw.Widget _buildPage2(
       JobOrderData data, pw.Font regularFont, pw.Font boldFont) {
-    final regularStyle = pw.TextStyle(font: regularFont, fontSize: 8.5);
+    final regularStyle = pw.TextStyle(font: regularFont, fontSize: 7.5);
     final boldStyle = pw.TextStyle(
-        font: boldFont, fontSize: 8.5, fontWeight: pw.FontWeight.bold);
-    final headerColor = PdfColor.fromHex('#3b3b3b');
+        font: boldFont, fontSize: 7.5, fontWeight: pw.FontWeight.bold);
+
+    final headerBarColor = PdfColor.fromHex('#3b3b3b');
 
     return pw.Directionality(
       textDirection: pw.TextDirection.rtl,
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          _buildCorrugationSection(data, boldStyle, regularStyle, headerColor),
-          pw.SizedBox(height: 4),
-          _buildCorrugationReportTable(data, boldStyle, regularStyle, headerColor),
-          pw.SizedBox(height: 4),
-          _buildDeliveriesTable(boldStyle, regularStyle, headerColor),
-          pw.SizedBox(height: 4),
-          _buildAttachmentsTable(boldStyle, regularStyle, headerColor),
-          pw.SizedBox(height: 4),
+          // 9. تسليمات منتج تام (نُقل للصفحة الثانية)
+          _buildDeliveriesTable(boldStyle, regularStyle, headerBarColor),
+          pw.SizedBox(height: 4.0),
+
+          // 10. بيان مرفقات العميل (نُقل للصفحة الثانية)
+          _buildAttachmentsTable(boldStyle, regularStyle, headerBarColor),
+          pw.SizedBox(height: 4.0),
+
+          // 11. تقرير الإقفال (نُقل للصفحة الثانية)
           _buildClosingReport(boldStyle),
-          pw.SizedBox(height: 2),
+          pw.SizedBox(height: 6.0),
+
           pw.Align(
             alignment: pw.Alignment.centerLeft,
-            child: pw.Text(_ar("88% من الحجم الأصلى   ( 2 / 2 )"),
-                style: regularStyle.copyWith(fontSize: 7.5)),
+            child: pw.Text(_ar("88% من الحجم الأصلى"),
+                style: regularStyle.copyWith(fontSize: 7)),
           ),
         ],
       ),
     );
   }
+
+
+
+
 
   static pw.Widget _buildClosingReport(pw.TextStyle boldStyle) {
     return pw.Container(
@@ -386,7 +399,7 @@ class JobOrderService {
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           pw.Container(
-            height: 16,
+            height: 13,
             decoration: const pw.BoxDecoration(
                 border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
             child: pw.Row(
@@ -400,7 +413,7 @@ class JobOrderService {
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(left: pw.BorderSide(width: 1.0))),
                     child: pw.Text(_ar("تقرير الإقفال     بتاريخ :"),
-                        style: boldStyle.copyWith(fontSize: 8.5)),
+                        style: boldStyle.copyWith(fontSize: 8)),
                   ),
                 ),
                 pw.Expanded(
@@ -408,14 +421,14 @@ class JobOrderService {
                   child: pw.Container(
                     alignment: pw.Alignment.center,
                     child: pw.Text(_ar("المخازن"),
-                        style: boldStyle.copyWith(fontSize: 8.5)),
+                        style: boldStyle.copyWith(fontSize: 8)),
                   ),
                 ),
               ],
             ),
           ),
           pw.Container(
-            height: 26,
+            height: 20,
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
@@ -513,29 +526,29 @@ class JobOrderService {
                 flex: 70,
                 child: pw.Container(
                     padding: const pw.EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 2),
+                        horizontal: 5, vertical: 1.5),
                     child: pw.Text(
                         _ar("العميل : ${data.customerName.isEmpty ? '..........................................................................' : data.customerName}"),
-                        style: boldStyle.copyWith(fontSize: 9)))),
-            pw.Container(width: 1, height: 16, color: PdfColors.black),
+                        style: boldStyle.copyWith(fontSize: 8.5)))),
+            pw.Container(width: 1, height: 14, color: PdfColors.black),
             pw.Expanded(
                 flex: 30,
                 child: pw.Container(
                     alignment: pw.Alignment.centerRight,
                     padding: const pw.EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 2),
+                        horizontal: 5, vertical: 1.5),
                     child: pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.start,
                         children: [
                           pw.Text(_ar("كود العميل : "),
-                              style: boldStyle.copyWith(fontSize: 9)),
+                              style: boldStyle.copyWith(fontSize: 8.5)),
                           pw.Directionality(
                             textDirection: pw.TextDirection.ltr,
                             child: pw.Text(
                                 data.clientCode.isEmpty
                                     ? '..........................'
                                     : data.clientCode,
-                                style: boldStyle.copyWith(fontSize: 9)),
+                                style: boldStyle.copyWith(fontSize: 8.5)),
                           ),
                         ]))),
           ]),
@@ -546,51 +559,51 @@ class JobOrderService {
                 flex: 33,
                 child: pw.Container(
                     padding: const pw.EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 2),
+                        horizontal: 5, vertical: 1.5),
                     child: pw.Row(children: [
                       pw.Text(_ar("تاريخ بدء التشغيل : "),
-                          style: regularStyle.copyWith(fontSize: 9)),
+                          style: regularStyle.copyWith(fontSize: 8.5)),
                       pw.Directionality(
                           textDirection: pw.TextDirection.ltr,
                           child: pw.Text(
                               data.startDate.isEmpty
                                   ? '.......................'
                                   : data.startDate,
-                              style: boldStyle.copyWith(fontSize: 9))),
+                              style: boldStyle.copyWith(fontSize: 8.5))),
                     ]))),
-            pw.Container(width: 1, height: 16, color: PdfColors.black),
+            pw.Container(width: 1, height: 14, color: PdfColors.black),
             pw.Expanded(
                 flex: 34,
                 child: pw.Container(
                     padding: const pw.EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 2),
+                        horizontal: 5, vertical: 1.5),
                     child: pw.Row(children: [
                       pw.Text(_ar("ميعاد التسليم : "),
-                          style: regularStyle.copyWith(fontSize: 9)),
+                          style: regularStyle.copyWith(fontSize: 8.5)),
                       pw.Directionality(
                           textDirection: pw.TextDirection.ltr,
                           child: pw.Text(
                               data.deliveryDate.isEmpty
                                   ? '.......................'
                                   : data.deliveryDate,
-                              style: boldStyle.copyWith(fontSize: 9))),
+                              style: boldStyle.copyWith(fontSize: 8.5))),
                     ]))),
-            pw.Container(width: 1, height: 16, color: PdfColors.black),
+            pw.Container(width: 1, height: 14, color: PdfColors.black),
             pw.Expanded(
                 flex: 33,
                 child: pw.Container(
                     padding: const pw.EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 2),
+                        horizontal: 5, vertical: 1.5),
                     child: pw.Row(children: [
                       pw.Text(_ar("تاريخ الانتهاء : "),
-                          style: regularStyle.copyWith(fontSize: 9)),
+                          style: regularStyle.copyWith(fontSize: 8.5)),
                       pw.Directionality(
                           textDirection: pw.TextDirection.ltr,
                           child: pw.Text(
                               data.receivedDate.isEmpty
                                   ? '.......................'
                                   : data.receivedDate,
-                              style: boldStyle.copyWith(fontSize: 9))),
+                              style: boldStyle.copyWith(fontSize: 8.5))),
                     ]))),
           ]),
         ],
@@ -691,11 +704,11 @@ class JobOrderService {
 
   static pw.Widget _tableHeaderCell(String text, pw.TextStyle boldStyle) {
     return pw.Container(
-      height: 16,
+      height: 13,
       alignment: pw.Alignment.center,
-      padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 2),
+      padding: const pw.EdgeInsets.symmetric(vertical: 0.5, horizontal: 2),
       child: pw.Text(_ar(text),
-          style: boldStyle.copyWith(color: PdfColors.white, fontSize: 8.5),
+          style: boldStyle.copyWith(color: PdfColors.white, fontSize: 8),
           textAlign: pw.TextAlign.center),
     );
   }
@@ -703,7 +716,7 @@ class JobOrderService {
   static pw.Widget _itemBodyCell(
       String text, pw.TextStyle style, bool center, bool isLTR) {
     return pw.Container(
-      height: 16,
+      height: 12,
       alignment: center ? pw.Alignment.center : pw.Alignment.centerRight,
       padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 3),
       child: text.isEmpty
@@ -722,294 +735,7 @@ class JobOrderService {
     );
   }
 
-  static pw.Widget _buildPage1NotesTech(
-      JobOrderData data,
-      pw.TextStyle boldStyle,
-      pw.TextStyle regularStyle,
-      pw.TextStyle barStyle,
-      PdfColor headerBarColor,
-      PdfColor labelBgColor) {
-    return pw.Container(
-      height: 154,
-      child: pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          // Right: التجهيزات الفنية (67%)
-          pw.Expanded(
-            flex: 67,
-            child: pw.Container(
-              decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.black, width: 1.0)),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                children: [
-                  pw.Container(
-                    height: 14,
-                    color: headerBarColor,
-                    alignment: pw.Alignment.center,
-                    child: pw.Text(_ar("التجهيزات الفنية"), style: barStyle),
-                  ),
-                  _techRow(
-                      "سكانر",
-                      _techValCheckboxText(
-                          "مقاس", "                ", "عدد", "                "),
-                      boldStyle,
-                      regularStyle,
-                      labelBgColor),
-                  _techRow("كمبيوتر", _techValCompRow(boldStyle, regularStyle),
-                      boldStyle, regularStyle, labelBgColor),
-                  _techRow("بروفة", _techValProofRow(boldStyle, regularStyle),
-                      boldStyle, regularStyle, labelBgColor),
-                  _techRow(
-                      "كلك",
-                      _techValThreeCells("عدد                ",
-                          "مقاس                ", "استرالون                ", regularStyle),
-                      boldStyle,
-                      regularStyle,
-                      labelBgColor,
-                      isSplit: true),
-                  _techRow(
-                      "أفلام",
-                      _techValThreeCells("عدد                ",
-                          "مقاس                ", "ألوان                ", regularStyle),
-                      boldStyle,
-                      regularStyle,
-                      labelBgColor,
-                      isSplit: true),
-                  _techRow("Cyrel", pw.Container(height: 13), boldStyle,
-                      regularStyle, labelBgColor),
-                  _techRow(
-                      "اسم الملف",
-                      _techValTwoCells("صفحة                ",
-                          "داخل مجلد                ", regularStyle),
-                      boldStyle,
-                      regularStyle,
-                      labelBgColor,
-                      isSplit: true),
-                  _techRow("أرشيف", _techValArchiveRow(boldStyle, regularStyle),
-                      boldStyle, regularStyle, labelBgColor),
-                  _techRow("ملاحظات", pw.Container(height: 13), boldStyle,
-                      regularStyle, labelBgColor,
-                      isLast: true),
-                ],
-              ),
-            ),
-          ),
-          pw.SizedBox(width: 3),
-          // Left: ملاحظات وتعليمات (33%)
-          pw.Expanded(
-            flex: 33,
-            child: pw.Container(
-              decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.black, width: 1.0)),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                children: [
-                  pw.Container(
-                    height: 14,
-                    color: headerBarColor,
-                    alignment: pw.Alignment.center,
-                    child: pw.Text(_ar("ملاحظات وتعليمات"), style: barStyle),
-                  ),
-                  pw.Container(
-                    alignment: pw.Alignment.center,
-                    padding: const pw.EdgeInsets.symmetric(vertical: 1),
-                    child: pw.Text(
-                        _ar("ملء الخانات النادرة بواسطة الفني المختص"),
-                        style: regularStyle.copyWith(fontSize: 7.5)),
-                  ),
-                  if (data.generalNotes.isNotEmpty)
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(4),
-                      child: pw.Text(_ar(data.generalNotes),
-                          style: regularStyle.copyWith(fontSize: 8)),
-                    ),
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    child: pw.Column(
-                      children: List.generate(
-                          data.generalNotes.isNotEmpty ? 4 : 8,
-                          (_) => pw.Padding(
-                                padding: const pw.EdgeInsets.symmetric(vertical: 5.5),
-                                child: pw.Container(
-                                  height: 1,
-                                  color: PdfColors.grey400,
-                                ),
-                              )),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  static pw.Widget _techRow(String label, pw.Widget content,
-      pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor labelBgColor,
-      {bool isSplit = false, bool isLast = false}) {
-    final bottomBorder = isLast
-        ? pw.BorderSide.none
-        : const pw.BorderSide(color: PdfColors.black, width: 1.8);
-    return pw.Container(
-      height: isLast || label == "Cyrel" ? 13 : 14,
-      child: pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          pw.Container(
-            width: 60,
-            alignment: pw.Alignment.center,
-            decoration: pw.BoxDecoration(
-                color: labelBgColor,
-                border: pw.Border(
-                    left: const pw.BorderSide(color: PdfColors.black, width: 1.0),
-                    bottom: bottomBorder)),
-            padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 2),
-            child: pw.Text(_ar(label),
-                style: boldStyle.copyWith(fontSize: 8),
-                textAlign: pw.TextAlign.center),
-          ),
-          pw.Expanded(
-            child: isSplit
-                ? pw.Container(
-                    decoration: pw.BoxDecoration(
-                        border: pw.Border(bottom: bottomBorder)),
-                    child: content,
-                  )
-                : pw.Container(
-                    decoration: pw.BoxDecoration(
-                        border: pw.Border(bottom: bottomBorder)),
-                    padding: const pw.EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 1),
-                    alignment: pw.Alignment.centerRight,
-                    child: content,
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _techValCheckboxText(
-      String l1, String v1, String l2, String v2) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.start,
-      children: [
-        _plainCheckboxWithLabel(l1),
-        pw.Text(_ar(v1)),
-        pw.SizedBox(width: 8),
-        _plainCheckboxWithLabel(l2),
-        pw.Text(_ar(v2)),
-      ],
-    );
-  }
-
-  static pw.Widget _techValCompRow(
-      pw.TextStyle boldStyle, pw.TextStyle regularStyle) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.start,
-      children: [
-        _plainCheckboxWithLabel("جمع"),
-        pw.SizedBox(width: 6),
-        _plainCheckboxWithLabel("تصميم"),
-        pw.SizedBox(width: 6),
-        pw.Text(_ar("عدد                 مقاس                 "),
-            style: regularStyle.copyWith(fontSize: 8)),
-        pw.SizedBox(width: 6),
-        _plainCheckboxWithLabel("بدون"),
-      ],
-    );
-  }
-
-  static pw.Widget _techValProofRow(
-      pw.TextStyle boldStyle, pw.TextStyle regularStyle) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.start,
-      children: [
-        pw.Text(_ar("1 B.W. "), style: regularStyle.copyWith(fontSize: 8)),
-        _squareCheckbox(),
-        pw.SizedBox(width: 10),
-        pw.Directionality(
-          textDirection: pw.TextDirection.ltr,
-          child: pw.Row(children: [
-            pw.Text("2 Color Ink Jet  Photo Glossy Paper / Film ",
-                style: regularStyle.copyWith(fontSize: 7.5)),
-            _squareCheckbox(),
-          ]),
-        ),
-      ],
-    );
-  }
-
-  static pw.Widget _techValThreeCells(
-      String c1, String c2, String c3, pw.TextStyle style) {
-    return pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-      children: [
-        pw.Expanded(
-            child: pw.Container(
-                alignment: pw.Alignment.centerRight,
-                padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                decoration: const pw.BoxDecoration(
-                    border: pw.Border(left: pw.BorderSide(width: 1.0))),
-                child: pw.Text(_ar(c1), style: style.copyWith(fontSize: 8)))),
-        pw.Expanded(
-            child: pw.Container(
-                alignment: pw.Alignment.centerRight,
-                padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                decoration: const pw.BoxDecoration(
-                    border: pw.Border(left: pw.BorderSide(width: 1.0))),
-                child: pw.Text(_ar(c2), style: style.copyWith(fontSize: 8)))),
-        pw.Expanded(
-            child: pw.Container(
-                alignment: pw.Alignment.centerRight,
-                padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                child: pw.Text(_ar(c3), style: style.copyWith(fontSize: 8)))),
-      ],
-    );
-  }
-
-  static pw.Widget _techValTwoCells(
-      String c1, String c2, pw.TextStyle style) {
-    return pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-      children: [
-        pw.Expanded(
-            flex: 35,
-            child: pw.Container(
-                alignment: pw.Alignment.centerRight,
-                padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                decoration: const pw.BoxDecoration(
-                    border: pw.Border(left: pw.BorderSide(width: 1.0))),
-                child: pw.Text(_ar(c1), style: style.copyWith(fontSize: 8)))),
-        pw.Expanded(
-            flex: 65,
-            child: pw.Container(
-                alignment: pw.Alignment.centerRight,
-                padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                child: pw.Text(_ar(c2), style: style.copyWith(fontSize: 8)))),
-      ],
-    );
-  }
-
-  static pw.Widget _techValArchiveRow(
-      pw.TextStyle boldStyle, pw.TextStyle regularStyle) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.start,
-      children: [
-        _squareCheckbox(),
-        pw.SizedBox(width: 6),
-        pw.Directionality(
-          textDirection: pw.TextDirection.ltr,
-          child: pw.Text(
-              "CD's No.                                                    ",
-              style: regularStyle.copyWith(fontSize: 8)),
-        ),
-      ],
-    );
-  }
 
   static pw.Widget _plainCheckboxWithLabel(String label) {
     return pw.Row(
@@ -1032,149 +758,7 @@ class JobOrderService {
     );
   }
 
-  static pw.Widget _buildPage1PrepEquipment(
-      pw.TextStyle boldStyle,
-      pw.TextStyle regularStyle,
-      pw.TextStyle barStyle,
-      PdfColor headerBarColor,
-      PdfColor labelBgColor,
-      PdfColor sigBgColor) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-      children: [
-        pw.Container(
-          decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.black, width: 1.0)),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              pw.Container(
-                height: 14,
-                color: headerBarColor,
-                alignment: pw.Alignment.center,
-                child: pw.Text(_ar("تجهيزات تحضيرية"), style: barStyle),
-              ),
-              pw.Container(
-                height: 167,
-                child: pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                  children: [
-                    // Main rows (right)
-                    pw.Expanded(
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                        children: [
-                          _prepRow(
-                              "ورق خارجى",
-                              _prepValPaper(
-                                  "يؤخذ من ورق (             )  نوع (             )",
-                                  "وزن (             ) جم",
-                                  "عدد (             )",
-                                  "عدد بعد القص (             ) فرخ",
-                                  "مقاس (             )",
-                                  regularStyle),
-                              boldStyle,
-                              regularStyle,
-                              labelBgColor),
-                          _prepRow(
-                              "داخلى( أصل )",
-                              _prepValPaper(
-                                  "نوع (             )",
-                                  "وزن (             ) جم",
-                                  "عدد (             )",
-                                  "عدد بعد القص (             ) فرخ",
-                                  "مقاس (             )",
-                                  regularStyle),
-                              boldStyle,
-                              regularStyle,
-                              labelBgColor),
-                          _prepRow(
-                              "داخلى(صورة 1)",
-                              _prepValPaper(
-                                  "نوع (             )",
-                                  "وزن (             ) جم",
-                                  "عدد (             )",
-                                  "عدد بعد القص (             ) فرخ",
-                                  "مقاس (             )",
-                                  regularStyle),
-                              boldStyle,
-                              regularStyle,
-                              labelBgColor),
-                          _prepRow(
-                              "داخلى(صورة 2)",
-                              _prepValPaper(
-                                  "نوع (             )",
-                                  "وزن (             ) جم",
-                                  "عدد (             )",
-                                  "عدد بعد القص (             ) فرخ",
-                                  "مقاس (             )",
-                                  regularStyle),
-                              boldStyle,
-                              regularStyle,
-                              labelBgColor),
-                          _prepRow(
-                              "داخلى(صورة 3)",
-                              _prepValPaper(
-                                  "نوع (             )",
-                                  "وزن (             ) جم",
-                                  "عدد (             )",
-                                  "عدد بعد القص (             ) فرخ",
-                                  "مقاس (             )",
-                                  regularStyle),
-                              boldStyle,
-                              regularStyle,
-                              labelBgColor),
-                          _prepRow(
-                              "داخلى(صورة 4)",
-                              _prepValPaper(
-                                  "نوع (             )",
-                                  "وزن (             ) جم",
-                                  "عدد (             )",
-                                  "عدد بعد القص (             ) فرخ",
-                                  "مقاس (             )",
-                                  regularStyle),
-                              boldStyle,
-                              regularStyle,
-                              labelBgColor),
-                          _prepRow("زنكات", _prepValZincRow(regularStyle),
-                              boldStyle, regularStyle, labelBgColor),
-                          _prepRow(
-                              "أحبار",
-                              _prepValInksRow(regularStyle),
-                              boldStyle,
-                              regularStyle,
-                              labelBgColor),
-                          _prepRow("أحبار مستهلكة",
-                              _prepValUsedInksRow(regularStyle), boldStyle, regularStyle, labelBgColor),
-                          _prepRow("تغطية", _prepValCoveringRow(regularStyle),
-                              boldStyle, regularStyle, labelBgColor),
-                          _prepRow("ملاحظات", pw.Container(height: 13), boldStyle,
-                              regularStyle, labelBgColor,
-                              isLast: true),
-                        ],
-                      ),
-                    ),
-                    // Left sig col
-                    pw.Container(
-                      width: 45,
-                      alignment: pw.Alignment.topCenter,
-                      padding: const pw.EdgeInsets.only(top: 8),
-                      decoration: pw.BoxDecoration(
-                          color: sigBgColor,
-                          border: const pw.Border(right: pw.BorderSide(width: 1.0))),
-                      child: pw.Text(_ar("توقيع المختص"),
-                          style: boldStyle.copyWith(fontSize: 8),
-                          textAlign: pw.TextAlign.center),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+
 
   static pw.Widget _prepRow(String label, pw.Widget content,
       pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor labelBgColor,
@@ -1215,95 +799,7 @@ class JobOrderService {
     );
   }
 
-  static pw.Widget _prepValPaper(String c1, String c2, String c3, String c4,
-      String c5, pw.TextStyle style) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Text(_ar(c1), style: style.copyWith(fontSize: 7.5)),
-        pw.Text(_ar(c2), style: style.copyWith(fontSize: 7.5)),
-        pw.Text(_ar(c3), style: style.copyWith(fontSize: 7.5)),
-        pw.Text(_ar(c4), style: style.copyWith(fontSize: 7.5)),
-        pw.Text(_ar(c5), style: style.copyWith(fontSize: 7.5)),
-      ],
-    );
-  }
 
-  static pw.Widget _prepValZincRow(pw.TextStyle style) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.start,
-      children: [
-        pw.Text(_ar("عدد الزنكات (             )"),
-            style: style.copyWith(fontSize: 8)),
-        pw.SizedBox(width: 12),
-        _plainCheckboxWithLabel("رولاند"),
-        pw.SizedBox(width: 12),
-        _plainCheckboxWithLabel("توك"),
-        pw.SizedBox(width: 12),
-        _plainCheckboxWithLabel("أخرى"),
-      ],
-    );
-  }
-
-  static pw.Widget _prepValInksRow(pw.TextStyle style) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Row(children: [
-          _plainCheckboxWithLabel("C"),
-          pw.SizedBox(width: 4),
-          _plainCheckboxWithLabel("M"),
-          pw.SizedBox(width: 4),
-          _plainCheckboxWithLabel("Y"),
-          pw.SizedBox(width: 4),
-          _plainCheckboxWithLabel("K"),
-          pw.SizedBox(width: 4),
-          _plainCheckboxWithLabel("S"),
-          pw.SizedBox(width: 4),
-          _plainCheckboxWithLabel("G"),
-        ]),
-        pw.Text(
-            _ar("أحبار أخرى لون (            )  لون (            )  لون (            )"),
-            style: style.copyWith(fontSize: 7.5)),
-      ],
-    );
-  }
-
-  static pw.Widget _prepValUsedInksRow(pw.TextStyle style) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Text(_ar("C (          ) كجم"),
-            style: style.copyWith(fontSize: 7.5)),
-        pw.Text(_ar("M (          ) كجم"),
-            style: style.copyWith(fontSize: 7.5)),
-        pw.Text(_ar("Y (          ) كجم"),
-            style: style.copyWith(fontSize: 7.5)),
-        pw.Text(_ar("K (          ) كجم"),
-            style: style.copyWith(fontSize: 7.5)),
-        pw.Text(_ar("أخرى . كجم      كجم"),
-            style: style.copyWith(fontSize: 7.5)),
-      ],
-    );
-  }
-
-  static pw.Widget _prepValCoveringRow(pw.TextStyle style) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.start,
-      children: [
-        pw.Text(_ar("مواد مساعدة :   "), style: style.copyWith(fontSize: 8)),
-        _plainCheckboxWithLabel("بدون"),
-        pw.SizedBox(width: 10),
-        _plainCheckboxWithLabel("U.V."),
-        pw.SizedBox(width: 10),
-        _plainCheckboxWithLabel("سلوفان"),
-        pw.SizedBox(width: 10),
-        _plainCheckboxWithLabel("ورنيش"),
-        pw.SizedBox(width: 10),
-        _plainCheckboxWithLabel("أخرى"),
-      ],
-    );
-  }
 
   static pw.Widget _buildPage1CartonPrep(
       pw.TextStyle boldStyle,
@@ -1321,7 +817,7 @@ class JobOrderService {
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Container(
-                height: 14,
+                height: 13,
                 color: headerBarColor,
                 alignment: pw.Alignment.center,
                 child: pw.Text(_ar("تجهيزات الكرتون"), style: barStyle),
@@ -1335,7 +831,7 @@ class JobOrderService {
                   regularStyle,
                   labelBgColor),
               pw.Container(
-                height: 14,
+                height: 12,
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                   children: [
@@ -1347,7 +843,7 @@ class JobOrderService {
                 ),
               ),
               pw.Container(
-                height: 14,
+                height: 12,
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                   children: [
@@ -1367,7 +863,7 @@ class JobOrderService {
                 ),
               ),
               pw.Container(
-                height: 15,
+                height: 13,
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                   children: [
@@ -1378,7 +874,7 @@ class JobOrderService {
                   ],
                 ),
               ),
-              _prepRow("ملاحظات", pw.Container(height: 13), boldStyle,
+              _prepRow("ملاحظات", pw.Container(height: 11), boldStyle,
                   regularStyle, labelBgColor,
                   isLast: true),
             ],
@@ -1458,13 +954,13 @@ class JobOrderService {
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           pw.Container(
-            height: 14,
+            height: 13,
             color: headerBarColor,
             alignment: pw.Alignment.center,
             child: pw.Text(_ar("طباعة الأوفست"), style: barStyle),
           ),
           pw.Container(
-            height: 30,
+            height: 24,
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
@@ -1472,7 +968,7 @@ class JobOrderService {
                   flex: 80,
                   child: pw.Container(
                     padding:
-                        const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     alignment: pw.Alignment.topRight,
                     child: pw.Text(_ar("تقرير رئيس القسم .."),
                         style: regularStyle.copyWith(fontSize: 8)),
@@ -1487,7 +983,7 @@ class JobOrderService {
                       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                       children: [
                         pw.Container(
-                          height: 14,
+                          height: 13,
                           alignment: pw.Alignment.center,
                           decoration: const pw.BoxDecoration(
                               border:
@@ -1495,7 +991,7 @@ class JobOrderService {
                           child: pw.Text(_ar("التوقيع والتاريخ"),
                               style: boldStyle.copyWith(fontSize: 8)),
                         ),
-                        pw.Container(height: 16),
+                        pw.Container(height: 11),
                       ],
                     ),
                   ),
@@ -1518,7 +1014,7 @@ class JobOrderService {
       decoration: pw.BoxDecoration(
           border: pw.Border.all(color: PdfColors.black, width: 1.0)),
       child: pw.Container(
-        height: 53,
+        height: 46,
         child: pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
@@ -1527,13 +1023,13 @@ class JobOrderService {
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
                   pw.Container(
-                    height: 14,
+                    height: 13,
                     color: headerBarColor,
                     alignment: pw.Alignment.center,
                     child: pw.Text(_ar("طباعة الفلكسو"), style: barStyle),
                   ),
                   pw.Container(
-                    height: 13,
+                    height: 11,
                     padding:
                         const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     decoration: const pw.BoxDecoration(
@@ -1543,7 +1039,7 @@ class JobOrderService {
                         style: regularStyle.copyWith(fontSize: 8)),
                   ),
                   pw.Container(
-                    height: 13,
+                    height: 11,
                     padding:
                         const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     decoration: const pw.BoxDecoration(
@@ -1561,7 +1057,7 @@ class JobOrderService {
                     ),
                   ),
                   pw.Container(
-                    height: 13,
+                    height: 11,
                     padding:
                         const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     child: pw.Text(_ar("ملاحظات"),
@@ -1602,18 +1098,18 @@ class JobOrderService {
       }
     }
 
-    double rowHeight = 14; // header
+    double rowHeight = 13; // header
     for (int i = 0; i < totalSlots; i++) {
-      rowHeight += 12; // product name header
-      rowHeight += 14; // corrugation checkboxes row
-      rowHeight += 12; // box size + sheet size + roll width row
-      rowHeight += 14; // paper layers row
+      rowHeight += 11; // product name header
+      rowHeight += 12; // corrugation checkboxes row
+      rowHeight += 11; // box size + sheet size + roll width row
+      rowHeight += 12; // paper layers row
       if (i < totalSlots - 1) rowHeight += 1.5; // border
     }
 
     return pw.Container(
       height: rowHeight,
-      margin: const pw.EdgeInsets.only(bottom: 2),
+      margin: const pw.EdgeInsets.only(bottom: 1),
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
@@ -1627,11 +1123,11 @@ class JobOrderService {
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
                   pw.Container(
-                    height: 14,
+                    height: 13,
                     color: headerColor,
                     alignment: pw.Alignment.center,
                     child: pw.Text(_ar("التضليع"),
-                        style: boldStyle.copyWith(color: PdfColors.white)),
+                        style: boldStyle.copyWith(color: PdfColors.white, fontSize: 8.5)),
                   ),
                   pw.Expanded(
                     child: pw.Column(
@@ -1663,7 +1159,7 @@ class JobOrderService {
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
                   pw.Container(
-                    height: 14,
+                    height: 13,
                     color: headerColor,
                     alignment: pw.Alignment.center,
                     child: pw.Text(_ar("ملاحظات وتعليمات عامة"),
@@ -1671,7 +1167,7 @@ class JobOrderService {
                             color: PdfColors.white, fontSize: 7.5)),
                   ),
                   pw.Container(
-                    height: 14,
+                    height: 13,
                     alignment: pw.Alignment.center,
                     child: pw.Text(_ar("توقيع فنى التضليع والتاريخ"),
                         style: boldStyle.copyWith(fontSize: 7.5)),
@@ -1714,9 +1210,9 @@ class JobOrderService {
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           pw.Container(
-            height: 12,
+            height: 11,
             color: PdfColors.grey400,
-            padding: const pw.EdgeInsets.symmetric(vertical: 1),
+            padding: const pw.EdgeInsets.symmetric(vertical: 0.5),
             alignment: pw.Alignment.center,
             child: isEmptyItem
                 ? pw.SizedBox()
@@ -1724,7 +1220,7 @@ class JobOrderService {
                     style: boldStyle.copyWith(fontSize: 8)),
           ),
           pw.Container(
-            height: 14,
+            height: 12,
             decoration: const pw.BoxDecoration(
                 border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
             child: pw.Row(
@@ -1750,7 +1246,7 @@ class JobOrderService {
                     child: pw.Row(
                       children: [
                         pw.Text(_ar("التضليع : "),
-                            style: boldStyle.copyWith(fontSize: 8.5)),
+                            style: boldStyle.copyWith(fontSize: 8)),
                         pw.Expanded(
                           child: pw.Row(
                             mainAxisAlignment: isEmptyItem
@@ -1805,7 +1301,7 @@ class JobOrderService {
             ),
           ),
           pw.Container(
-            height: 12,
+            height: 11,
             decoration: const pw.BoxDecoration(
                 border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
             child: pw.Row(
@@ -1831,7 +1327,7 @@ class JobOrderService {
                     child: pw.Row(
                       children: [
                         pw.Text(_ar("مقاس الشريحة : "),
-                            style: boldStyle.copyWith(fontSize: 8.5)),
+                            style: boldStyle.copyWith(fontSize: 8)),
                         pw.Expanded(
                           child: pw.Container(
                             alignment: pw.Alignment.center,
@@ -1858,8 +1354,8 @@ class JobOrderService {
             ),
           ),
           pw.Container(
-            height: 14,
-            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            height: 12,
+            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.5),
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
@@ -1896,12 +1392,12 @@ class JobOrderService {
 
   static pw.Widget _buildCorrugationReportTable(JobOrderData data,
       pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor headerColor) {
-    int rowCount = 10;
-    final numbersAr = ["١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩", "١٠"];
+    int rowCount = 5; // تقليل من 10 إلى 5 صفوف لتوفير المساحة
+    final numbersAr = ["١", "٢", "٣", "٤", "٥"];
 
     return pw.Container(
-      height: 152,
-      margin: const pw.EdgeInsets.only(bottom: 2),
+      height: 84, // تقليل الارتفاع بما يتناسب مع 5 صفوف بدلاً من 10
+      margin: const pw.EdgeInsets.only(bottom: 1),
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
@@ -1915,7 +1411,7 @@ class JobOrderService {
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
                   pw.Container(
-                    height: 18,
+                    height: 16,
                     alignment: pw.Alignment.center,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
@@ -1926,7 +1422,7 @@ class JobOrderService {
                     ),
                   ),
                   pw.Container(
-                    height: 14,
+                    height: 13,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
                     child: pw.Row(
@@ -1952,7 +1448,7 @@ class JobOrderService {
                   ),
                   ...List.generate(rowCount, (index) {
                     return pw.Container(
-                      height: 12,
+                      height: 11,
                       decoration: index == rowCount - 1
                           ? null
                           : const pw.BoxDecoration(
@@ -1996,7 +1492,7 @@ class JobOrderService {
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
                   pw.Container(
-                    height: 14,
+                    height: 13,
                     color: headerColor,
                     alignment: pw.Alignment.center,
                     child: pw.Text(_ar("ملاحظات وتعليمات"),
@@ -2004,7 +1500,7 @@ class JobOrderService {
                             color: PdfColors.white, fontSize: 7.5)),
                   ),
                   pw.Container(
-                    height: 14,
+                    height: 13,
                     alignment: pw.Alignment.center,
                     child: pw.Text(
                         _ar("( ملء الخانات النادرة بواسطة الفني المختص )"),
@@ -2263,7 +1759,7 @@ class JobOrderService {
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Container(
-                height: 12,
+                height: 11,
                 color: headerColor,
                 alignment: pw.Alignment.center,
                 child: pw.Text(_ar("تسليمات منتج تام"),
@@ -2271,7 +1767,7 @@ class JobOrderService {
                         color: PdfColors.white, fontSize: 8)),
               ),
               pw.Container(
-                  height: 20,
+                  height: 16,
                   decoration: const pw.BoxDecoration(
                       border: pw.Border(top: pw.BorderSide(width: 1.0))),
                   child: pw.Row(
@@ -2292,14 +1788,14 @@ class JobOrderService {
                                         pw.CrossAxisAlignment.stretch,
                                     children: [
                                       pw.Container(
-                                        height: 10,
+                                        height: 8,
                                         alignment: pw.Alignment.center,
                                         child: pw.Text(_ar("رقم"),
                                             style: boldStyle.copyWith(
                                                 fontSize: 7)),
                                       ),
                                       pw.Container(
-                                          height: 10,
+                                          height: 8,
                                           decoration: const pw.BoxDecoration(
                                               border: pw.Border(
                                                   top: pw.BorderSide(
@@ -2308,7 +1804,7 @@ class JobOrderService {
                                             pw.Expanded(
                                                 flex: 1,
                                                 child: pw.Container(
-                                                  height: 10,
+                                                  height: 8,
                                                   alignment:
                                                       pw.Alignment.center,
                                                   child: pw.Text(_ar("إذن"),
@@ -2321,7 +1817,7 @@ class JobOrderService {
                                             pw.Expanded(
                                                 flex: 1,
                                                 child: pw.Container(
-                                                  height: 10,
+                                                  height: 8,
                                                   alignment:
                                                       pw.Alignment.center,
                                                   child: pw.Text(_ar("تصريح"),
@@ -2337,10 +1833,10 @@ class JobOrderService {
                         _buildDeliveriesHeaderCell(
                             "توقيع المخازن", 12, boldStyle, false),
                       ])),
-              ...List.generate(6, (index) {
-                final numbersAr = ["١", "٢", "٣", "٤", "٥", "٦"];
+              ...List.generate(4, (index) {
+                final numbersAr = ["١", "٢", "٣", "٤"];
                 return pw.Container(
-                    height: 12,
+                    height: 11,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(top: pw.BorderSide(width: 1.0))),
                     child: pw.Row(
@@ -2369,7 +1865,7 @@ class JobOrderService {
         flex: flex,
         child: pw.Container(
           alignment: pw.Alignment.center,
-          height: 20,
+          height: 16,
           decoration: hasLeftBorder
               ? const pw.BoxDecoration(
                   border: pw.Border(left: pw.BorderSide(width: 1.0)))
@@ -2408,7 +1904,7 @@ class JobOrderService {
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Container(
-                  height: 14,
+                  height: 12,
                   color: headerColor,
                   child: pw.Row(
                       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -2424,7 +1920,7 @@ class JobOrderService {
                       ])),
               ...List.generate(2, (index) {
                 return pw.Container(
-                    height: 12,
+                    height: 10,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(top: pw.BorderSide(width: 1.0))),
                     child: pw.Row(
