@@ -83,7 +83,7 @@
 
     table th, table td {
       border: 1px solid var(--border-color);
-      padding: 2px 3px;
+      padding: 4.5px 5px;
       text-align: center;
       vertical-align: middle;
     }
@@ -290,8 +290,9 @@
     .tech-prep-table td {
       border: 1px solid var(--border-color);
       font-size: 8px;
-      padding: 1.8px 4px;
+      padding: 4px 5px;
       text-align: right;
+      vertical-align: middle;
     }
 
     .tech-prep-table .label-cell {
@@ -334,8 +335,9 @@
 
     .prep-table td {
       font-size: 8px;
-      padding: 1.5px 3px;
+      padding: 4px 5px;
       text-align: right;
+      vertical-align: middle;
     }
 
     .prep-table .header-cell {
@@ -546,7 +548,9 @@
 
     .deliveries-table th, .deliveries-table td {
       font-size: 8px;
-      padding: 2.5px 3px;
+      padding: 4.5px 5px;
+      vertical-align: middle;
+      text-align: center;
     }
 
     /* Bottom final block */
@@ -557,9 +561,19 @@
       margin-bottom: 4px;
     }
 
-    .attachments-table td {
+    .attachments-table th, .attachments-table td {
       font-size: 8px;
-      padding: 2px 4px;
+      padding: 4.5px 5px;
+      vertical-align: middle;
+      text-align: center;
+    }
+
+    .page-back .back-content-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 5px;
     }
 
     .closing-report-box {
@@ -895,17 +909,40 @@
       </div>
     </div>
 
-    <!-- OFFSET PRINTING FOOTER SECTION -->
-    <div class="offset-footer">
-      <div>
-        <span class="bold">طباعة الأوفست:</span>
-        <span>اسم القائم بالتشغيل مع التوقيع والتاريخ:</span>
-        <span class="dotted-line" style="width: 140px;"></span>
-      </div>
-      <div style="justify-content: flex-end;">
-        <span>تقرير رئيس القسم:</span>
-        <span class="dotted-line" style="width: 180px;"></span>
-      </div>
+    <!-- FLEXO PRINTING SECTION (نُقل للصفحة الأولى في مكان طباعة الأوفست) -->
+    <div class="flexo-print-container">
+      <table class="flexo-print-table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th colspan="2" class="section-title-bar" style="border: none; border-left: 1px solid #fff;">طباعة الفلكسو</th>
+            <th class="section-title-bar" style="width: 15%; text-align: center; border: none;">توقيع المختص</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="label" style="width: 15%;">طباعة</td>
+            <td>
+              <span class="bold">ألوان:</span> ( <span class="dotted-line" style="width: 40px;"></span> )
+              <span class="bold" style="margin-right: 20px;">إجمالي عدد الألوان:</span> ( <span class="dotted-line" style="width: 30px;"></span> ) لون
+            </td>
+            <td rowspan="3" style="width: 15%; background-color: #eeeeee; border-right: 1px solid var(--border-color);"></td>
+          </tr>
+          <tr>
+            <td class="label">فرز طباعة</td>
+            <td>
+              <span class="checkbox-box"></span> أول
+              <span class="checkbox-box" style="margin-right: 30px;"></span> ثاني
+              <span class="checkbox-box" style="margin-right: 30px;"></span> هالك
+            </td>
+          </tr>
+          <tr>
+            <td class="label">ملاحظات</td>
+            <td>
+              <span class="dotted-line" style="width: 95%;"></span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <!-- FOOTER -->
@@ -920,9 +957,9 @@
        PAGE 2: BACK (الوجه الخلفي)
        ========================================================================== -->
   <div class="a4-page page-back">
-    
-    <!-- CORRUGATION DYNAMIC SECTION -->
-    <div class="corrugation-specs-container" style="margin-bottom: 6px;">
+    <div class="back-content-wrapper">
+      <!-- CORRUGATION DYNAMIC SECTION -->
+      <div class="corrugation-specs-container" style="margin-bottom: 6px;">
       {{corrugation_specs_blocks}}
     </div>
 
@@ -964,35 +1001,17 @@
       </div>
     </div>
 
-    <!-- FLEXO PRINTING SECTION -->
-    <div class="flexo-print-container">
-      <div class="section-title-bar">طباعة الفلكسو</div>
-      <table class="flexo-print-table">
-        <tbody>
-          <tr>
-            <td class="label">طباعة</td>
-            <td>
-              <span class="bold">ألوان:</span> ( <span class="dotted-line" style="width: 40px;"></span> )
-              <span class="bold" style="margin-right: 20px;">إجمالي عدد الألوان:</span> ( <span class="dotted-line" style="width: 30px;"></span> ) لون
-              <span class="bold" style="margin-right: 25px;">توقيع المختص:</span> <span class="dotted-line" style="width: 140px;"></span>
-            </td>
-          </tr>
-          <tr>
-            <td class="label">فرز طباعة</td>
-            <td>
-              <span class="checkbox-box"></span> أول
-              <span class="checkbox-box" style="margin-right: 30px;"></span> ثاني
-              <span class="checkbox-box" style="margin-right: 30px;"></span> هالك
-            </td>
-          </tr>
-          <tr>
-            <td class="label">ملاحظات</td>
-            <td>
-              <span class="dotted-line" style="width: 95%;"></span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <!-- OFFSET PRINTING FOOTER SECTION (نُقل للصفحة الثانية) -->
+    <div class="offset-footer" style="margin-bottom: 4px;">
+      <div>
+        <span class="bold">طباعة الأوفست:</span>
+        <span>اسم القائم بالتشغيل مع التوقيع والتاريخ:</span>
+        <span class="dotted-line" style="width: 140px;"></span>
+      </div>
+      <div style="justify-content: flex-end;">
+        <span>تقرير رئيس القسم:</span>
+        <span class="dotted-line" style="width: 180px;"></span>
+      </div>
     </div>
 
     <!-- CARTON FINISHING SECTION -->
@@ -1039,16 +1058,19 @@
     <table class="deliveries-table">
       <thead>
         <tr>
-          <th style="width: 3%;">م</th>
-          <th style="width: 25%;">بيان</th>
-          <th style="width: 10%;">إجمالي العدد</th>
-          <th style="width: 8%;">إذن</th>
-          <th style="width: 8%;">تصريح</th>
-          <th style="width: 10%;">بتاريخ</th>
-          <th style="width: 8%;">سيارة</th>
-          <th style="width: 13%;">اسم السائق</th>
-          <th style="width: 10%;">ملاحظات</th>
-          <th style="width: 10%;">توقيع المخازن</th>
+          <th rowspan="2" style="width: 3%;">م</th>
+          <th rowspan="2" style="width: 25%;">بيان</th>
+          <th rowspan="2" style="width: 10%;">إجمالي العدد</th>
+          <th colspan="2" style="width: 16%; padding: 2px 0; text-align: center;">رقم</th>
+          <th rowspan="2" style="width: 10%;">بتاريخ</th>
+          <th rowspan="2" style="width: 8%;">سيارة</th>
+          <th rowspan="2" style="width: 13%;">اسم السائق</th>
+          <th rowspan="2" style="width: 10%;">ملاحظات</th>
+          <th rowspan="2" style="width: 10%;">توقيع المخازن</th>
+        </tr>
+        <tr>
+          <th style="width: 8%; text-align: center;">إذن</th>
+          <th style="width: 8%; text-align: center;">تصريح</th>
         </tr>
       </thead>
       <tbody>
@@ -1058,6 +1080,10 @@
         <tr><td>٤</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
         <tr><td>٥</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
         <tr><td>٦</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
+        <tr><td>٧</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
+        <tr><td>٨</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
+        <tr><td>٩</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
+        <tr><td>١٠</td><td><span class="dotted-line" style="width:90%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td><td><span class="dotted-line" style="width:80%;"></span></td></tr>
       </tbody>
     </table>
 
@@ -1089,6 +1115,20 @@
             <td><span class="dotted-line" style="width:90%;"></span></td>
             <td><span class="dotted-line" style="width:90%;"></span></td>
           </tr>
+          <tr>
+            <td>٣</td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+          </tr>
+          <tr>
+            <td>٤</td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+            <td><span class="dotted-line" style="width:90%;"></span></td>
+          </tr>
         </tbody>
       </table>
 
@@ -1103,6 +1143,7 @@
         </div>
       </div>
     </div>
+    </div> <!-- end back-content-wrapper -->
 
     <!-- FOOTER -->
     <div class="page-footer">
