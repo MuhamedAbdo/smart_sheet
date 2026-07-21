@@ -587,20 +587,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   return const SizedBox.shrink();
                 }
                 return FloatingActionButton(
-                  onPressed: () {
-                    if (widget.department == 'production_line') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const StartProductionSessionScreen(),
-                        ),
-                      );
-                    } else {
-                      _showStartSessionDialog();
-                    }
-                  },
-                  child: const Icon(Icons.play_arrow),
+                  onPressed: () => _showProductionOptionsSheet(),
+                  child: const Icon(Icons.add),
                 );
               },
             ),
@@ -999,6 +987,203 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => const StartSessionDialog(),
+    );
+  }
+
+  // ─── BottomSheet خيارات بدء الإنتاج (الـ FAB) ─────────────────────────────────
+  void _showProductionOptionsSheet() {
+    final dept = widget.department ?? 'flexo';
+    final isFlexo = dept != 'production_line';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        final theme = Theme.of(sheetCtx);
+        final isDark = theme.brightness == Brightness.dark;
+        final bgColor = isDark ? const Color(0xFF1E1E2C) : Colors.white;
+        final subtitleColor =
+            isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 24,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
+            left: 20,
+            right: 20,
+            top: 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ─── مقبض ─────────────────────────────────────────────────
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // ─── العنوان ───────────────────────────────────────────────
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: (isFlexo
+                              ? Colors.blue.shade700
+                              : Colors.green.shade700)
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      isFlexo ? Icons.precision_manufacturing : Icons.factory,
+                      color: isFlexo
+                          ? Colors.blue.shade700
+                          : Colors.green.shade700,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    isFlexo ? 'إضافة أوردر — فلكسو' : 'إضافة أوردر — خط الإنتاج',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // ─── الخيار الأول: بدء جلسة حية ─────────────────────────────
+              _buildOptionTile(
+                context: sheetCtx,
+                icon: Icons.play_circle_filled_rounded,
+                iconColor: Colors.green.shade600,
+                bgColor: Colors.green.shade600.withValues(alpha: 0.10),
+                title: 'بدء جلسة حية 🚀',
+                subtitle: 'تشغيل المؤقت وبدء العمل الآن.',
+                isDark: isDark,
+                subtitleColor: subtitleColor,
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  if (isFlexo) {
+                    _showStartSessionDialog();
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const StartProductionSessionScreen(),
+                      ),
+                    );
+                  }
+                },
+              ),
+
+              const SizedBox(height: 12),
+
+              // ─── الخيار الثاني: إدخال تقرير يدوي ───────────────────────
+              _buildOptionTile(
+                context: sheetCtx,
+                icon: Icons.edit_note_rounded,
+                iconColor: Colors.orange.shade700,
+                bgColor: Colors.orange.shade700.withValues(alpha: 0.10),
+                title: 'إدخال تقرير يدوي (منتهي) 📝',
+                subtitle: 'تسجيل بيانات أوردر تم الانتهاء منه بالفعل.',
+                isDark: isDark,
+                subtitleColor: subtitleColor,
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showAddReportDialog();
+                },
+              ),
+
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ─── بلاط خيار من الـ BottomSheet ───────────────────────────────────────
+  Widget _buildOptionTile({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required String title,
+    required String subtitle,
+    required bool isDark,
+    required Color subtitleColor,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.grey.shade200,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 12, color: subtitleColor),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  color: subtitleColor, size: 20),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

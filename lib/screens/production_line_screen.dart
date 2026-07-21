@@ -11,9 +11,7 @@ import 'package:smart_sheet/screens/machine_management_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
 
-import 'package:smart_sheet/screens/production_line/start_production_session_screen.dart';
 import 'package:smart_sheet/screens/production_report_screen.dart';
-import 'package:smart_sheet/utils/auth_helper.dart';
 
 // ✅ استيراد الشاشات
 
@@ -203,26 +201,6 @@ class ProductionLineScreen extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: !AuthHelper.currentUserCanManageProduction(
-              'production_line', 'canAdd')
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const StartProductionSessionScreen(),
-                  ),
-                );
-              },
-              backgroundColor: Colors.green.shade600,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text(
-                'بدء إنتاج (خط الإنتاج)',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
     );
   }
 }

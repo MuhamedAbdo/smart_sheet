@@ -12,12 +12,14 @@ import 'package:smart_sheet/screens/production_line/start_production_session_scr
 import 'package:smart_sheet/screens/production_line_screen.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
+import 'package:smart_sheet/widgets/production_report_form.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/utils/auth_helper.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/utils/cache_helper.dart';
+import 'package:uuid/uuid.dart';
 
 /// شاشة تعرض جميع الأصناف والمقاسات المرتبطة بعميل معين
 class ClientItemsScreen extends StatefulWidget {
@@ -502,8 +504,10 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     return normalized;
   }
 
-  void _openProductionReportWithSheetData(
-      BuildContext context, Map<String, dynamic> dataFromCard) async {
+  // ─── بناء البيانات الأولية المشتركة من بطاقة الصنف ──────────────────────────
+  Future<Map<String, dynamic>?> _prepareInitialDataFromCard(
+      BuildContext context, Map<String, dynamic> dataFromCard,
+      {bool useProductName = false}) async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -521,94 +525,29 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           if (path.startsWith('http')) {
             finalImages.add(path);
           } else {
-            String fileName = path.split(Platform.pathSeparator).last;
-            String localPath = '${imageDir.path}/$fileName';
+            final fileName =
+                path.split('/').last.split(Platform.pathSeparator).last;
+            final localPath = '${imageDir.path}/$fileName';
             if (await File(localPath).exists()) {
               finalImages.add(localPath);
-            }
-          }
-        }
-      }
-
-      final initialData = {
-        'date': DateTime.now().toString().split(' ')[0],
-        'clientName': dataFromCard['clientName'] ?? '',
-        'product': dataFromCard['productName'] ?? '',
-        'productCode': dataFromCard['productCode'] ?? '',
-        'dimensions': {
-          'length': dataFromCard['length']?.toString() ?? '',
-          'width': dataFromCard['width']?.toString() ?? '',
-          'height': dataFromCard['height']?.toString() ?? '',
-        },
-        'imagePaths': finalImages,
-        'isSheet': dataFromCard['isSheet'] ?? false,
-        'notes': 'مستورد من قسم المقاسات',
-      };
-
-      if (context.mounted) {
-        Navigator.pop(context); // Close loading dialog
-
-        // Open StartSessionDialog instead of direct report screen
-        final started = await showModalBottomSheet<bool>(
-          context: context,
-          isScrollControlled: true,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          builder: (context) => StartSessionDialog(initialData: initialData),
-        );
-
-        if (started == true && context.mounted) {
-          // Navigate to ProductionReportScreen where the active card will be visible
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ProductionReportScreen(),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) Navigator.pop(context);
-      debugPrint("Error preparing report: $e");
-    }
-  }
-
-  void _openProductionLineSessionWithSheetData(
-      BuildContext context, Map<String, dynamic> dataFromCard) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final List<String> finalImages = [];
-      final appDir = await getApplicationDocumentsDirectory();
-      final imageDir = Directory('${appDir.path}/images');
-
-      if (dataFromCard['imagePaths'] is List) {
-        for (var pathObj in dataFromCard['imagePaths']) {
-          String path = pathObj.toString();
-          if (path.startsWith('http')) {
-            finalImages.add(path);
-          } else {
-            String fileName = path.split('/').last.split('\\').last;
-            final file = File('${imageDir.path}/$fileName');
-            if (await file.exists()) {
-              finalImages.add(file.path);
-            } else {
+            } else if (!path.startsWith('http')) {
               finalImages.add(path);
             }
           }
         }
       }
 
-      final initialData = {
+      if (context.mounted) Navigator.pop(context);
+
+      return {
         'date': DateTime.now().toString().split(' ')[0],
         'clientName': dataFromCard['clientName'] ?? '',
-        'productName':
-            dataFromCard['productName'] ?? dataFromCard['product'] ?? '',
+        // فلكسو يستخدم مفتاح 'product'، خط الإنتاج يستخدم 'productName'
+        if (useProductName)
+          'productName':
+              dataFromCard['productName'] ?? dataFromCard['product'] ?? ''
+        else
+          'product': dataFromCard['productName'] ?? '',
         'productCode': dataFromCard['productCode'] ?? '',
         'dimensions': {
           'length': dataFromCard['length']?.toString() ?? '',
@@ -619,31 +558,357 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         'isSheet': dataFromCard['isSheet'] ?? false,
         'notes': 'مستورد من قسم المقاسات',
       };
-
-      if (context.mounted) {
-        Navigator.pop(context); // Close loading dialog
-
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                StartProductionSessionScreen(initialData: initialData),
-          ),
-        );
-
-        if (result == true && context.mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ProductionLineScreen(),
-            ),
-          );
-        }
-      }
     } catch (e) {
       if (context.mounted) Navigator.pop(context);
-      debugPrint("Error preparing production line session: $e");
+      debugPrint("Error preparing data: $e");
+      return null;
     }
+  }
+
+  // ─── BottomSheet اختيار نوع الإنتاج (فلكسو) ──────────────────────────────────
+  void _openProductionReportWithSheetData(
+      BuildContext context, Map<String, dynamic> dataFromCard) async {
+    final initialData =
+        await _prepareInitialDataFromCard(context, dataFromCard);
+    if (initialData == null || !context.mounted) return;
+
+    showProductionOptionsSheet(
+      context: context,
+      initialData: initialData,
+      department: 'flexo',
+    );
+  }
+
+  // ─── BottomSheet اختيار نوع الإنتاج (خط الإنتاج) ────────────────────────────
+  void _openProductionLineSessionWithSheetData(
+      BuildContext context, Map<String, dynamic> dataFromCard) async {
+    final initialData = await _prepareInitialDataFromCard(
+        context, dataFromCard,
+        useProductName: true);
+    if (initialData == null || !context.mounted) return;
+
+    showProductionOptionsSheet(
+      context: context,
+      initialData: initialData,
+      department: 'production_line',
+    );
+  }
+
+  // ─── دالة الـ BottomSheet المشتركة ───────────────────────────────────────────
+  void showProductionOptionsSheet({
+    required BuildContext context,
+    required Map<String, dynamic> initialData,
+    required String department, // 'flexo' | 'production_line'
+  }) {
+    final isFlexo = department != 'production_line';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        final theme = Theme.of(sheetCtx);
+        final isDark = theme.brightness == Brightness.dark;
+        final bgColor = isDark ? const Color(0xFF1E1E2C) : Colors.white;
+        final subtitleColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 24,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
+            left: 20,
+            right: 20,
+            top: 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ─── مقبض ─────────────────────────────────────────────────
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // ─── العنوان ───────────────────────────────────────────────
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: (isFlexo
+                              ? Colors.blue.shade700
+                              : Colors.green.shade700)
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      isFlexo ? Icons.precision_manufacturing : Icons.factory,
+                      color: isFlexo
+                          ? Colors.blue.shade700
+                          : Colors.green.shade700,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isFlexo ? 'إنتاج فلكسو' : 'خط الإنتاج',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          initialData['clientName']?.toString() ?? '',
+                          style: TextStyle(
+                              fontSize: 12, color: subtitleColor),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // ─── الخيار الأول: بدء جلسة حية ───────────────────────────
+              _buildProductionOptionTile(
+                context: sheetCtx,
+                icon: Icons.play_circle_filled_rounded,
+                iconColor: Colors.green.shade600,
+                bgColor: Colors.green.shade600.withValues(alpha: 0.1),
+                title: 'بدء جلسة حية 🚀',
+                subtitle: 'تشغيل المؤقت وبدء العمل الآن.',
+                isDark: isDark,
+                subtitleColor: subtitleColor,
+                onTap: () {
+                  Navigator.pop(sheetCtx); // إغلاق الـ BottomSheet
+                  _startLiveSession(
+                    context,
+                    initialData: initialData,
+                    department: department,
+                  );
+                },
+              ),
+
+              const SizedBox(height: 12),
+
+              // ─── الخيار الثاني: تسجيل تقرير مباشر ────────────────────
+              _buildProductionOptionTile(
+                context: sheetCtx,
+                icon: Icons.edit_note_rounded,
+                iconColor: Colors.orange.shade700,
+                bgColor: Colors.orange.shade700.withValues(alpha: 0.1),
+                title: 'إدخال تقرير يدوي (منتهي) 📝',
+                subtitle:
+                    'تسجيل بيانات أوردر تم الانتهاء منه بالفعل.',
+                isDark: isDark,
+                subtitleColor: subtitleColor,
+                onTap: () {
+                  Navigator.pop(sheetCtx); // إغلاق الـ BottomSheet
+                  _openDirectReportForm(
+                    context,
+                    initialData: initialData,
+                    department: department,
+                  );
+                },
+              ),
+
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ─── بناء بلاط خيار الإنتاج ──────────────────────────────────────────────
+  Widget _buildProductionOptionTile({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required String title,
+    required String subtitle,
+    required bool isDark,
+    required Color subtitleColor,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.grey.shade200,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 12, color: subtitleColor),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  color: subtitleColor, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── تشغيل الجلسة الحية (الوظيفة الأصلية) ───────────────────────────────
+  void _startLiveSession(
+    BuildContext context, {
+    required Map<String, dynamic> initialData,
+    required String department,
+  }) async {
+    if (department == 'production_line') {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              StartProductionSessionScreen(initialData: initialData),
+        ),
+      );
+      if (result == true && context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const ProductionLineScreen(),
+          ),
+        );
+      }
+    } else {
+      // فلكسو
+      final started = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => StartSessionDialog(initialData: initialData),
+      );
+
+      if (started == true && context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const ProductionReportScreen(),
+          ),
+        );
+      }
+    }
+  }
+
+  // ─── فتح نموذج التقرير المباشر (منتهي) ──────────────────────────────────
+  void _openDirectReportForm(
+    BuildContext context, {
+    required Map<String, dynamic> initialData,
+    required String department,
+  }) {
+    // تحضير البيانات الأولية بصيغة النموذج
+    final formData = {
+      ...initialData,
+      'department': department,
+      // ProductionReportForm يتوقع 'product' لفلكسو و'productName' لخط الإنتاج
+      if (department != 'production_line')
+        'product': initialData['product'] ??
+            initialData['productName'] ??
+            '',
+    };
+
+    // البوكس المطلوب
+    const boxName = 'inkReports';
+
+    Future<void> saveReport(Map<String, dynamic> r) async {
+      final box = Hive.isBoxOpen(boxName)
+          ? Hive.box(boxName)
+          : await Hive.openBox(boxName);
+      final syncId = const Uuid().v4();
+      r['sync_id'] = syncId;
+      r['id'] = syncId;
+      await box.put(syncId, r);
+      SyncService.instance.pushToQueue('production_reports', r);
+      debugPrint('✅ _openDirectReportForm: تم حفظ التقرير (sync_id=$syncId)');
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (c) => ProductionReportForm(
+        initialData: formData,
+        department: department,
+        onSave: (r) async {
+          await saveReport(r);
+          if (c.mounted) Navigator.pop(c);
+
+          // الانتقال لشاشة التقارير لعرض الإدخال الجديد
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    ProductionReportScreen(department: department),
+              ),
+            );
+          }
+        },
+      ),
+    );
   }
 
   /// يفتح dialog إصدار أمر التشغيل (حصري لسطح المكتب)

@@ -1,6 +1,9 @@
 // lib/widgets/production_report_form.dart
 
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/models/flexo_machine.dart';
+import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 
 class ColorField {
@@ -57,8 +60,10 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
   late TextEditingController downtimeStartController;
   late TextEditingController downtimeEndController;
   late TextEditingController totalDowntimeController;
-  late TextEditingController machineNameController;
-  late TextEditingController technicianNameController;
+  // الماكينة والفني — يُستخدمان فقط للقراءة/الكتابة عند التحميل والحفظ
+  // القيمة المختارة من الـ Dropdown
+  String? _selectedMachineName;
+  String? _selectedTechnicianName;
 
   List<ColorField> colors = [];
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -92,9 +97,6 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     downtimeStartController = TextEditingController();
     downtimeEndController = TextEditingController();
     totalDowntimeController = TextEditingController();
-    machineNameController = TextEditingController();
-    technicianNameController = TextEditingController();
-
     // Default values for waste as requested
     lineWasteController.text = "0";
     printWasteController.text = "0";
@@ -143,8 +145,10 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     downtimeStartController.text = data['downtimeStart']?.toString() ?? data['downtime_start']?.toString() ?? '';
     downtimeEndController.text = data['downtimeEnd']?.toString() ?? data['downtime_end']?.toString() ?? '';
     totalDowntimeController.text = data['totalDowntime']?.toString() ?? '0';
-    machineNameController.text = data['machineName']?.toString() ?? data['machine_name']?.toString() ?? '';
-    technicianNameController.text = data['technicianName']?.toString() ?? data['technician_name']?.toString() ?? '';
+    _selectedMachineName = data['machineName']?.toString() ?? data['machine_name']?.toString();
+    if (_selectedMachineName != null && _selectedMachineName!.isEmpty) _selectedMachineName = null;
+    _selectedTechnicianName = data['technicianName']?.toString() ?? data['technician_name']?.toString();
+    if (_selectedTechnicianName != null && _selectedTechnicianName!.isEmpty) _selectedTechnicianName = null;
 
     paperLayerControllers.clear();
     final pLayers = data['paperLayers'] ??
@@ -223,8 +227,8 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
         'downtimeStart': downtimeStartController.text.trim(),
         'downtimeEnd': downtimeEndController.text.trim(),
         'totalDowntime': int.tryParse(totalDowntimeController.text) ?? 0,
-        'machineName': machineNameController.text.trim(),
-        'technicianName': technicianNameController.text.trim(),
+        'machineName': _selectedMachineName ?? '',
+        'technicianName': _selectedTechnicianName ?? '',
       };
 
       widget.onSave(report);
@@ -259,8 +263,6 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     downtimeStartController.dispose();
     downtimeEndController.dispose();
     totalDowntimeController.dispose();
-    machineNameController.dispose();
-    technicianNameController.dispose();
     for (var c in colors) {
       c.colorController.dispose();
       c.quantityController.dispose();
@@ -323,13 +325,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
                     const SizedBox(height: 12),
                     _buildTextField(productCodeController, "كود الصنف", icon: Icons.qr_code, keyboardType: TextInputType.number),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextField(machineNameController, "الماكينة", icon: Icons.precision_manufacturing)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildTextField(technicianNameController, "الفني المسؤول", icon: Icons.engineering)),
-                      ],
-                    ),
+                    _buildMachineAndTechRow(),
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -534,6 +530,187 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
                 onPressed: _saveReport, child: const Text("💾 حفظ التقرير"))),
       ],
     );
+  }
+
+  // ─── صف الماكينة والفني بـ Dropdowns من Hive ────────────────────────────────
+  Widget _buildMachineAndTechRow() {
+    final dept = isProductionLine ? 'production_line' : 'flexo';
+    final machineBox = Hive.isBoxOpen('flexo_machines')
+        ? Hive.box<FlexoMachine>('flexo_machines')
+        : null;
+    final workerBoxName = isProductionLine ? 'workers_production' : 'workers_flexo';
+    final workerBox = Hive.isBoxOpen(workerBoxName)
+        ? Hive.box<Worker>(workerBoxName)
+        : null;
+
+    // قائمة الماكينات (مع إزالة التكرارات)
+    final List<String> machineNames = machineBox != null
+        ? machineBox.values
+            .where((m) => m.department == dept || (dept == 'flexo' && m.department.isEmpty))
+            .map((m) => m.name)
+            .toSet()   // ← إزالة التكرارات
+            .toList()
+        : [];
+
+    // قائمة العمال (مع إزالة التكرارات)
+    final List<String> workerNames = workerBox != null
+        ? workerBox.values
+            .map((w) => w.name)
+            .toSet()   // ← إزالة التكرارات
+            .toList()
+        : [];
+
+    // إذا كانت القيمة المخزّنة غير موجودة في القائمة — أضفها مؤقتاً للتوافق
+    if (_selectedMachineName != null &&
+        _selectedMachineName!.isNotEmpty &&
+        !machineNames.contains(_selectedMachineName)) {
+      machineNames.insert(0, _selectedMachineName!);
+    }
+    if (_selectedTechnicianName != null &&
+        _selectedTechnicianName!.isNotEmpty &&
+        !workerNames.contains(_selectedTechnicianName)) {
+      workerNames.insert(0, _selectedTechnicianName!);
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── الماكينة ─────────────────────────────────────────────────────────
+        Expanded(
+          child: _buildDropdownField(
+            label: 'الماكينة',
+            icon: Icons.precision_manufacturing,
+            value: _selectedMachineName,
+            items: machineNames,
+            isRequired: false,
+            onChanged: (v) => setState(() => _selectedMachineName = v),
+            onAddManual: () async {
+              final name = await _showAddManualDialog('اسم الماكينة الجديدة');
+              if (name != null && name.isNotEmpty) {
+                // أضف الماكينة الجديدة إلى Hive
+                if (machineBox != null) {
+                  final id = 'manual_${DateTime.now().millisecondsSinceEpoch}';
+                  await machineBox.add(FlexoMachine(
+                    id: id,
+                    name: name,
+                    department: dept,
+                  ));
+                }
+                setState(() => _selectedMachineName = name);
+              }
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        // ── الفني ────────────────────────────────────────────────────────────
+        Expanded(
+          child: _buildDropdownField(
+            label: 'الفني المسؤول',
+            icon: Icons.engineering,
+            value: _selectedTechnicianName,
+            items: workerNames,
+            isRequired: false,
+            onChanged: (v) => setState(() => _selectedTechnicianName = v),
+            onAddManual: () async {
+              final name = await _showAddManualDialog('اسم الفني');
+              if (name != null && name.isNotEmpty) {
+                setState(() => _selectedTechnicianName = name);
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── Dropdown موحّد مع زر "إدخال يدوي" ────────────────────────────────────
+  Widget _buildDropdownField({
+    required String label,
+    required IconData icon,
+    required String? value,
+    required List<String> items,
+    required void Function(String?) onChanged,
+    required Future<void> Function() onAddManual,
+    bool isRequired = false,
+  }) {
+    const manualKey = '__MANUAL__';
+
+    // بناء قائمة العناصر مع الخيار اليدوي
+    final dropdownItems = [
+      ...items.map((name) => DropdownMenuItem<String>(
+            value: name,
+            child: Text(name, overflow: TextOverflow.ellipsis),
+          )),
+      const DropdownMenuItem<String>(
+        value: manualKey,
+        child: Row(
+          children: [
+            Icon(Icons.add, size: 16, color: Colors.blue),
+            SizedBox(width: 6),
+            Text('إدخال يدوي...', style: TextStyle(color: Colors.blue)),
+          ],
+        ),
+      ),
+    ];
+
+    return DropdownButtonFormField<String>(
+      initialValue: (value != null && items.contains(value)) ? value : null,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: const OutlineInputBorder(),
+        // إظهار القيمة المخزّنة كـ hint حتى لو خارج القائمة
+        hintText: (value != null && value.isNotEmpty && !items.contains(value))
+            ? value
+            : null,
+      ),
+      isExpanded: true,
+      items: dropdownItems,
+      validator: isRequired
+          ? (v) => (v == null || v.isEmpty) ? 'مطلوب' : null
+          : null,
+      onChanged: (v) async {
+        if (v == manualKey) {
+          await onAddManual();
+        } else {
+          onChanged(v);
+        }
+      },
+    );
+  }
+
+  // ─── نافذة الإدخال اليدوي ─────────────────────────────────────────────────
+  Future<String?> _showAddManualDialog(String title) async {
+    String? result;
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        final c = TextEditingController();
+        return AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: c,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'أدخل الاسم...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            ElevatedButton(
+              onPressed: () {
+                result = c.text.trim();
+                Navigator.pop(ctx);
+              },
+              child: const Text('إضافة'),
+            ),
+          ],
+        );
+      },
+    );
+    return result;
   }
 
   Widget _buildTextField(
