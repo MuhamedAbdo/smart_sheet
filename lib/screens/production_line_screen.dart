@@ -10,6 +10,7 @@ import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/screens/machine_management_screen.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
+import 'package:smart_sheet/widgets/flexo_report_drawer.dart';
 
 import 'package:smart_sheet/screens/production_report_screen.dart';
 
@@ -45,6 +46,7 @@ class ProductionLineScreen extends StatelessWidget {
         ],
       ),
       drawer: const AppDrawer(),
+      endDrawer: const FlexoReportDrawer(department: 'production_line'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -167,6 +169,13 @@ class ProductionLineScreen extends StatelessWidget {
                               builder: (context) => const CalculatorScreen(),
                             ),
                           );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.print_outlined,
+                        label: 'تقارير الماكينات',
+                        onTap: () {
+                          Scaffold.of(context).openEndDrawer();
                         },
                       ),
                       HomeButton(

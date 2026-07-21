@@ -515,7 +515,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         ],
       ),
       drawer: const AppDrawer(),
-      endDrawer: const FlexoReportDrawer(),
+      endDrawer: FlexoReportDrawer(department: widget.department ?? 'flexo'),
       body: ValueListenableBuilder(
         valueListenable: _productionReportBox!.listenable(),
         builder: (context, Box box, _) {

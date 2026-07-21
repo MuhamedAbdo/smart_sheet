@@ -543,14 +543,18 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
         ? Hive.box<Worker>(workerBoxName)
         : null;
 
-    // قائمة الماكينات (مع إزالة التكرارات)
-    final List<String> machineNames = machineBox != null
-        ? machineBox.values
-            .where((m) => m.department == dept || (dept == 'flexo' && m.department.isEmpty))
-            .map((m) => m.name)
-            .toSet()   // ← إزالة التكرارات
-            .toList()
-        : [];
+    // قائمة الماكينات (مع إزالة التكرارات والتوافق مع الـ Fallback في خط الإنتاج)
+    final List<String> machineNames = FlexoMachine.getMachinesForDepartment(dept)
+        .map((m) => m.name)
+        .toSet()
+        .toList();
+
+    if (dept == 'production_line' &&
+        machineNames.length == 1 &&
+        machineNames.first == 'خط الإنتاج' &&
+        (_selectedMachineName == null || _selectedMachineName!.isEmpty)) {
+      _selectedMachineName = 'خط الإنتاج';
+    }
 
     // قائمة العمال (مع إزالة التكرارات)
     final List<String> workerNames = workerBox != null

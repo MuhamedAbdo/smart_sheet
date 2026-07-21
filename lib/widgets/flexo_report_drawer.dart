@@ -7,24 +7,30 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
 
 class FlexoReportDrawer extends StatelessWidget {
-  const FlexoReportDrawer({super.key});
+  final String department;
+  const FlexoReportDrawer({super.key, this.department = 'flexo'});
 
   @override
   Widget build(BuildContext context) {
+    final isProductionLine = department == 'production_line';
+    final drawerTitle = isProductionLine
+        ? "تقارير ماكينات خط الإنتاج"
+        : "تقارير ماكينات الفلكسو";
+
     return Drawer(
       child: Column(
         children: [
-          const DrawerHeader(
-            decoration: BoxDecoration(color: Colors.blueAccent),
+          DrawerHeader(
+            decoration: const BoxDecoration(color: Colors.blueAccent),
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.picture_as_pdf, color: Colors.white, size: 40),
-                  SizedBox(height: 10),
+                  const Icon(Icons.picture_as_pdf, color: Colors.white, size: 40),
+                  const SizedBox(height: 10),
                   Text(
-                    "تقارير ماكينات الفلكسو",
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    drawerTitle,
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -34,10 +40,7 @@ class FlexoReportDrawer extends StatelessWidget {
             child: ValueListenableBuilder(
               valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
               builder: (context, Box<FlexoMachine> machineBox, _) {
-                final machines = machineBox.values
-                    .where((m) =>
-                        m.department == 'flexo' || m.department.isEmpty)
-                    .toList();
+                final machines = FlexoMachine.getMachinesForDepartment(department);
                 
                 if (machines.isEmpty) {
                   return const Center(child: Text("لا توجد ماكينات مسجلة"));
