@@ -62,6 +62,19 @@ class MyHttpOverrides extends HttpOverrides {
   }
 }
 
+// ─── Top-Level Background Handler — يجب أن يكون في أعلى مستوى خارج أي كلاس ───
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint('📬 [FCM Background Handler in main.dart] Title: ${message.notification?.title ?? message.data['title']} | Body: ${message.notification?.body ?? message.data['body']}');
+  
+  // في حال كان الإشعار يعتمد على data فقط ولا يحتوي على notification object
+  // نقوم بإظهاره كإشعار محلي بواسطة fcmBackgroundHandler
+  if (message.notification == null) {
+    await fcmBackgroundHandler(message);
+  }
+}
+
 Future<void> main() async {
   bool initSuccess = false;
   String? initErrorDetails;
@@ -113,8 +126,8 @@ Future<void> main() async {
     if (!kIsWeb && Platform.isAndroid) {
       try {
         await Firebase.initializeApp();
-        // تسجيل Background Handler مباشرةً بعد init — هذا هو السبب الدقيق لـ MissingPluginException
-        FirebaseMessaging.onBackgroundMessage(fcmBackgroundHandler);
+        // تسجيل Background Handler مباشرةً بعد init لضمان استقبال الإشعارات في الخلفية ومغلق
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
         debugPrint('✅ Firebase + FCM Background Handler: تمت التهيئة بنجاح.');
       } catch (e) {
         debugPrint('⚠️ Firebase init failed: $e');
@@ -324,6 +337,18 @@ Future<void> _initializeNotifications() async {
       .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>()
       ?.requestNotificationsPermission();
+
+  // إنشاء وتوثيق قناة الإشعارات (Notification Channel) في نظام Android 8+ لضمان ظهور الإشعار بـ High Priority
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'factory_push_channel',
+    'إشعارات المصنع',
+    description: 'إشعارات Push الحقيقية من المصنع',
+    importance: Importance.max,
+    playSound: true,
+  );
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
 
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
   await flutterLocalNotificationsPlugin.initialize(

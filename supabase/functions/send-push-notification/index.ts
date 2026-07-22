@@ -118,11 +118,11 @@ async function sendFcmMessage(
         body,
       },
       android: {
-        priority: "high",
+        priority: "HIGH",
         notification: {
           sound: "default",
           channel_id: "factory_push_channel",
-          icon: "ic_launcher",
+          click_action: "FLUTTER_NOTIFICATION_CLICK",
         },
       },
       // بيانات إضافية (Data payload) للمعالجة في Flutter

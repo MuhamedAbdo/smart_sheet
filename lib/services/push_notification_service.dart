@@ -98,6 +98,18 @@ class PushNotificationService {
       );
       debugPrint('📋 [FCM] صلاحية الإشعارات: ${settings.authorizationStatus}');
 
+      // 2. إنشاء وتوثيق قناة الإشعارات في نظام Android (شرط أساسي لـ High Priority في الخلفية)
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'factory_push_channel',
+        'إشعارات المصنع',
+        description: 'إشعارات Push الحقيقية من المصنع',
+        importance: Importance.max,
+        playSound: true,
+      );
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
+
       // 3. تهيئة Local Notifications لعرض الإشعارات في Foreground
       const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
       await _localNotifications.initialize(
