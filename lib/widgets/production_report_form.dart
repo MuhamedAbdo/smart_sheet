@@ -122,7 +122,9 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
   void _loadInitialData(Map<String, dynamic> data) {
     dateController.text = data['date']?.toString() ?? '';
     clientNameController.text = data['clientName']?.toString() ?? '';
-    productController.text = data['product']?.toString() ?? '';
+    productController.text = data['product']?.toString() ??
+        data['productName']?.toString() ??
+        '';
     productCodeController.text = data['productCode']?.toString() ?? '';
     isSheet = data['isSheet'] ?? false;
 

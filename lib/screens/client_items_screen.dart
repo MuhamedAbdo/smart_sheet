@@ -542,12 +542,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       return {
         'date': DateTime.now().toString().split(' ')[0],
         'clientName': dataFromCard['clientName'] ?? '',
-        // فلكسو يستخدم مفتاح 'product'، خط الإنتاج يستخدم 'productName'
-        if (useProductName)
-          'productName':
-              dataFromCard['productName'] ?? dataFromCard['product'] ?? ''
-        else
-          'product': dataFromCard['productName'] ?? '',
+        'product': dataFromCard['productName'] ?? dataFromCard['product'] ?? '',
+        'productName': dataFromCard['productName'] ?? dataFromCard['product'] ?? '',
         'productCode': dataFromCard['productCode'] ?? '',
         'dimensions': {
           'length': dataFromCard['length']?.toString() ?? '',
@@ -864,11 +860,12 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     final formData = {
       ...initialData,
       'department': department,
-      // ProductionReportForm يتوقع 'product' لفلكسو و'productName' لخط الإنتاج
-      if (department != 'production_line')
-        'product': initialData['product'] ??
-            initialData['productName'] ??
-            '',
+      'product': initialData['product'] ??
+          initialData['productName'] ??
+          '',
+      'productName': initialData['productName'] ??
+          initialData['product'] ??
+          '',
     };
 
     // البوكس المطلوب
