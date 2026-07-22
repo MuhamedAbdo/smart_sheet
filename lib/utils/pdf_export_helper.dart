@@ -271,6 +271,36 @@ String _getDimensionsOnly(Map<String, dynamic> record) {
   }
 }
 
+String _getPaperLayersOnly(Map<String, dynamic> record) {
+  final dims = record['dimensions'] is Map ? record['dimensions'] as Map : {};
+  final rawLayers = record['paperLayers'] ??
+      record['paper_layers'] ??
+      dims['paperLayers'] ??
+      dims['paper_layers'];
+  final List<String> layers = [];
+  if (rawLayers is List) {
+    layers.addAll(rawLayers
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty));
+  }
+  if (layers.isEmpty) return '---';
+  return layers.join(' / ');
+}
+
+String _getWeightOnly(Map<String, dynamic> record) {
+  final dims = record['dimensions'] is Map ? record['dimensions'] as Map : {};
+  final rawWeight = record['weight'] ?? dims['weight'];
+  if (rawWeight == null) return '---';
+  final wStr = rawWeight.toString().trim();
+  if (wStr.isEmpty || wStr == '0' || wStr == '0.0') return '---';
+  if (wStr.contains('.')) {
+    final parts = wStr.split('.');
+    if (parts.length > 1 && parts[1] == '0') return parts[0];
+    return wStr.replaceAll(RegExp(r'0*$'), '').replaceAll(RegExp(r'\.$'), '');
+  }
+  return wStr;
+}
+
 // بناء الخلايا الأساسية للجدول
 pw.Widget buildTableDataCell(String text, double width, pw.Font font, {bool isRightMost = false, bool isSectionEnd = false}) {
   return pw.Container(
@@ -281,7 +311,7 @@ pw.Widget buildTableDataCell(String text, double width, pw.Font font, {bool isRi
       border: pw.Border(
         bottom: const pw.BorderSide(width: 0.5),
         left: pw.BorderSide(width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
-        right: isRightMost ? const pw.BorderSide(width: 0.5) : pw.BorderSide.none,
+        right: const pw.BorderSide(width: 0.5, color: PdfColors.black),
       ),
     ),
     child: pw.Text(ArabicPDFHelper.fixArabic(text),
@@ -299,6 +329,7 @@ pw.Widget buildStackedInkCell(String colorName, String quantity, double width, p
       border: pw.Border(
         bottom: const pw.BorderSide(width: 0.5),
         left: pw.BorderSide(width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
+        right: const pw.BorderSide(width: 0.5, color: PdfColors.black),
       ),
     ),
     child: pw.Column(children: [
@@ -332,10 +363,14 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
     final int totalPages = (records.length / recordsPerPage).ceil();
 
     // Width calculation: Total 810
-    // Fixed columns: م(20), الفني(70), التاريخ(55), كود(48), المقاس(60), أمر(45), إنتاج(35), تشغيل(70), هالك(50), أعطال(70) = 523
-    // Remaining: 810 - 523 = 287
-    // Flexible: العميل, الصنف, ملاحظات (287 / 3 = 95.0)
-    final double flexibleColWidth = ((810 - 523) / 3).floorToDouble();
+    // تم تقليل مساحة (الفني، العميل، الصنف) لتوفير مساحة لـ (طبقات الورق، الهالك، الوزن)
+    const double techColWidth = 52.0;
+    const double clientColWidth = 72.0;
+    const double productColWidth = 72.0;
+    const double layersColWidth = 80.0;
+    // Fixed columns: م(20) + الفني(52) + التاريخ(52) + العميل(72) + الصنف(72) + كود(45) + المقاس(58) + طبقات(80) + أمر(42) + إنتاج(35) + تشغيل(70) + هالك(28) + وزن(32) + أعطال(70) = 728
+    // الملاحظات تأخذ المساحة المتبقية من 810
+    const double notesColWidth = 810.0 - 728.0; // = 82.0
 
     for (int page = 0; page < totalPages; page++) {
       final int startIndex = page * recordsPerPage;
@@ -354,21 +389,22 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
         pageRows.add(
           pw.Row(children: [
             buildTableDataCell('${startIndex + i + 1}', 20.0, arabicFont, isRightMost: true),
-            buildTableDataCell(tName, 70.0, arabicFont),
-            buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 55.0, arabicFont),
-            buildTableDataCell(record['clientName']?.toString() ?? '---', flexibleColWidth, arabicFont),
-            buildTableDataCell(record['product']?.toString() ?? '---', flexibleColWidth, arabicFont),
-            buildTableDataCell(record['productCode']?.toString() ?? '---', 48.0, arabicFont),
-            buildTableDataCell(_getDimensionsOnly(record), 60.0, arabicFont),
-            buildTableDataCell(record['orderNumber']?.toString() ?? '---', 45.0, arabicFont),
+            buildTableDataCell(tName, techColWidth, arabicFont),
+            buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 52.0, arabicFont),
+            buildTableDataCell(record['clientName']?.toString() ?? '---', clientColWidth, arabicFont),
+            buildTableDataCell(record['product']?.toString() ?? '---', productColWidth, arabicFont),
+            buildTableDataCell(record['productCode']?.toString() ?? '---', 45.0, arabicFont),
+            buildTableDataCell(_getDimensionsOnly(record), 58.0, arabicFont),
+            buildTableDataCell(_getPaperLayersOnly(record), layersColWidth, arabicFont),
+            buildTableDataCell(record['orderNumber']?.toString() ?? '---', 42.0, arabicFont),
             buildTableDataCell(record['quantity']?.toString() ?? '---', 35.0, arabicFont),
             buildTableDataCell(record['startTime']?.toString() ?? '---', 35.0, arabicFont),
             buildTableDataCell(record['endTime']?.toString() ?? '---', 35.0, arabicFont, isSectionEnd: true),
-            buildTableDataCell(record['lineWaste']?.toString() ?? '---', 25.0, arabicFont),
-            buildTableDataCell(record['printWaste']?.toString() ?? '---', 25.0, arabicFont, isSectionEnd: true),
+            buildTableDataCell(record['lineWaste']?.toString() ?? '---', 28.0, arabicFont),
+            buildTableDataCell(_getWeightOnly(record), 32.0, arabicFont, isSectionEnd: true),
             buildTableDataCell(record['downtimeStart']?.toString() ?? '---', 35.0, arabicFont),
             buildTableDataCell(record['downtimeEnd']?.toString() ?? '---', 35.0, arabicFont, isSectionEnd: true),
-            buildTableDataCell(record['notes']?.toString() ?? '---', flexibleColWidth, arabicFont),
+            buildTableDataCell(record['notes']?.toString() ?? '---', notesColWidth, arabicFont),
           ]),
         );
       }
@@ -382,7 +418,14 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
             pw.Text(ArabicPDFHelper.fixArabic(customTitle),
               style: pw.TextStyle(font: arabicBoldFont, fontSize: 16)),
             pw.SizedBox(height: 10),
-            _buildProductionHeader(flexibleWidth: flexibleColWidth, font: arabicBoldFont),
+            _buildProductionHeader(
+              clientWidth: clientColWidth,
+              productWidth: productColWidth,
+              techWidth: techColWidth,
+              layersWidth: layersColWidth,
+              notesWidth: notesColWidth,
+              font: arabicBoldFont,
+            ),
             pw.Column(children: pageRows),
           ]),
         ),
@@ -395,22 +438,31 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
   }
 }
 
-pw.Widget _buildProductionHeader({required double flexibleWidth, required pw.Font font}) {
+pw.Widget _buildProductionHeader({
+  required double clientWidth,
+  required double productWidth,
+  required double techWidth,
+  required double layersWidth,
+  required double notesWidth,
+  required pw.Font font,
+}) {
   return pw.Row(
     children: [
       _buildSpannedHeader('م', 20.0, font, isRightMost: true),
-      _buildSpannedHeader('الفني', 70.0, font),
-      _buildSpannedHeader('التاريخ', 55.0, font),
-      _buildSpannedHeader('إسم العميل', flexibleWidth, font),
-      _buildSpannedHeader('الصنف', flexibleWidth, font),
-      _buildSpannedHeader('كود الصنف', 48.0, font),
-      _buildSpannedHeader('المقاس', 60.0, font),
-      _buildSpannedHeader('أمر التشغيل', 45.0, font),
+      _buildSpannedHeader('الفني', techWidth, font),
+      _buildSpannedHeader('التاريخ', 52.0, font),
+      _buildSpannedHeader('إسم العميل', clientWidth, font),
+      _buildSpannedHeader('الصنف', productWidth, font),
+      _buildSpannedHeader('كود الصنف', 45.0, font),
+      _buildSpannedHeader('المقاس', 58.0, font),
+      _buildSpannedHeader('طبقات الورق', layersWidth, font),
+      _buildSpannedHeader('أمر التشغيل', 42.0, font),
       _buildSpannedHeader('الإنتاج', 35.0, font),
       _buildGroupedHeader('وقت التشغيل', ['من', 'إلى'], [35.0, 35.0], font, isSectionEnd: true),
-      _buildGroupedHeader('الهالك', ['خ', 'ط'], [25.0, 25.0], font, isSectionEnd: true),
+      _buildSpannedHeader('الهالك', 28.0, font),
+      _buildSpannedHeader('الوزن', 32.0, font, isSectionEnd: true),
       _buildGroupedHeader('الأعطال', ['من', 'إلى'], [35.0, 35.0], font, isSectionEnd: true),
-      _buildSpannedHeader('الملاحظات', flexibleWidth, font),
+      _buildSpannedHeader('الملاحظات', notesWidth, font),
     ],
   );
 }
@@ -546,7 +598,7 @@ pw.Widget _buildSpannedHeader(String text, double width, pw.Font font, {bool isR
         top: const pw.BorderSide(width: 0.5),
         bottom: const pw.BorderSide(width: 0.5),
         left: pw.BorderSide(width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
-        right: isRightMost ? const pw.BorderSide(width: 0.5) : pw.BorderSide.none,
+        right: const pw.BorderSide(width: 0.5, color: PdfColors.black),
       ),
     ),
     child: pw.Text(ArabicPDFHelper.fixArabic(text),
@@ -566,6 +618,7 @@ pw.Widget _buildGroupedHeader(String title, List<String> subs, List<double> subW
         top: const pw.BorderSide(width: 0.5),
         bottom: const pw.BorderSide(width: 0.5),
         left: pw.BorderSide(width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
+        right: const pw.BorderSide(width: 0.5, color: PdfColors.black),
       ),
     ),
     child: pw.Column(children: [
