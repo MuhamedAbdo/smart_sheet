@@ -80,6 +80,17 @@ class CrushingScreen extends StatelessWidget {
                         },
                       ),
                       HomeButton(
+                        icon: Icons.receipt,
+                        label: 'تقرير الإنتاج',
+                        onTap: () {
+                          UIUtils.showInfoSnackBar(
+                            message: 'سيتم تطويره قريبًا',
+                            backgroundColor: Colors.orange,
+                            icon: Icons.construction,
+                          );
+                        },
+                      ),
+                      HomeButton(
                         icon: Icons.inventory,
                         label: 'وارد المخزن',
                         onTap: () {
@@ -110,6 +121,17 @@ class CrushingScreen extends StatelessWidget {
                         },
                       ),
                       HomeButton(
+                        icon: Icons.precision_manufacturing,
+                        label: 'إدارة الماكينات',
+                        onTap: () {
+                          UIUtils.showInfoSnackBar(
+                            message: 'سيتم تطويره قريبًا',
+                            backgroundColor: Colors.orange,
+                            icon: Icons.construction,
+                          );
+                        },
+                      ),
+                      HomeButton(
                         icon: Icons.calculate,
                         label: 'الآلة الحاسبة',
                         onTap: () {
@@ -118,6 +140,17 @@ class CrushingScreen extends StatelessWidget {
                             MaterialPageRoute(
                               builder: (context) => const CalculatorScreen(),
                             ),
+                          );
+                        },
+                      ),
+                      HomeButton(
+                        icon: Icons.analytics,
+                        label: 'تقارير الماكينات',
+                        onTap: () {
+                          UIUtils.showInfoSnackBar(
+                            message: 'سيتم تطويره قريبًا',
+                            backgroundColor: Colors.orange,
+                            icon: Icons.construction,
                           );
                         },
                       ),
