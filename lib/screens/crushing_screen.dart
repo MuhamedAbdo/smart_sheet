@@ -125,11 +125,7 @@ class CrushingScreen extends StatelessWidget {
                         icon: Icons.dvr,
                         label: 'قوالب التكسير',
                         onTap: () {
-                          UIUtils.showInfoSnackBar(
-                            message: 'سيتم تطويره قريبًا',
-                            backgroundColor: Colors.orange,
-                            icon: Icons.info_outline,
-                          );
+                          Navigator.pushNamed(context, '/die_cutting_forms');
                         },
                       ),
                       HomeButton(

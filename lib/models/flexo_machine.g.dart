@@ -19,7 +19,7 @@ class FlexoMachineAdapter extends TypeAdapter<FlexoMachine> {
     return FlexoMachine(
       id: fields[0] as String,
       name: fields[1] as String,
-      department: fields[2] as String? ?? 'flexo',
+      department: fields[2] == null ? 'flexo' : fields[2] as String,
       dbId: fields[3] as String?,
     );
   }

@@ -52,6 +52,9 @@ class FinishedProduct extends HiveObject {
   @HiveField(14)
   String? formNumber; // رقم الفورمة (خاص بعملية التكسير)
 
+  @HiveField(15)
+  double? numberOfBoxes; // عدد العلب
+
   FinishedProduct({
     this.clientName,
     this.productName,
@@ -68,8 +71,47 @@ class FinishedProduct extends HiveObject {
     this.factoryId,
     this.id,
     this.formNumber,
+    this.numberOfBoxes,
   }) {
     id ??= const Uuid().v4(); // توليد معرف تلقائي لو لم يوجد
+  }
+
+  FinishedProduct copyWith({
+    String? clientName,
+    String? productName,
+    String? operationOrder,
+    String? productCode,
+    double? length,
+    double? width,
+    double? height,
+    int? count,
+    List<String>? imagePaths,
+    String? technician,
+    String? notes,
+    String? dateBacker,
+    String? factoryId,
+    String? id,
+    String? formNumber,
+    double? numberOfBoxes,
+  }) {
+    return FinishedProduct(
+      clientName: clientName ?? this.clientName,
+      productName: productName ?? this.productName,
+      operationOrder: operationOrder ?? this.operationOrder,
+      productCode: productCode ?? this.productCode,
+      length: length ?? this.length,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      count: count ?? this.count,
+      imagePaths: imagePaths ?? this.imagePaths,
+      technician: technician ?? this.technician,
+      notes: notes ?? this.notes,
+      dateBacker: dateBacker ?? this.dateBacker,
+      factoryId: factoryId ?? this.factoryId,
+      id: id ?? this.id,
+      formNumber: formNumber ?? this.formNumber,
+      numberOfBoxes: numberOfBoxes ?? this.numberOfBoxes,
+    );
   }
 
   Map<String, dynamic> toJson() {
@@ -90,6 +132,7 @@ class FinishedProduct extends HiveObject {
       'date_backer': dateBacker,
       'factory_id': factoryId,
       'form_number': formNumber,
+      'number_of_boxes': numberOfBoxes,
     };
   }
 
@@ -111,6 +154,7 @@ class FinishedProduct extends HiveObject {
         dateBacker: map['date_backer']?.toString() ?? map['dateBacker']?.toString(),
         factoryId: map['factory_id']?.toString() ?? map['factoryId']?.toString(),
         formNumber: map['form_number']?.toString() ?? map['formNumber']?.toString(),
+        numberOfBoxes: double.tryParse(map['number_of_boxes']?.toString() ?? map['numberOfBoxes']?.toString() ?? ''),
       );
     } catch (e) {
       return FinishedProduct(

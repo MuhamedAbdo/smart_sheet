@@ -17,6 +17,7 @@ import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/home_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
+import 'package:smart_sheet/screens/die_cutting_forms_screen.dart';
 
 import 'package:window_manager/window_manager.dart';
 import 'package:local_notifier/local_notifier.dart';
@@ -48,6 +49,7 @@ import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/models/downtime_interval.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
+import 'package:smart_sheet/models/die_cutting_form.dart';
 
 // استيراد الخدمات والبروفايدر والشاشات
 import 'package:smart_sheet/config/constants.dart';
@@ -66,8 +68,9 @@ class MyHttpOverrides extends HttpOverrides {
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  debugPrint('📬 [FCM Background Handler in main.dart] Title: ${message.notification?.title ?? message.data['title']} | Body: ${message.notification?.body ?? message.data['body']}');
-  
+  debugPrint(
+      '📬 [FCM Background Handler in main.dart] Title: ${message.notification?.title ?? message.data['title']} | Body: ${message.notification?.body ?? message.data['body']}');
+
   // في حال كان الإشعار يعتمد على data فقط ولا يحتوي على notification object
   // نقوم بإظهاره كإشعار محلي بواسطة fcmBackgroundHandler
   if (message.notification == null) {
@@ -111,6 +114,7 @@ Future<void> main() async {
         Hive.openBox<FlexoMachine>('flexo_machines'),
         Hive.openBox<DaySchedule>('factory_schedule'), // جدول أيام الوردية
         Hive.openBox('sync_queue'), // قائمة انتظار المزامنة
+        Hive.openBox<DieCuttingForm>('die_cutting_forms'), // قوالب التكسير
       ]);
       _openBackgroundBoxes();
       // تهيئة القيم الافتراضية لجدول أيام الوردية إذا كان فارغاً
@@ -127,7 +131,8 @@ Future<void> main() async {
       try {
         await Firebase.initializeApp();
         // تسجيل Background Handler مباشرةً بعد init لضمان استقبال الإشعارات في الخلفية ومغلق
-        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+        FirebaseMessaging.onBackgroundMessage(
+            _firebaseMessagingBackgroundHandler);
         debugPrint('✅ Firebase + FCM Background Handler: تمت التهيئة بنجاح.');
       } catch (e) {
         debugPrint('⚠️ Firebase init failed: $e');
@@ -155,8 +160,7 @@ Future<void> main() async {
       await PushNotificationService.init();
       debugPrint('✅ Notifications + FCM: تمت التهيئة بنجاح.');
     } catch (e) {
-      debugPrint(
-          '⚠️ Notifications/FCM: تعذّرت التهيئة (مقبول): $e');
+      debugPrint('⚠️ Notifications/FCM: تعذّرت التهيئة (مقبول): $e');
     }
 
     // 3c. تهيئة إشعارات سطح المكتب (Windows Native Notifications) قبل تشغيل خدمات المزامنة
@@ -249,6 +253,9 @@ void _registerAdapters() {
   }
   if (!Hive.isAdapterRegistered(17)) Hive.registerAdapter(LiveSessionAdapter());
   if (!Hive.isAdapterRegistered(18)) Hive.registerAdapter(DayScheduleAdapter());
+  if (!Hive.isAdapterRegistered(20)) {
+    Hive.registerAdapter(DieCuttingFormAdapter());
+  }
 }
 
 /// يُعبّئ صندوق factory_schedule بالقيم الافتراضية إذا كان فارغاً (أول تشغيل)
@@ -347,7 +354,8 @@ Future<void> _initializeNotifications() async {
     playSound: true,
   );
   await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(channel);
 
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -626,6 +634,7 @@ class _SmartSheetAppState extends State<SmartSheetApp>
             boxName: 'store_flexo', title: 'وارد المخزن'),
         '/workers': (_) => const WorkersScreen(
             departmentBoxName: 'workers', departmentTitle: 'طاقم العمل'),
+        '/die_cutting_forms': (_) => const DieCuttingFormsScreen(),
         '/home': (_) => const HomeScreen(),
       },
     );

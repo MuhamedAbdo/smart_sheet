@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
+import 'package:smart_sheet/models/die_cutting_form.dart';
 // الويدجات التالية محجوبة مؤقتاً من الـ UI لكنها تُستخدم في منطق التعديل
 // ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_buttons.dart';
@@ -60,6 +61,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   final sheetLengthManualController = TextEditingController();
   final sheetWidthManualController = TextEditingController();
   final formNumberController = TextEditingController();
+  final numberOfBoxesController = TextEditingController();
 
   bool _isProcessing = false;
   bool _isUploading = false; // حالة رفع الصور إلى Cloud
@@ -248,6 +250,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'factoryId': '', // سيُملأ بواسطة SyncService
       'formNumber': _processType == 'تكسير' ? formNumberController.text.trim() : null,
       'form_number': _processType == 'تكسير' ? formNumberController.text.trim() : null,
+      'numberOfBoxes': _processType == 'تكسير' ? double.tryParse(numberOfBoxesController.text.trim()) : null,
+      'number_of_boxes': _processType == 'تكسير' ? double.tryParse(numberOfBoxesController.text.trim()) : null,
     };
 
     if (_processType == "تفصيل") {
@@ -273,7 +277,67 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         'cuttingType': _cuttingType,
         'formNumber': formNumberController.text.trim(),
         'form_number': formNumberController.text.trim(),
+        'numberOfBoxes': numberOfBoxesController.text.trim(),
+        'number_of_boxes': double.tryParse(numberOfBoxesController.text.trim()),
       });
+    }
+
+    // --- ميزة "الحفظ العكسي" (Two-Way Sync to Forms Storage) ---
+    if (_processType == 'تكسير' && formNumberController.text.trim().isNotEmpty) {
+      if (Hive.isBoxOpen('die_cutting_forms')) {
+        final formsBox = Hive.box<DieCuttingForm>('die_cutting_forms');
+        final currentFormNumber = formNumberController.text.trim();
+        
+        // البحث عن قالب بنفس رقم الفورمة
+        DieCuttingForm? existingForm;
+        for (var form in formsBox.values) {
+          if (form.formNumber.toLowerCase() == currentFormNumber.toLowerCase()) {
+            existingForm = form;
+            break;
+          }
+        }
+        
+        final double currentLength = double.tryParse(lengthController.text.trim()) ?? 0;
+        final double currentWidth = double.tryParse(widthController.text.trim()) ?? 0;
+        final double currentHeight = double.tryParse(heightController.text.trim()) ?? 0;
+        final double currentSheetLength = double.tryParse(sheetLengthManualController.text.trim()) ?? 0;
+        final double currentSheetWidth = double.tryParse(sheetWidthManualController.text.trim()) ?? 0;
+        final double currentBoxes = double.tryParse(numberOfBoxesController.text.trim()) ?? 0;
+        
+        if (existingForm == null) {
+          // لم يكن موجوداً: قم بإنشاء كائن جديد
+          final newForm = DieCuttingForm(
+            id: const Uuid().v4(),
+            formNumber: currentFormNumber,
+            length: currentLength,
+            width: currentWidth,
+            height: currentHeight,
+            sheetLength: currentSheetLength,
+            sheetWidth: currentSheetWidth,
+            numberOfBoxes: currentBoxes,
+            isSheet: isSheet,
+            customerName: clientName,
+            itemName: productNameController.text.trim(),
+            itemCode: productCode,
+          );
+          await formsBox.put(newForm.id, newForm);
+          SyncService.instance.pushToQueue('die_cutting_forms', newForm.toJson(), operation: 'upsert');
+        } else {
+          // إذا كان موجوداً: تحديث مقاساته لضمان التحديث التلقائي
+          existingForm.length = currentLength;
+          existingForm.width = currentWidth;
+          existingForm.height = currentHeight;
+          existingForm.sheetLength = currentSheetLength;
+          existingForm.sheetWidth = currentSheetWidth;
+          existingForm.numberOfBoxes = currentBoxes;
+          existingForm.isSheet = isSheet;
+          existingForm.customerName = clientName;
+          existingForm.itemName = productNameController.text.trim();
+          existingForm.itemCode = productCode;
+          await existingForm.save();
+          SyncService.instance.pushToQueue('die_cutting_forms', existingForm.toJson(), operation: 'upsert');
+        }
+      }
     }
 
     // --- المنطق المطور للطلب (Hybrid Logic) ---
@@ -386,6 +450,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'is_client_record': r['isClientRecord'],
       'image_paths': r['imagePaths'] ?? [],
       'form_number': r['form_number'] ?? r['formNumber'],
+      'number_of_boxes': r['number_of_boxes'] ?? double.tryParse(r['numberOfBoxes']?.toString() ?? ''),
       'sheet_details': {
         'isOverFlap': r['isOverFlap'],
         'isFlap': r['isFlap'],
@@ -405,6 +470,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         'cuttingType': r['cuttingType'],
         'formNumber': r['formNumber'] ?? r['form_number'],
         'form_number': r['form_number'] ?? r['formNumber'],
+        'numberOfBoxes': r['numberOfBoxes'] ?? r['number_of_boxes'],
+        'number_of_boxes': r['number_of_boxes'] ?? r['numberOfBoxes'],
       },
     };
   }
@@ -487,11 +554,12 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       }
 
       sheetLengthManualController.text =
-          data['sheetLengthManual']?.toString() ?? '';
+          data['sheetLengthManual']?.toString() ?? data['sheet_length']?.toString() ?? data['sheetLength']?.toString() ?? '';
       sheetWidthManualController.text =
-          data['sheetWidthManual']?.toString() ?? '';
+          data['sheetWidthManual']?.toString() ?? data['sheet_width']?.toString() ?? data['sheetWidth']?.toString() ?? '';
       formNumberController.text =
           data['formNumber']?.toString() ?? data['form_number']?.toString() ?? '';
+      numberOfBoxesController.text = data['numberOfBoxes']?.toString() ?? data['number_of_boxes']?.toString() ?? '';
       isOverFlap = data['isOverFlap'] ?? false;
       isFlap = data['isFlap'] ?? true;
       isOneFlap = data['isOneFlap'] ?? false;
@@ -625,6 +693,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     sheetLengthManualController.dispose();
     sheetWidthManualController.dispose();
     formNumberController.dispose();
+    numberOfBoxesController.dispose();
     super.dispose();
   }
 
@@ -681,6 +750,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 sheetLengthManualController: sheetLengthManualController,
                 sheetWidthManualController: sheetWidthManualController,
                 formNumberController: formNumberController,
+                numberOfBoxesController: numberOfBoxesController,
+                onImportForm: _showImportFormDialog,
                 cuttingType: _cuttingType,
                 onCuttingTypeChanged: (v) =>
                     setState(() => _cuttingType = v ?? 'دوبل'),
@@ -817,6 +888,87 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showImportFormDialog() {
+    if (!Hive.isBoxOpen('die_cutting_forms')) return;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            final box = Hive.box<DieCuttingForm>('die_cutting_forms');
+            final forms = box.values.toList();
+            
+            return StatefulBuilder(
+              builder: (context, setStateSB) {
+                String searchQuery = "";
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'ابحث برقم الفورمة',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (val) {
+                          setStateSB(() {
+                            searchQuery = val.toLowerCase();
+                          });
+                        },
+                      ),
+                    ),
+                    Expanded(
+                      child: forms.isEmpty 
+                        ? const Center(child: Text("لا توجد قوالب تكسير محفوظة"))
+                        : ListView.builder(
+                        controller: scrollController,
+                        itemCount: forms.length,
+                        itemBuilder: (context, index) {
+                          final form = forms[index];
+                          if (searchQuery.isNotEmpty && !form.formNumber.toLowerCase().contains(searchQuery)) {
+                            return const SizedBox.shrink();
+                          }
+                          return ListTile(
+                            title: Text('رقم الفورمة: ${form.formNumber}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('المقاس: ${form.length}×${form.width}×${form.height} | مقاس الشيت: ${form.sheetLength}×${form.sheetWidth} | عدد العلب: ${form.numberOfBoxes.toStringAsFixed(0)}'),
+                            onTap: () {
+                              Navigator.pop(context);
+                              setState(() {
+                                formNumberController.text = form.formNumber;
+                                lengthController.text = form.length.toString();
+                                widthController.text = form.width.toString();
+                                if (!form.isSheet) {
+                                  heightController.text = form.height.toString();
+                                } else {
+                                  heightController.text = "0";
+                                }
+                                sheetLengthManualController.text = form.sheetLength.toString();
+                                sheetWidthManualController.text = form.sheetWidth.toString();
+                                numberOfBoxesController.text = form.numberOfBoxes.toString();
+                                isSheet = form.isSheet;
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

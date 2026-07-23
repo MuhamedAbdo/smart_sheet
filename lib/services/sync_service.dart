@@ -24,6 +24,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/models/die_cutting_form.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'dart:convert';
@@ -53,6 +54,7 @@ part 'sync/production_sync.dart';
 part 'sync/machines_sync.dart';
 part 'sync/workers_sync.dart';
 part 'sync/factory_sync.dart';
+part 'sync/die_cutting_forms_sync.dart';
 
 // ==============================================================
 // SyncServiceBase — الحقول المشتركة بين Mixins و SyncService
@@ -72,14 +74,22 @@ abstract class SyncServiceBase {
   String? _currentFactoryId;
 
   /// جدولة إعادة الاتصال لقناة معينة لتفادي تدمير القنوات الأخرى الناجحة
-  void _scheduleReconnect(String channelName, Future<void> Function() reconnectAction);
+  void _scheduleReconnect(
+      String channelName, Future<void> Function() reconnectAction);
 }
 
 // ==============================================================
 // SyncService — نقطة الدخول المركزية للتطبيق
 // ==============================================================
 
-class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, MachinesSync, WorkersSync, FactorySync {
+class SyncService extends SyncServiceBase
+    with
+        CustomerSync,
+        ProductionSync,
+        MachinesSync,
+        WorkersSync,
+        FactorySync,
+        DieCuttingFormsSync {
   static final SyncService instance = SyncService._internal();
   SyncService._internal();
 
@@ -98,7 +108,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
     _themeProvider = tp;
 
     if (isFirstTime && _currentFactoryId != null) {
-      debugPrint('⚡ SyncService: تم تسجيل ThemeProvider بعد التهيئة. بدء مزامنة المصنع...');
+      debugPrint(
+          '⚡ SyncService: تم تسجيل ThemeProvider بعد التهيئة. بدء مزامنة المصنع...');
       _initFactorySettings(_currentFactoryId!, tp);
       _setupFactoryChannel(_currentFactoryId!, tp);
     }
@@ -180,6 +191,9 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       // 7. المزامنة المبدئية لـ customer_products [CustomerSync]
       await _initCustomerProducts(factoryId);
 
+      // 8. المزامنة المبدئية لقوالب التكسير [DieCuttingFormsSync]
+      await syncDieCuttingForms(factoryId);
+
       // إعداد قنوات Real-time بعد التحميل المبدئي بنجاح
       _setupChannels(factoryId);
       unawaited(_processQueue());
@@ -189,8 +203,10 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
       debugPrint('✅ SyncService: تم التهيئة للمصنع: $factoryId');
     } catch (e) {
-      if (e.toString().contains('AuthRetryableFetchException') || e.toString().contains('SocketException')) {
-        debugPrint('⚠️ [SyncService] شبكة غير مستقرة أثناء التهيئة المبدئية: $e');
+      if (e.toString().contains('AuthRetryableFetchException') ||
+          e.toString().contains('SocketException')) {
+        debugPrint(
+            '⚠️ [SyncService] شبكة غير مستقرة أثناء التهيئة المبدئية: $e');
       } else {
         debugPrint('❌ SyncService.initialize: $e');
       }
@@ -210,9 +226,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
   //
   Future<void> _performDeltaSync(String factoryId) async {
     try {
-      final settingsBox = Hive.isBoxOpen('settings')
-          ? Hive.box('settings')
-          : null;
+      final settingsBox =
+          Hive.isBoxOpen('settings') ? Hive.box('settings') : null;
       if (settingsBox == null) return;
 
       final String? lastSyncedAtRaw = settingsBox.get('last_synced_at');
@@ -225,7 +240,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       // في نفس ثانية آخر مزامنة أو بسبب فارق الساعة بين الجهاز والسيرفر.
       final lastSyncedAtParsed = DateTime.tryParse(lastSyncedAtRaw);
       if (lastSyncedAtParsed == null) {
-        debugPrint('⚠️ [DeltaSync] تنسيق last_synced_at غير صالح: $lastSyncedAtRaw');
+        debugPrint(
+            '⚠️ [DeltaSync] تنسيق last_synced_at غير صالح: $lastSyncedAtRaw');
         return;
       }
       final queryFrom = lastSyncedAtParsed
@@ -233,7 +249,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
           .toUtc()
           .toIso8601String();
 
-      debugPrint('🔄 [DeltaSync] جلب السجلات الجديدة منذ: $queryFrom (raw=$lastSyncedAtRaw)');
+      debugPrint(
+          '🔄 [DeltaSync] جلب السجلات الجديدة منذ: $queryFrom (raw=$lastSyncedAtRaw)');
       int totalNew = 0;
       // قائمة السجلات الجديدة التي ستُعرض في overlay واحد
       final List<Map<String, dynamic>> missedItems = [];
@@ -249,7 +266,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
             .order('updated_at');
 
         if (newCustomers.isNotEmpty) {
-          debugPrint('📬 [DeltaSync] ${newCustomers.length} عميل/صنف محتمل للمزامنة.');
+          debugPrint(
+              '📬 [DeltaSync] ${newCustomers.length} عميل/صنف محتمل للمزامنة.');
           final box = Hive.isBoxOpen('savedSheetSizes')
               ? Hive.box('savedSheetSizes')
               : await Hive.openBox('savedSheetSizes');
@@ -284,7 +302,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
               'isSheet': row['is_sheet'] ?? false,
               'isClientRecord': row['is_client_record'] ?? false,
               'imagePaths': (row['image_paths'] as List?)?.cast<String>() ?? [],
-              'date': row['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+              'date': row['created_at']?.toString() ??
+                  DateTime.now().toIso8601String(),
             };
             await box.add(localRecord);
             totalNew++;
@@ -325,7 +344,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       }
 
       if (totalNew > 0) {
-        debugPrint('✅ [DeltaSync] تم استرجاع $totalNew سجل جديد وإرسال الإشعارات.');
+        debugPrint(
+            '✅ [DeltaSync] تم استرجاع $totalNew سجل جديد وإرسال الإشعارات.');
 
         // ─── عرض الإشعارات بعد جاهزية الـ UI ──────────────────────
         if (missedItems.isNotEmpty) {
@@ -337,8 +357,12 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
             final isClientRecord = item['isClientRecord'] == true;
             final clientName = item['clientName'] as String;
             final productName = item['productName'] as String;
-            final title = isClientRecord ? '🆕 عميل جديد أثناء الغياب' : '📦 صنف جديد أثناء الغياب';
-            final body  = isClientRecord ? 'تم تسجيل العميل: $clientName' : '$clientName — $productName';
+            final title = isClientRecord
+                ? '🆕 عميل جديد أثناء الغياب'
+                : '📦 صنف جديد أثناء الغياب';
+            final body = isClientRecord
+                ? 'تم تسجيل العميل: $clientName'
+                : '$clientName — $productName';
 
             await showLocalNotification(title, body, clientName);
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -347,7 +371,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
           } else {
             // إشعار ملخص لتفادي الإغراق
             final title = '📋 $count عناصر جديدة أثناء الغياب';
-            final body  = 'تم إضافة $count عملاء/أصناف — اضغط للتحقق';
+            final body = 'تم إضافة $count عملاء/أصناف — اضغط للتحقق';
 
             await showLocalNotification(title, body, '');
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -378,7 +402,6 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       debugPrint('⚠️ [SyncService] تعذّر حفظ last_synced_at: $e');
     }
   }
-
 
   Future<void> dispose() async {
     _isDisposed = true;
@@ -498,6 +521,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
     // ─── [هنا] machines ────────────────────────────────────────────
     _setupMachinesChannel(factoryId);
+    _setupDieCuttingFormsChannel(factoryId);
 
     // ─── [FactorySync] factories (shift times) ──────────────────────
     if (_themeProvider != null) {
@@ -506,7 +530,6 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
     // ─── [هنا] machine_reports ─────────────────────────────────────
     // _setupMachineReportsChannel(factoryId); // تم التعطيل لمنع PGRST205
-
   }
 
   Future<void> _tearDownChannels() async {
@@ -519,6 +542,7 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       await _tearDownProductionChannels();
       await _tearDownMachinesChannel();
       await _tearDownWorkersChannels();
+      await _tearDownDieCuttingFormsChannel();
       await _tearDownFactoryChannel();
 
       if (_machineReportsChannel != null) {
@@ -535,8 +559,6 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
   // Channel Setup — Workers / Machines / Attendance / MachineReports
   // ==============================================================
 
-
-
   /*
   void _setupMachineReportsChannel(String factoryId) {
     // ... تم التعطيل ...
@@ -546,12 +568,14 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
   /// إرسال إشعار محلي:
   ///   • Android → push notification عبر flutter_local_notifications
   ///   • Windows/غير Android → لا push (المنصة لا تدعمه)، يكفي UIUtils.showTopOverlay
-  Future<void> showLocalNotification(String title, String body, String clientName) async {
+  Future<void> showLocalNotification(
+      String title, String body, String clientName) async {
     if (kIsWeb) return;
     // ─── Android: إشعار push حقيقي ────────────────────────────────
     if (Platform.isAndroid) {
       try {
-        final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+        final flutterLocalNotificationsPlugin =
+            FlutterLocalNotificationsPlugin();
         const androidPlatformChannelSpecifics = AndroidNotificationDetails(
           'factory_notifications_channel',
           'Factory Notifications',
@@ -561,7 +585,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
           playSound: true,
           icon: '@mipmap/ic_launcher',
         );
-        const platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
+        const platformChannelSpecifics =
+            NotificationDetails(android: androidPlatformChannelSpecifics);
 
         await flutterLocalNotificationsPlugin.show(
           DateTime.now().millisecond,
@@ -587,7 +612,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
   /// #1 → 5ث | #2 → 10ث | #3 → 20ث | #4 → 40ث | #5 → 80ث | #6+ → توقف
   /// جدولة إعادة الاتصال لقناة محددة فقط
   @override
-  void _scheduleReconnect(String channelName, Future<void> Function() reconnectAction) {
+  void _scheduleReconnect(
+      String channelName, Future<void> Function() reconnectAction) {
     if (_isDisposed || _currentFactoryId == null) return;
     if (_reconnectTimers[channelName]?.isActive == true) return;
 
@@ -604,7 +630,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
     final delaySeconds = (5 * (1 << attempts)).clamp(5, 80);
     final delay = Duration(seconds: delaySeconds);
 
-    debugPrint('⏳ SyncService [$channelName]: إعادة محاولة #${attempts + 1} خلال ${delay.inSeconds}ث...');
+    debugPrint(
+        '⏳ SyncService [$channelName]: إعادة محاولة #${attempts + 1} خلال ${delay.inSeconds}ث...');
 
     _reconnectTimers[channelName] = Timer(delay, () async {
       if (_isDisposed || _currentFactoryId == null) return;
@@ -620,8 +647,6 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
   // ==============================================================
   // Real-time Callbacks — Workers / Machines / Attendance / MachineReports
   // ==============================================================
-
-
 
   /*
   void _onMachineReportChange(PostgresChangePayload payload, String myFactoryId) async {
@@ -679,12 +704,16 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
     }
 
     if (queueBox.isEmpty) {
-      debugPrint('📱 Mobile Queue: القائمة فارغة.'); return;
+      debugPrint('📱 Mobile Queue: القائمة فارغة.');
+      return;
     }
 
     debugPrint('📱 Mobile Queue: محاولة إرسال... (${queueBox.length} عنصر)');
     final hasInternet = await _checkInternet();
-    if (!hasInternet) { debugPrint('📴 Queue: لا إنترنت.'); return; }
+    if (!hasInternet) {
+      debugPrint('📴 Queue: لا إنترنت.');
+      return;
+    }
     unawaited(ServerTimeService.instance.syncServerTime());
 
     _isProcessingQueue = true;
@@ -708,15 +737,22 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
       final retries = (item['retries'] as int?) ?? 0;
       if (table == null || rawData is! Map) continue;
 
-      final syncId = rawData['sync_id']?.toString() ?? rawData['id']?.toString();
+      final syncId =
+          rawData['sync_id']?.toString() ?? rawData['id']?.toString();
       if (syncId == null || syncId.trim().isEmpty) {
-        debugPrint('🗑️ تقرير تالف (sync_id فارغ)'); keysToDelete.add(key); continue;
+        debugPrint('🗑️ تقرير تالف (sync_id فارغ)');
+        keysToDelete.add(key);
+        continue;
       }
       if (RegExp(r'[<>{}\[\]\*\&\^\%\$#@!]').hasMatch(syncId)) {
-        debugPrint('🗑️ تقرير تالف (رموز غريبة: $syncId)'); keysToDelete.add(key); continue;
+        debugPrint('🗑️ تقرير تالف (رموز غريبة: $syncId)');
+        keysToDelete.add(key);
+        continue;
       }
       if (retries >= 5) {
-        debugPrint('⚠️ Queue: تجاوز الحد → $table'); keysToDelete.add(key); continue;
+        debugPrint('⚠️ Queue: تجاوز الحد → $table');
+        keysToDelete.add(key);
+        continue;
       }
 
       try {
@@ -727,21 +763,28 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
         payload['factory_id'] = factoryId;
 
         if (operation == 'delete') {
-          final deleteSyncId = payload['sync_id']?.toString() ?? payload['id']?.toString();
+          final deleteSyncId =
+              payload['sync_id']?.toString() ?? payload['id']?.toString();
           if (deleteSyncId != null && deleteSyncId.isNotEmpty) {
-            await _supabase.from(table).delete().eq('sync_id', deleteSyncId);
-            debugPrint('✅ Queue: حذف من $table [sync_id=$deleteSyncId]');
+            if (table == 'die_cutting_forms') {
+              await _supabase.from(table).delete().eq('id', deleteSyncId);
+            } else {
+              await _supabase.from(table).delete().eq('sync_id', deleteSyncId);
+            }
+            debugPrint('✅ Queue: حذف من $table [id/sync_id=$deleteSyncId]');
           } else {
-            debugPrint('⚠️ Queue: تجاهل delete — لا sync_id في $table');
+            debugPrint('⚠️ Queue: تجاهل delete — لا معرف في $table');
           }
         } else {
-          final cleanPayload = _sanitizePayload(payload);
+          final cleanPayload = _sanitizePayload(payload, table);
           try {
             if (table == 'customers' ||
                 table == 'production_reports' ||
                 table == 'workers' ||
                 table == 'live_sessions') {
-              await _supabase.from(table).upsert(cleanPayload, onConflict: 'sync_id');
+              await _supabase
+                  .from(table)
+                  .upsert(cleanPayload, onConflict: 'sync_id');
             } else {
               await _supabase.from(table).upsert(cleanPayload);
             }
@@ -826,25 +869,33 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
     }
 
     if (queueBox.isOpen) {
-      for (final key in keysToDelete) { await queueBox.delete(key); }
+      for (final key in keysToDelete) {
+        await queueBox.delete(key);
+      }
       debugPrint('✅ Queue: اكتملت. متبقي: ${queueBox.length}');
     }
     _isProcessingQueue = false;
   }
 
-
-
   // ==============================================================
   // Payload Sanitizer — يمنع خطأ 22P02
   // ==============================================================
 
-  Map<String, dynamic> _sanitizePayload(Map<String, dynamic> raw) {
-    const numericFields = {'length', 'width', 'height', 'sheet_length', 'sheet_width'};
+  Map<String, dynamic> _sanitizePayload(Map<String, dynamic> raw, String table) {
+    const numericFields = {
+      'length',
+      'width',
+      'height',
+      'sheet_length',
+      'sheet_width'
+    };
     const uuidFields = {'sync_id', 'id', 'factory_id'};
     final result = <String, dynamic>{};
     raw.forEach((key, value) {
       if (numericFields.contains(key)) {
-        if (value == null || value.toString().trim().isEmpty || value.toString().trim().toLowerCase() == 'null') {
+        if (value == null ||
+            value.toString().trim().isEmpty ||
+            value.toString().trim().toLowerCase() == 'null') {
           result[key] = null;
         } else {
           result[key] = double.tryParse(value.toString().trim());
@@ -856,7 +907,8 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
             // لا نضيف مفتاح id إطلاقاً إذا كان فارغاً لترك السحابة تستخدم Default Value
           } else {
             result[key] = const Uuid().v4();
-            debugPrint('⚠️ [sanitize] $key كان فارغاً، تم توليد UUID: ${result[key]}');
+            debugPrint(
+                '⚠️ [sanitize] $key كان فارغاً، تم توليد UUID: ${result[key]}');
           }
         } else {
           result[key] = strVal;
@@ -867,7 +919,9 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
     });
 
     // الحذف القاطع لمفتاح id بدون أي شروط (Unconditional Remove) لتوحيد هيكل الدفعة
-    result.remove('id');
+    if (table != 'die_cutting_forms') {
+      result.remove('id');
+    }
 
     // تنظيف أي قيم null أخرى قد ترفضها السحابة إذا كانت الجداول لا تقبل Null
     result.removeWhere((key, value) =>
@@ -883,9 +937,12 @@ class SyncService extends SyncServiceBase with CustomerSync, ProductionSync, Mac
 
   Future<bool> _checkInternet() async {
     try {
-      final socket = await Socket.connect('supabase.com', 443, timeout: const Duration(seconds: 3));
+      final socket = await Socket.connect('supabase.com', 443,
+          timeout: const Duration(seconds: 3));
       socket.destroy();
       return true;
-    } catch (_) { return false; }
+    } catch (_) {
+      return false;
+    }
   }
 }

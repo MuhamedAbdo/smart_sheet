@@ -18,9 +18,9 @@ class WorkerAdapter extends TypeAdapter<Worker> {
     };
     return Worker(
       id: fields[6] as String?,
-      name: fields[0] == null ? '' : fields[0] as String,
-      phone: fields[1] == null ? '' : fields[1] as String,
-      job: fields[2] == null ? '' : fields[2] as String,
+      name: fields[0] as String,
+      phone: fields[1] as String,
+      job: fields[2] as String,
       hasMedicalInsurance: fields[4] == null ? false : fields[4] as bool,
       factoryId: fields[5] as String?,
       department: fields[7] == null ? 'flexo' : fields[7] as String,
@@ -42,7 +42,7 @@ class WorkerAdapter extends TypeAdapter<Worker> {
   @override
   void write(BinaryWriter writer, Worker obj) {
     writer
-      ..writeByte(20) // عدد الحقول الإجمالي
+      ..writeByte(20)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)

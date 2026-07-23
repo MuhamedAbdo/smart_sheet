@@ -205,6 +205,8 @@ mixin CustomerSync on SyncServiceBase {
               [],
           'form_number':
               r['form_number']?.toString() ?? r['formNumber']?.toString() ?? '',
+          'number_of_boxes': double.tryParse(
+              r['number_of_boxes']?.toString() ?? r['numberOfBoxes']?.toString() ?? ''),
           'sheet_details': sheetDetailsMap,
         };
 
@@ -748,6 +750,8 @@ mixin CustomerSync on SyncServiceBase {
             sheetDetails['formNumber']?.toString() ??
             r['form_number']?.toString() ??
             '',
+        'numberOfBoxes': r['number_of_boxes'] ?? sheetDetails['numberOfBoxes'] ?? sheetDetails['number_of_boxes'],
+        'number_of_boxes': r['number_of_boxes'] ?? sheetDetails['numberOfBoxes'] ?? sheetDetails['number_of_boxes'],
       };
     } catch (e) {
       debugPrint('❌ CustomerSync._customerToHive error: $e');

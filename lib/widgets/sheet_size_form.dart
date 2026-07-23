@@ -18,6 +18,8 @@ class SheetSizeForm extends StatelessWidget {
   final TextEditingController? sheetLengthManualController;
   final TextEditingController? sheetWidthManualController;
   final TextEditingController? formNumberController;
+  final TextEditingController? numberOfBoxesController;
+  final VoidCallback? onImportForm;
   final String? cuttingType; // "دوبل" | "سنجل C" | "سنجل E"
   final ValueChanged<String?>? onCuttingTypeChanged;
 
@@ -48,6 +50,8 @@ class SheetSizeForm extends StatelessWidget {
     this.sheetLengthManualController,
     this.sheetWidthManualController,
     this.formNumberController,
+    this.numberOfBoxesController,
+    this.onImportForm,
     this.cuttingType,
     this.onCuttingTypeChanged,
     required this.processType,
@@ -135,9 +139,27 @@ class SheetSizeForm extends StatelessWidget {
           // --- حقول التكسير ---
           if (processType == "تكسير") ...[
             const SizedBox(height: 16),
+            if (onImportForm != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onImportForm,
+                    icon: const Icon(Icons.search),
+                    label: const Text("استدعاء من مخزن الفورم"),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
             if (formNumberController != null)
               _buildTextField(
-                  "رقم الفورمة", formNumberController!, type: TextInputType.number),
+                  "رقم الفورمة", formNumberController!, type: TextInputType.text),
+            if (numberOfBoxesController != null)
+              _buildTextField(
+                  "عدد العلب (من الفورمة)", numberOfBoxesController!, type: TextInputType.number),
             _buildTextField(
                 "طول الشيت", sheetLengthManualController!, type: TextInputType.number),
             _buildTextField(
