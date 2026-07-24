@@ -29,6 +29,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
   final productCodeController = TextEditingController();
   final orderNumberController = TextEditingController();
   final techController = TextEditingController();
+  final formNumberController = TextEditingController();
   String? selectedMachine;
 
   @override
@@ -44,6 +45,8 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
           widget.initialData!['productCode']?.toString() ?? '';
       orderNumberController.text =
           widget.initialData!['orderNumber']?.toString() ?? '';
+      formNumberController.text =
+          widget.initialData!['formNumber']?.toString() ?? '';
     }
   }
 
@@ -54,6 +57,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
     productCodeController.dispose();
     orderNumberController.dispose();
     techController.dispose();
+    formNumberController.dispose();
     super.dispose();
   }
 
@@ -126,6 +130,12 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                 orderNumberController, 'رقم أمر التشغيل', Icons.numbers,
                 keyboardType: TextInputType.number),
             const SizedBox(height: 12),
+            if (widget.department == 'crushing') ...[
+              _buildSimpleField(
+                  formNumberController, 'رقم الفورمة (اختياري)', Icons.grid_3x3,
+                  keyboardType: TextInputType.number),
+              const SizedBox(height: 12),
+            ],
             _buildWorkerSuggestField(techController),
             const SizedBox(height: 20),
             ElevatedButton(
@@ -183,6 +193,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                   createdByDeviceId: deviceId,
                   technicianId: techId,
                   department: widget.department,
+                  formNumber: formNumberController.text.trim().isNotEmpty ? formNumberController.text.trim() : null,
                 );
 
                 // 3. الحفظ المحلي في Hive (لتحديث الواجهة فوراً)

@@ -6,6 +6,7 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:smart_sheet/widgets/production_report_form.dart';
+import 'package:smart_sheet/widgets/start_session_dialog.dart';
 
 class DieCuttingProductionScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
@@ -23,12 +24,12 @@ class _DieCuttingProductionScreenState extends State<DieCuttingProductionScreen>
     super.initState();
     if (widget.initialData != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showAddDialog(initialData: widget.initialData);
+        _showAddReportDialog(initialData: widget.initialData);
       });
     }
   }
 
-  void _showAddDialog({Map<String, dynamic>? initialData}) {
+  void _showAddReportDialog({Map<String, dynamic>? initialData}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -89,6 +90,174 @@ class _DieCuttingProductionScreenState extends State<DieCuttingProductionScreen>
           );
           if (c.mounted) Navigator.pop(c);
         },
+      ),
+    );
+  }
+
+  void _showStartSessionDialog({Map<String, dynamic>? initialData}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StartSessionDialog(
+        initialData: initialData,
+        department: 'crushing',
+      ),
+    );
+  }
+
+  void _showProductionOptionsSheet({Map<String, dynamic>? initialData}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        final theme = Theme.of(sheetCtx);
+        final isDark = theme.brightness == Brightness.dark;
+        final bgColor = isDark ? const Color(0xFF1E1E2C) : Colors.white;
+        final subtitleColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 24,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
+            left: 20,
+            right: 20,
+            top: 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade700.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.content_cut,
+                      color: Colors.orange.shade700,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'إضافة أوردر — تكسير',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _buildOptionTile(
+                context: sheetCtx,
+                icon: Icons.play_circle_filled_rounded,
+                iconColor: Colors.green.shade600,
+                bgColor: Colors.green.shade600.withValues(alpha: 0.10),
+                title: 'بدء جلسة حية 🚀',
+                subtitle: 'تشغيل المؤقت وبدء العمل الآن.',
+                isDark: isDark,
+                subtitleColor: subtitleColor,
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showStartSessionDialog(initialData: initialData);
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildOptionTile(
+                context: sheetCtx,
+                icon: Icons.edit_note_rounded,
+                iconColor: Colors.orange.shade700,
+                bgColor: Colors.orange.shade700.withValues(alpha: 0.10),
+                title: 'إدخال تقرير يدوي (منتهي) 📝',
+                subtitle: 'تسجيل بيانات أوردر تم الانتهاء منه بالفعل.',
+                isDark: isDark,
+                subtitleColor: subtitleColor,
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showAddReportDialog(initialData: initialData);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOptionTile({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required String title,
+    required String subtitle,
+    required bool isDark,
+    required Color subtitleColor,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 3),
+                    Text(subtitle, style: TextStyle(fontSize: 12, color: subtitleColor)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: subtitleColor, size: 20),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -168,7 +337,7 @@ class _DieCuttingProductionScreenState extends State<DieCuttingProductionScreen>
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddDialog,
+        onPressed: () => _showProductionOptionsSheet(),
         child: const Icon(Icons.add),
       ),
     );

@@ -66,6 +66,9 @@ class LiveSession extends HiveObject {
   @HiveField(19)
   final List<String>? paperLayers;
 
+  @HiveField(20)
+  final String? formNumber;
+
   LiveSession({
     required this.id,
     required this.machineName,
@@ -87,6 +90,7 @@ class LiveSession extends HiveObject {
     this.department = 'flexo',
     this.shift,
     this.paperLayers,
+    this.formNumber,
   })  : startTime = startTime.toUtc(),
         lastStateChange = lastStateChange.toUtc();
 
@@ -139,8 +143,8 @@ class LiveSession extends HiveObject {
       'technician_id': technicianId,
       'department': department ?? 'flexo',
       'shift': shift,
-      'paper_layers': paperLayers,
       'paperLayers': paperLayers,
+      'formNumber': formNumber,
     };
   }
 
@@ -184,6 +188,7 @@ class LiveSession extends HiveObject {
       department: dept,
       shift: json['shift']?.toString(),
       paperLayers: rawLayers != null ? List<String>.from(rawLayers) : null,
+      formNumber: json['formNumber']?.toString() ?? json['form_number']?.toString(),
     );
   }
 }
