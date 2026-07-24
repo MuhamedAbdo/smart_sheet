@@ -24,6 +24,8 @@ class ArchiveDetailScreen extends StatelessWidget {
                 "${record['product']?.toString() ?? '---'} ${record['productCode'] != null && record['productCode'].toString().isNotEmpty ? '[ ${record['productCode']} ]' : ''}"),
             if (record['orderNumber'] != null && record['orderNumber'].toString().isNotEmpty)
               _buildDetailRow(context, "🔢 أمر التشغيل:", record['orderNumber'].toString()),
+            if (record['formNumber'] != null && record['formNumber'].toString().isNotEmpty)
+              _buildDetailRow(context, "📄 رقم الفورمة:", record['formNumber'].toString()),
             if (record['shift'] != null && record['shift'].toString().isNotEmpty && record['shift'] != 'null')
               _buildDetailRow(context, "🔄 الوردية:", record['shift'].toString()),
             const SizedBox(height: 20),

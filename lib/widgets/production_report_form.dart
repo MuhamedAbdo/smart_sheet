@@ -228,6 +228,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
         'notes': notesController.text.trim(),
         'orderNumber': orderNumberController.text.trim(),
         'formNumber': formNumberController.text.trim(),
+        'form_number': formNumberController.text.trim(),
         'startTime': startTimeController.text.trim(),
         'endTime': endTimeController.text.trim(),
         'lineWaste': int.tryParse(lineWasteController.text) ?? 0,

@@ -68,7 +68,7 @@ mixin ProductionSync on SyncServiceBase {
       final res = await _supabase
           .from('production_reports')
           .select()
-          .eq('factory_id', factoryId)
+          .or('factory_id.eq.$factoryId,factory_id.is.null')
           .order('date', ascending: false)
           .order('end_time', ascending: false);
 
@@ -76,10 +76,9 @@ mixin ProductionSync on SyncServiceBase {
           ? Hive.box('inkReports')
           : await Hive.openBox('inkReports');
 
-      // منع المسح العكسي التلقائي (Safe Pull Logic)
-      if (res.isEmpty || (box.isNotEmpty && res.length < box.length * 0.5)) {
+      if (res.isEmpty) {
         debugPrint(
-          '⚠️ [Safe Pull] بيانات التقارير/الأرشيف من السيرفر فارغة... يُمنع مسح الصندوق المحلي.',
+          '⚠️ [Safe Pull] بيانات التقارير من السيرفر فارغة... لا يوجد ما يتم تحديثه.',
         );
         return;
       }
@@ -139,7 +138,7 @@ mixin ProductionSync on SyncServiceBase {
       final res = await _supabase
           .from('archived_reports')
           .select()
-          .eq('factory_id', factoryId)
+          .or('factory_id.eq.$factoryId,factory_id.is.null')
           .order('date', ascending: false);
 
       final flexoBox = Hive.isBoxOpen('flexoArchive')
@@ -600,6 +599,7 @@ mixin ProductionSync on SyncServiceBase {
       'product': r['product'] ?? r['product_name'],
       'productCode': r['productCode'] ?? r['product_code'],
       'orderNumber': r['orderNumber'] ?? r['order_number'],
+      'formNumber': r['formNumber'] ?? r['form_number'],
       'startTime': r['startTime'] ?? r['start_time'],
       'endTime': r['endTime'] ?? r['end_time'],
       'downtimeStart': r['downtimeStart'] ?? r['downtime_start'],

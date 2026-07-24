@@ -559,6 +559,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     final String productCode = report['productCode']?.toString() ?? '';
     final String displayDate = report['date'] ?? "---";
     final String orderNumber = report['orderNumber']?.toString() ?? '';
+    final String formNumber = report['formNumber']?.toString() ?? report['form_number']?.toString() ?? '';
     final String startTime = report['startTime']?.toString() ?? '';
     final String endTime = report['endTime']?.toString() ?? '';
     final String machineName = (report['machineName'] ?? report['machine_name'])?.toString() ?? '';
@@ -756,6 +757,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               const SizedBox(height: 6),
               if (orderNumber.isNotEmpty)
                 _buildArchiveInfoRow(Icons.numbers, "أمر التشغيل:", orderNumber),
+              if (formNumber.isNotEmpty)
+                _buildArchiveInfoRow(Icons.description, "رقم الفورمة:", formNumber),
               if (startTime.isNotEmpty || endTime.isNotEmpty)
                 _buildArchiveInfoRow(Icons.schedule, "وقت التشغيل:",
                     "${startTime.isNotEmpty ? startTime : '--:--'} إلى ${endTime.isNotEmpty ? endTime : '--:--'}"),

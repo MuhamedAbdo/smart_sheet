@@ -18,6 +18,7 @@ import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/pairing_service.dart';
+import 'package:smart_sheet/services/ghost_deletes_fixer.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -104,11 +105,13 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     setState(() {
       _isLoading = true;
-      _message = 'جاري الرفع المباشر لبيانات العملاء والأصناف والتقارير والأرشيف دفعة واحدة...';
+      _message =
+          'جاري الرفع المباشر لبيانات العملاء والأصناف والتقارير والأرشيف دفعة واحدة...';
     });
 
     UIUtils.showInfoSnackBar(
-      message: "بدأ الرفع المباشر لسجلات العملاء والتقارير والأرشيف إلى السحابة...",
+      message:
+          "بدأ الرفع المباشر لسجلات العملاء والتقارير والأرشيف إلى السحابة...",
       backgroundColor: Colors.blueAccent,
       icon: Icons.cloud_upload_outlined,
     );
@@ -118,7 +121,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       await SyncService.instance.directPushAllReports();
       if (mounted) {
         setState(() {
-          _message = "✅ تم الانتهاء من الرفع المباشر (العملاء + التقارير + الأرشيف) بنجاح";
+          _message =
+              "✅ تم الانتهاء من الرفع المباشر (العملاء + التقارير + الأرشيف) بنجاح";
           _isLoading = false;
         });
       }
@@ -179,7 +183,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         }
         return;
       }
-      
+
       final restorePath = '$factoryId.zip';
       final result = await _backupService.downloadAndRestore(restorePath);
 
@@ -294,16 +298,16 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                       setState(() {
                         _isRefreshing = true;
                       });
-                      
+
                       await _checkBackupExists();
                       final result = await authService.refreshUserData();
-                      
+
                       if (!context.mounted) return;
-                      
+
                       setState(() {
                         _isRefreshing = false;
                       });
-                      
+
                       if (result != null) {
                         UIUtils.showInfoSnackBar(
                           message: result,
@@ -311,7 +315,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                           icon: Icons.warning_amber_rounded,
                         );
                         if (result.contains("تم تسجيل الخروج")) {
-                          Navigator.pushReplacementNamed(context, AuthScreen.routeName);
+                          Navigator.pushReplacementNamed(
+                              context, AuthScreen.routeName);
                         }
                       } else {
                         UIUtils.showInfoSnackBar(
@@ -347,7 +352,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             const SizedBox(height: 30),
 
             // Main Action Buttons (Cloud)
-            const Text("النسخ السحابي", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text("النسخ السحابي",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
             _buildUploadButton(),
             const SizedBox(height: 12),
@@ -357,8 +363,16 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             const Divider(),
             const SizedBox(height: 24),
 
+            if (isAdmin) ...[
+              _buildGhostDeletesFixButton(),
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 24),
+            ],
+
             // Local Backup Buttons
-            const Text("النسخ المحلي", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text("النسخ المحلي",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -393,7 +407,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 24),
-            
+
             _buildQRActionSection(isAdmin),
 
             const SizedBox(height: 32),
@@ -568,6 +582,37 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     );
   }
 
+  Widget _buildGhostDeletesFixButton() {
+    return ElevatedButton.icon(
+      onPressed: _isLoading
+          ? null
+          : () async {
+              setState(() => _isLoading = true);
+              setState(() => _message = 'جاري سحب التقارير ومعالجة المشكلة...');
+              try {
+                final res = await GhostDeletesFixer.executeFix();
+                setState(() => _message = res);
+              } catch (e) {
+                setState(() => _message = '❌ خطأ: $e');
+              }
+              setState(() => _isLoading = false);
+            },
+      icon: const Icon(Icons.healing),
+      label: const Text(
+        'معالجة مشكلة التقارير المخفية (Ghost Deletes)',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 56),
+        backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
   Widget _buildInfoSection() {
     return Container(
       width: double.infinity,
@@ -696,12 +741,15 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               child: ElevatedButton.icon(
                 onPressed: _handleUnlink,
                 icon: const Icon(Icons.link_off, size: 20),
-                label: const Text('فك ارتباط هذا الجهاز', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: const Text('فك ارتباط هذا الجهاز',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ),
@@ -723,24 +771,34 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             Text('⚠️ فك الارتباط', style: TextStyle(color: Colors.red)),
           ],
         ),
-        content: const Text('هل أنت متأكد من فك الارتباط؟ سيتم حذف كافة البيانات المحلية (التقارير، العمال، المقاسات) من هذا الجهاز وإيقاف المزامنة فوراً.'),
+        content: const Text(
+            'هل أنت متأكد من فك الارتباط؟ سيتم حذف كافة البيانات المحلية (التقارير، العمال، المقاسات) من هذا الجهاز وإيقاف المزامنة فوراً.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true), 
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             child: const Text('فك الارتباط الآن'),
           ),
         ],
       ),
     );
-    
+
     if (confirmed == true) {
       // تفريغ القواعد المحلية
       try {
-        if (Hive.isBoxOpen('flexo_live_sessions')) await Hive.box<LiveSession>('flexo_live_sessions').clear();
-        if (Hive.isBoxOpen('savedSheetSizes')) await Hive.box('savedSheetSizes').clear();
-        if (Hive.isBoxOpen('workers_flexo')) await Hive.box<Worker>('workers_flexo').clear();
+        if (Hive.isBoxOpen('flexo_live_sessions')) {
+          await Hive.box<LiveSession>('flexo_live_sessions').clear();
+        }
+        if (Hive.isBoxOpen('savedSheetSizes')) {
+          await Hive.box('savedSheetSizes').clear();
+        }
+        if (Hive.isBoxOpen('workers_flexo')) {
+          await Hive.box<Worker>('workers_flexo').clear();
+        }
         if (Hive.isBoxOpen('inkReports')) await Hive.box('inkReports').clear();
         if (Hive.isBoxOpen('sync_queue')) await Hive.box('sync_queue').clear();
         debugPrint('🧹 تم تفريغ جميع قواعد البيانات المحلية بنجاح.');
@@ -749,7 +807,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       }
 
       await authService.unlinkFactory();
-      
+
       if (mounted) {
         UIUtils.showInfoSnackBar(
           message: "تم فك ارتباط الجهاز ومسح البيانات بنجاح",
@@ -779,7 +837,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     try {
       final code = await PairingService().generatePairingCode();
-      
+
       setState(() => _isLoading = false);
 
       if (code == null) {
@@ -838,7 +896,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('أدخل كود الربط المكون من 6 خانات أو المعرف الكامل للمصنع:'),
+            const Text(
+                'أدخل كود الربط المكون من 6 خانات أو المعرف الكامل للمصنع:'),
             const SizedBox(height: 16),
             TextField(
               controller: codeController,
@@ -850,16 +909,19 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               ),
               maxLength: 36, // لدعم UUID أيضاً
               keyboardType: TextInputType.text,
-              textCapitalization: TextCapitalization.characters, // تحويل تلقائي للحروف الكبيرة
+              textCapitalization:
+                  TextCapitalization.characters, // تحويل تلقائي للحروف الكبيرة
               autofocus: true,
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, codeController.text.trim()),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue, foregroundColor: Colors.white),
             child: const Text('تأكيد الربط'),
           ),
         ],
@@ -879,7 +941,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     String? result;
 
     // التحقق من نوع الجهاز (Platform Detection)
-    final bool isMobilePlatform = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final bool isMobilePlatform =
+        !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
     if (isMobilePlatform) {
       try {
@@ -906,9 +969,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       });
 
       final error = await authService.linkToFactory(result);
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _isLoading = false;
         _message = null;
@@ -967,7 +1030,7 @@ class _PairingCodeDialogState extends State<_PairingCodeDialog> {
         timer.cancel();
         return;
       }
-      
+
       if (_remainingSeconds > 0) {
         setState(() {
           _remainingSeconds--;
@@ -1228,16 +1291,19 @@ class _QRScannerModalState extends State<_QRScannerModal> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                              const Icon(Icons.error_outline,
+                                  color: Colors.redAccent, size: 48),
                               const SizedBox(height: 12),
                               const Text(
                                 'تعذر تشغيل الكاميرا.\nيرجى إعادة تشغيل التطبيق بالكامل (Stop & Run) لتفعيل مكتبة الكاميرا الأصلية أو استخدام الإدخال اليدوي.',
-                                style: TextStyle(color: Colors.white, fontSize: 13),
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: 13),
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 16),
                               ElevatedButton(
-                                onPressed: () => Navigator.pop(context, 'MANUAL_ENTRY'),
+                                onPressed: () =>
+                                    Navigator.pop(context, 'MANUAL_ENTRY'),
                                 child: const Text('الانتقال للإدخال اليدوي'),
                               ),
                             ],
@@ -1279,7 +1345,8 @@ class _QRScannerModalState extends State<_QRScannerModal> {
                           onPressed: () => controller.toggleTorch(),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.cameraswitch, color: Colors.white),
+                          icon: const Icon(Icons.cameraswitch,
+                              color: Colors.white),
                           onPressed: () => controller.switchCamera(),
                         ),
                       ],

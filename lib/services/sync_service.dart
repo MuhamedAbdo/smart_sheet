@@ -754,6 +754,16 @@ class SyncService extends SyncServiceBase
         keysToDelete.add(key);
         continue;
       }
+      
+      final timestampStr = item['timestamp']?.toString();
+      if (timestampStr != null) {
+        final timestamp = DateTime.tryParse(timestampStr);
+        if (timestamp != null && DateTime.now().difference(timestamp).inDays > 3) {
+          debugPrint('⚠️ Queue: أمر قديم جداً (أكثر من 3 أيام) تم تجاهله → $table');
+          keysToDelete.add(key);
+          continue;
+        }
+      }
 
       try {
         final factoryId = await SupabaseManager.getFactoryId();
@@ -834,6 +844,12 @@ class SyncService extends SyncServiceBase
               if (cleanPayload.containsKey('weight') &&
                   (missingCol == 'weight' || e.message.contains('weight'))) {
                 cleanPayload.remove('weight');
+                modified = true;
+              }
+              if (cleanPayload.containsKey('formNumber') &&
+                  (missingCol == 'formNumber' || e.message.contains('formNumber'))) {
+                cleanPayload['form_number'] = cleanPayload['formNumber'];
+                cleanPayload.remove('formNumber');
                 modified = true;
               }
 
