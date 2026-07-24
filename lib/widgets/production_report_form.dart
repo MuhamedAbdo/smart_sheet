@@ -39,6 +39,10 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
       (widget.department == 'production_line') ||
       (widget.initialData?['department'] == 'production_line');
 
+  bool get isCrushing =>
+      (widget.department == 'crushing') ||
+      (widget.initialData?['department'] == 'crushing');
+
   late TextEditingController dateController;
   late TextEditingController clientNameController;
   late TextEditingController productController;
@@ -55,6 +59,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
   late TextEditingController orderNumberController;
   late TextEditingController startTimeController;
   late TextEditingController endTimeController;
+  late TextEditingController formNumberController;
   late TextEditingController lineWasteController;
   late TextEditingController printWasteController;
   late TextEditingController downtimeStartController;
@@ -92,6 +97,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     orderNumberController = TextEditingController();
     startTimeController = TextEditingController();
     endTimeController = TextEditingController();
+    formNumberController = TextEditingController();
     lineWasteController = TextEditingController();
     printWasteController = TextEditingController();
     downtimeStartController = TextEditingController();
@@ -140,6 +146,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     notesController.text = data['notes']?.toString() ?? '';
 
     orderNumberController.text = data['orderNumber']?.toString() ?? data['order_number']?.toString() ?? '';
+    formNumberController.text = data['formNumber']?.toString() ?? data['form_number']?.toString() ?? '';
     startTimeController.text = data['startTime']?.toString() ?? data['start_time']?.toString() ?? '';
     endTimeController.text = data['endTime']?.toString() ?? data['end_time']?.toString() ?? '';
     lineWasteController.text = data['lineWaste']?.toString() ?? data['line_waste']?.toString() ?? '';
@@ -202,7 +209,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
         },
         'isSheet': isSheet,
 
-        'colors': isProductionLine
+        'colors': (isProductionLine || isCrushing)
             ? []
             : colors
                 .map((c) => {
@@ -220,10 +227,11 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
         'shift': widget.initialData?['shift'],
         'notes': notesController.text.trim(),
         'orderNumber': orderNumberController.text.trim(),
+        'formNumber': formNumberController.text.trim(),
         'startTime': startTimeController.text.trim(),
         'endTime': endTimeController.text.trim(),
         'lineWaste': int.tryParse(lineWasteController.text) ?? 0,
-        'printWaste': isProductionLine
+        'printWaste': (isProductionLine || isCrushing)
             ? 0
             : (int.tryParse(printWasteController.text) ?? 0),
         'downtimeStart': downtimeStartController.text.trim(),
@@ -258,6 +266,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     weightController.dispose();
     notesController.dispose();
     orderNumberController.dispose();
+    formNumberController.dispose();
     startTimeController.dispose();
     endTimeController.dispose();
     lineWasteController.dispose();
@@ -300,6 +309,13 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
                         icon: Icons.numbers,
                         isRequired: false,
                         keyboardType: TextInputType.number),
+                    if (isCrushing) ...[
+                      const SizedBox(height: 12),
+                      _buildTextField(formNumberController, "📄 رقم الفورمة",
+                          icon: Icons.confirmation_number,
+                          isRequired: true,
+                          keyboardType: TextInputType.number),
+                    ],
                     const SizedBox(height: 12),
                     Row(
                       children: [
@@ -351,21 +367,23 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
                     const SizedBox(height: 20),
                     if (isProductionLine)
                       _buildPaperLayersSection()
-                    else
+                    else if (!isCrushing)
                       _buildColorsSection(),
                     const SizedBox(height: 12),
                     _buildTextField(quantityController, "🔢 عدد الشيتات",
                         keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
-                    if (isProductionLine) ...[
-                      _buildTextField(
-                        weightController,
-                        "⚖️ الوزن (بالطن)",
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
-                        isRequired: false,
-                      ),
-                      const SizedBox(height: 12),
+                    if (isProductionLine || isCrushing) ...[
+                      if (isProductionLine) ...[
+                        _buildTextField(
+                          weightController,
+                          "⚖️ الوزن (بالطن)",
+                          keyboardType:
+                              const TextInputType.numberWithOptions(decimal: true),
+                          isRequired: false,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       _buildTextField(lineWasteController, "📉 الهالك",
                           keyboardType: TextInputType.number, isRequired: false),
                     ] else

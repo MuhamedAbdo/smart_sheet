@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:smart_sheet/screens/job_order_dialog.dart';
-
+import 'package:smart_sheet/models/die_cutting_production_report.dart';
 import 'package:smart_sheet/screens/die_cutting_production_screen.dart';
 import 'package:smart_sheet/screens/production_report_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
@@ -355,14 +355,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                   onDelete: () => _confirmDelete(entry.key),
                   onStartProduction: (data) => _openProductionReportWithSheetData(context, data),
                   onStartProductionLine: (data) => _openProductionLineSessionWithSheetData(context, data),
-                  onStartDieCutting: (data) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => DieCuttingProductionScreen(initialData: data),
-                      ),
-                    );
-                  },
+                  onStartDieCutting: (data) => _openDieCuttingSessionWithSheetData(context, data),
                 ),
               );
             },
@@ -603,14 +596,28 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     );
   }
 
+  // ─── BottomSheet اختيار نوع الإنتاج (تكسير) ────────────────────────────
+  void _openDieCuttingSessionWithSheetData(
+      BuildContext context, Map<String, dynamic> dataFromCard) async {
+    final initialData =
+        await _prepareInitialDataFromCard(context, dataFromCard);
+    if (initialData == null || !context.mounted) return;
+
+    showProductionOptionsSheet(
+      context: context,
+      initialData: initialData,
+      department: 'crushing',
+    );
+  }
+
   // ─── دالة الـ BottomSheet المشتركة ───────────────────────────────────────────
   void showProductionOptionsSheet({
     required BuildContext context,
     required Map<String, dynamic> initialData,
-    required String department, // 'flexo' | 'production_line'
+    required String department, // 'flexo' | 'production_line' | 'crushing'
   }) {
-    final isFlexo = department != 'production_line';
-
+    final isFlexo = department == 'flexo';
+    final isCrushing = department == 'crushing';
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -667,10 +674,14 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      isFlexo ? Icons.precision_manufacturing : Icons.factory,
-                      color: isFlexo
-                          ? Colors.blue.shade700
-                          : Colors.green.shade700,
+                      isCrushing
+                          ? Icons.content_cut
+                          : (isFlexo ? Icons.precision_manufacturing : Icons.factory),
+                      color: isCrushing
+                          ? Colors.orange.shade700
+                          : (isFlexo
+                              ? Colors.blue.shade700
+                              : Colors.green.shade700),
                       size: 22,
                     ),
                   ),
@@ -680,7 +691,9 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isFlexo ? 'إنتاج فلكسو' : 'خط الإنتاج',
+                          isCrushing
+                              ? 'إنتاج تكسير'
+                              : (isFlexo ? 'إنتاج فلكسو' : 'خط الإنتاج'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -842,23 +855,35 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         );
       }
     } else {
-      // فلكسو
+      // فلكسو أو تكسير
       final started = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        builder: (_) => StartSessionDialog(initialData: initialData),
+        builder: (_) => StartSessionDialog(
+          initialData: initialData,
+          department: department,
+        ),
       );
 
       if (started == true && context.mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const ProductionReportScreen(),
-          ),
-        );
+        if (department == 'crushing') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const DieCuttingProductionScreen(),
+            ),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const ProductionReportScreen(),
+            ),
+          );
+        }
       }
     }
   }
@@ -881,18 +906,65 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           '',
     };
 
-    // البوكس المطلوب
-    const boxName = 'inkReports';
+    // تحديد البوكس المناسب بناءً على القسم
+    final isCrushing = department == 'crushing';
+    final boxName = isCrushing ? 'die_cutting_production_reports' : 'inkReports';
 
     Future<void> saveReport(Map<String, dynamic> r) async {
-      final box = Hive.isBoxOpen(boxName)
-          ? Hive.box(boxName)
-          : await Hive.openBox(boxName);
       final syncId = const Uuid().v4();
-      r['sync_id'] = syncId;
-      r['id'] = syncId;
-      await box.put(syncId, r);
-      SyncService.instance.pushToQueue('production_reports', r);
+      
+      if (isCrushing) {
+        final box = Hive.box<DieCuttingProductionReport>('die_cutting_production_reports');
+        
+        final reportDateStr = r['date']?.toString() ?? DateTime.now().toIso8601String();
+        final reportDate = DateTime.tryParse(reportDateStr) ?? DateTime.now();
+        
+        final runStartStr = r['start_time']?.toString();
+        final runEndStr = r['end_time']?.toString();
+        
+        DateTime? runStartDt;
+        if (runStartStr != null && runStartStr.isNotEmpty) {
+          runStartDt = DateTime.tryParse(runStartStr);
+        }
+        DateTime? runEndDt;
+        if (runEndStr != null && runEndStr.isNotEmpty) {
+          runEndDt = DateTime.tryParse(runEndStr);
+        }
+
+        final report = DieCuttingProductionReport(
+          id: syncId,
+          machineName: r['machine_name']?.toString() ?? '',
+          technicianName: r['technician_name']?.toString() ?? '',
+          reportDate: reportDate,
+          customerName: r['client_name']?.toString() ?? '',
+          itemName: r['product_name']?.toString() ?? '',
+          itemCode: r['product_code']?.toString() ?? '',
+          formNumber: r['formNumber']?.toString() ?? '',
+          workOrder: r['order_number']?.toString() ?? '',
+          runTimeStart: runStartDt,
+          runTimeEnd: runEndDt,
+          downtimeStart: null, // Unified form might not have separate downtime start/end natively without parsing
+          downtimeEnd: null,
+          productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0,
+          wasteQuantity: double.tryParse(r['line_waste']?.toString() ?? '0') ?? 0,
+          notes: r['notes']?.toString(),
+        );
+
+        await box.put(syncId, report);
+        SyncService.instance.pushToQueue(
+          'die_cutting_production_reports',
+          report.toJson(),
+          operation: 'upsert',
+        );
+      } else {
+        final box = Hive.isBoxOpen(boxName)
+            ? Hive.box(boxName)
+            : await Hive.openBox(boxName);
+        r['sync_id'] = syncId;
+        r['id'] = syncId;
+        await box.put(syncId, r);
+        SyncService.instance.pushToQueue('production_reports', r);
+      }
       debugPrint('✅ _openDirectReportForm: تم حفظ التقرير (sync_id=$syncId)');
     }
 
@@ -908,13 +980,22 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
 
           // الانتقال لشاشة التقارير لعرض الإدخال الجديد
           if (context.mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    ProductionReportScreen(department: department),
-              ),
-            );
+            if (isCrushing) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DieCuttingProductionScreen(),
+                ),
+              );
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ProductionReportScreen(department: department),
+                ),
+              );
+            }
           }
         },
       ),

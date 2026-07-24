@@ -7,6 +7,7 @@ import 'package:smart_sheet/widgets/production_report_form.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/production_report.dart';
+import 'package:smart_sheet/models/die_cutting_production_report.dart';
 import 'package:smart_sheet/widgets/active_sessions_dashboard.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
@@ -1285,17 +1286,67 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           onSave: (r) async {
             try {
               final syncId = const Uuid().v4();
-              r['sync_id'] = syncId;
-              r['id'] = syncId;
+              final isCrushing = (session.department ?? widget.department) == 'crushing';
 
-              // حفظ محلي بمفتاح ثابت لمنع التكرار
-              await _productionReportBox!.put(syncId, r);
+              if (isCrushing) {
+                final reportDateStr = r['date']?.toString() ?? DateTime.now().toIso8601String();
+                final reportDate = DateTime.tryParse(reportDateStr) ?? DateTime.now();
 
-              // مزامنة فورية مع Supabase
-              final reportObj = ProductionReport.fromJson(r);
-              SyncService.instance.pushToQueue('production_reports', reportObj.toJson());
+                final runStartStr = r['startTime']?.toString();
+                final runEndStr = r['endTime']?.toString();
 
-              debugPrint('✅ _finishSession: تم حفظ التقرير ورفعه للمزامنة (sync_id=$syncId)');
+                DateTime? runStartDt;
+                if (runStartStr != null && runStartStr.isNotEmpty) {
+                  runStartDt = DateTime.tryParse(runStartStr);
+                }
+                DateTime? runEndDt;
+                if (runEndStr != null && runEndStr.isNotEmpty) {
+                  runEndDt = DateTime.tryParse(runEndStr);
+                }
+
+                final report = DieCuttingProductionReport(
+                  id: syncId,
+                  machineName: r['machineName']?.toString() ?? '',
+                  technicianName: r['technicianName']?.toString() ?? '',
+                  reportDate: reportDate,
+                  customerName: r['clientName']?.toString() ?? '',
+                  itemName: r['product']?.toString() ?? '',
+                  itemCode: r['productCode']?.toString() ?? '',
+                  formNumber: r['formNumber']?.toString() ?? '',
+                  workOrder: r['orderNumber']?.toString() ?? '',
+                  runTimeStart: runStartDt,
+                  runTimeEnd: runEndDt,
+                  downtimeStart: null,
+                  downtimeEnd: null,
+                  productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0,
+                  wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0,
+                  notes: r['notes']?.toString(),
+                );
+
+                final box = Hive.isBoxOpen('die_cutting_production_reports') 
+                    ? Hive.box<DieCuttingProductionReport>('die_cutting_production_reports')
+                    : await Hive.openBox<DieCuttingProductionReport>('die_cutting_production_reports');
+                await box.put(syncId, report);
+
+                SyncService.instance.pushToQueue(
+                  'die_cutting_production_reports',
+                  report.toJson(),
+                  operation: 'upsert',
+                );
+                debugPrint('✅ _finishSession: تم حفظ تقرير التكسير ورفعه للمزامنة (sync_id=$syncId)');
+              } else {
+                r['sync_id'] = syncId;
+                r['id'] = syncId;
+
+                // حفظ محلي بمفتاح ثابت لمنع التكرار
+                await _productionReportBox!.put(syncId, r);
+
+                // مزامنة فورية مع Supabase
+                final reportObj = ProductionReport.fromJson(r);
+                SyncService.instance.pushToQueue('production_reports', reportObj.toJson());
+
+                debugPrint('✅ _finishSession: تم حفظ التقرير ورفعه للمزامنة (sync_id=$syncId)');
+              }
 
               if (c.mounted) Navigator.of(c).pop();
             } catch (saveError) {

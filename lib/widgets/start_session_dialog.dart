@@ -15,8 +15,9 @@ import 'package:uuid/uuid.dart'; // استيراد مكتبة الـ UUID
 
 class StartSessionDialog extends StatefulWidget {
   final Map<String, dynamic>? initialData;
+  final String department;
 
-  const StartSessionDialog({super.key, this.initialData});
+  const StartSessionDialog({super.key, this.initialData, this.department = 'flexo'});
 
   @override
   State<StartSessionDialog> createState() => _StartSessionDialogState();
@@ -83,7 +84,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
               builder: (context, Box<FlexoMachine> box, _) {
                 final machines = box.values
                     .where((m) =>
-                        m.department == 'flexo' || m.department.isEmpty)
+                        m.department == widget.department || (widget.department == 'flexo' && m.department.isEmpty))
                     .toList();
                 return DropdownButtonFormField<String>(
                   initialValue: selectedMachine,
@@ -103,7 +104,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                         box.add(FlexoMachine(
                             id: const Uuid().v4(),
                             name: name,
-                            department: 'flexo'));
+                            department: widget.department));
                         setState(() => selectedMachine = name);
                       }
                     } else {
@@ -181,6 +182,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                   factoryId: fId, // استخدام معرف المصنع الحقيقي
                   createdByDeviceId: deviceId,
                   technicianId: techId,
+                  department: widget.department,
                 );
 
                 // 3. الحفظ المحلي في Hive (لتحديث الواجهة فوراً)
