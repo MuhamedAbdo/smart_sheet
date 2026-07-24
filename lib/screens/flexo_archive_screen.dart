@@ -22,7 +22,9 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     super.initState();
     final boxName = widget.department == 'production_line'
         ? 'lineArchive'
-        : 'flexoArchive';
+        : widget.department == 'crushing'
+            ? 'crushingArchive'
+            : 'flexoArchive';
     if (Hive.isBoxOpen(boxName)) {
       _archiveBox = Hive.box(boxName);
     } else {
@@ -144,7 +146,14 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     final query = _normalizeString(_searchQuery);
     var entries = box.toMap().entries.toList();
 
-    // لا حاجة لفلترة بالـ department — كل box يحتوي على قسم واحد فقط
+    // فلترة بالقسم
+    final targetDept = widget.department ?? 'flexo';
+    entries = entries.where((e) {
+      final data = e.value as Map;
+      final report = data['data'] ?? data;
+      final dept = report['department']?.toString() ?? 'flexo';
+      return dept == targetDept;
+    }).toList();
 
     // 1. الفلترة باسم العميل أو كود الصنف
     if (query.isNotEmpty) {
@@ -280,6 +289,12 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_archiveBox == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
 
@@ -322,7 +337,9 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               )
             : Text(widget.department == 'production_line'
                 ? "أرشيف خط الإنتاج"
-                : "أرشيف تقارير الفلكسو"),
+                : widget.department == 'crushing'
+                    ? "أرشيف تقارير التكسير"
+                    : "أرشيف تقارير الفلكسو"),
         centerTitle: !_isSearching,
         actions: [
           PopupMenuButton<String>(

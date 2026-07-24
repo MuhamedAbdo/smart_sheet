@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:smart_sheet/screens/job_order_dialog.dart';
-import 'package:smart_sheet/models/die_cutting_production_report.dart';
-import 'package:smart_sheet/screens/die_cutting_production_screen.dart';
 import 'package:smart_sheet/screens/production_report_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
@@ -556,6 +554,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           'width': dataFromCard['width']?.toString() ?? '',
           'height': dataFromCard['height']?.toString() ?? '',
         },
+        'formNumber': dataFromCard['formNumber']?.toString() ?? '',
         'imagePaths': finalImages,
         'isSheet': dataFromCard['isSheet'] ?? false,
         'notes': 'مستورد من قسم المقاسات',
@@ -873,7 +872,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => const DieCuttingProductionScreen(),
+              builder: (_) => const ProductionReportScreen(department: 'crushing'),
             ),
           );
         } else {
@@ -907,65 +906,17 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     };
 
     // تحديد البوكس المناسب بناءً على القسم
-    final isCrushing = department == 'crushing';
-    final boxName = isCrushing ? 'die_cutting_production_reports' : 'inkReports';
-
     Future<void> saveReport(Map<String, dynamic> r) async {
       final syncId = const Uuid().v4();
       
-      if (isCrushing) {
-        final box = Hive.box<DieCuttingProductionReport>('die_cutting_production_reports');
-        
-        final reportDateStr = r['date']?.toString() ?? DateTime.now().toIso8601String();
-        final reportDate = DateTime.tryParse(reportDateStr) ?? DateTime.now();
-        
-        final runStartStr = r['start_time']?.toString();
-        final runEndStr = r['end_time']?.toString();
-        
-        DateTime? runStartDt;
-        if (runStartStr != null && runStartStr.isNotEmpty) {
-          runStartDt = DateTime.tryParse(runStartStr);
-        }
-        DateTime? runEndDt;
-        if (runEndStr != null && runEndStr.isNotEmpty) {
-          runEndDt = DateTime.tryParse(runEndStr);
-        }
-
-        final report = DieCuttingProductionReport(
-          id: syncId,
-          machineName: r['machine_name']?.toString() ?? '',
-          technicianName: r['technician_name']?.toString() ?? '',
-          reportDate: reportDate,
-          customerName: r['client_name']?.toString() ?? '',
-          itemName: r['product_name']?.toString() ?? '',
-          itemCode: r['product_code']?.toString() ?? '',
-          formNumber: r['formNumber']?.toString() ?? '',
-          workOrder: r['order_number']?.toString() ?? '',
-          runTimeStart: runStartDt,
-          runTimeEnd: runEndDt,
-          downtimeStart: null, // Unified form might not have separate downtime start/end natively without parsing
-          downtimeEnd: null,
-          productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0,
-          wasteQuantity: double.tryParse(r['line_waste']?.toString() ?? '0') ?? 0,
-          notes: r['notes']?.toString(),
-        );
-
-        await box.put(syncId, report);
-        SyncService.instance.pushToQueue(
-          'die_cutting_production_reports',
-          report.toJson(),
-          operation: 'upsert',
-        );
-      } else {
-        final box = Hive.isBoxOpen(boxName)
-            ? Hive.box(boxName)
-            : await Hive.openBox(boxName);
-        r['sync_id'] = syncId;
-        r['id'] = syncId;
-        await box.put(syncId, r);
-        SyncService.instance.pushToQueue('production_reports', r);
-      }
-      debugPrint('✅ _openDirectReportForm: تم حفظ التقرير (sync_id=$syncId)');
+      const boxName = 'inkReports';
+      final box = Hive.isBoxOpen(boxName)
+          ? Hive.box(boxName)
+          : await Hive.openBox(boxName);
+      r['sync_id'] = syncId;
+      r['id'] = syncId;
+      await box.put(syncId, r);
+      SyncService.instance.pushToQueue('production_reports', r);
     }
 
     showModalBottomSheet(
@@ -980,22 +931,12 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
 
           // الانتقال لشاشة التقارير لعرض الإدخال الجديد
           if (context.mounted) {
-            if (isCrushing) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const DieCuttingProductionScreen(),
-                ),
-              );
-            } else {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      ProductionReportScreen(department: department),
-                ),
-              );
-            }
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProductionReportScreen(department: department),
+              ),
+            );
           }
         },
       ),

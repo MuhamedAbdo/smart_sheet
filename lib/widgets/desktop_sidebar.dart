@@ -107,6 +107,20 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                             )));
                   },
                 ),
+                _buildNavItem(
+                  icon: Icons.auto_awesome_motion,
+                  title: 'أرشيف التكسير',
+                  index: 4,
+                  onTap: () {
+                    setState(() => _selectedIndex = 4);
+                    final nav = context.read<AuthService>().navigatorKey.currentState;
+                    nav?.popUntil((route) => route.isFirst);
+                    nav?.push(MaterialPageRoute(
+                        builder: (_) => const FlexoArchiveScreen(
+                              department: 'crushing',
+                            )));
+                  },
+                ),
                 const Divider(),
                 _buildNavItem(
                   icon: Icons.settings_outlined,

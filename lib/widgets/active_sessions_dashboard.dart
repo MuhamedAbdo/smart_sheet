@@ -42,8 +42,12 @@ class ActiveSessionsDashboard extends StatelessWidget {
         final sessions = openBox.values.where((s) {
           if (department == 'production_line') {
             return s.department == 'production_line';
-          } else {
+          } else if (department == 'crushing' || department == 'die_cutting') {
+            return s.department == 'crushing' || s.department == 'die_cutting';
+          } else if (department == 'flexo') {
             return s.department == 'flexo' || s.department == null;
+          } else {
+            return s.department == department;
           }
         }).toList().reversed.toList();
 

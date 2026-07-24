@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/flexo_machine.dart';
-import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/utils/worker_utils.dart';
 
 class ColorField {
   final TextEditingController colorController;
@@ -313,7 +313,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
                       const SizedBox(height: 12),
                       _buildTextField(formNumberController, "📄 رقم الفورمة",
                           icon: Icons.confirmation_number,
-                          isRequired: true,
+                          isRequired: false,
                           keyboardType: TextInputType.number),
                     ],
                     const SizedBox(height: 12),
@@ -554,13 +554,9 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
 
   // ─── صف الماكينة والفني بـ Dropdowns من Hive ────────────────────────────────
   Widget _buildMachineAndTechRow() {
-    final dept = isProductionLine ? 'production_line' : 'flexo';
+    final String dept = isCrushing ? 'crushing' : (isProductionLine ? 'production_line' : 'flexo');
     final machineBox = Hive.isBoxOpen('flexo_machines')
         ? Hive.box<FlexoMachine>('flexo_machines')
-        : null;
-    final workerBoxName = isProductionLine ? 'workers_production' : 'workers_flexo';
-    final workerBox = Hive.isBoxOpen(workerBoxName)
-        ? Hive.box<Worker>(workerBoxName)
         : null;
 
     // قائمة الماكينات (مع إزالة التكرارات والتوافق مع الـ Fallback في خط الإنتاج)
@@ -576,13 +572,11 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
       _selectedMachineName = 'خط الإنتاج';
     }
 
-    // قائمة العمال (مع إزالة التكرارات)
-    final List<String> workerNames = workerBox != null
-        ? workerBox.values
+    // قائمة العمال (مع إزالة التكرارات وترتيبهم)
+    final List<String> workerNames = WorkerUtils.getSortedWorkers(dept)
             .map((w) => w.name)
-            .toSet()   // ← إزالة التكرارات
-            .toList()
-        : [];
+            .toSet()
+            .toList();
 
     // إذا كانت القيمة المخزّنة غير موجودة في القائمة — أضفها مؤقتاً للتوافق
     if (_selectedMachineName != null &&

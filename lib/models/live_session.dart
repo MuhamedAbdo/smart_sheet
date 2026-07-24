@@ -143,8 +143,8 @@ class LiveSession extends HiveObject {
       'technician_id': technicianId,
       'department': department ?? 'flexo',
       'shift': shift,
-      'paperLayers': paperLayers,
-      'formNumber': formNumber,
+      'paper_layers': paperLayers,
+      'form_number': formNumber,
     };
   }
 

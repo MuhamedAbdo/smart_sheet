@@ -13,9 +13,12 @@ class FlexoReportDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isProductionLine = department == 'production_line';
+    final isCrushing = department == 'crushing';
     final drawerTitle = isProductionLine
         ? "تقارير ماكينات خط الإنتاج"
-        : "تقارير ماكينات الفلكسو";
+        : isCrushing
+            ? "تقارير ماكينات التكسير"
+            : "تقارير ماكينات الفلكسو";
 
     return Drawer(
       child: Column(

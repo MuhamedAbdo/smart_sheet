@@ -37,13 +37,14 @@ class ProductionReportAdapter extends TypeAdapter<ProductionReport> {
       technicianName: fields[17] as String?,
       factoryId: fields[18] as String?,
       totalDowntime: fields[19] as int?,
+      formNumber: fields[20] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ProductionReport obj) {
     writer
-      ..writeByte(20)
+      ..writeByte(21)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -83,7 +84,9 @@ class ProductionReportAdapter extends TypeAdapter<ProductionReport> {
       ..writeByte(18)
       ..write(obj.factoryId)
       ..writeByte(19)
-      ..write(obj.totalDowntime);
+      ..write(obj.totalDowntime)
+      ..writeByte(20)
+      ..write(obj.formNumber);
   }
 
   @override

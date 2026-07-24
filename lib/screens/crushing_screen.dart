@@ -5,7 +5,8 @@ import 'package:smart_sheet/screens/calculator_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
-import 'package:smart_sheet/screens/die_cutting_production_screen.dart';
+import 'package:smart_sheet/screens/production_report_screen.dart';
+import 'package:smart_sheet/screens/machine_management_screen.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 
@@ -87,7 +88,7 @@ class CrushingScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const DieCuttingProductionScreen(),
+                              builder: (context) => const ProductionReportScreen(department: 'crushing'),
                             ),
                           );
                         },
@@ -126,10 +127,13 @@ class CrushingScreen extends StatelessWidget {
                         icon: Icons.precision_manufacturing,
                         label: 'إدارة الماكينات',
                         onTap: () {
-                          UIUtils.showInfoSnackBar(
-                            message: 'سيتم تطويره قريبًا',
-                            backgroundColor: Colors.orange,
-                            icon: Icons.construction,
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const MachineManagementScreen(
+                                department: 'crushing',
+                              ),
+                            ),
                           );
                         },
                       ),

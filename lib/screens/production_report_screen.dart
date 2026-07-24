@@ -7,7 +7,6 @@ import 'package:smart_sheet/widgets/production_report_form.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/production_report.dart';
-import 'package:smart_sheet/models/die_cutting_production_report.dart';
 import 'package:smart_sheet/widgets/active_sessions_dashboard.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
@@ -21,6 +20,7 @@ import 'package:smart_sheet/models/worker_model.dart';
 import 'dart:async';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 class ProductionReportScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final String? department;
@@ -87,8 +87,6 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     super.dispose();
   }
 
-
-
   void _deleteSingleReport(dynamic key, dynamic record) {
     UIUtils.showDeleteConfirmation(
       context: context,
@@ -99,14 +97,16 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         await _productionReportBox!.delete(key);
 
         // ✅ مزامنة الحذف مع Supabase لتحديث جميع الأجهزة
-        final syncId = record['sync_id']?.toString() ?? record['id']?.toString();
+        final syncId =
+            record['sync_id']?.toString() ?? record['id']?.toString();
         if (syncId != null) {
           SyncService.instance.pushToQueue(
             'production_reports',
             {'sync_id': syncId, 'id': syncId},
             operation: 'delete',
           );
-          debugPrint('🗑️ _deleteSingleReport: تم إضافة الحذف للـ Queue (sync_id=$syncId)');
+          debugPrint(
+              '🗑️ _deleteSingleReport: تم إضافة الحذف للـ Queue (sync_id=$syncId)');
         }
 
         if (mounted) {
@@ -124,7 +124,6 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     );
   }
 
-
   void _deleteAllReports() {
     if (_productionReportBox == null || _productionReportBox!.isEmpty) return;
     UIUtils.showDeleteConfirmation(
@@ -139,7 +138,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         // 1. جلب جميع المعرفات (sync_id) لحذفها من السيرفر دفعة واحدة
         final List<String> listOfIds = [];
         for (var record in backup.values) {
-          final syncId = record['sync_id']?.toString() ?? record['id']?.toString();
+          final syncId =
+              record['sync_id']?.toString() ?? record['id']?.toString();
           if (syncId != null && syncId.isNotEmpty) {
             listOfIds.add(syncId);
           }
@@ -152,12 +152,13 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 .from('production_reports')
                 .delete()
                 .inFilter('sync_id', listOfIds);
-            debugPrint('🗑️ _deleteAllReports: تم مسح ${listOfIds.length} تقرير من السيرفر دفعة واحدة.');
+            debugPrint(
+                '🗑️ _deleteAllReports: تم مسح ${listOfIds.length} تقرير من السيرفر دفعة واحدة.');
           }
 
           // 3. مسح البوكس المحلي بعد السيرفر لتفادي المشاكل
           await _productionReportBox!.clear();
-          
+
           if (mounted) {
             messenger.clearSnackBars();
             UIUtils.showUndoSnackBar(
@@ -168,7 +169,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 for (var entry in backup.entries) {
                   await _productionReportBox!.put(entry.key, entry.value);
                   // إعادة رفع المحذوفات للسيرفر في حالة التراجع
-                  SyncService.instance.pushToQueue('production_reports', entry.value);
+                  SyncService.instance
+                      .pushToQueue('production_reports', entry.value);
                 }
               },
             );
@@ -177,7 +179,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           debugPrint("Error clearing reports from Supabase: $e");
           if (mounted) {
             UIUtils.showInfoSnackBar(
-              message: "حدث خطأ أثناء محاولة الحذف من السيرفر. تحقق من الاتصال.",
+              message:
+                  "حدث خطأ أثناء محاولة الحذف من السيرفر. تحقق من الاتصال.",
               backgroundColor: Colors.red,
             );
           }
@@ -200,7 +203,11 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       onConfirm: () async {
         try {
           final isProdLineDept = widget.department == 'production_line';
-          final archiveBoxName = isProdLineDept ? 'lineArchive' : 'flexoArchive';
+          final archiveBoxName = isProdLineDept
+              ? 'lineArchive'
+              : widget.department == 'crushing'
+                  ? 'crushingArchive'
+                  : 'flexoArchive';
           final archiveBox = await Hive.openBox(archiveBoxName);
           final allReports = _productionReportBox!.toMap();
 
@@ -215,7 +222,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             final archiveEntry = {
               'type': 'REPORT',
               'data': r,
-              'archiveDate': ServerTimeService.nowLocal.toString().split('.')[0],
+              'archiveDate':
+                  ServerTimeService.nowLocal.toString().split('.')[0],
             };
             await archiveBox.add(archiveEntry);
           }
@@ -446,8 +454,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                     const PopupMenuItem(
                         value: 'search',
                         child: ListTile(
-                            leading: Icon(Icons.search),
-                            title: Text('بحث'))),
+                            leading: Icon(Icons.search), title: Text('بحث'))),
                     const PopupMenuItem(
                         value: 'filter',
                         child: ListTile(
@@ -468,8 +475,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                     const PopupMenuItem(
                         value: 'sort',
                         child: ListTile(
-                            leading: Icon(Icons.sort),
-                            title: Text('الترتيب'))),
+                            leading: Icon(Icons.sort), title: Text('الترتيب'))),
                     // ─── مسح الكل: Super Admin فقط ───
                     if (isSuperAdmin)
                       const PopupMenuItem(
@@ -522,14 +528,16 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         builder: (context, Box box, _) {
           final isLiveSessionsEmpty = !Hive.isBoxOpen('flexo_live_sessions') ||
               Hive.box<LiveSession>('flexo_live_sessions').isEmpty;
-          final allRecords = _filterAndSortRecords(box, _searchQuery, _sortDescending);
+          final allRecords =
+              _filterAndSortRecords(box, _searchQuery, _sortDescending);
           return CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
                 child: ActiveSessionsDashboard(
                   department: widget.department,
                   onFinishSession: (session) => _finishSession(session),
-                  onCancelSession: (session) => _cancelSession(session), // ✅ إضافة دالة الإلغاء
+                  onCancelSession: (session) =>
+                      _cancelSession(session), // ✅ إضافة دالة الإلغاء
                 ),
               ),
               if (box.isEmpty && isLiveSessionsEmpty)
@@ -537,42 +545,46 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   hasScrollBody: false,
                   child: Center(child: Text("🚫 لا يوجد تقارير أو جلسات نشطة")),
                 ),
-              if (box.isNotEmpty || !isLiveSessionsEmpty)
-                ...[
+              if (box.isNotEmpty || !isLiveSessionsEmpty) ...[
+                SliverToBoxAdapter(
+                  child: _buildSummaryBar(allRecords.length),
+                ),
+                if (_selectedDate != null)
                   SliverToBoxAdapter(
-                    child: _buildSummaryBar(allRecords.length),
-                  ),
-                  if (_selectedDate != null)
-                    SliverToBoxAdapter(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.filter_list, size: 16, color: Colors.blue),
-                            const SizedBox(width: 8),
-                            Text("تصفية بتاريخ: $_selectedDate",
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                            const Spacer(),
-                            TextButton(
-                                onPressed: () => setState(() => _selectedDate = null),
-                                child: const Text("إلغاء"))
-                          ],
-                        ),
-                      ),
-                    ),
-                  SliverPadding(
-                    padding: const EdgeInsets.only(bottom: 80),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          return _buildReportCard(allRecords[index]);
-                        },
-                        childCount: allRecords.length,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      color: Colors.blue.withValues(alpha: 0.1),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.filter_list,
+                              size: 16, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Text("تصفية بتاريخ: $_selectedDate",
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue)),
+                          const Spacer(),
+                          TextButton(
+                              onPressed: () =>
+                                  setState(() => _selectedDate = null),
+                              child: const Text("إلغاء"))
+                        ],
                       ),
                     ),
                   ),
-                ],
+                SliverPadding(
+                  padding: const EdgeInsets.only(bottom: 80),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        return _buildReportCard(allRecords[index]);
+                      },
+                      childCount: allRecords.length,
+                    ),
+                  ),
+                ),
+              ],
             ],
           );
         },
@@ -584,7 +596,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               builder: (context, _, __) {
                 // فحص RBAC ديناميكي بناءً على قسم التقرير (فلكسو أو خط الإنتاج)
                 final dept = widget.department ?? 'flexo';
-                if (!AuthHelper.currentUserCanManageProduction(dept, 'canAdd')) {
+                if (!AuthHelper.currentUserCanManageProduction(
+                    dept, 'canAdd')) {
                   return const SizedBox.shrink();
                 }
                 return FloatingActionButton(
@@ -637,13 +650,16 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     final key = entry.key;
     final record = entry.value;
 
-    final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
-    final tName = (record['technicianName'] ?? record['technician_name'])?.toString() ?? '';
+    final mName =
+        (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
+    final tName =
+        (record['technicianName'] ?? record['technician_name'])?.toString() ??
+            '';
     final downtimeStart = record['downtimeStart'] ?? record['downtime_start'];
     final downtimeEnd = record['downtimeEnd'] ?? record['downtime_end'];
     final rawTotalDowntime = record['totalDowntime'];
-    final totalDowntime = rawTotalDowntime is num 
-        ? rawTotalDowntime.toInt() 
+    final totalDowntime = rawTotalDowntime is num
+        ? rawTotalDowntime.toInt()
         : int.tryParse(rawTotalDowntime?.toString() ?? '0') ?? 0;
 
     String downtimeDisplay = "";
@@ -685,6 +701,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 record['orderNumber'].toString().isNotEmpty)
               _buildInfoRow(
                   "🔢 أمر التشغيل:", record['orderNumber'].toString()),
+            if (record['formNumber'] != null &&
+                record['formNumber'].toString().isNotEmpty)
+              _buildInfoRow("📄 رقم الفورمة:", record['formNumber'].toString()),
             if ((record['startTime'] != null &&
                     record['startTime'].toString().isNotEmpty) ||
                 (record['endTime'] != null &&
@@ -699,9 +718,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 final dims = record['dimensions'] is Map
                     ? record['dimensions'] as Map
                     : {};
-                final w = record['weight'] ??
-                    record['weight_tons'] ??
-                    dims['weight'];
+                final w =
+                    record['weight'] ?? record['weight_tons'] ?? dims['weight'];
                 final double weightVal = w != null
                     ? (w is num
                         ? w.toDouble()
@@ -714,8 +732,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                     children: [
                       const Text("⚖️ الوزن: ",
                           style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal)),
+                              fontWeight: FontWeight.bold, color: Colors.teal)),
                       Text("$weightVal طن",
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                     ],
@@ -746,7 +763,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                     children: [
                       const Text("📜 طبقات الورق:",
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, color: Colors.brown)),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.brown)),
                       const SizedBox(height: 2),
                       Text(layers.join('  |  '),
                           style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -764,7 +782,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   children: [
                     const Text("📉 الهالك: ",
                         style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(widget.department == 'production_line'
+                    Text((widget.department == 'production_line' ||
+                            widget.department == 'crushing' ||
+                            record['department'] == 'crushing')
                         ? "${record['lineWaste'] ?? 0}"
                         : "إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
                   ],
@@ -775,8 +795,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             if (tName.isNotEmpty)
               _buildInfoRowWithIcon(Icons.person, "الفني المسؤول:", tName),
             if (downtimeDisplay.trim().isNotEmpty)
-              _buildInfoRowWithIcon(Icons.timer_off, "وقت الأعطال:", downtimeDisplay.trim()),
-
+              _buildInfoRowWithIcon(
+                  Icons.timer_off, "وقت الأعطال:", downtimeDisplay.trim()),
             _buildNotesText(record['notes']),
             const SizedBox(height: 12),
             if (_workersBox != null)
@@ -785,8 +805,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 builder: (context, _, __) {
                   // فحص RBAC ديناميكي: يستخدم قسم التقرير نفسه (مخزّن في record['department'])
                   // هذا يجعل الفحص متوافقاً تلقائياً إذا كانت الشاشة مشتركة بين القسمين
-                  final reportDept =
-                      record['department']?.toString() ?? (widget.department ?? 'flexo');
+                  final reportDept = record['department']?.toString() ??
+                      (widget.department ?? 'flexo');
                   final canEdit = AuthHelper.currentUserCanManageProduction(
                       reportDept, 'canEdit');
                   final canDelete = AuthHelper.currentUserCanManageProduction(
@@ -825,12 +845,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         .entries
         .where((e) {
           final r = e.value;
-          final dept = r['department']?.toString();
-          if (widget.department == 'production_line') {
-            if (dept != 'production_line') return false;
-          } else {
-            if (dept == 'production_line') return false;
-          }
+          final dept = r['department']?.toString() ?? 'flexo';
+          final targetDept = widget.department ?? 'flexo';
+          if (dept != targetDept) return false;
           final q = query.toLowerCase();
           return (r['clientName']?.toString() ?? '')
                   .toLowerCase()
@@ -1061,7 +1078,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    isFlexo ? 'إضافة أوردر — فلكسو' : 'إضافة أوردر — خط الإنتاج',
+                    isFlexo
+                        ? 'إضافة أوردر — فلكسو'
+                        : 'إضافة أوردر — خط الإنتاج',
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
@@ -1179,8 +1198,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded,
-                  color: subtitleColor, size: 20),
+              Icon(Icons.chevron_right_rounded, color: subtitleColor, size: 20),
             ],
           ),
         ),
@@ -1188,17 +1206,17 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     );
   }
 
-
-
   void _finishSession(LiveSession session) {
     // ─── حماية #1: منع تكرار الاستدعاء عند الضغطة المزدوجة ───
     if (_isFinishingSession) {
-      debugPrint('⏭️ _finishSession: تم تجاهل الضغطة المكررة — الجلسة جارٍ إنهاؤها.');
+      debugPrint(
+          '⏭️ _finishSession: تم تجاهل الضغطة المكررة — الجلسة جارٍ إنهاؤها.');
       return;
     }
     // ─── حماية #2: الجلسة يجب أن تكون موجودة في Hive ───
     if (!session.isInBox) {
-      debugPrint('⚠️ _finishSession: الجلسة غير موجودة في Hive (ربما تم حذفها مسبقاً). تم الخروج.');
+      debugPrint(
+          '⚠️ _finishSession: الجلسة غير موجودة في Hive (ربما تم حذفها مسبقاً). تم الخروج.');
       return;
     }
 
@@ -1207,8 +1225,10 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
 
     final now = ServerTimeService.nowLocal;
     final startLocal = session.startTime.toLocal();
-    final startTimeStr = "${startLocal.hour.toString().padLeft(2, '0')}:${startLocal.minute.toString().padLeft(2, '0')}";
-    final endTimeStr = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    final startTimeStr =
+        "${startLocal.hour.toString().padLeft(2, '0')}:${startLocal.minute.toString().padLeft(2, '0')}";
+    final endTimeStr =
+        "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
     // إغلاق آخر فترة عطل مفتوحة إن وجدت
     if (!session.isRunning && session.downtimeIntervals.isNotEmpty) {
@@ -1221,19 +1241,25 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     String dEnd = "";
     if (session.downtimeIntervals.isNotEmpty) {
       final firstStart = session.downtimeIntervals.first.start.toLocal();
-      final lastEnd = (session.downtimeIntervals.last.end ?? ServerTimeService.nowUtc).toLocal();
-      dStart = "${firstStart.hour.toString().padLeft(2, '0')}:${firstStart.minute.toString().padLeft(2, '0')}";
-      dEnd = "${lastEnd.hour.toString().padLeft(2, '0')}:${lastEnd.minute.toString().padLeft(2, '0')}";
+      final lastEnd =
+          (session.downtimeIntervals.last.end ?? ServerTimeService.nowUtc)
+              .toLocal();
+      dStart =
+          "${firstStart.hour.toString().padLeft(2, '0')}:${firstStart.minute.toString().padLeft(2, '0')}";
+      dEnd =
+          "${lastEnd.hour.toString().padLeft(2, '0')}:${lastEnd.minute.toString().padLeft(2, '0')}";
     }
 
     final totalDowntimeMin = session.totalDowntime.inMinutes;
     final sessionId = session.id; // نحتفظ بالـ id قبل الحذف
 
     final initialData = {
-      'date': "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
+      'date':
+          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
       'clientName': session.clientName,
       'product': session.productName,
       'productCode': session.productCode,
+      'formNumber': session.formNumber ?? '',
       'orderNumber': session.orderNumber,
       'startTime': startTimeStr,
       'endTime': endTimeStr,
@@ -1244,12 +1270,14 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       'technicianName': session.technicianName,
       'dimensions': {
         ...?session.dimensions,
-        'weight': (session.dimensions != null && session.dimensions!['weight'] != null)
+        'weight': (session.dimensions != null &&
+                session.dimensions!['weight'] != null)
             ? (double.tryParse(session.dimensions!['weight'].toString()) ?? 0.0)
             : 0.0,
         'paperLayers': session.paperLayers ?? [],
       },
-      'weight': (session.dimensions != null && session.dimensions!['weight'] != null)
+      'weight': (session.dimensions != null &&
+              session.dimensions!['weight'] != null)
           ? (double.tryParse(session.dimensions!['weight'].toString()) ?? 0.0)
           : 0.0,
       'shift': session.shift,
@@ -1269,7 +1297,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         {'sync_id': sessionId, 'id': sessionId},
         operation: 'delete',
       );
-      debugPrint('✅ _finishSession: تم حذف الجلسة محلياً ومزامنتها مع Supabase (id=$sessionId)');
+      debugPrint(
+          '✅ _finishSession: تم حذف الجلسة محلياً ومزامنتها مع Supabase (id=$sessionId)');
 
       if (!mounted) {
         _isFinishingSession = false;
@@ -1286,71 +1315,24 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           onSave: (r) async {
             try {
               final syncId = const Uuid().v4();
-              final isCrushing = (session.department ?? widget.department) == 'crushing';
+              r['sync_id'] = syncId;
+              r['id'] = syncId;
 
-              if (isCrushing) {
-                final reportDateStr = r['date']?.toString() ?? DateTime.now().toIso8601String();
-                final reportDate = DateTime.tryParse(reportDateStr) ?? DateTime.now();
+              // حفظ محلي بمفتاح ثابت لمنع التكرار
+              await _productionReportBox!.put(syncId, r);
 
-                final runStartStr = r['startTime']?.toString();
-                final runEndStr = r['endTime']?.toString();
+              // مزامنة فورية مع Supabase
+              final reportObj = ProductionReport.fromJson(r);
+              SyncService.instance
+                  .pushToQueue('production_reports', reportObj.toJson());
 
-                DateTime? runStartDt;
-                if (runStartStr != null && runStartStr.isNotEmpty) {
-                  runStartDt = DateTime.tryParse(runStartStr);
-                }
-                DateTime? runEndDt;
-                if (runEndStr != null && runEndStr.isNotEmpty) {
-                  runEndDt = DateTime.tryParse(runEndStr);
-                }
-
-                final report = DieCuttingProductionReport(
-                  id: syncId,
-                  machineName: r['machineName']?.toString() ?? '',
-                  technicianName: r['technicianName']?.toString() ?? '',
-                  reportDate: reportDate,
-                  customerName: r['clientName']?.toString() ?? '',
-                  itemName: r['product']?.toString() ?? '',
-                  itemCode: r['productCode']?.toString() ?? '',
-                  formNumber: r['formNumber']?.toString() ?? '',
-                  workOrder: r['orderNumber']?.toString() ?? '',
-                  runTimeStart: runStartDt,
-                  runTimeEnd: runEndDt,
-                  downtimeStart: null,
-                  downtimeEnd: null,
-                  productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0,
-                  wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0,
-                  notes: r['notes']?.toString(),
-                );
-
-                final box = Hive.isBoxOpen('die_cutting_production_reports') 
-                    ? Hive.box<DieCuttingProductionReport>('die_cutting_production_reports')
-                    : await Hive.openBox<DieCuttingProductionReport>('die_cutting_production_reports');
-                await box.put(syncId, report);
-
-                SyncService.instance.pushToQueue(
-                  'die_cutting_production_reports',
-                  report.toJson(),
-                  operation: 'upsert',
-                );
-                debugPrint('✅ _finishSession: تم حفظ تقرير التكسير ورفعه للمزامنة (sync_id=$syncId)');
-              } else {
-                r['sync_id'] = syncId;
-                r['id'] = syncId;
-
-                // حفظ محلي بمفتاح ثابت لمنع التكرار
-                await _productionReportBox!.put(syncId, r);
-
-                // مزامنة فورية مع Supabase
-                final reportObj = ProductionReport.fromJson(r);
-                SyncService.instance.pushToQueue('production_reports', reportObj.toJson());
-
-                debugPrint('✅ _finishSession: تم حفظ التقرير ورفعه للمزامنة (sync_id=$syncId)');
-              }
+              debugPrint(
+                  '✅ _finishSession: تم حفظ التقرير ورفعه للمزامنة (sync_id=$syncId)');
 
               if (c.mounted) Navigator.of(c).pop();
             } catch (saveError) {
-              debugPrint('❌ _finishSession.onSave: فشل حفظ التقرير: $saveError');
+              debugPrint(
+                  '❌ _finishSession.onSave: فشل حفظ التقرير: $saveError');
               // الجلسة تم حذفها بالفعل — لا خطر من التكرار
               if (c.mounted) Navigator.of(c).pop();
             }
@@ -1371,7 +1353,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     UIUtils.showDeleteConfirmation(
       context: context,
       title: "إلغاء الجلسة",
-      content: "هل أنت متأكد من إلغاء هذه الجلسة؟ سيتم حذف جميع البيانات المؤقتة الخاصة بها نهائياً.",
+      content:
+          "هل أنت متأكد من إلغاء هذه الجلسة؟ سيتم حذف جميع البيانات المؤقتة الخاصة بها نهائياً.",
       confirmLabel: "إلغاء الجلسة",
       onConfirm: () async {
         final sessionId = session.id;
@@ -1381,7 +1364,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           {'sync_id': sessionId, 'id': sessionId},
           operation: 'delete',
         );
-        
+
         if (mounted) {
           UIUtils.showInfoSnackBar(
             message: "تم إلغاء الجلسة بنجاح",

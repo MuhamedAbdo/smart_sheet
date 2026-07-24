@@ -66,6 +66,9 @@ class ProductionReport extends HiveObject {
   @HiveField(19)
   final int? totalDowntime;
 
+  @HiveField(20)
+  final String? formNumber;
+
   final double? weight;
   final List<dynamic>? paperLayers;
   final String? department;
@@ -93,6 +96,7 @@ class ProductionReport extends HiveObject {
     this.technicianName,
     this.factoryId,
     this.totalDowntime,
+    this.formNumber,
     this.weight,
     this.paperLayers,
     this.department,
@@ -133,6 +137,7 @@ class ProductionReport extends HiveObject {
       'machine_name': machineName,
       'technician_name': technicianName,
       'factory_id': factoryId,
+      'form_number': formNumber,
       'weight': numW,
       'paper_layers': layers,
       'paperLayers': layers,
@@ -191,6 +196,7 @@ class ProductionReport extends HiveObject {
           (map['technician_name'] ?? map['technicianName'])?.toString(),
       factoryId: (map['factory_id'] ?? map['factoryId'])?.toString(),
       totalDowntime: _toInt(map['total_downtime'] ?? map['totalDowntime']),
+      formNumber: (map['form_number'] ?? map['formNumber'])?.toString(),
       weight: weightVal ?? 0.0,
       paperLayers: layersList,
       department: map['department']?.toString(),

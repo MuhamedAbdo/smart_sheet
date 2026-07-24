@@ -10,6 +10,7 @@ import 'package:smart_sheet/services/supabase_manager.dart'; // استيراد �
 import 'package:smart_sheet/services/server_time_service.dart'; // خدمة الوقت الخادمي
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/utils/device_manager.dart'; // استيراد DeviceManager
+import 'package:smart_sheet/utils/worker_utils.dart'; 
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:uuid/uuid.dart'; // استيراد مكتبة الـ UUID
 
@@ -222,9 +223,10 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
 
   Widget _buildWorkerSuggestField(TextEditingController controller) {
     return ValueListenableBuilder(
-      valueListenable: Hive.box<Worker>('workers_flexo').listenable(),
+      valueListenable: Hive.box<Worker>('workers').listenable(),
       builder: (context, Box<Worker> box, _) {
-        final workerNames = box.values.map((w) => w.name).toList();
+        final sortedWorkers = WorkerUtils.getSortedWorkers(widget.department);
+        final workerNames = sortedWorkers.map((w) => w.name).toList();
         return Autocomplete<String>(
           optionsBuilder: (TextEditingValue textEditingValue) {
             if (textEditingValue.text == '') {
