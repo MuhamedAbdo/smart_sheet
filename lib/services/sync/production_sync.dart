@@ -147,6 +147,9 @@ mixin ProductionSync on SyncServiceBase {
       final lineBox = Hive.isBoxOpen('lineArchive')
           ? Hive.box('lineArchive')
           : await Hive.openBox('lineArchive');
+      final crushingBox = Hive.isBoxOpen('crushingArchive')
+          ? Hive.box('crushingArchive')
+          : await Hive.openBox('crushingArchive');
 
       if (res.isEmpty) {
         debugPrint(
@@ -164,10 +167,14 @@ mixin ProductionSync on SyncServiceBase {
         // حدّد الـ box الصحيح حسب القسم
         final dept = hiveRecord['department']?.toString() ?? 'flexo';
         final isProdLine = dept == 'production_line' ||
-            (hiveRecord['machineName'] ?? hiveRecord['machine_name'])
-                    ?.toString() ==
-                'خط الإنتاج';
-        final targetBox = isProdLine ? lineBox : flexoBox;
+            (hiveRecord['machineName'] ?? hiveRecord['machine_name'])?.toString() == 'خط الإنتاج';
+        final isCrushing = dept == 'crushing';
+
+        final targetBox = isProdLine 
+            ? lineBox 
+            : isCrushing 
+                ? crushingBox 
+                : flexoBox;
 
         final existing = targetBox.get(syncId);
         if (existing is Map && existing['data'] is Map) {
@@ -203,9 +210,14 @@ mixin ProductionSync on SyncServiceBase {
         }
 
         // نقل أي سجل موجود في الـ box الخاطئ إلى الصحيح
-        final wrongBox = isProdLine ? flexoBox : lineBox;
-        if (wrongBox.containsKey(syncId)) {
-          await wrongBox.delete(syncId);
+        if (targetBox != flexoBox && flexoBox.containsKey(syncId)) {
+          await flexoBox.delete(syncId);
+        }
+        if (targetBox != lineBox && lineBox.containsKey(syncId)) {
+          await lineBox.delete(syncId);
+        }
+        if (targetBox != crushingBox && crushingBox.containsKey(syncId)) {
+          await crushingBox.delete(syncId);
         }
 
         final archiveEntry = {
@@ -217,7 +229,7 @@ mixin ProductionSync on SyncServiceBase {
         await targetBox.put(syncId, archiveEntry);
       }
       debugPrint(
-          '✅ ProductionSync: تم استرجاع ${res.length} archived_reports (مُقسَّمة بين flexoArchive و lineArchive).');
+          '✅ ProductionSync: تم استرجاع ${res.length} archived_reports (مُقسَّمة بين flexoArchive و lineArchive و crushingArchive).');
     } catch (e) {
       debugPrint('❌ ProductionSync._initArchivedReports: $e');
     }
@@ -641,8 +653,11 @@ mixin ProductionSync on SyncServiceBase {
       final lineArchiveBox = Hive.isBoxOpen('lineArchive')
           ? Hive.box('lineArchive')
           : await Hive.openBox('lineArchive');
+      final crushingArchiveBox = Hive.isBoxOpen('crushingArchive')
+          ? Hive.box('crushingArchive')
+          : await Hive.openBox('crushingArchive');
 
-      if (prodBox.isEmpty && flexoArchiveBox.isEmpty && lineArchiveBox.isEmpty) {
+      if (prodBox.isEmpty && flexoArchiveBox.isEmpty && lineArchiveBox.isEmpty && crushingArchiveBox.isEmpty) {
         debugPrint('⚠️ [directPushAllReports] الصناديق المحلية للتقارير والأرشيف فارغة.');
         return;
       }
@@ -669,7 +684,7 @@ mixin ProductionSync on SyncServiceBase {
 
       // ─── 2. تجميع وتنظيف تقارير الأرشيف من كلا الـ boxes (archived_reports) ───
       final rawArchivedRecords = <Map<String, dynamic>>[];
-      for (final archiveBox in [flexoArchiveBox, lineArchiveBox]) {
+      for (final archiveBox in [flexoArchiveBox, lineArchiveBox, crushingArchiveBox]) {
         for (final key in archiveBox.keys) {
           final item = archiveBox.get(key);
           if (item is! Map) continue;

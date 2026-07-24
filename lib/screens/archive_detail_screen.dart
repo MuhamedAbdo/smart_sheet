@@ -19,13 +19,26 @@ class ArchiveDetailScreen extends StatelessWidget {
           children: [
             _buildSectionHeader(Icons.event_note, "معلومات أساسية"),
             _buildDetailRow(context, "📅 التاريخ:", record['date'] ?? '---'),
-            _buildDetailRow(context, "👤 العميل:", record['clientName']?.toString() ?? '---'),
-            _buildDetailRow(context, "📦 الصنف:",
-                "${record['product']?.toString() ?? '---'} ${record['productCode'] != null && record['productCode'].toString().isNotEmpty ? '[ ${record['productCode']} ]' : ''}"),
-            if (record['orderNumber'] != null && record['orderNumber'].toString().isNotEmpty)
-              _buildDetailRow(context, "🔢 أمر التشغيل:", record['orderNumber'].toString()),
-            if (record['formNumber'] != null && record['formNumber'].toString().isNotEmpty)
-              _buildDetailRow(context, "📄 رقم الفورمة:", record['formNumber'].toString()),
+            _buildDetailRow(context, "👤 العميل:", (record['clientName'] ?? record['client_name'])?.toString() ?? '---'),
+            Builder(builder: (context) {
+              final productCode = record['productCode'] ?? record['product_code'];
+              return _buildDetailRow(context, "📦 الصنف:",
+                  "${record['product']?.toString() ?? '---'} ${productCode != null && productCode.toString().isNotEmpty ? '[ $productCode ]' : ''}");
+            }),
+            Builder(builder: (context) {
+              final orderNumber = record['orderNumber'] ?? record['order_number'];
+              if (orderNumber != null && orderNumber.toString().isNotEmpty) {
+                return _buildDetailRow(context, "🔢 أمر التشغيل:", orderNumber.toString());
+              }
+              return const SizedBox.shrink();
+            }),
+            Builder(builder: (context) {
+              final formNumber = record['formNumber'] ?? record['form_number'];
+              if (formNumber != null && formNumber.toString().isNotEmpty) {
+                return _buildDetailRow(context, "📄 رقم الفورمة:", formNumber.toString());
+              }
+              return const SizedBox.shrink();
+            }),
             if (record['shift'] != null && record['shift'].toString().isNotEmpty && record['shift'] != 'null')
               _buildDetailRow(context, "🔄 الوردية:", record['shift'].toString()),
             const SizedBox(height: 20),
@@ -37,10 +50,16 @@ class ArchiveDetailScreen extends StatelessWidget {
                 (record['technicianName'] ?? record['technician_name']).toString().isNotEmpty)
               _buildDetailRow(context, "👤 الفني المسؤول:",
                   (record['technicianName'] ?? record['technician_name']).toString()),
-            if ((record['startTime'] != null && record['startTime'].toString().isNotEmpty) ||
-                (record['endTime'] != null && record['endTime'].toString().isNotEmpty))
-              _buildDetailRow(context, "🕒 وقت التشغيل:",
-                  "${record['startTime'] ?? '--:--'} إلى ${record['endTime'] ?? '--:--'}"),
+            Builder(builder: (context) {
+              final sTime = record['startTime'] ?? record['start_time'];
+              final eTime = record['endTime'] ?? record['end_time'];
+              if ((sTime != null && sTime.toString().isNotEmpty) ||
+                  (eTime != null && eTime.toString().isNotEmpty)) {
+                return _buildDetailRow(context, "🕒 وقت التشغيل:",
+                    "${sTime ?? '--:--'} إلى ${eTime ?? '--:--'}");
+              }
+              return const SizedBox.shrink();
+            }),
             Builder(
               builder: (context) {
                 final dStart = record['downtimeStart'] ?? record['downtime_start'];
@@ -91,12 +110,13 @@ class ArchiveDetailScreen extends StatelessWidget {
                 final dept = record['department']?.toString();
                 final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
                 final isProdLine = dept == 'production_line' || mName == 'خط الإنتاج';
-                final lineWaste = record['lineWaste'] ?? 0;
-                final printWaste = record['printWaste'] ?? 0;
+                final isCrushing = dept == 'crushing';
+                final lineWaste = record['lineWaste'] ?? record['line_waste'] ?? 0;
+                final printWaste = record['printWaste'] ?? record['print_waste'] ?? 0;
                 return _buildDetailRow(
                   context,
                   "📉 الهالك:",
-                  isProdLine
+                  (isProdLine || isCrushing)
                       ? "$lineWaste"
                       : "إنتاج: $lineWaste | طباعة: $printWaste",
                 );
@@ -159,7 +179,8 @@ class ArchiveDetailScreen extends StatelessWidget {
                 final dept = record['department']?.toString();
                 final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
                 final isProdLine = dept == 'production_line' || mName == 'خط الإنتاج';
-                if (isProdLine) return const SizedBox.shrink();
+                final isCrushing = dept == 'crushing';
+                if (isProdLine || isCrushing) return const SizedBox.shrink();
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

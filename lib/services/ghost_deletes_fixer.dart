@@ -63,7 +63,7 @@ class GhostDeletesFixer {
       final box = await Hive.openBox(tempBoxName, path: originalInkFile.parent.path);
       
       int recoveredCount = 0;
-      final uuid = const Uuid();
+      const uuid = Uuid();
 
       for (int i = 0; i < box.length; i++) {
         final item = box.getAt(i);

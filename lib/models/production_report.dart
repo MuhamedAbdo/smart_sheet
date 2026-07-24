@@ -114,6 +114,7 @@ class ProductionReport extends HiveObject {
         [];
     enrichedDimensions['weight'] = numW;
     enrichedDimensions['paperLayers'] = layers;
+    enrichedDimensions['form_number'] = formNumber;
 
     return {
       'id': id.toString(),
@@ -196,7 +197,7 @@ class ProductionReport extends HiveObject {
           (map['technician_name'] ?? map['technicianName'])?.toString(),
       factoryId: (map['factory_id'] ?? map['factoryId'])?.toString(),
       totalDowntime: _toInt(map['total_downtime'] ?? map['totalDowntime']),
-      formNumber: (map['form_number'] ?? map['formNumber'])?.toString(),
+      formNumber: (map['form_number'] ?? map['formNumber'] ?? dims['form_number'] ?? dims['formNumber'])?.toString(),
       weight: weightVal ?? 0.0,
       paperLayers: layersList,
       department: map['department']?.toString(),

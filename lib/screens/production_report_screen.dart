@@ -226,6 +226,11 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   ServerTimeService.nowLocal.toString().split('.')[0],
             };
             await archiveBox.add(archiveEntry);
+            
+            // مزامنة فورية للأرشيف (مخصصة لقسم التكسير بناءً على طلب المستخدم)
+            if (widget.department == 'crushing') {
+              SyncService.instance.pushToQueue('archived_reports', r);
+            }
           }
 
           if (mounted) {

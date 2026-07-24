@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/screens/archive_detail_screen.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class FlexoArchiveScreen extends StatefulWidget {
   final String? department;
@@ -40,6 +41,16 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       title: "تأكيد حذف الأرشيف",
       content: "هل أنت متأكد من حذف هذا السجل نهائياً؟",
       onConfirm: () async {
+        if (widget.department == 'crushing') {
+          final data = _archiveBox!.get(key);
+          if (data is Map) {
+            final report = data['data'] ?? data;
+            final syncId = report['sync_id'] ?? report['id'];
+            if (syncId != null) {
+              SyncService.instance.pushToQueue('archived_reports', {'id': syncId, 'sync_id': syncId}, operation: 'delete');
+            }
+          }
+        }
         await _archiveBox!.delete(key);
       },
     );
@@ -52,6 +63,17 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       title: "⚠️ مسح الأرشيف بالكامل",
       content: "هل أنت متأكد من مسح كافة بيانات الأرشيف نهائياً؟",
       onConfirm: () async {
+        if (widget.department == 'crushing') {
+          for (var value in _archiveBox!.values) {
+            if (value is Map) {
+              final report = value['data'] ?? value;
+              final syncId = report['sync_id'] ?? report['id'];
+              if (syncId != null) {
+                SyncService.instance.pushToQueue('archived_reports', {'id': syncId, 'sync_id': syncId}, operation: 'delete');
+              }
+            }
+          }
+        }
         await _archiveBox!.clear();
       },
     );
@@ -65,6 +87,11 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
 
       // نقوم بإضافة نسخة للتقارير النشطة دون حذفها من الأرشيف
       await reportsBox.add(reportData);
+      
+      // المزامنة الفورية للتقرير المستعاد
+      if (widget.department == 'crushing') {
+        SyncService.instance.pushToQueue('production_reports', reportData);
+      }
 
       if (mounted) {
         UIUtils.showInfoSnackBar(
@@ -98,6 +125,9 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
             final data = entry.value as Map;
             final reportData = data['data'] ?? data;
             await reportsBox.add(reportData);
+            if (widget.department == 'crushing') {
+              SyncService.instance.pushToQueue('production_reports', reportData);
+            }
           }
           // تم إزالة عملية التفريغ (clear) بناءً على طلب المستخدم لإبقاء الأرشيف كنسخة دائمة
 
@@ -566,6 +596,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     final String technicianName = (report['technicianName'] ?? report['technician_name'])?.toString() ?? '';
     final String dept = report['department']?.toString() ?? '';
     final bool isProdLine = dept == 'production_line' || machineName == 'خط الإنتاج' || widget.department == 'production_line';
+    final bool isCrushing = dept == 'crushing' || widget.department == 'crushing';
 
     final dims = report['dimensions'];
     final bool isSheet = report['isSheet'] ?? false;
@@ -775,7 +806,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               _buildArchiveInfoRow(
                 Icons.trending_down,
                 "الهالك:",
-                isProdLine
+                (isProdLine || isCrushing)
                     ? "$lineWaste"
                     : "إنتاج: $lineWaste | طباعة: $printWaste",
               ),

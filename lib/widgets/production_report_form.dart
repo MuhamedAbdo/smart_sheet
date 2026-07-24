@@ -206,6 +206,7 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
           'height': isSheet ? "0" : heightController.text.trim(),
           'weight': wVal,
           'paperLayers': layersVal,
+          'form_number': formNumberController.text.trim(),
         },
         'isSheet': isSheet,
 

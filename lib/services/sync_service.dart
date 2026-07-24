@@ -846,12 +846,7 @@ class SyncService extends SyncServiceBase
                 cleanPayload.remove('weight');
                 modified = true;
               }
-              if (cleanPayload.containsKey('formNumber') &&
-                  (missingCol == 'formNumber' || e.message.contains('formNumber'))) {
-                cleanPayload['form_number'] = cleanPayload['formNumber'];
-                cleanPayload.remove('formNumber');
-                modified = true;
-              }
+
 
               if (modified) {
                 if (table == 'customers' ||

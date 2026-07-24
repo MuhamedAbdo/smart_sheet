@@ -284,6 +284,7 @@ void _openBackgroundBoxes() {
     'inkReports',
     'flexoArchive',
     'lineArchive',
+    'crushingArchive',
     'serial_setup_state',
   ];
   for (var box in otherBoxes) {

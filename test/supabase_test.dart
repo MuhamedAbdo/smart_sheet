@@ -1,13 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 void main() {
   test('Check Supabase production_reports', () async {
     final supabase = SupabaseClient('https://lbvaezdeaisukxqwwrmk.supabase.co', 'sb_publishable_Twjk68loXnXuJIJKy1MkNQ_KdP1iKnQ');
     try {
-      print('Fetching from production_reports...');
+      debugPrint('Fetching from production_reports...');
       final res = await supabase.from('production_reports').select();
-      print('Total records in table: ${res.length}');
+      debugPrint('Total records in table: ${res.length}');
       
       Map<String, int> factoryCounts = {};
       Map<String, int> deptCounts = {};
@@ -17,11 +18,11 @@ void main() {
         factoryCounts[fid] = (factoryCounts[fid] ?? 0) + 1;
         deptCounts[dept] = (deptCounts[dept] ?? 0) + 1;
       }
-      print('Factory IDs: $factoryCounts');
-      print('Departments: $deptCounts');
-      print('Sample: ${res.isNotEmpty ? res.last : 'Empty'}');
+      debugPrint('Factory IDs: $factoryCounts');
+      debugPrint('Departments: $deptCounts');
+      debugPrint('Sample: ${res.isNotEmpty ? res.last : 'Empty'}');
     } catch (e) {
-      print('Error: $e');
+      debugPrint('Error: $e');
     }
   });
 }

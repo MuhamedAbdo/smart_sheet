@@ -354,6 +354,7 @@ class KillSwitchService {
         'inkReports',
         'flexoArchive',
         'lineArchive',
+        'crushingArchive',
         'store_flexo',
         'maintenance_records_main',
         'flexo_machines',
