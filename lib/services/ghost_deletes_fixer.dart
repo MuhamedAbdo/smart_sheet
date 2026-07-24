@@ -54,7 +54,7 @@ class GhostDeletesFixer {
         return '❌ لم يتم العثور على تقارير الإنتاج في النسخة الاحتياطية السحابية.';
       }
       
-      final tempBoxName = 'ghost_inkReports_${DateTime.now().millisecondsSinceEpoch}';
+      final tempBoxName = 'ghost_inkreports_${DateTime.now().millisecondsSinceEpoch}';
       // Rename it in its CURRENT directory (which might be a sub-folder)
       final renamedInkFile = File(p.join(originalInkFile.parent.path, '$tempBoxName.hive'));
       originalInkFile.renameSync(renamedInkFile.path);
@@ -65,39 +65,45 @@ class GhostDeletesFixer {
       int recoveredCount = 0;
       final uuid = const Uuid();
 
-      // 5. Fetch existing IDs from Supabase to avoid duplicates if possible, or just generate new ones
       for (int i = 0; i < box.length; i++) {
         final item = box.getAt(i);
+        Map<String, dynamic> mapData;
         if (item is Map) {
-          final mapData = Map<String, dynamic>.from(item);
-          
-          // Generate new IDs to escape the ghost deletes
-          final newSyncId = uuid.v4();
-          
-          mapData['sync_id'] = newSyncId;
-          mapData['factory_id'] = factoryId;
-          mapData.remove('id'); // Let Supabase generate a new serial ID
-          
-          // Add (مستعاد) to notes
-          final oldNotes = mapData['notes']?.toString() ?? '';
-          if (!oldNotes.contains('(مستعاد)')) {
-             mapData['notes'] = oldNotes.isEmpty ? '(مستعاد)' : '$oldNotes\n(مستعاد)';
-          }
-
-          // Format check for production_reports schema
-          // Ensure client_name exists
-          if (!mapData.containsKey('client_name') && mapData.containsKey('clientName')) {
-             mapData['client_name'] = mapData['clientName'];
-             mapData.remove('clientName');
-          }
-          
-          // Upsert to Supabase
+          mapData = Map<String, dynamic>.from(item);
+        } else {
           try {
-             await Supabase.instance.client.from('production_reports').upsert(mapData);
-             recoveredCount++;
+            mapData = (item as dynamic).toJson();
           } catch (e) {
-             debugPrint('GhostFixer Error inserting record: $e');
+            continue;
           }
+        }
+          
+        // Generate new IDs to escape the ghost deletes
+        final newSyncId = uuid.v4();
+        
+        mapData['sync_id'] = newSyncId;
+        mapData['factory_id'] = factoryId;
+        mapData.remove('id'); // Let Supabase generate a new serial ID
+        
+        // Add (مستعاد) to notes
+        final oldNotes = mapData['notes']?.toString() ?? '';
+        if (!oldNotes.contains('(مستعاد)')) {
+            mapData['notes'] = oldNotes.isEmpty ? '(مستعاد)' : '$oldNotes\n(مستعاد)';
+        }
+
+        // Format check for production_reports schema
+        // Ensure client_name exists
+        if (!mapData.containsKey('client_name') && mapData.containsKey('clientName')) {
+            mapData['client_name'] = mapData['clientName'];
+            mapData.remove('clientName');
+        }
+        
+        // Upsert to Supabase
+        try {
+            await Supabase.instance.client.from('production_reports').upsert(mapData);
+            recoveredCount++;
+        } catch (e) {
+            debugPrint('GhostFixer Error inserting record: $e');
         }
       }
 
