@@ -50,6 +50,7 @@ import 'package:smart_sheet/models/downtime_interval.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
 import 'package:smart_sheet/models/die_cutting_form.dart';
+import 'package:smart_sheet/models/die_cutting_production_report.dart';
 
 // استيراد الخدمات والبروفايدر والشاشات
 import 'package:smart_sheet/config/constants.dart';
@@ -115,6 +116,7 @@ Future<void> main() async {
         Hive.openBox<DaySchedule>('factory_schedule'), // جدول أيام الوردية
         Hive.openBox('sync_queue'), // قائمة انتظار المزامنة
         Hive.openBox<DieCuttingForm>('die_cutting_forms'), // قوالب التكسير
+        Hive.openBox<DieCuttingProductionReport>('die_cutting_production_reports'),
       ]);
       _openBackgroundBoxes();
       // تهيئة القيم الافتراضية لجدول أيام الوردية إذا كان فارغاً
@@ -255,6 +257,9 @@ void _registerAdapters() {
   if (!Hive.isAdapterRegistered(18)) Hive.registerAdapter(DayScheduleAdapter());
   if (!Hive.isAdapterRegistered(20)) {
     Hive.registerAdapter(DieCuttingFormAdapter());
+  }
+  if (!Hive.isAdapterRegistered(25)) {
+    Hive.registerAdapter(DieCuttingProductionReportAdapter());
   }
 }
 

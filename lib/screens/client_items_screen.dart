@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:smart_sheet/screens/job_order_dialog.dart';
+
+import 'package:smart_sheet/screens/die_cutting_production_screen.dart';
 import 'package:smart_sheet/screens/production_report_screen.dart';
 import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
@@ -269,6 +271,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     final canAddFlexo = AuthHelper.currentUserCanManageProduction('flexo', 'canAdd');
     // صلاحية بدء إنتاج خط الإنتاج — مستقلة عن الفلكسو
     final canAddProductionLine = AuthHelper.currentUserCanManageProduction('production_line', 'canAdd');
+    // صلاحية بدء إنتاج التكسير
+    final canAddDieCutting = AuthHelper.currentUserCanManageProduction('crushing', 'canAdd');
 
     // إذا لم يكن هناك أي سجل (حتى السجل الأساسي) - هذا لا يحدث إلا إذا تم الحذف
     if (allClientRecords.isEmpty && searchQuery.isEmpty) {
@@ -346,10 +350,19 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                   canDelete: canDelete,
                   canAddFlexo: canAddFlexo,
                   canAddProductionLine: canAddProductionLine,
+                  canAddDieCutting: canAddDieCutting,
                   onEdit: () => _navigateToEdit(entry.key, entry.value),
                   onDelete: () => _confirmDelete(entry.key),
                   onStartProduction: (data) => _openProductionReportWithSheetData(context, data),
                   onStartProductionLine: (data) => _openProductionLineSessionWithSheetData(context, data),
+                  onStartDieCutting: (data) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DieCuttingProductionScreen(initialData: data),
+                      ),
+                    );
+                  },
                 ),
               );
             },

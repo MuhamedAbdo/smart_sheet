@@ -15,10 +15,12 @@ class SavedSizeCard extends StatelessWidget {
   // التغيير هنا: مسمى الزر أصبح بدء إنتاج بدلاً من طباعة
   final Function(Map<String, dynamic>) onStartProduction;
   final Function(Map<String, dynamic>)? onStartProductionLine;
+  final Function(Map<String, dynamic>)? onStartDieCutting;
   final bool canEdit;
   final bool canDelete;
   final bool canAddFlexo;
   final bool canAddProductionLine;
+  final bool canAddDieCutting;
 
   const SavedSizeCard({
     super.key,
@@ -27,10 +29,12 @@ class SavedSizeCard extends StatelessWidget {
     required this.onDelete,
     required this.onStartProduction,
     this.onStartProductionLine,
+    this.onStartDieCutting,
     required this.canEdit,
     required this.canDelete,
     required this.canAddFlexo,
     this.canAddProductionLine = false,
+    this.canAddDieCutting = false,
   });
 
   // دالة مساعدة لجلب مسار مجلد الصور
@@ -180,33 +184,18 @@ class SavedSizeCard extends StatelessWidget {
             const SizedBox(height: 12),
 
             // ―― أزرار الإنتاج بناءً على صلاحية كل قسم ――
-            if (canAddFlexo || canAddProductionLine)
+            if (canAddFlexo || canAddProductionLine || canAddDieCutting)
               Align(
                 alignment: Alignment.centerLeft,
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    if (canAddFlexo)
-                      OutlinedButton.icon(
-                        onPressed: () => onStartProduction(record),
-                        icon: const Icon(Icons.precision_manufacturing, size: 18),
-                        label: const Text("بدء إنتاج (فلكسو)"),
-                        style: OutlinedButton.styleFrom(
-                            visualDensity: VisualDensity.compact),
-                      ),
-                    if (canAddProductionLine && onStartProductionLine != null)
-                      OutlinedButton.icon(
-                        onPressed: () => onStartProductionLine!(record),
-                        icon: const Icon(Icons.factory, size: 18),
-                        label: const Text("بدء إنتاج (خط الإنتاج)"),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.green.shade700,
-                          side: BorderSide(color: Colors.green.shade600),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                  ],
+                child: ElevatedButton.icon(
+                  onPressed: () => _showProductionMenu(context, record),
+                  icon: const Icon(Icons.play_arrow, size: 20),
+                  label: const Text("بدء إنتاج", style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
                 ),
               ),
           ],
@@ -401,6 +390,54 @@ class SavedSizeCard extends StatelessWidget {
                 ),
               );
             },
+          ),
+        );
+      },
+    );
+  }
+
+  void _showProductionMenu(BuildContext context, Map<String, dynamic> record) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("اختر قسم الإنتاج:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              if (canAddFlexo)
+                ListTile(
+                  leading: const Icon(Icons.precision_manufacturing, color: Colors.blue),
+                  title: const Text("إنتاج فلكسو"),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onStartProduction(record);
+                  },
+                ),
+              if (canAddProductionLine && onStartProductionLine != null)
+                ListTile(
+                  leading: const Icon(Icons.factory, color: Colors.green),
+                  title: const Text("إنتاج خط الإنتاج"),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onStartProductionLine!(record);
+                  },
+                ),
+              if (canAddDieCutting && onStartDieCutting != null)
+                ListTile(
+                  leading: const Icon(Icons.content_cut, color: Colors.orange),
+                  title: const Text("إنتاج تكسير"),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onStartDieCutting!(record);
+                  },
+                ),
+            ],
           ),
         );
       },

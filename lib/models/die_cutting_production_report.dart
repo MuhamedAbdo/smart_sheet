@@ -1,0 +1,125 @@
+import 'package:hive_flutter/hive_flutter.dart';
+
+part 'die_cutting_production_report.g.dart';
+
+@HiveType(typeId: 25)
+class DieCuttingProductionReport extends HiveObject {
+  @HiveField(0)
+  final String id;
+
+  @HiveField(1)
+  final String machineName;
+
+  @HiveField(2)
+  final String technicianName;
+
+  @HiveField(3)
+  final DateTime reportDate;
+
+  @HiveField(4)
+  final String customerName;
+
+  @HiveField(5)
+  final String itemName;
+
+  @HiveField(6)
+  final String itemCode;
+
+  @HiveField(7)
+  final String formNumber;
+
+  @HiveField(8)
+  final String workOrder;
+
+  @HiveField(9)
+  final DateTime? runTimeStart;
+
+  @HiveField(10)
+  final DateTime? runTimeEnd;
+
+  @HiveField(11)
+  final DateTime? downtimeStart;
+
+  @HiveField(12)
+  final DateTime? downtimeEnd;
+
+  @HiveField(13)
+  final double productionQuantity;
+
+  @HiveField(14)
+  final double wasteQuantity;
+
+  @HiveField(15)
+  final String? notes;
+
+  DieCuttingProductionReport({
+    required this.id,
+    required this.machineName,
+    required this.technicianName,
+    required this.reportDate,
+    required this.customerName,
+    required this.itemName,
+    required this.itemCode,
+    required this.formNumber,
+    required this.workOrder,
+    this.runTimeStart,
+    this.runTimeEnd,
+    this.downtimeStart,
+    this.downtimeEnd,
+    required this.productionQuantity,
+    required this.wasteQuantity,
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id.toString(),
+      'machine_name': machineName,
+      'technician_name': technicianName,
+      'report_date': reportDate.toIso8601String(),
+      'customer_name': customerName,
+      'item_name': itemName,
+      'item_code': itemCode,
+      'form_number': formNumber,
+      'work_order': workOrder,
+      'run_time_start': runTimeStart?.toIso8601String(),
+      'run_time_end': runTimeEnd?.toIso8601String(),
+      'downtime_start': downtimeStart?.toIso8601String(),
+      'downtime_end': downtimeEnd?.toIso8601String(),
+      'production_quantity': productionQuantity,
+      'waste_quantity': wasteQuantity,
+      'notes': notes,
+    };
+  }
+
+  factory DieCuttingProductionReport.fromJson(Map<String, dynamic> map) {
+    return DieCuttingProductionReport(
+      id: map['id']?.toString() ?? '',
+      machineName: map['machine_name']?.toString() ?? '',
+      technicianName: map['technician_name']?.toString() ?? '',
+      reportDate: map['report_date'] != null 
+          ? DateTime.parse(map['report_date'].toString()) 
+          : DateTime.now(),
+      customerName: map['customer_name']?.toString() ?? '',
+      itemName: map['item_name']?.toString() ?? '',
+      itemCode: map['item_code']?.toString() ?? '',
+      formNumber: map['form_number']?.toString() ?? '',
+      workOrder: map['work_order']?.toString() ?? '',
+      runTimeStart: map['run_time_start'] != null 
+          ? DateTime.parse(map['run_time_start'].toString()) 
+          : null,
+      runTimeEnd: map['run_time_end'] != null 
+          ? DateTime.parse(map['run_time_end'].toString()) 
+          : null,
+      downtimeStart: map['downtime_start'] != null 
+          ? DateTime.parse(map['downtime_start'].toString()) 
+          : null,
+      downtimeEnd: map['downtime_end'] != null 
+          ? DateTime.parse(map['downtime_end'].toString()) 
+          : null,
+      productionQuantity: (map['production_quantity'] as num?)?.toDouble() ?? 0.0,
+      wasteQuantity: (map['waste_quantity'] as num?)?.toDouble() ?? 0.0,
+      notes: map['notes']?.toString(),
+    );
+  }
+}

@@ -5,6 +5,7 @@ import 'package:smart_sheet/screens/calculator_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
+import 'package:smart_sheet/screens/die_cutting_production_screen.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 
@@ -83,10 +84,11 @@ class CrushingScreen extends StatelessWidget {
                         icon: Icons.receipt,
                         label: 'تقرير الإنتاج',
                         onTap: () {
-                          UIUtils.showInfoSnackBar(
-                            message: 'سيتم تطويره قريبًا',
-                            backgroundColor: Colors.orange,
-                            icon: Icons.construction,
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const DieCuttingProductionScreen(),
+                            ),
                           );
                         },
                       ),
