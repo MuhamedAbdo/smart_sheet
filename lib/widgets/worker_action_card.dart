@@ -1,7 +1,9 @@
 // lib/src/widgets/workers/worker_action_card.dart
 
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../models/worker_action_model.dart';
+import '../../services/sync_service.dart';
 
 class WorkerActionCard extends StatelessWidget {
   final WorkerAction action;
@@ -231,15 +233,39 @@ class WorkerActionCard extends StatelessWidget {
   }
 
   Future<void> _convertToCasualLeave(BuildContext context) async {
+    // 1. تحديث حقل النوع محلياً
     action.type = 'أجازة عارضة';
-    await action.save();
+    
+    // 2. الحفظ الفعلي في الصندوق المحلي (Hive)
+    try {
+      final workerActionsBox = Hive.box<WorkerAction>('worker_actions');
+      // Use the stable syncId or fallback to the box key
+      final key = action.syncId ?? action.key;
+      if (key != null) {
+        await workerActionsBox.put(key, action);
+      } else {
+        await action.save(); // Fallback to HiveObject save
+      }
+    } catch (e) {
+      debugPrint('Error saving to worker_actions box: $e');
+      await action.save(); // Fallback if box is not accessible by name
+    }
+
+    // 3. إرسال التحديث للسحابة عبر sync_queue
+    try {
+      await SyncService.instance.pushToQueue(
+        'worker_actions', 
+        action.toJson(), 
+        operation: 'update',
+      );
+    } catch (e) {
+      debugPrint('Error pushing to sync_queue: $e');
+    }
+
+    // 4. استدعاء onRefresh لتأكيد تغيير الواجهة
     onRefresh();
     
     if (context.mounted) {
-      // Find the parent worker if possible to save and trigger UI refresh
-      // Since WorkerAction has HiveObject.save(), it should update the box.
-      // But to be sure about listeners on the Worker, we rely on the parent refresh.
-      
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("تم تحويل الغياب إلى أجازة عارضة"),
