@@ -1,9 +1,14 @@
 // lib/screens/die_cutting_forms_screen.dart
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:smart_sheet/models/die_cutting_form.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/widgets/qr_scanner_modal.dart';
+import 'package:smart_sheet/services/qr_print_service.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class DieCuttingFormsScreen extends StatefulWidget {
   const DieCuttingFormsScreen({super.key});
@@ -18,7 +23,23 @@ class _DieCuttingFormsScreenState extends State<DieCuttingFormsScreen> {
   Widget build(BuildContext context) {
     final box = Hive.box<DieCuttingForm>('die_cutting_forms');
     return Scaffold(
-      appBar: AppBar(title: const Text("قوالب التكسير"), centerTitle: true),
+      appBar: AppBar(
+        title: const Text("قوالب التكسير"), 
+        centerTitle: true,
+        actions: [
+          if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner),
+              tooltip: 'مسح باركود القالب',
+              onPressed: () => _scanQR(context, box),
+            ),
+          IconButton(
+            icon: const Icon(Icons.print),
+            tooltip: 'طباعة ملصقات الباركود',
+            onPressed: () => _printCurrentForms(box),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -124,6 +145,28 @@ class _DieCuttingFormsScreenState extends State<DieCuttingFormsScreen> {
         title: Text('تفاصيل قالب التكسير: ${form.formNumber}'),
         content: SingleChildScrollView(
           child: ListBody(children: [
+            if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) ...[
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: SizedBox(
+                    width: 150.0,
+                    height: 150.0,
+                    child: QrImageView(
+                      data: 'dc_form:${form.formNumber}',
+                      version: QrVersions.auto,
+                      size: 150.0,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (form.customerName != null && form.customerName!.isNotEmpty)
               Text("العميل: ${form.customerName}${form.customerCode != null ? ' (${form.customerCode})' : ''}"),
             if (form.itemName != null && form.itemName!.isNotEmpty)
@@ -139,6 +182,54 @@ class _DieCuttingFormsScreenState extends State<DieCuttingFormsScreen> {
         actions: [TextButton(child: const Text('إغلاق'), onPressed: () => Navigator.of(context).pop())],
       ),
     );
+  }
+
+  Future<void> _scanQR(BuildContext context, Box<DieCuttingForm> box) async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => const QRScannerModal(
+        title: 'مسح باركود القالب',
+        subtitle: 'قم بتوجيه الكاميرا لباركود قالب التكسير',
+      ),
+    );
+
+    if (result == null || result == 'MANUAL_ENTRY') return;
+
+    String scannedNumber = result;
+    if (result.startsWith('dc_form:')) {
+      scannedNumber = result.replaceFirst('dc_form:', '').trim();
+    }
+
+    final form = box.values.cast<DieCuttingForm?>().firstWhere(
+      (f) => f?.formNumber == scannedNumber,
+      orElse: () => null,
+    );
+
+    if (form != null) {
+      if (context.mounted) _viewFormDetails(context, form);
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('لم يتم العثور على قالب برقم: $scannedNumber'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _printCurrentForms(Box<DieCuttingForm> box) {
+    var forms = box.values.toList();
+    if (_searchQuery.isNotEmpty) {
+      forms = forms.where((f) {
+        return f.formNumber.toLowerCase().contains(_searchQuery) ||
+            (f.customerName ?? '').toLowerCase().contains(_searchQuery) ||
+            (f.itemName ?? '').toLowerCase().contains(_searchQuery);
+      }).toList();
+    }
+    if (forms.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا توجد قوالب لطباعتها')));
+      return;
+    }
+    QRPrintService.printDieCuttingQRLabels(forms);
   }
 
   void _confirmDelete(BuildContext context, DieCuttingForm form) {
