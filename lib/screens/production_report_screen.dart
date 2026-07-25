@@ -208,7 +208,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               : widget.department == 'crushing'
                   ? 'crushingArchive'
                   : 'flexoArchive';
-          final archiveBox = await Hive.openBox(archiveBoxName);
+          final archiveBox = Hive.isBoxOpen(archiveBoxName)
+              ? Hive.box(archiveBoxName)
+              : await Hive.openBox(archiveBoxName);
           final allReports = _productionReportBox!.toMap();
 
           for (var entry in allReports.entries) {
@@ -219,17 +221,31 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             } else {
               if (dept == 'production_line') continue;
             }
+
+            // ✅ ضمان وجود sync_id سليم قبل الأرشفة والمزامنة
+            // إذا كان التقرير بدون sync_id فارغ أو غير موجود، نولد له UUID جديد
+            final existingSyncId = r['sync_id']?.toString();
+            final archiveSyncId = (existingSyncId != null &&
+                    existingSyncId.isNotEmpty &&
+                    existingSyncId != 'null')
+                ? existingSyncId
+                : const Uuid().v4();
+            r['sync_id'] = archiveSyncId;
+
+            // ✅ الحفظ بالـ sync_id كمفتاح لمنع التكرار عند وصول Insert event من Realtime
             final archiveEntry = {
               'type': 'REPORT',
               'data': r,
               'archiveDate':
                   ServerTimeService.nowLocal.toString().split('.')[0],
             };
-            await archiveBox.add(archiveEntry);
-            
+            await archiveBox.put(archiveSyncId, archiveEntry);
+
             // مزامنة فورية للأرشيف (مخصصة لقسم التكسير بناءً على طلب المستخدم)
             if (widget.department == 'crushing') {
+              // ✅ تمرير r مع sync_id مضمون لطابور المزامنة
               SyncService.instance.pushToQueue('archived_reports', r);
+              debugPrint('📤 الأرشفة (crushing): تم إضافة للقائمة (sync_id=$archiveSyncId)');
             }
           }
 
@@ -423,14 +439,18 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               builder: (context, _, __) {
                 final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
 
-                // شرط إظهار نقل/فتح الأرشيف:
-                // Super Admin OR (وظيفته رئيس قسم/مشرف AND قسمه flexo AND canDelete==true)
+                // شرط إظهار نقل/فتح الأرشيف (بنفس الأسلوب المعتمد لجميع الأقسام):
+                // Super Admin OR (وظيفته رئيس قسم/مشرف AND قسمه متطابق مع القسم المعروض AND canDelete==true)
                 final Worker? cw = PermissionHelper.currentWorker;
-                final bool isFlexoManager = cw != null &&
+                final String currentScreenDept = widget.department ?? 'flexo';
+                final bool deptMatch = (currentScreenDept == 'crushing')
+                    ? (cw?.department == 'crushing' || cw?.department == 'die_cutting')
+                    : (cw?.department == currentScreenDept);
+                final bool isDeptManager = cw != null &&
                     (cw.job == 'رئيس قسم' || cw.job == 'مشرف') &&
-                    cw.department == 'flexo' &&
+                    deptMatch &&
                     cw.canDelete == true;
-                final bool showArchiveOptions = isSuperAdmin || isFlexoManager;
+                final bool showArchiveOptions = isSuperAdmin || isDeptManager;
 
                 return PopupMenuButton<String>(
                   icon: Icon(Icons.more_vert, color: appBarIconColor),
@@ -778,7 +798,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 );
               },
             ),
-            if (widget.department != 'production_line')
+            if (widget.department != 'production_line' &&
+                widget.department != 'crushing' &&
+                record['department'] != 'crushing')
               _buildColorsList(record['colors'] ?? []),
             if (record['lineWaste'] != null || record['printWaste'] != null)
               Padding(

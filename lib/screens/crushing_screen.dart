@@ -8,6 +8,8 @@ import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/screens/production_report_screen.dart';
 import 'package:smart_sheet/screens/machine_management_screen.dart';
 import 'package:smart_sheet/widgets/home_button.dart';
+import 'package:smart_sheet/widgets/app_drawer.dart';
+import 'package:smart_sheet/widgets/flexo_report_drawer.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 
 class CrushingScreen extends StatelessWidget {
@@ -27,6 +29,8 @@ class CrushingScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 1,
       ),
+      drawer: const AppDrawer(),
+      endDrawer: const FlexoReportDrawer(department: 'crushing'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -150,14 +154,10 @@ class CrushingScreen extends StatelessWidget {
                         },
                       ),
                       HomeButton(
-                        icon: Icons.analytics,
+                        icon: Icons.print_outlined,
                         label: 'تقارير الماكينات',
                         onTap: () {
-                          UIUtils.showInfoSnackBar(
-                            message: 'سيتم تطويره قريبًا',
-                            backgroundColor: Colors.orange,
-                            icon: Icons.construction,
-                          );
+                          Scaffold.of(context).openEndDrawer();
                         },
                       ),
                       HomeButton(

@@ -71,20 +71,22 @@ class FlexoReportDrawer extends StatelessWidget {
                           icon: Icons.save_alt,
                           onTap: () => _handlePdfAction(context, mName, isPrinting: false, isSave: true),
                         ),
-                        _buildReportTile(
-                          context,
-                          label: "عرض تقرير طباعة",
-                          icon: Icons.picture_as_pdf,
-                          color: Colors.blueAccent,
-                          onTap: () => _handlePdfAction(context, mName, isPrinting: true, isSave: false),
-                        ),
-                        _buildReportTile(
-                          context,
-                          label: "حفظ تقرير طباعة",
-                          icon: Icons.save_alt,
-                          color: Colors.blueAccent,
-                          onTap: () => _handlePdfAction(context, mName, isPrinting: true, isSave: true),
-                        ),
+                        if (!isCrushing && !isProductionLine) ...[
+                          _buildReportTile(
+                            context,
+                            label: "عرض تقرير طباعة",
+                            icon: Icons.picture_as_pdf,
+                            color: Colors.blueAccent,
+                            onTap: () => _handlePdfAction(context, mName, isPrinting: true, isSave: false),
+                          ),
+                          _buildReportTile(
+                            context,
+                            label: "حفظ تقرير طباعة",
+                            icon: Icons.save_alt,
+                            color: Colors.blueAccent,
+                            onTap: () => _handlePdfAction(context, mName, isPrinting: true, isSave: true),
+                          ),
+                        ],
                       ],
                     );
                   },
@@ -114,6 +116,14 @@ class FlexoReportDrawer extends StatelessWidget {
         .where((r) {
           final map = Map<String, dynamic>.from(r);
           final m = (map['machineName'] ?? map['machine_name'])?.toString() ?? '';
+          final dept = map['department']?.toString();
+          if (department == 'crushing') {
+            if (dept != 'crushing' && dept != 'die_cutting') return false;
+          } else if (department == 'production_line') {
+            if (dept != 'production_line') return false;
+          } else {
+            if (dept == 'crushing' || dept == 'die_cutting' || dept == 'production_line') return false;
+          }
           return m.trim() == machineName.trim();
         })
         .map((e) => Map<String, dynamic>.from(e))
@@ -124,12 +134,18 @@ class FlexoReportDrawer extends StatelessWidget {
       return;
     }
 
-    final title = isPrinting ? "تقرير طباعة ماكينة: $machineName" : "تقرير إنتاج ماكينة: $machineName";
+    final title = isPrinting
+        ? "تقرير طباعة ماكينة: $machineName"
+        : (department == 'crushing'
+            ? "تقرير إنتاج تكسير ماكينة: $machineName"
+            : (department == 'production_line'
+                ? "تقرير إنتاج خط الإنتاج ماكينة: $machineName"
+                : "تقرير إنتاج ماكينة: $machineName"));
 
     if (isSave) {
       final Uint8List? pdfBytes = isPrinting
-          ? await generatePrintingReportPdfBytes({'records': records, 'title': title})
-          : await generateProductionReportPdfBytes({'records': records, 'title': title});
+          ? await generatePrintingReportPdfBytes({'records': records, 'title': title, 'department': department})
+          : await generateProductionReportPdfBytes({'records': records, 'title': title, 'department': department});
       
       if (pdfBytes == null) return;
 
@@ -143,9 +159,9 @@ class FlexoReportDrawer extends StatelessWidget {
     } else {
       if (!context.mounted) return;
       if (isPrinting) {
-        await exportPrintingReportsToPdf(context, records, title: title);
+        await exportPrintingReportsToPdf(context, records, title: title, department: department);
       } else {
-        await exportProductionReportsToPdf(context, records, title: title);
+        await exportProductionReportsToPdf(context, records, title: title, department: department);
       }
     }
   }

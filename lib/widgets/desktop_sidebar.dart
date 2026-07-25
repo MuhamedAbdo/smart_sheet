@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
 import 'package:smart_sheet/screens/flexo_archive_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 
 class DesktopSidebar extends StatefulWidget {
   const DesktopSidebar({super.key});
@@ -15,6 +18,23 @@ class DesktopSidebar extends StatefulWidget {
 
 class _DesktopSidebarState extends State<DesktopSidebar> {
   int _selectedIndex = 0;
+
+  /// نفس أسلوب الفلترة المستخدم في الأندرويد لشرط إظهار الأرشيف:
+  /// Super Admin OR (وظيفته رئيس قسم/مشرف AND قسمه مطابق AND canDelete == true)
+  bool _canViewArchive(String targetDepartment) {
+    if (PermissionHelper.isSuperAdmin) return true;
+    final Worker? cw = PermissionHelper.currentWorker;
+    if (cw == null) return false;
+
+    final bool isManager = (cw.job == 'رئيس قسم' || cw.job == 'مشرف') &&
+        cw.canDelete == true;
+    if (!isManager) return false;
+
+    if (targetDepartment == 'crushing') {
+      return cw.department == 'crushing' || cw.department == 'die_cutting';
+    }
+    return cw.department == targetDepartment;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,102 +86,113 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
           ),
           
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              children: [
-                _buildNavItem(
-                  icon: Icons.home,
-                  title: 'الرئيسية',
-                  index: 0,
-                  onTap: () {
-                    setState(() => _selectedIndex = 0);
-                    // If already on home, do nothing.
-                    context.read<AuthService>().navigatorKey.currentState?.popUntil((route) => route.isFirst);
-                  },
-                ),
-                _buildNavItem(
-                  icon: Icons.inventory_2_outlined,
-                  title: 'أرشيف الفلكسو',
-                  index: 1,
-                  onTap: () {
-                    setState(() => _selectedIndex = 1);
-                    final nav = context.read<AuthService>().navigatorKey.currentState;
-                    nav?.popUntil((route) => route.isFirst);
-                    nav?.push(MaterialPageRoute(
-                        builder: (_) => const FlexoArchiveScreen(
-                              department: 'flexo',
-                            )));
-                  },
-                ),
-                _buildNavItem(
-                  icon: Icons.archive_outlined,
-                  title: 'أرشيف خط الإنتاج',
-                  index: 3,
-                  onTap: () {
-                    setState(() => _selectedIndex = 3);
-                    final nav = context.read<AuthService>().navigatorKey.currentState;
-                    nav?.popUntil((route) => route.isFirst);
-                    nav?.push(MaterialPageRoute(
-                        builder: (_) => const FlexoArchiveScreen(
-                              department: 'production_line',
-                            )));
-                  },
-                ),
-                _buildNavItem(
-                  icon: Icons.auto_awesome_motion,
-                  title: 'أرشيف التكسير',
-                  index: 4,
-                  onTap: () {
-                    setState(() => _selectedIndex = 4);
-                    final nav = context.read<AuthService>().navigatorKey.currentState;
-                    nav?.popUntil((route) => route.isFirst);
-                    nav?.push(MaterialPageRoute(
-                        builder: (_) => const FlexoArchiveScreen(
-                              department: 'crushing',
-                            )));
-                  },
-                ),
-                const Divider(),
-                _buildNavItem(
-                  icon: Icons.settings_outlined,
-                  title: 'الإعدادات والنسخ السحابي',
-                  index: 2,
-                  onTap: () {
-                    setState(() => _selectedIndex = 2);
-                    final nav = context.read<AuthService>().navigatorKey.currentState;
-                    nav?.popUntil((route) => route.isFirst);
-                    nav?.pushNamed(SettingsScreen.routeName);
-                  },
-                ),
-                const Divider(),
-                if (!auth.isAuthenticated)
-                  _buildNavItem(
-                    icon: Icons.person_add_alt_1_outlined,
-                    title: 'تسجيل الدخول / إنشاء حساب',
-                    index: 3,
-                    color: Colors.blue,
-                    onTap: () {
-                      setState(() => _selectedIndex = 3);
-                      final nav = context.read<AuthService>().navigatorKey.currentState;
-                      nav?.popUntil((route) => route.isFirst);
-                      nav?.pushNamed(AuthScreen.routeName);
-                    },
+            child: Hive.isBoxOpen('workers')
+                ? ValueListenableBuilder<Box<Worker>>(
+                    valueListenable: Hive.box<Worker>('workers').listenable(),
+                    builder: (context, _, __) => _buildSidebarNavList(auth),
                   )
-                else
-                  _buildNavItem(
-                    icon: Icons.logout,
-                    title: 'تسجيل الخروج',
-                    index: 4,
-                    color: Colors.red,
-                    onTap: () async {
-                      await context.read<AuthService>().signOut();
-                    },
-                  ),
-              ],
-            ),
+                : _buildSidebarNavList(auth),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSidebarNavList(dynamic auth) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        _buildNavItem(
+          icon: Icons.home,
+          title: 'الرئيسية',
+          index: 0,
+          onTap: () {
+            setState(() => _selectedIndex = 0);
+            context.read<AuthService>().navigatorKey.currentState?.popUntil((route) => route.isFirst);
+          },
+        ),
+        if (_canViewArchive('flexo'))
+          _buildNavItem(
+            icon: Icons.inventory_2_outlined,
+            title: 'أرشيف الفلكسو',
+            index: 1,
+            onTap: () {
+              setState(() => _selectedIndex = 1);
+              final nav = context.read<AuthService>().navigatorKey.currentState;
+              nav?.popUntil((route) => route.isFirst);
+              nav?.push(MaterialPageRoute(
+                  builder: (_) => const FlexoArchiveScreen(
+                        department: 'flexo',
+                      )));
+            },
+          ),
+        if (_canViewArchive('production_line'))
+          _buildNavItem(
+            icon: Icons.archive_outlined,
+            title: 'أرشيف خط الإنتاج',
+            index: 2,
+            onTap: () {
+              setState(() => _selectedIndex = 2);
+              final nav = context.read<AuthService>().navigatorKey.currentState;
+              nav?.popUntil((route) => route.isFirst);
+              nav?.push(MaterialPageRoute(
+                  builder: (_) => const FlexoArchiveScreen(
+                        department: 'production_line',
+                      )));
+            },
+          ),
+        if (_canViewArchive('crushing'))
+          _buildNavItem(
+            icon: Icons.auto_awesome_motion,
+            title: 'أرشيف التكسير',
+            index: 3,
+            onTap: () {
+              setState(() => _selectedIndex = 3);
+              final nav = context.read<AuthService>().navigatorKey.currentState;
+              nav?.popUntil((route) => route.isFirst);
+              nav?.push(MaterialPageRoute(
+                  builder: (_) => const FlexoArchiveScreen(
+                        department: 'crushing',
+                      )));
+            },
+          ),
+        const Divider(),
+        _buildNavItem(
+          icon: Icons.settings_outlined,
+          title: 'الإعدادات والنسخ السحابي',
+          index: 4,
+          onTap: () {
+            setState(() => _selectedIndex = 4);
+            final nav = context.read<AuthService>().navigatorKey.currentState;
+            nav?.popUntil((route) => route.isFirst);
+            nav?.pushNamed(SettingsScreen.routeName);
+          },
+        ),
+        const Divider(),
+        if (!auth.isAuthenticated)
+          _buildNavItem(
+            icon: Icons.person_add_alt_1_outlined,
+            title: 'تسجيل الدخول / إنشاء حساب',
+            index: 5,
+            color: Colors.blue,
+            onTap: () {
+              setState(() => _selectedIndex = 5);
+              final nav = context.read<AuthService>().navigatorKey.currentState;
+              nav?.popUntil((route) => route.isFirst);
+              nav?.pushNamed(AuthScreen.routeName);
+            },
+          )
+        else
+          _buildNavItem(
+            icon: Icons.logout,
+            title: 'تسجيل الخروج',
+            index: 6,
+            color: Colors.red,
+            onTap: () async {
+              await context.read<AuthService>().signOut();
+            },
+          ),
+      ],
     );
   }
 

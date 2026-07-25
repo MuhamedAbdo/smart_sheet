@@ -33,7 +33,11 @@ class ArchiveDetailScreen extends StatelessWidget {
               return const SizedBox.shrink();
             }),
             Builder(builder: (context) {
-              final formNumber = record['formNumber'] ?? record['form_number'];
+              final formNumber = record['formNumber'] ??
+                  record['form_number'] ??
+                  (record['dimensions'] is Map
+                      ? (record['dimensions'] as Map)['form_number']
+                      : null);
               if (formNumber != null && formNumber.toString().isNotEmpty) {
                 return _buildDetailRow(context, "📄 رقم الفورمة:", formNumber.toString());
               }

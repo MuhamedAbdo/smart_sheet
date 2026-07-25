@@ -40,6 +40,17 @@ Future<Uint8List?> generateProductionReportPdfBytes(Map<String, dynamic> params)
     final Uint8List fontBytes = fontData.buffer.asUint8List();
     final Uint8List boldFontBytes = boldFontData.buffer.asUint8List();
     final safeRecords = records.map((r) => toSerializableMap(r)).toList();
+    final String? department = params['department']?.toString() ??
+        (safeRecords.isNotEmpty ? safeRecords.first['department']?.toString() : null);
+
+    if (department == 'crushing' || department == 'die_cutting') {
+      return await compute(_generateCrushingProductionPdfBytes, {
+        'records': safeRecords,
+        'font': fontBytes,
+        'bold': boldFontBytes,
+        'title': params['title'] ?? 'تقرير إنتاج قسم التكسير',
+      });
+    }
 
     return await compute(_generateConsolidatedProductionPdfBytes, {
       'records': safeRecords,
@@ -220,16 +231,16 @@ void _showSuccessSnackBar(BuildContext context, String filePath, Uint8List bytes
 // المشاركة/الطباعة (عرض PDF)
 // ---------------------------------
 
-Future<void> exportProductionReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title}) async {
-  final pdfBytes = await generateProductionReportPdfBytes({'records': records, 'title': title});
+Future<void> exportProductionReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department}) async {
+  final pdfBytes = await generateProductionReportPdfBytes({'records': records, 'title': title, 'department': department});
   if (pdfBytes != null) {
     String fileName = title != null ? '${title.replaceAll(' ', '_')}.pdf' : 'تقرير_إنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
   }
 }
 
-Future<void> exportPrintingReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title}) async {
-  final pdfBytes = await generatePrintingReportPdfBytes({'records': records, 'title': title});
+Future<void> exportPrintingReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department}) async {
+  final pdfBytes = await generatePrintingReportPdfBytes({'records': records, 'title': title, 'department': department});
   if (pdfBytes != null) {
     String fileName = title != null ? '${title.replaceAll(' ', '_')}.pdf' : 'تقرير_طباعة_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
@@ -466,6 +477,125 @@ pw.Widget _buildProductionHeader({
     ],
   );
 }
+
+// ---------------------------------
+// دالة: تقرير إنتاج قسم التكسير (بدون ألوان أو طباعة، هالك فقط، مع إدراج رقم الفورمة)
+// ---------------------------------
+Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> params) async {
+  try {
+    final List<dynamic> records = params['records'];
+    final String customTitle = params['title']?.toString() ?? 'تقرير إنتاج التكسير';
+    final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
+    final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
+
+    final pdf = pw.Document();
+    const int recordsPerPage = 13;
+    final int totalPages = (records.length / recordsPerPage).ceil();
+
+    const double techColWidth = 55.0;
+    const double clientColWidth = 75.0;
+    const double productColWidth = 75.0;
+    const double formNumColWidth = 60.0;
+    // Fixed columns: م(20) + الفني(55) + التاريخ(52) + العميل(75) + الصنف(75) + كود(45) + رقم الفورمة(60) + المقاس(58) + أمر(45) + إنتاج(40) + تشغيل(70) + هالك(35) + أعطال(70) = 700
+    const double notesColWidth = 810.0 - 700.0; // = 110.0
+
+    for (int page = 0; page < totalPages; page++) {
+      final int startIndex = page * recordsPerPage;
+      final int endIndex = (page + 1) * recordsPerPage < records.length
+          ? (page + 1) * recordsPerPage
+          : records.length;
+
+      final List<dynamic> pageRecords = records.sublist(startIndex, endIndex);
+      final List<pw.Widget> pageRows = [];
+
+      for (int i = 0; i < pageRecords.length; i++) {
+        final record = pageRecords[i] as Map<String, dynamic>;
+
+        final String tName = (record['technicianName'] ?? record['technician_name'])?.toString() ?? '---';
+        final String formNumber = (record['formNumber'] ?? record['form_number'])?.toString() ?? '---';
+        final String wasteValue = (record['lineWaste'] ?? record['waste'] ?? record['wasteQuantity'] ?? record['waste_quantity'])?.toString() ?? '---';
+        final String formNumDisplay = formNumber.trim().isEmpty || formNumber == 'null' ? '---' : formNumber;
+        final String wasteDisplay = wasteValue.trim().isEmpty || wasteValue == 'null' ? '---' : wasteValue;
+
+        pageRows.add(
+          pw.Row(children: [
+            buildTableDataCell('${startIndex + i + 1}', 20.0, arabicFont, isRightMost: true),
+            buildTableDataCell(tName, techColWidth, arabicFont),
+            buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 52.0, arabicFont),
+            buildTableDataCell(record['clientName']?.toString() ?? '---', clientColWidth, arabicFont),
+            buildTableDataCell(record['product']?.toString() ?? '---', productColWidth, arabicFont),
+            buildTableDataCell(record['productCode']?.toString() ?? '---', 45.0, arabicFont),
+            buildTableDataCell(formNumDisplay, formNumColWidth, arabicFont),
+            buildTableDataCell(_getDimensionsOnly(record), 58.0, arabicFont),
+            buildTableDataCell(record['orderNumber']?.toString() ?? '---', 45.0, arabicFont),
+            buildTableDataCell(record['quantity']?.toString() ?? '---', 40.0, arabicFont),
+            buildTableDataCell(record['startTime']?.toString() ?? '---', 35.0, arabicFont),
+            buildTableDataCell(record['endTime']?.toString() ?? '---', 35.0, arabicFont, isSectionEnd: true),
+            buildTableDataCell(wasteDisplay, 35.0, arabicFont, isSectionEnd: true),
+            buildTableDataCell(record['downtimeStart']?.toString() ?? '---', 35.0, arabicFont),
+            buildTableDataCell(record['downtimeEnd']?.toString() ?? '---', 35.0, arabicFont, isSectionEnd: true),
+            buildTableDataCell(record['notes']?.toString() ?? '---', notesColWidth, arabicFont),
+          ]),
+        );
+      }
+
+      pdf.addPage(pw.Page(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(12),
+        build: (context) => pw.Directionality(
+          textDirection: pw.TextDirection.rtl,
+          child: pw.Column(children: [
+            pw.Text(ArabicPDFHelper.fixArabic(customTitle),
+              style: pw.TextStyle(font: arabicBoldFont, fontSize: 16)),
+            pw.SizedBox(height: 10),
+            _buildCrushingProductionHeader(
+              clientWidth: clientColWidth,
+              productWidth: productColWidth,
+              techWidth: techColWidth,
+              formNumWidth: formNumColWidth,
+              notesWidth: notesColWidth,
+              font: arabicBoldFont,
+            ),
+            pw.Column(children: pageRows),
+          ]),
+        ),
+      ));
+    }
+    return await pdf.save();
+  } catch (e) {
+    debugPrint('❌ خطأ في _generateCrushingProductionPdfBytes: $e');
+    return Uint8List(0);
+  }
+}
+
+pw.Widget _buildCrushingProductionHeader({
+  required double clientWidth,
+  required double productWidth,
+  required double techWidth,
+  required double formNumWidth,
+  required double notesWidth,
+  required pw.Font font,
+}) {
+  return pw.Row(
+    children: [
+      _buildSpannedHeader('م', 20.0, font, isRightMost: true),
+      _buildSpannedHeader('الفني', techWidth, font),
+      _buildSpannedHeader('التاريخ', 52.0, font),
+      _buildSpannedHeader('إسم العميل', clientWidth, font),
+      _buildSpannedHeader('الصنف', productWidth, font),
+      _buildSpannedHeader('كود الصنف', 45.0, font),
+      _buildSpannedHeader('رقم الفورمة', formNumWidth, font),
+      _buildSpannedHeader('المقاس', 58.0, font),
+      _buildSpannedHeader('أمر التشغيل', 45.0, font),
+      _buildSpannedHeader('الإنتاج', 40.0, font),
+      _buildGroupedHeader('وقت التشغيل', ['من', 'إلى'], [35.0, 35.0], font, isSectionEnd: true),
+      _buildSpannedHeader('الهالك', 35.0, font, isSectionEnd: true),
+      _buildGroupedHeader('الأعطال', ['من', 'إلى'], [35.0, 35.0], font, isSectionEnd: true),
+      _buildSpannedHeader('الملاحظات', notesWidth, font),
+    ],
+  );
+}
+
 
 // ---------------------------------
 // دالة: تقرير الطباعة (مع أحبار)

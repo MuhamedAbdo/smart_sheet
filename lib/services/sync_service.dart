@@ -501,6 +501,29 @@ class SyncService extends SyncServiceBase
     }
   }
 
+  /// حذف مجمّع: يُرسل عملية واحدة للطابور تحذف قائمة من السجلات دفعةً واحدة
+  /// بدلاً من عملية حذف منفردة لكل عنصر (يمنع إغراق الطابور بمئات العمليات).
+  Future<void> pushBatchDeleteToQueue(
+    String table,
+    List<String> syncIds,
+  ) async {
+    if (syncIds.isEmpty) return;
+    try {
+      final box = await _ensureQueueBox();
+      await box.add({
+        'table': table,
+        'data': {'sync_ids': syncIds},
+        'operation': 'batch_delete',
+        'timestamp': ServerTimeService.nowUtc.toIso8601String(),
+        'retries': 0,
+      });
+      debugPrint('📤 Queue → $table [batch_delete] (${syncIds.length} عنصر)');
+      unawaited(_processQueue());
+    } catch (e) {
+      debugPrint('❌ SyncService.pushBatchDeleteToQueue: $e');
+    }
+  }
+
   // ==============================================================
   // Real-time Channel Setup (Orchestrator)
   // ==============================================================
@@ -737,17 +760,21 @@ class SyncService extends SyncServiceBase
       final retries = (item['retries'] as int?) ?? 0;
       if (table == null || rawData is! Map) continue;
 
-      final syncId =
-          rawData['sync_id']?.toString() ?? rawData['id']?.toString();
-      if (syncId == null || syncId.trim().isEmpty) {
-        debugPrint('🗑️ تقرير تالف (sync_id فارغ)');
-        keysToDelete.add(key);
-        continue;
-      }
-      if (RegExp(r'[<>{}\[\]\*\&\^\%\$#@!]').hasMatch(syncId)) {
-        debugPrint('🗑️ تقرير تالف (رموز غريبة: $syncId)');
-        keysToDelete.add(key);
-        continue;
+      // ✅ عمليات batch_delete تستخدم sync_ids (قائمة) وليس sync_id مفرداً
+      // → تجاوز فحص sync_id لها وإلا ستُحذف كـ "تقارير تالفة" قبل تنفيذها
+      if (operation != 'batch_delete') {
+        final syncId =
+            rawData['sync_id']?.toString() ?? rawData['id']?.toString();
+        if (syncId == null || syncId.trim().isEmpty) {
+          debugPrint('🗑️ تقرير تالف (sync_id فارغ) → table=$table op=$operation');
+          keysToDelete.add(key);
+          continue;
+        }
+        if (RegExp(r'[<>{}\[\]\*\&\^\%\$#@!]').hasMatch(syncId)) {
+          debugPrint('🗑️ تقرير تالف (رموز غريبة: $syncId)');
+          keysToDelete.add(key);
+          continue;
+        }
       }
       if (retries >= 5) {
         debugPrint('⚠️ Queue: تجاوز الحد → $table');
@@ -772,7 +799,21 @@ class SyncService extends SyncServiceBase
         final payload = Map<String, dynamic>.from(rawData);
         payload['factory_id'] = factoryId;
 
-        if (operation == 'delete') {
+        if (operation == 'batch_delete') {
+          // ✅ حذف مجمّع: عملية واحدة لحذف قائمة سجلات دفعةً
+          final rawIds = rawData['sync_ids'];
+          if (rawIds is List && rawIds.isNotEmpty) {
+            final ids = rawIds.map((e) => e.toString()).toList();
+            if (table == 'die_cutting_forms') {
+              await _supabase.from(table).delete().inFilter('id', ids);
+            } else {
+              await _supabase.from(table).delete().inFilter('sync_id', ids);
+            }
+            debugPrint('✅ Queue: batch_delete من $table [${ids.length} عنصر]');
+          } else {
+            debugPrint('⚠️ Queue: batch_delete فارغ — $table');
+          }
+        } else if (operation == 'delete') {
           final deleteSyncId =
               payload['sync_id']?.toString() ?? payload['id']?.toString();
           if (deleteSyncId != null && deleteSyncId.isNotEmpty) {
@@ -791,7 +832,8 @@ class SyncService extends SyncServiceBase
             if (table == 'customers' ||
                 table == 'production_reports' ||
                 table == 'workers' ||
-                table == 'live_sessions') {
+                table == 'live_sessions' ||
+                table == 'archived_reports') {
               await _supabase
                   .from(table)
                   .upsert(cleanPayload, onConflict: 'sync_id');

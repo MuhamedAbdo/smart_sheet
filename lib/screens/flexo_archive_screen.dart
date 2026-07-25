@@ -64,14 +64,19 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       content: "هل أنت متأكد من مسح كافة بيانات الأرشيف نهائياً؟",
       onConfirm: () async {
         if (widget.department == 'crushing') {
+          // ✅ جمع جميع sync_ids في قائمة واحدة ثم إرسال batch_delete واحد
+          final syncIds = <String>[];
           for (var value in _archiveBox!.values) {
             if (value is Map) {
               final report = value['data'] ?? value;
-              final syncId = report['sync_id'] ?? report['id'];
-              if (syncId != null) {
-                SyncService.instance.pushToQueue('archived_reports', {'id': syncId, 'sync_id': syncId}, operation: 'delete');
+              final syncId = report['sync_id']?.toString() ?? report['id']?.toString();
+              if (syncId != null && syncId.isNotEmpty) {
+                syncIds.add(syncId);
               }
             }
+          }
+          if (syncIds.isNotEmpty) {
+            SyncService.instance.pushBatchDeleteToQueue('archived_reports', syncIds);
           }
         }
         await _archiveBox!.clear();
@@ -589,7 +594,10 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     final String productCode = report['productCode']?.toString() ?? '';
     final String displayDate = report['date'] ?? "---";
     final String orderNumber = report['orderNumber']?.toString() ?? '';
-    final String formNumber = report['formNumber']?.toString() ?? report['form_number']?.toString() ?? '';
+    final String formNumber = report['formNumber']?.toString() ??
+        report['form_number']?.toString() ??
+        (report['dimensions'] is Map ? (report['dimensions'] as Map)['form_number']?.toString() : null) ??
+        '';
     final String startTime = report['startTime']?.toString() ?? '';
     final String endTime = report['endTime']?.toString() ?? '';
     final String machineName = (report['machineName'] ?? report['machine_name'])?.toString() ?? '';
