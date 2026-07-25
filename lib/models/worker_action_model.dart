@@ -141,9 +141,11 @@ class WorkerAction extends HiveObject {
   }
 
   Map<String, dynamic> toJson() {
+    // الضمان النهائي: لا ترسل id كـ null أبداً
+    final finalId = (id != null && id!.isNotEmpty) ? id : _generateV4Uuid();
     return {
-      'id': id,
-      'sync_id': id, // Alias for compatibility with some schemas
+      'id': finalId,
+      'sync_id': finalId, // Alias for compatibility with some schemas
       'type': type,
       'days': days,
       'date': date.toIso8601String(),

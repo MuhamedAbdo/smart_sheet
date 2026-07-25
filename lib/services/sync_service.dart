@@ -958,6 +958,10 @@ class SyncService extends SyncServiceBase
         if (strVal.isEmpty || strVal.toLowerCase() == 'null') {
           if (key == 'id') {
             // لا نضيف مفتاح id إطلاقاً إذا كان فارغاً لترك السحابة تستخدم Default Value
+            if (table == 'worker_actions' || table == 'die_cutting_forms') {
+              result[key] = const Uuid().v4();
+              debugPrint('⚠️ [sanitize] توليد id مفقود لجدول $table: ${result[key]}');
+            }
           } else {
             result[key] = const Uuid().v4();
             debugPrint(
@@ -972,7 +976,7 @@ class SyncService extends SyncServiceBase
     });
 
     // الحذف القاطع لمفتاح id بدون أي شروط (Unconditional Remove) لتوحيد هيكل الدفعة
-    if (table != 'die_cutting_forms') {
+    if (table != 'die_cutting_forms' && table != 'worker_actions') {
       result.remove('id');
     }
 

@@ -503,32 +503,16 @@ class ActiveAbsenceCard extends StatelessWidget {
     final returnTimeNotifier = ValueNotifier<TimeOfDay>(defaultReturnTime);
 
     double calcDays() {
-      final startDate = DateTime(start.year, start.month, start.day);
-      final rDate = DateTime(returnDateNotifier.value.year,
-          returnDateNotifier.value.month, returnDateNotifier.value.day);
-
-      // Use smart calculation with time consideration
       final shiftStart = themeProvider.shiftStart;
       final shiftEnd = themeProvider.shiftEnd;
-      final shiftDuration =
-          ShiftTimeCalculator.calculateShiftDuration(shiftStart, shiftEnd);
 
-      final actionDuration = ShiftTimeCalculator.calculateActionDuration(
+      return WorkingDayCalculator.calculateExactAbsenceDays(
         start,
-        action.startTime, // Use existing start time if available
+        action.startTime,
         returnDateNotifier.value,
         returnTimeNotifier.value,
         shiftStart,
         shiftEnd,
-      );
-
-      if (actionDuration <= 0) {
-        return rDate.difference(startDate).inDays.toDouble();
-      }
-
-      return ShiftTimeCalculator.calculateDaysWithSmart50Rule(
-        actionDuration,
-        shiftDuration,
       );
     }
 
@@ -652,7 +636,7 @@ class ActiveAbsenceCard extends StatelessWidget {
                                       ],
                                     ),
                                     Text(
-                                      "${days.toStringAsFixed(1)} يوم",
+                                      "${days.toString()} يوم",
                                       style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 16),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 import '../../models/worker_action_model.dart';
 import '../../models/worker_model.dart';
 import '../../widgets/worker_action_card.dart';
@@ -120,52 +121,71 @@ class ShiftTimeCalculator {
 
 // ─── مساعد حساب أيام العمل الفعلية (يتجاهل عطل نهاية الأسبوع) ────────────────
 class WorkingDayCalculator {
-  /// يمر على كل يوم في النطاق من [from] إلى [to] (شامل) ويعدّ أيام العمل.
-  /// إذا كان اليوم هو [to]، يتم فحص [returnTime]:
-  /// إذا كان [returnTime] أقل من أو يساوي [shiftStart]، يُسقط اليوم.
-  /// إذا كان [returnTime] أكبر من [shiftStart]، يُحسب كـ 1.0 يوم كامل (لا كسر).
-  static double calculateFullDays(DateTime from, DateTime to, TimeOfDay? returnTime, TimeOfDay shiftStart) {
-    DateTime startUtc = DateTime.utc(from.year, from.month, from.day);
-    DateTime endUtc = DateTime.utc(to.year, to.month, to.day);
+  /// Calculate precise absence days taking into account the shift start, shift end,
+  /// ignoring non-working days, and rounding to nearest 0.25 days.
+  static double calculateExactAbsenceDays(
+    DateTime fromDate,
+    TimeOfDay? fromTime,
+    DateTime toDate,
+    TimeOfDay? toTime,
+    TimeOfDay shiftStart,
+    TimeOfDay shiftEnd,
+  ) {
+    DateTime startUtc = DateTime.utc(fromDate.year, fromDate.month, fromDate.day);
+    DateTime endUtc = DateTime.utc(toDate.year, toDate.month, toDate.day);
 
-    if (!Hive.isBoxOpen('factory_schedule')) {
-      // fallback: فرق بسيط بالأيام (معالجة يوم العودة افتراضية)
-      int baseDays = endUtc.difference(startUtc).inDays;
-      if (returnTime != null) {
-        final retMinutes = returnTime.hour * 60 + returnTime.minute;
-        final shiftStartMinutes = shiftStart.hour * 60 + shiftStart.minute;
-        if (retMinutes > shiftStartMinutes) baseDays++;
-      }
-      return baseDays.toDouble();
-    }
+    final shiftStartMinutes = shiftStart.hour * 60 + shiftStart.minute;
+    final shiftEndMinutes = shiftEnd.hour * 60 + shiftEnd.minute;
     
-    final box = Hive.box<DaySchedule>('factory_schedule');
-    int count = 0;
+    int shiftDurationMinutes = shiftEndMinutes > shiftStartMinutes 
+        ? shiftEndMinutes - shiftStartMinutes 
+        : (shiftEndMinutes + 24 * 60) - shiftStartMinutes;
+        
+    if (shiftDurationMinutes <= 0) return 0.0; // avoid division by zero
+
+    int totalAbsenceMinutes = 0;
     DateTime cursor = startUtc;
-    
-    // 1. اجعل الـ Loop التكراري يقف تماماً عند اليوم الذي يسبق تاريخ العودة
-    while (cursor.isBefore(endUtc)) {
+    final box = Hive.isBoxOpen('factory_schedule') ? Hive.box<DaySchedule>('factory_schedule') : null;
+
+    while (!cursor.isAfter(endUtc)) {
       final dayName = _weekdayName(cursor.weekday);
-      final schedule = box.get(dayName);
+      final schedule = box?.get(dayName);
       final isWorkingDay = schedule == null || schedule.isWorkingDay;
-      
+
       if (isWorkingDay) {
-        count++; // إذا كان اليوم المحصور يوم عمل (isWorkingDay == true)، يضاف 1 للعداد.
+        int dayStartAbsence = shiftStartMinutes;
+        int dayEndAbsence = shiftEndMinutes;
+
+        // If this is the departure day, check if they left after shift started
+        if (cursor.isAtSameMomentAs(startUtc) && fromTime != null) {
+          final fromMinutes = fromTime.hour * 60 + fromTime.minute;
+          if (fromMinutes > dayStartAbsence) {
+            dayStartAbsence = fromMinutes;
+          }
+        }
+
+        // If this is the return day, check if they returned before shift ended
+        if (cursor.isAtSameMomentAs(endUtc) && toTime != null) {
+          final toMinutes = toTime.hour * 60 + toTime.minute;
+          if (toMinutes < dayEndAbsence) {
+            dayEndAbsence = toMinutes;
+          }
+        }
+
+        if (dayStartAbsence < dayEndAbsence) {
+          int diff = dayEndAbsence - dayStartAbsence;
+          // cap just in case
+          if (diff > shiftDurationMinutes) diff = shiftDurationMinutes;
+          totalAbsenceMinutes += diff;
+        }
       }
       cursor = cursor.add(const Duration(days: 1));
     }
+
+    double totalDays = totalAbsenceMinutes / shiftDurationMinutes;
     
-    // 2. معالجة يوم العودة (to) كشرط خارجي منفصل تماماً بعد انتهاء الـ Loop
-    if (returnTime != null) {
-      final retMinutes = returnTime.hour * 60 + returnTime.minute;
-      final shiftStartMinutes = shiftStart.hour * 60 + shiftStart.minute;
-      
-      if (retMinutes > shiftStartMinutes) {
-        count++; // يُحسب يوم العودة كـ 1 يوم غياب كامل لأن الغياب في الأيام الكاملة لا يتجزأ.
-      }
-    }
-    
-    return count.toDouble();
+    // التقريب لأقرب ربع يوم (0.25) بناءً على طلب الإدارة لتسهيل الحسابات المالية
+    return (totalDays * 4).round() / 4.0;
   }
 
   /// تحويل DateTime.weekday (1=Monday … 7=Sunday) إلى اسم DaySchedule
@@ -206,7 +226,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   void initState() {
     super.initState();
     Worker.autoCloseHourlyActionsGlobal();
-    _worker = widget.box.get(widget.worker.key) ?? widget.worker;
+    _worker = (widget.worker.isInBox ? widget.box.get(widget.worker.key) : null) ?? widget.worker;
     _cleanupActions();
     // تحميل device_id من صندوق الإعدادات لتحديد ملكية الإجراءات
     if (Hive.isBoxOpen('settings')) {
@@ -769,33 +789,23 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                              actionType.value == 'تأمين صحي';
 
       if (isFullDayAction && returnDate.value != null) {
-        // ─── إجراءات الأيام الكاملة ─────────────────────────────────
-        calculatedDays.value = WorkingDayCalculator.calculateFullDays(
-          date.value,
-          returnDate.value!,
-          endTime.value,
-          shiftStart,
-        );
-      } else if (isHourlyAction && startTime.value != null && endTime.value != null) {
-        // ─── إجراءات الساعات المرنة ────────────────────────────────
-        final actionDuration = ShiftTimeCalculator.calculateActionDuration(
+        calculatedDays.value = WorkingDayCalculator.calculateExactAbsenceDays(
           date.value,
           startTime.value,
-          returnDate.value, // قد يكون في نفس اليوم (null) أو في يوم مختلف
+          returnDate.value!,
           endTime.value,
           shiftStart,
           shiftEnd,
         );
-
-        final shiftDuration = ShiftTimeCalculator.calculateShiftDuration(shiftStart, shiftEnd);
-        
-        // حساب الكسر العشري الدقيق بناءً على الساعات الفعلية مقسومة على مدة الوردية
-        if (shiftDuration > 0) {
-          double fraction = actionDuration / shiftDuration;
-          calculatedDays.value = double.parse(fraction.toStringAsFixed(3));
-        } else {
-          calculatedDays.value = 0.0;
-        }
+      } else if (isHourlyAction && startTime.value != null && endTime.value != null) {
+        calculatedDays.value = WorkingDayCalculator.calculateExactAbsenceDays(
+          date.value,
+          startTime.value,
+          returnDate.value ?? date.value, // الإذن عادةً نفس اليوم ما لم يحدد خلاف ذلك
+          endTime.value,
+          shiftStart,
+          shiftEnd,
+        );
       } else {
         // Default / Initial state
         calculatedDays.value = 0.0;
@@ -1054,7 +1064,11 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                       (Hive.isBoxOpen('settings')
                                           ? Hive.box('settings').get('device_id')?.toString()
                                           : null);
+                                  
+                                  final newActionId = const Uuid().v4();
+                                  
                                   final updatedAction = WorkerAction(
+                                    id: newActionId,
                                     type: actionType.value,
                                     days: (actionType.value == 'إجازة' ||
                                             actionType.value == 'أجازة عارضة' ||
