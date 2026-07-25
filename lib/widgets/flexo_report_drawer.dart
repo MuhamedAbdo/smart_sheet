@@ -151,7 +151,7 @@ class FlexoReportDrawer extends StatelessWidget {
 
       await FilePicker.platform.saveFile(
         dialogTitle: 'حفظ PDF',
-        fileName: '${title.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf',
+        fileName: '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf',
         type: FileType.custom,
         allowedExtensions: ['pdf'],
         bytes: pdfBytes,

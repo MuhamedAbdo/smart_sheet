@@ -166,8 +166,8 @@ Future<void> _savePdfCommon(
 
   try {
     String fileName = prefix.contains('ماكينة') 
-        ? '${prefix.replaceAll(' ', '_')}.pdf'
-        : '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        ? '${prefix.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}.pdf'
+        : '${prefix.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     String? filePath;
 
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
@@ -234,7 +234,7 @@ void _showSuccessSnackBar(BuildContext context, String filePath, Uint8List bytes
 Future<void> exportProductionReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department}) async {
   final pdfBytes = await generateProductionReportPdfBytes({'records': records, 'title': title, 'department': department});
   if (pdfBytes != null) {
-    String fileName = title != null ? '${title.replaceAll(' ', '_')}.pdf' : 'تقرير_إنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    String fileName = title != null ? '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}.pdf' : 'تقرير_إنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
   }
 }
@@ -242,7 +242,7 @@ Future<void> exportProductionReportsToPdf(BuildContext context, List<Map<String,
 Future<void> exportPrintingReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department}) async {
   final pdfBytes = await generatePrintingReportPdfBytes({'records': records, 'title': title, 'department': department});
   if (pdfBytes != null) {
-    String fileName = title != null ? '${title.replaceAll(' ', '_')}.pdf' : 'تقرير_طباعة_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    String fileName = title != null ? '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}.pdf' : 'تقرير_طباعة_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
   }
 }

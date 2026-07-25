@@ -29,7 +29,6 @@ class CrushingScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 1,
       ),
-      drawer: const AppDrawer(),
       endDrawer: const FlexoReportDrawer(department: 'crushing'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
