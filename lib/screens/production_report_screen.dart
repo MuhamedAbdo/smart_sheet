@@ -64,6 +64,10 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
   Future<void> _openBoxSafe() async {
     try {
       if (!Hive.isBoxOpen('inkReports')) await Hive.openBox('inkReports');
+      // ✅ FIX: افتح flexo_live_sessions مبكّراً لضمان توفره قبل بناء الواجهة
+      if (!Hive.isBoxOpen('flexo_live_sessions')) {
+        await Hive.openBox<LiveSession>('flexo_live_sessions');
+      }
       if (mounted) {
         setState(() {
           _productionReportBox = Hive.box('inkReports');
@@ -551,66 +555,75 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       body: ValueListenableBuilder(
         valueListenable: _productionReportBox!.listenable(),
         builder: (context, Box box, _) {
-          final isLiveSessionsEmpty = !Hive.isBoxOpen('flexo_live_sessions') ||
-              Hive.box<LiveSession>('flexo_live_sessions').isEmpty;
-          final allRecords =
-              _filterAndSortRecords(box, _searchQuery, _sortDescending);
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: ActiveSessionsDashboard(
-                  department: widget.department,
-                  onFinishSession: (session) => _finishSession(session),
-                  onCancelSession: (session) =>
-                      _cancelSession(session), // ✅ إضافة دالة الإلغاء
-                ),
-              ),
-              if (box.isEmpty && isLiveSessionsEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: Text("🚫 لا يوجد تقارير أو جلسات نشطة")),
-                ),
-              if (box.isNotEmpty || !isLiveSessionsEmpty) ...[
-                SliverToBoxAdapter(
-                  child: _buildSummaryBar(allRecords.length),
-                ),
-                if (_selectedDate != null)
+          // ✅ FIX: استمع أيضاً لـ flexo_live_sessions حتى يتحدث isLiveSessionsEmpty فوراً
+          if (!Hive.isBoxOpen('flexo_live_sessions')) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return ValueListenableBuilder<Box<LiveSession>>(
+            valueListenable:
+                Hive.box<LiveSession>('flexo_live_sessions').listenable(),
+            builder: (context, liveSessionsBox, _) {
+              final isLiveSessionsEmpty = liveSessionsBox.isEmpty;
+              final allRecords =
+                  _filterAndSortRecords(box, _searchQuery, _sortDescending);
+              return CustomScrollView(
+                slivers: [
                   SliverToBoxAdapter(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      color: Colors.blue.withValues(alpha: 0.1),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.filter_list,
-                              size: 16, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Text("تصفية بتاريخ: $_selectedDate",
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue)),
-                          const Spacer(),
-                          TextButton(
-                              onPressed: () =>
-                                  setState(() => _selectedDate = null),
-                              child: const Text("إلغاء"))
-                        ],
+                    child: ActiveSessionsDashboard(
+                      department: widget.department,
+                      onFinishSession: (session) => _finishSession(session),
+                      onCancelSession: (session) =>
+                          _cancelSession(session), // ✅ إضافة دالة الإلغاء
+                    ),
+                  ),
+                  if (box.isEmpty && isLiveSessionsEmpty)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: Text("🚫 لا يوجد تقارير أو جلسات نشطة")),
+                    ),
+                  if (box.isNotEmpty || !isLiveSessionsEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: _buildSummaryBar(allRecords.length),
+                    ),
+                    if (_selectedDate != null)
+                      SliverToBoxAdapter(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          color: Colors.blue.withValues(alpha: 0.1),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.filter_list,
+                                  size: 16, color: Colors.blue),
+                              const SizedBox(width: 8),
+                              Text("تصفية بتاريخ: $_selectedDate",
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue)),
+                              const Spacer(),
+                              TextButton(
+                                  onPressed: () =>
+                                      setState(() => _selectedDate = null),
+                                  child: const Text("إلغاء"))
+                            ],
+                          ),
+                        ),
+                      ),
+                    SliverPadding(
+                      padding: const EdgeInsets.only(bottom: 80),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            return _buildReportCard(allRecords[index]);
+                          },
+                          childCount: allRecords.length,
+                        ),
                       ),
                     ),
-                  ),
-                SliverPadding(
-                  padding: const EdgeInsets.only(bottom: 80),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        return _buildReportCard(allRecords[index]);
-                      },
-                      childCount: allRecords.length,
-                    ),
-                  ),
-                ),
-              ],
-            ],
+                  ],
+                ],
+              );
+            },
           );
         },
       ),

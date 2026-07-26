@@ -44,7 +44,8 @@ class ActiveSessionsDashboard extends StatelessWidget {
             return s.department == 'production_line';
           } else if (department == 'crushing' || department == 'die_cutting') {
             return s.department == 'crushing' || s.department == 'die_cutting';
-          } else if (department == 'flexo') {
+          } else if (department == 'flexo' || department == null) {
+            // ✅ FIX: null يُعامَل كـ 'flexo' (الحالة الافتراضية لشاشة تقرير الإنتاج)
             return s.department == 'flexo' || s.department == null;
           } else {
             return s.department == department;
