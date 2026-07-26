@@ -378,6 +378,55 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       appBar: AppBar(
         title: Text("👤 ${_worker.name}"),
         centerTitle: true,
+        actions: [
+          // ─── قائمة اتصال مدمجة في AppBar ────────────────────────
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.phone_outlined),
+            tooltip: 'خيارات الاتصال',
+            onSelected: (value) {
+              if (value == 'call') {
+                _launchURL('tel:${_worker.phone}');
+              } else if (value == 'whatsapp') {
+                _launchWhatsApp(_worker.phone);
+              } else if (value == 'copy') {
+                _copyPhoneToClipboard();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'call',
+                child: Row(
+                  children: [
+                    Icon(Icons.phone, color: Colors.green, size: 20),
+                    SizedBox(width: 10),
+                    Text('اتصال'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'whatsapp',
+                child: Row(
+                  children: [
+                    Icon(Icons.message, color: Color(0xFF25D366), size: 20),
+                    SizedBox(width: 10),
+                    Text('واتساب'),
+                  ],
+                ),
+              ),
+              if (isWindows)
+                const PopupMenuItem(
+                  value: 'copy',
+                  child: Row(
+                    children: [
+                      Icon(Icons.copy, color: Colors.blue, size: 20),
+                      SizedBox(width: 10),
+                      Text('نسخ الرقم'),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -392,29 +441,32 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
+                    // ─── Header مدمج: Avatar + الوظيفة + حالة التواجد ────
                     Row(
                       children: [
-                        const CircleAvatar(
-                          radius: 25,
-                          child: Icon(Icons.person, size: 30),
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.12),
+                          child: Icon(
+                            Icons.person,
+                            size: 26,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _worker.name,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
                                 "🛠 ${_worker.job}",
                                 style: TextStyle(
                                   color: Colors.grey.shade600,
-                                  fontSize: 14,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -422,31 +474,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                    const Divider(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildHeaderAction(
-                          icon: Icons.phone,
-                          label: "اتصال",
-                          color: Colors.green,
-                          onTap: () => _launchURL("tel:${_worker.phone}"),
-                        ),
-                        _buildHeaderAction(
-                          icon: Icons.message,
-                          label: "واتساب",
-                          color: const Color(0xFF25D366),
-                          onTap: () => _launchWhatsApp(_worker.phone),
-                        ),
-                        if (isWindows)
-                          _buildHeaderAction(
-                            icon: Icons.copy,
-                            label: "نسخ الرقم",
-                            color: Colors.blue,
-                            onTap: _copyPhoneToClipboard,
-                          ),
                       ],
                     ),
                     // ─── منطقة التحكم المركزي في الجهاز (للـ Admin فقط) ───────
@@ -1303,33 +1330,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderAction({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                  color: color, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
       ),
     );
   }
