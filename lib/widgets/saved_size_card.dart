@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:smart_sheet/widgets/full_screen_image_page.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 
 class SavedSizeCard extends StatelessWidget {
   final Map<String, dynamic> record;
@@ -188,7 +189,28 @@ class SavedSizeCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: ElevatedButton.icon(
-                  onPressed: () => _showProductionMenu(context, record),
+                  onPressed: () {
+                    final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+                    if (isSuperAdmin) {
+                      _showProductionMenu(context, record);
+                    } else {
+                      // التوجيه المباشر للعمال (Direct Routing)
+                      final worker = PermissionHelper.currentWorker;
+                      final dept = worker?.department ?? '';
+                      if (dept == 'flexo' && canAddFlexo) {
+                        onStartProduction(record);
+                      } else if (dept == 'production_line' && canAddProductionLine && onStartProductionLine != null) {
+                        onStartProductionLine!(record);
+                      } else if ((dept == 'crushing' || dept == 'die_cutting') && canAddDieCutting && onStartDieCutting != null) {
+                        onStartDieCutting!(record);
+                      } else {
+                        // حالة احتياطية إذا لم يتطابق أي شيء
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('عذراً، لا تمتلك الصلاحية المطلوبة لقسمك.'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  },
                   icon: const Icon(Icons.play_arrow, size: 20),
                   label: const Text("بدء إنتاج", style: TextStyle(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(

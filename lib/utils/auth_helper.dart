@@ -13,16 +13,7 @@ import 'package:smart_sheet/models/worker_model.dart';
 
 /// الأقسام التي لها صلاحيات إنتاجية (تشغيل + تقارير)
 /// أي قسم خارج هذه القائمة يُعامَل على أنه "قسم غير معني بالإنتاج"
-const Set<String> _productionRelatedDepartments = {
-  'flexo',
-  'production_line',
-  'die_cutting',
-  'staples',
-  'general_mgmt',
-  'technical_support',
-  'quality_control',
-  'maintenance',
-};
+// Removed _productionRelatedDepartments
 
 class AuthHelper {
   // ─────────────────────────────────────────────────────────────────────────
@@ -108,26 +99,42 @@ class AuthHelper {
     String targetDepartment,
     String action,
   ) {
+    // القاعدة 2: حظر الأقسام الإدارية والوظائف الإشرافية (Override Rule)
+    // حتى لو كانت صلاحياته بالداتا بيز True، يُمنع من رؤية الأزرار لتلافي تعارض المهام
+    final job = currentUser.job.toLowerCase().trim();
+    final dept = currentUser.department;
+
+    final bool isSupervisoryOrAdmin = job.contains('مشرف') ||
+        job.contains('مدير') ||
+        job.contains('رئيس') ||
+        job.contains('صيانة') ||
+        job.contains('سكرتير') ||
+        job.contains('إدار') ||
+        dept == 'general_mgmt' ||
+        dept == 'secretary' ||
+        dept == 'maintenance' ||
+        dept == 'hr';
+
+    if (isSupervisoryOrAdmin) {
+      return false; // Forbidden from Add/Edit/Delete
+    }
+
+    // التحقق من الصلاحية الأساسية في الداتا بيز
     final bool basePermission = _getProductionPermission(currentUser, action);
+    if (!basePermission) return false;
 
-    // القاعدة 1: المدير الشامل (مدير الإنتاج في الإدارة العامة)
-    if (currentUser.department == 'general_mgmt' &&
-        currentUser.job == 'مدير الإنتاج') {
-      // يملك الصلاحية على كل الأقسام إذا كانت الصلاحية الأساسية مفعّلة
-      return basePermission;
+    // القاعدة 4: التوجيه المباشر ومطابقة القسم
+    // الفني أو العامل لا يحق له إدارة إنتاج إلا في قسمه
+    if (dept == targetDepartment) {
+      return true;
+    }
+    
+    // استثناء خاص بقسم التكسير (عمال التكسير قد يكون قسمهم die_cutting في النظام)
+    if (targetDepartment == 'crushing' && dept == 'die_cutting') {
+      return true;
     }
 
-    // القاعدة 2: الأقسام غير المعنية بالإنتاج → false دائماً
-    if (!_productionRelatedDepartments.contains(currentUser.department)) {
-      return false;
-    }
-
-    // القاعدة 3: المشرف/رئيس القسم المحلي — قسمه فقط
-    if (currentUser.department == targetDepartment) {
-      return basePermission;
-    }
-
-    // قسم مختلف ولم تنطبق أي قاعدة شاملة → false
+    // قسم مختلف → false
     return false;
   }
 

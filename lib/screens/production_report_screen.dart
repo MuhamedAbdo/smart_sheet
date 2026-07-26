@@ -638,9 +638,35 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                     dept, 'canAdd')) {
                   return const SizedBox.shrink();
                 }
-                return FloatingActionButton(
-                  onPressed: () => _showProductionOptionsSheet(),
-                  child: const Icon(Icons.add),
+                return FloatingActionButton.extended(
+                  onPressed: () {
+                    final isSuperAdmin = PermissionHelper.isSuperAdmin;
+                    if (isSuperAdmin) {
+                      _showProductionOptionsSheet();
+                    } else {
+                      final cw = PermissionHelper.currentWorker;
+                      final cDept = cw?.department ?? '';
+                      // التوجيه المباشر بناءً على قسم العامل
+                      if (cDept == 'flexo') {
+                        _showStartSessionDialog();
+                      } else if (cDept == 'production_line') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const StartProductionSessionScreen(),
+                          ),
+                        );
+                      } else if (cDept == 'crushing' || cDept == 'die_cutting') {
+                        // حالة احتياطية للتكسير حيث لا يوجد لديهم شاشة جلسة حية حالياً
+                        _showAddReportDialog();
+                      } else {
+                        // في حال لم يتطابق
+                        _showProductionOptionsSheet();
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('بدء إنتاج', style: TextStyle(fontWeight: FontWeight.bold)),
                 );
               },
             ),
