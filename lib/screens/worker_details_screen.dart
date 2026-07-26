@@ -438,87 +438,50 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // ─── Header مدمج: Avatar + الوظيفة + حالة التواجد ────
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withValues(alpha: 0.12),
-                          child: Icon(
-                            Icons.person,
-                            size: 26,
-                            color: Theme.of(context).colorScheme.primary,
+                    // الجانب الأيمن (بيانات العامل)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withValues(alpha: 0.12),
+                            child: Icon(
+                              Icons.person,
+                              size: 26,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "🛠 ${_worker.job}",
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "🛠 ${_worker.job}",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              _buildWorkerStatusChip(),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    // ─── منطقة التحكم المركزي في الجهاز (للـ Admin فقط) ───────
-                    if (isSuperAdmin) ...[  
-                      const SizedBox(height: 12),
-                      const Divider(),
-                      const SizedBox(height: 4),
-                      _buildDeviceLinkStatus(),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          icon: Icon(
-                            Icons.link_off,
-                            color: _worker.isDeviceLinked ? Colors.white : Colors.grey.shade600,
-                            size: 18,
-                          ),
-                          label: Text(
-                            _worker.isDeviceLinked
-                                ? 'فك ارتباط جهاز العامل'
-                                : 'تم فك ارتباط الجهاز بالفعل',
-                            style: TextStyle(
-                              color: _worker.isDeviceLinked ? Colors.white : Colors.grey.shade600,
-                              fontWeight: FontWeight.bold,
+                                const SizedBox(height: 4),
+                                _buildWorkerStatusChip(),
+                              ],
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _worker.isDeviceLinked
-                                ? const Color(0xFFD32F2F)
-                                : Colors.grey.shade300,
-                            foregroundColor: _worker.isDeviceLinked
-                                ? Colors.white
-                                : Colors.grey.shade600,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            elevation: _worker.isDeviceLinked ? 2 : 0,
-                          ),
-                          onPressed: _worker.isDeviceLinked
-                              ? () => _confirmUnlinkDevice(context)
-                              : null,
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
+                    // الجانب الأيسر (بيانات الجهاز) - للآدمن فقط
+                    if (isSuperAdmin)
+                      _buildCompactDeviceLinkStatus(),
                   ],
                 ),
               ),
@@ -1423,57 +1386,87 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   // Kill Switch UI — للـ Admin فقط
   // ==============================================================================
 
-  /// شارة حالة ارتباط الجهاز: خضراء (مرتبط) أو حمراء (غير مرتبط).
-  Widget _buildDeviceLinkStatus() {
+  /// شارة حالة ارتباط الجهاز المصغرة
+  Widget _buildCompactDeviceLinkStatus() {
     final bool isLinked = _worker.isDeviceLinked;
     final String? deviceId = _worker.deviceId;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isLinked
-            ? Colors.green.withValues(alpha: 0.1)
-            : Colors.orange.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isLinked ? Colors.green.shade300 : Colors.orange.shade300,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isLinked ? Icons.smartphone : Icons.phonelink_erase,
-            color: isLinked ? Colors.green.shade600 : Colors.orange.shade600,
-            size: 18,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isLinked ? 'جهاز مرتبط' : 'لا يوجد جهاز مرتبط',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: isLinked
-                        ? Colors.green.shade700
-                        : Colors.orange.shade700,
-                  ),
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isLinked
+                    ? Colors.green.withValues(alpha: 0.1)
+                    : Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isLinked ? Colors.green.shade300 : Colors.orange.shade300,
                 ),
-                if (deviceId != null && deviceId.isNotEmpty)
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isLinked ? Icons.smartphone : Icons.phonelink_erase,
+                    color: isLinked ? Colors.green.shade600 : Colors.orange.shade600,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
                   Text(
-                    'ID: ${deviceId.length > 16 ? '${deviceId.substring(0, 16)}...' : deviceId}',
+                    isLinked ? 'مرتبط' : 'غير مرتبط',
                     style: TextStyle(
+                      fontWeight: FontWeight.bold,
                       fontSize: 10,
-                      color: Colors.grey.shade600,
+                      color: isLinked ? Colors.green.shade700 : Colors.orange.shade700,
                     ),
                   ),
-              ],
+                ],
+              ),
+            ),
+            if (deviceId != null && deviceId.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              SizedBox(
+                width: 80,
+                child: Text(
+                  'ID: ${deviceId.length > 10 ? '${deviceId.substring(0, 10)}...' : deviceId}',
+                  style: const TextStyle(fontSize: 9, color: Colors.grey),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                ),
+              ),
+            ],
+          ],
+        ),
+        SizedBox(
+          height: 28,
+          child: OutlinedButton(
+            onPressed: isLinked ? () => _confirmUnlinkDevice(context) : null,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              side: BorderSide(
+                color: isLinked ? const Color(0xFFD32F2F) : Colors.grey.shade300,
+              ),
+              foregroundColor: isLinked ? const Color(0xFFD32F2F) : Colors.grey,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            child: const Text(
+              'فك الارتباط',
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
