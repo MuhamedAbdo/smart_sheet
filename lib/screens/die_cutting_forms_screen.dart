@@ -641,9 +641,12 @@ class _DieCuttingFormDialogState extends State<_DieCuttingFormDialog> {
       if (val['processType']?.toString() != 'تكسير') continue;
       if (val['isClientRecord'] == true) continue;
 
-      final identifier = val['id']?.toString() ??
-          val['productCode']?.toString() ??
-          entry.key.toString();
+      final pName = val['productName']?.toString().trim() ?? '';
+      final pCode = val['productCode']?.toString().trim() ?? '';
+      final identifier = (pName.isNotEmpty || pCode.isNotEmpty) 
+          ? '${pName}_$pCode' 
+          : entry.key.toString();
+      
       uniqueItems[identifier] = {
         ...Map<String, dynamic>.from(val),
         '__hiveKey': entry.key
