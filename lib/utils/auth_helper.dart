@@ -99,29 +99,18 @@ class AuthHelper {
     String targetDepartment,
     String action,
   ) {
-    // القاعدة 2: حظر الأقسام الإدارية والوظائف الإشرافية (Override Rule)
-    // حتى لو كانت صلاحياته بالداتا بيز True، يُمنع من رؤية الأزرار لتلافي تعارض المهام
-    final job = currentUser.job.toLowerCase().trim();
     final dept = currentUser.department;
-
-    final bool isSupervisoryOrAdmin = job.contains('مشرف') ||
-        job.contains('مدير') ||
-        job.contains('رئيس') ||
-        job.contains('صيانة') ||
-        job.contains('سكرتير') ||
-        job.contains('إدار') ||
-        dept == 'general_mgmt' ||
-        dept == 'secretary' ||
-        dept == 'maintenance' ||
-        dept == 'hr';
-
-    if (isSupervisoryOrAdmin) {
-      return false; // Forbidden from Add/Edit/Delete
-    }
+    final job = currentUser.job.toLowerCase().trim();
 
     // التحقق من الصلاحية الأساسية في الداتا بيز
     final bool basePermission = _getProductionPermission(currentUser, action);
     if (!basePermission) return false;
+
+    // القاعدة 1: المدير الشامل: الإدارة العليا (مدير عام / مدير الإنتاج)
+    // يُقيّم الصلاحية الأساسية على أي قسم
+    if (job.contains('مدير عام') || job.contains('مدير الإنتاج') || dept == 'general_mgmt') {
+      return true;
+    }
 
     // القاعدة 4: التوجيه المباشر ومطابقة القسم
     // الفني أو العامل لا يحق له إدارة إنتاج إلا في قسمه

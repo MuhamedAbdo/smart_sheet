@@ -776,67 +776,88 @@ class _WorkerFormState extends State<WorkerForm> {
   void _saveWorker() async {
     if (nameController.text.trim().isEmpty) return;
 
-    // جلب factory_id من التخزين الآمن
-    const storage = SafeSecureStorage();
-    final factoryId = await storage.read(key: 'factory_id');
-    
-    final emailVal = emailController.text.trim().isEmpty 
-        ? null 
-        : emailController.text.trim();
+    try {
+      // جلب factory_id من التخزين الآمن
+      const storage = SafeSecureStorage();
+      final factoryId = await storage.read(key: 'factory_id');
+      
+      final emailVal = emailController.text.trim().isEmpty 
+          ? null 
+          : emailController.text.trim();
 
-    // الوظيفة المُختارة نهائياً (selectedJob مضمون غير null بعد initState)
-    final finalJob = selectedJob ?? availableJobs.firstOrNull ?? 'عامل';
+      // الوظيفة المُختارة نهائياً (selectedJob مضمون غير null بعد initState)
+      final finalJob = selectedJob ?? availableJobs.firstOrNull ?? 'عامل';
 
-    if (widget.existingWorker == null) {
-      // إضافة عامل جديد — UUID يُولّد تلقائياً في الـ constructor
-      final worker = Worker(
-        name: nameController.text.trim(),
-        phone: phoneController.text.trim(),
-        job: finalJob,
-        actions: [],
-        factoryId: factoryId,
-        department: selectedDepartment,
-        canAdd: canAdd,
-        canEdit: canEdit,
-        canDelete: canDelete,
-        canManageClientsAdd: canManageClientsAdd,
-        canManageClientsEdit: canManageClientsEdit,
-        canManageClientsDelete: canManageClientsDelete,
-        canAddWorker: canAddWorker,
-        canEditWorker: canEditWorker,
-        canDeleteWorker: canDeleteWorker,
-        email: emailVal,
-      );
+      if (widget.existingWorker == null) {
+        // إضافة عامل جديد — UUID يُولّد تلقائياً في الـ constructor
+        final worker = Worker(
+          name: nameController.text.trim(),
+          phone: phoneController.text.trim(),
+          job: finalJob,
+          actions: [],
+          factoryId: factoryId,
+          department: selectedDepartment,
+          canAdd: canAdd,
+          canEdit: canEdit,
+          canDelete: canDelete,
+          canManageClientsAdd: canManageClientsAdd,
+          canManageClientsEdit: canManageClientsEdit,
+          canManageClientsDelete: canManageClientsDelete,
+          canAddWorker: canAddWorker,
+          canEditWorker: canEditWorker,
+          canDeleteWorker: canDeleteWorker,
+          email: emailVal,
+        );
 
-      // FIX: box.put(syncId) بدلاً من box.add() — مفتاح ثابت يمنع التكرار
-      await widget.box.put(worker.syncId!, worker);
-      debugPrint('✅ [WorkerForm] أُضيف العامل: ${worker.name} (key=${worker.syncId})');
+        // FIX: box.put(syncId) بدلاً من box.add() — مفتاح ثابت يمنع التكرار
+        await widget.box.put(worker.syncId!, worker);
+        debugPrint('✅ [WorkerForm] أُضيف العامل: ${worker.name} (key=${worker.syncId})');
 
-      // رفع للسحاب عبر Queue (يتضمن sync_id تلقائياً من toJson)
-      SyncService.instance.pushToQueue('workers', worker.toJson());
-    } else {
-      final w = widget.existingWorker!;
-      w.name = nameController.text.trim();
-      w.phone = phoneController.text.trim();
-      w.job = finalJob;
-      w.factoryId ??= factoryId;
-      w.department = selectedDepartment;
-      w.canAdd = canAdd;
-      w.canEdit = canEdit;
-      w.canDelete = canDelete;
-      w.canManageClientsAdd = canManageClientsAdd;
-      w.canManageClientsEdit = canManageClientsEdit;
-      w.canManageClientsDelete = canManageClientsDelete;
-      w.canAddWorker = canAddWorker;
-      w.canEditWorker = canEditWorker;
-      w.canDeleteWorker = canDeleteWorker;
-      w.email = emailVal;
-      // نستخدم widget.box.put بدلاً من w.save() لتجنب خطأ (This object is currently not in a box)
-      await widget.box.put(w.syncId!, w);
-      // رفع للسحاب عبر Queue
-      SyncService.instance.pushToQueue('workers', w.toJson());
+        // رفع للسحاب عبر Queue (يتضمن sync_id تلقائياً من toJson)
+        SyncService.instance.pushToQueue('workers', worker.toJson());
+      } else {
+        final w = widget.existingWorker!;
+        w.name = nameController.text.trim();
+        w.phone = phoneController.text.trim();
+        w.job = finalJob;
+        w.factoryId ??= factoryId;
+        w.department = selectedDepartment;
+        w.canAdd = canAdd;
+        w.canEdit = canEdit;
+        w.canDelete = canDelete;
+        w.canManageClientsAdd = canManageClientsAdd;
+        w.canManageClientsEdit = canManageClientsEdit;
+        w.canManageClientsDelete = canManageClientsDelete;
+        w.canAddWorker = canAddWorker;
+        w.canEditWorker = canEditWorker;
+        w.canDeleteWorker = canDeleteWorker;
+        w.email = emailVal;
+        
+        // ✅ الحل الصحيح والآمن للتعامل مع كائنات Hive
+        if (w.isInBox) {
+          await w.save(); // يقوم بتحديث نفسه بمفتاحه الأصلي دون تعارض
+        } else {
+          // مفتاح احتياطي في حال كان الكائن غير مرتبط بصندوق
+          final keyToUse = w.key ?? w.syncId!; 
+          await widget.box.put(keyToUse, w);
+        }
+        
+        // رفع للسحاب عبر Queue
+        SyncService.instance.pushToQueue('workers', w.toJson());
+      }
+      
+      if (mounted) Navigator.pop(context); // الإغلاق فقط عند النجاح
+      
+    } catch (e) {
+      debugPrint("Error saving worker: $e");
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "عفواً، حدث خطأ أثناء الحفظ. (السبب: ${e.toString().split('\n').first})",
+          backgroundColor: Colors.redAccent,
+          icon: Icons.error_outline,
+        );
+      }
     }
-    if (mounted) Navigator.pop(context);
   }
 
   @override

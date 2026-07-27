@@ -841,6 +841,37 @@ class SyncService extends SyncServiceBase
               await _supabase.from(table).upsert(cleanPayload);
             }
           } on PostgrestException catch (e) {
+            // ✅ معالجة تعارض الإيميل للعمال (تحديث بيانات العامل الموجود فعلياً بالسحابة)
+            if (table == 'workers' && e.code == '23505' && e.message.contains('unique_worker_email')) {
+              final workerEmail = cleanPayload['email'];
+              if (workerEmail != null) {
+                debugPrint('⚠️ [Queue] تعارض في البريد الإلكتروني للعامل $workerEmail، محاولة جلب المعرّف من السحابة...');
+                final existingWorker = await _supabase.from('workers').select('id, sync_id').eq('email', workerEmail).maybeSingle();
+                if (existingWorker != null) {
+                  final serverSyncId = existingWorker['sync_id'] ?? existingWorker['id'];
+                  if (serverSyncId != null) {
+                    cleanPayload['sync_id'] = serverSyncId;
+                    cleanPayload['id'] = serverSyncId;
+                    await _supabase.from('workers').upsert(cleanPayload, onConflict: 'sync_id');
+                    
+                    if (Hive.isBoxOpen('workers')) {
+                      final workersBox = Hive.box<Worker>('workers');
+                      for (final w in workersBox.values) {
+                        if (w.email == workerEmail) {
+                          w.id = serverSyncId;
+                          await w.save();
+                          break;
+                        }
+                      }
+                    }
+                    debugPrint('✅ [Queue] تم حل تعارض البريد ورفع بيانات العامل بنجاح.');
+                    keysToDelete.add(key);
+                    continue;
+                  }
+                }
+              }
+            }
+
             // ✅ حماية ذكية ضد أخطاء اختلاف هيكل قاعدة البيانات (مثل عدم وجود عمود department أو shift أو technician_id في جدول live_sessions بالسحابة)
             if (e.code == 'PGRST204' ||
                 e.code == '42703' ||
