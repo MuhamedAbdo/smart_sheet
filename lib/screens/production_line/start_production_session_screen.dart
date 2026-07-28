@@ -182,7 +182,7 @@ class _StartProductionSessionScreenState
 
       if (mounted) {
         UIUtils.showInfoSnackBar(
-          message: '⚡ تم بدء جلسة خط الإنتاج بنجاح ($_selectedShift)',
+          message: '⚡ تم بدء تشغيل خط الإنتاج بنجاح ($_selectedShift)',
           backgroundColor: Colors.green,
         );
         Navigator.pop(context, true);
@@ -209,7 +209,7 @@ class _StartProductionSessionScreenState
       child: Scaffold(
         appBar: AppBar(
           title: const Text(
-            '🚀 بدء جلسة تشغيل خط الإنتاج',
+            '🚀 بدء تشغيل خط الإنتاج',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           centerTitle: true,

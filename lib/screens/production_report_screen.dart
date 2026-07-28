@@ -1165,7 +1165,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 icon: Icons.play_circle_filled_rounded,
                 iconColor: Colors.green.shade600,
                 bgColor: Colors.green.shade600.withValues(alpha: 0.10),
-                title: 'بدء جلسة حية 🚀',
+                title: 'بدء تشغيل 🚀',
                 subtitle: 'تشغيل المؤقت وبدء العمل الآن.',
                 isDark: isDark,
                 subtitleColor: subtitleColor,
@@ -1359,63 +1359,54 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       'notes': "",
     };
 
-    // ─── الترتيب الصحيح: احذف الجلسة أولاً ثم افتح نموذج التقرير ───
-    // هذا يضمن أن الجلسة لن تتكرر حتى لو أغلق المستخدم نموذج التقرير بدون حفظ
-    session.delete().then((_) {
-      SyncService.instance.pushToQueue(
-        'live_sessions',
-        {'sync_id': sessionId, 'id': sessionId},
-        operation: 'delete',
-      );
-      debugPrint(
-          '✅ _finishSession: تم حذف الجلسة محلياً ومزامنتها مع Supabase (id=$sessionId)');
+    // ─── الترتيب الجديد: فتح نموذج التقرير أولاً وحذف الجلسة فقط عند الحفظ بنجاح ───
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: true,
+      builder: (c) => ProductionReportForm(
+        initialData: initialData,
+        department: session.department ?? widget.department,
+        onSave: (r) async {
+          try {
+            final syncId = const Uuid().v4();
+            r['sync_id'] = syncId;
+            r['id'] = syncId;
 
-      if (!mounted) {
-        _isFinishingSession = false;
-        return;
-      }
+            // حفظ محلي بمفتاح ثابت لمنع التكرار
+            await _productionReportBox!.put(syncId, r);
 
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        isDismissible: true,
-        builder: (c) => ProductionReportForm(
-          initialData: initialData,
-          department: session.department ?? widget.department,
-          onSave: (r) async {
-            try {
-              final syncId = const Uuid().v4();
-              r['sync_id'] = syncId;
-              r['id'] = syncId;
+            // مزامنة فورية مع Supabase
+            final reportObj = ProductionReport.fromJson(r);
+            SyncService.instance
+                .pushToQueue('production_reports', reportObj.toJson());
 
-              // حفظ محلي بمفتاح ثابت لمنع التكرار
-              await _productionReportBox!.put(syncId, r);
+            debugPrint(
+                '✅ _finishSession: تم حفظ التقرير ورفعه للمزامنة (sync_id=$syncId)');
 
-              // مزامنة فورية مع Supabase
-              final reportObj = ProductionReport.fromJson(r);
-              SyncService.instance
-                  .pushToQueue('production_reports', reportObj.toJson());
+            // ─── حذف الجلسة بعد نجاح الحفظ ───
+            await session.delete();
+            SyncService.instance.pushToQueue(
+              'live_sessions',
+              {'sync_id': sessionId, 'id': sessionId},
+              operation: 'delete',
+            );
+            debugPrint(
+                '✅ _finishSession: تم حذف الجلسة الجارية بعد نجاح الحفظ (id=$sessionId)');
 
-              debugPrint(
-                  '✅ _finishSession: تم حفظ التقرير ورفعه للمزامنة (sync_id=$syncId)');
-
-              if (c.mounted) Navigator.of(c).pop();
-            } catch (saveError) {
-              debugPrint(
-                  '❌ _finishSession.onSave: فشل حفظ التقرير: $saveError');
-              // الجلسة تم حذفها بالفعل — لا خطر من التكرار
-              if (c.mounted) Navigator.of(c).pop();
-            }
-          },
-        ),
-      ).whenComplete(() {
-        // تحرير الحارس بعد إغلاق النموذج (سواء بالحفظ أو بالإغلاق)
+            if (c.mounted) Navigator.of(c).pop();
+          } catch (saveError) {
+            debugPrint(
+                '❌ _finishSession.onSave: فشل حفظ التقرير: $saveError');
+          }
+        },
+      ),
+    ).whenComplete(() {
+      // تحرير الحارس بعد إغلاق النموذج (سواء بالحفظ أو بالإغلاق)
+      if (mounted) {
         _isFinishingSession = false;
         debugPrint('🔓 _finishSession: تم تحرير الحارس. جاهز لجلسة جديدة.');
-      });
-    }).catchError((e) {
-      debugPrint('❌ _finishSession: فشل حذف الجلسة: $e');
-      _isFinishingSession = false; // فشل — نعيد تفعيل الزر
+      }
     });
   }
 

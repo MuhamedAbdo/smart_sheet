@@ -69,7 +69,7 @@ class ActiveSessionsDashboard extends StatelessWidget {
                     Icon(Icons.bolt, color: Colors.amber, size: 20),
                     SizedBox(width: 8),
                     Text(
-                      'الجلسات النشطة حالياً',
+                      'أوامر التشغيل الجارية',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,

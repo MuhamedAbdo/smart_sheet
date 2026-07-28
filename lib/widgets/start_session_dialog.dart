@@ -77,7 +77,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              '🚀 بدء أوردر جديد (جلسة حية)',
+              '🚀 بدء تشغيل أوردر جديد',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),

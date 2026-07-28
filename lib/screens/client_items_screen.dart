@@ -711,13 +711,13 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
 
               const SizedBox(height: 20),
 
-              // ─── الخيار الأول: بدء جلسة حية ───────────────────────────
+              // ─── الخيار الأول: بدء تشغيل ───────────────────────────
               _buildProductionOptionTile(
                 context: sheetCtx,
                 icon: Icons.play_circle_filled_rounded,
                 iconColor: Colors.green.shade600,
                 bgColor: Colors.green.shade600.withValues(alpha: 0.1),
-                title: 'بدء جلسة حية 🚀',
+                title: 'بدء تشغيل 🚀',
                 subtitle: 'تشغيل المؤقت وبدء العمل الآن.',
                 isDark: isDark,
                 subtitleColor: subtitleColor,
