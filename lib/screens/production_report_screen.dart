@@ -656,11 +656,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                             builder: (_) => const StartProductionSessionScreen(),
                           ),
                         );
-                      } else if (cDept == 'crushing' || cDept == 'die_cutting') {
-                        // حالة احتياطية للتكسير حيث لا يوجد لديهم شاشة جلسة حية حالياً
-                        _showAddReportDialog();
                       } else {
-                        // في حال لم يتطابق
+                        // للأقسام الأخرى مثل التكسير يتم إظهار الخيارات
                         _showProductionOptionsSheet();
                       }
                     }
@@ -1070,14 +1067,15 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => const StartSessionDialog(),
+      builder: (context) => StartSessionDialog(department: widget.department ?? 'flexo'),
     );
   }
 
   // ─── BottomSheet خيارات بدء الإنتاج (الـ FAB) ─────────────────────────────────
   void _showProductionOptionsSheet() {
     final dept = widget.department ?? 'flexo';
-    final isFlexo = dept != 'production_line';
+    final isProductionLine = dept == 'production_line';
+    final isDieCutting = dept == 'crushing' || dept == 'die_cutting';
 
     showModalBottomSheet(
       context: context,
@@ -1128,25 +1126,31 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: (isFlexo
-                              ? Colors.blue.shade700
-                              : Colors.green.shade700)
+                      color: (isProductionLine
+                              ? Colors.green.shade700
+                              : isDieCutting
+                                  ? Colors.purple.shade700
+                                  : Colors.blue.shade700)
                           .withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      isFlexo ? Icons.precision_manufacturing : Icons.factory,
-                      color: isFlexo
-                          ? Colors.blue.shade700
-                          : Colors.green.shade700,
+                      isProductionLine ? Icons.factory : isDieCutting ? Icons.content_cut : Icons.precision_manufacturing,
+                      color: isProductionLine
+                          ? Colors.green.shade700
+                          : isDieCutting
+                              ? Colors.purple.shade700
+                              : Colors.blue.shade700,
                       size: 22,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    isFlexo
-                        ? 'إضافة أوردر — فلكسو'
-                        : 'إضافة أوردر — خط الإنتاج',
+                    isProductionLine
+                        ? 'إضافة أوردر — خط الإنتاج'
+                        : isDieCutting
+                            ? 'إضافة أوردر — التكسير'
+                            : 'إضافة أوردر — فلكسو',
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
@@ -1167,15 +1171,15 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                 subtitleColor: subtitleColor,
                 onTap: () {
                   Navigator.pop(sheetCtx);
-                  if (isFlexo) {
-                    _showStartSessionDialog();
-                  } else {
+                  if (isProductionLine) {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => const StartProductionSessionScreen(),
                       ),
                     );
+                  } else {
+                    _showStartSessionDialog();
                   }
                 },
               ),

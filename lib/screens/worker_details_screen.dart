@@ -361,6 +361,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   Widget build(BuildContext context) {
     final isWindows = !kIsWeb && Platform.isWindows;
     final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+    final Worker? cw = PermissionHelper.currentWorker;
+    final bool canManageActions = isSuperAdmin || (cw?.canEditWorker == true);
 
     bool canManageForThisWorker(bool Function(Worker) checkPerm) {
       final Worker? cw = PermissionHelper.currentWorker;
@@ -479,8 +481,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                         ],
                       ),
                     ),
-                    // الجانب الأيسر (بيانات الجهاز) - للآدمن فقط
-                    if (isSuperAdmin)
+                    // الجانب الأيسر (بيانات الجهاز) - للآدمن ومن لديه صلاحية
+                    if (canManageActions)
                       _buildCompactDeviceLinkStatus(),
                   ],
                 ),
@@ -558,8 +560,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
                       return WorkerActionCard(
                         action: displayedAction,
-                        showEditButton: isSuperAdmin || (canEditThisWorker && isOwner),
-                        showDeleteButton: isSuperAdmin || (canDeleteThisWorker && isOwner),
+                        showEditButton: canManageActions || (canEditThisWorker && isOwner),
+                        showDeleteButton: canManageActions || (canDeleteThisWorker && isOwner),
                         onRefresh: _refresh,
                         onEdit: () async {
                           if (originalIndex != -1) {
@@ -659,6 +661,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         valueListenable: widget.box.listenable(),
         builder: (context, _, __) {
           final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+          final Worker? cw = PermissionHelper.currentWorker;
+          final bool canManageActions = isSuperAdmin || (cw?.canEditWorker == true);
 
           // شروط المشرف / رئيس القسم:
           // نفس القسم كالعامل المعروض + صلاحية canAdd
@@ -671,7 +675,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             return isSupervisor && sameDept && cw.canAdd;
           }
 
-          final bool showFab = isSuperAdmin || canAddForThisWorker();
+          final bool showFab = canManageActions || canAddForThisWorker();
           if (!showFab) return const SizedBox.shrink();
 
           return FloatingActionButton(
@@ -700,6 +704,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
           builder: (context) {
             final bool isOwner = _isActionOwner(activeAction);
             final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+            final Worker? cw = PermissionHelper.currentWorker;
+            final bool canManageActions = isSuperAdmin || (cw?.canEditWorker == true);
 
             bool canManageForThisWorker(bool Function(Worker) checkPerm) {
               final Worker? cw = PermissionHelper.currentWorker;
@@ -715,8 +721,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             return ActiveAbsenceCard(
               worker: _worker,
               action: activeAction,
-              showEditButton: isSuperAdmin || (canEditThisWorker && isOwner),
-              showDeleteButton: isSuperAdmin || (canDeleteThisWorker && isOwner),
+              showEditButton: canManageActions || (canEditThisWorker && isOwner),
+              showDeleteButton: canManageActions || (canDeleteThisWorker && isOwner),
               onRefresh: _refresh,
               onEdit: () {
                 final idx = _worker.actions.indexOf(activeAction);
