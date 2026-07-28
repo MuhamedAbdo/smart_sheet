@@ -3,6 +3,10 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/screens/archive_detail_screen.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/utils/archive_rbac_logic.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/models/worker_model.dart';
+import 'package:flutter/foundation.dart';
 
 class FlexoArchiveScreen extends StatefulWidget {
   final String? department;
@@ -330,10 +334,21 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       );
     }
 
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
+    return ValueListenableBuilder<dynamic>(
+      valueListenable: (Hive.isBoxOpen('workers') 
+          ? Hive.box<Worker>('workers').listenable()
+          : ValueNotifier<Box<Worker>?>(null)) as ValueListenable<dynamic>,
+      builder: (context, workersBox, _) {
+        final bool isDark = Theme.of(context).brightness == Brightness.dark;
+        final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
 
-    return Scaffold(
+        final Worker? cw = PermissionHelper.currentWorker;
+        final String currentScreenDept = widget.department ?? 'flexo';
+        final String normalizedDept = (currentScreenDept == 'crushing' && cw?.department == 'die_cutting') 
+            ? 'die_cutting' 
+            : currentScreenDept;
+
+        return Scaffold(
       appBar: AppBar(
         iconTheme: IconThemeData(color: appBarIconColor),
         leading: Navigator.canPop(context)
@@ -391,29 +406,36 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                 _clearArchive();
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                  value: 'search',
-                  child:
-                      ListTile(leading: Icon(Icons.search), title: Text('بحث'))),
-              const PopupMenuItem(
-                  value: 'filter',
-                  child: ListTile(
-                      leading: Icon(Icons.calendar_month),
-                      title: Text('تصفية بالتاريخ'))),
-              const PopupMenuItem(
-                  value: 'restore',
-                  child: ListTile(
-                      leading: Icon(Icons.settings_backup_restore),
-                      title: Text('استعادة الكل'))),
-              const PopupMenuItem(
-                  value: 'clear',
-                  child: ListTile(
-                      leading:
-                          Icon(Icons.delete_sweep_outlined, color: Colors.red),
-                      title: Text('مسح الأرشيف',
-                          style: TextStyle(color: Colors.red)))),
-            ],
+            itemBuilder: (context) {
+              final bool showRestoreAll = PermissionHelper.isSuperAdmin || ArchiveRbacService.canRestore(cw, normalizedDept);
+              final bool showClearArchive = PermissionHelper.isSuperAdmin || ArchiveRbacService.canDelete(cw, normalizedDept);
+              
+              return [
+                const PopupMenuItem(
+                    value: 'search',
+                    child:
+                        ListTile(leading: Icon(Icons.search), title: Text('بحث'))),
+                const PopupMenuItem(
+                    value: 'filter',
+                    child: ListTile(
+                        leading: Icon(Icons.calendar_month),
+                        title: Text('تصفية بالتاريخ'))),
+                if (showRestoreAll)
+                  const PopupMenuItem(
+                      value: 'restore',
+                      child: ListTile(
+                          leading: Icon(Icons.settings_backup_restore),
+                          title: Text('استعادة الكل'))),
+                if (showClearArchive)
+                  const PopupMenuItem(
+                      value: 'clear',
+                      child: ListTile(
+                          leading:
+                              Icon(Icons.delete_sweep_outlined, color: Colors.red),
+                          title: Text('مسح الأرشيف',
+                              style: TextStyle(color: Colors.red)))),
+              ];
+            },
           ),
         ],
         bottom: PreferredSize(
@@ -561,6 +583,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
         },
       ),
     );
+      }
+    );
   }
 
   Widget _buildArchiveInfoRow(IconData icon, String label, String value, {Color? valueColor}) {
@@ -682,26 +706,38 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                   final isNarrow = constraints.maxWidth < 420;
 
                   // ─── الأزرار (مشتركة بين الحالتين) ───────────────
+                  final Worker? cw = PermissionHelper.currentWorker;
+                  final String currentScreenDept = widget.department ?? 'flexo';
+                  final String normalizedDept = (currentScreenDept == 'crushing' && cw?.department == 'die_cutting') 
+                      ? 'die_cutting' 
+                      : currentScreenDept;
+
+                  final bool showRestore = PermissionHelper.isSuperAdmin || ArchiveRbacService.canRestore(cw, normalizedDept);
+                  final bool showDelete = PermissionHelper.isSuperAdmin || ArchiveRbacService.canDelete(cw, normalizedDept);
+
                   final actionButtons = Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.settings_backup_restore,
-                            color: Colors.green),
-                        onPressed: () => _restoreEntry(key, data),
-                        tooltip: "إستعادة للرئيسية",
-                      ),
-                      const SizedBox(width: 12),
-                      IconButton(
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
-                        icon: Icon(Icons.delete_outline,
-                            color: Colors.red.shade300),
-                        onPressed: () => _deleteEntry(key),
-                        tooltip: "حذف من الأرشيف",
-                      ),
+                      if (showRestore)
+                        IconButton(
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(Icons.settings_backup_restore,
+                              color: Colors.green),
+                          onPressed: () => _restoreEntry(key, data),
+                          tooltip: "إستعادة للرئيسية",
+                        ),
+                      if (showRestore && showDelete)
+                        const SizedBox(width: 12),
+                      if (showDelete)
+                        IconButton(
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                          icon: Icon(Icons.delete_outline,
+                              color: Colors.red.shade300),
+                          onPressed: () => _deleteEntry(key),
+                          tooltip: "حذف من الأرشيف",
+                        ),
                     ],
                   );
 

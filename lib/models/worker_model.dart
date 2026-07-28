@@ -91,6 +91,22 @@ class Worker extends HiveObject {
   @HiveField(19, defaultValue: false)
   late bool canDeleteWorker;
 
+  /// صلاحية قراءة الأرشيف (عامة لجميع الأقسام)
+  @HiveField(20, defaultValue: false)
+  late bool canReadArchive;
+
+  /// صلاحية إضافة للأرشيف (محدودة بالقسم)
+  @HiveField(21, defaultValue: false)
+  late bool canAddArchive;
+
+  /// صلاحية استعادة الأرشيف (محدودة بالقسم)
+  @HiveField(22, defaultValue: false)
+  late bool canRestoreArchive;
+
+  /// صلاحية حذف من الأرشيف (محدودة بالقسم)
+  @HiveField(23, defaultValue: false)
+  late bool canDeleteArchive;
+
   /// Alias for [id] — kept for backward compatibility with SyncService
   String? get syncId => id;
 
@@ -115,6 +131,10 @@ class Worker extends HiveObject {
     this.canAddWorker = false,
     this.canEditWorker = false,
     this.canDeleteWorker = false,
+    this.canReadArchive = false,
+    this.canAddArchive = false,
+    this.canRestoreArchive = false,
+    this.canDeleteArchive = false,
   }) {
     // Generate valid UUID v4 if not provided or invalid (fixes 22P02 error in Supabase)
     if (id == null || !id!.contains('-')) {
@@ -294,6 +314,10 @@ class Worker extends HiveObject {
       'can_add_worker': canAddWorker,
       'can_edit_worker': canEditWorker,
       'can_delete_worker': canDeleteWorker,
+      'can_read_archive': canReadArchive,
+      'can_add_archive': canAddArchive,
+      'can_restore_archive': canRestoreArchive,
+      'can_delete_archive': canDeleteArchive,
     };
   }
 
@@ -303,7 +327,7 @@ class Worker extends HiveObject {
         actionsList.map((a) => WorkerAction.fromJson(a)).toList();
 
     return Worker(
-      id: (map['id'] ?? map['sync_id'])?.toString(),
+      id: (map['sync_id'] ?? map['id'])?.toString(),
       name: map['name'] ?? '',
       phone: map['phone'] ?? '',
       job: map['job'] ?? '',
@@ -323,6 +347,10 @@ class Worker extends HiveObject {
       canAddWorker: map['can_add_worker'] ?? map['canAddWorker'] ?? false,
       canEditWorker: map['can_edit_worker'] ?? map['canEditWorker'] ?? false,
       canDeleteWorker: map['can_delete_worker'] ?? map['canDeleteWorker'] ?? false,
+      canReadArchive: map['can_read_archive'] ?? map['canReadArchive'] ?? false,
+      canAddArchive: map['can_add_archive'] ?? map['canAddArchive'] ?? false,
+      canRestoreArchive: map['can_restore_archive'] ?? map['canRestoreArchive'] ?? false,
+      canDeleteArchive: map['can_delete_archive'] ?? map['canDeleteArchive'] ?? false,
     );
   }
 }

@@ -17,6 +17,7 @@ import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/utils/auth_helper.dart';
 import 'package:smart_sheet/screens/production_line/start_production_session_screen.dart';
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/utils/archive_rbac_logic.dart';
 import 'dart:async';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -443,18 +444,15 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               builder: (context, _, __) {
                 final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
 
-                // شرط إظهار نقل/فتح الأرشيف (بنفس الأسلوب المعتمد لجميع الأقسام):
-                // Super Admin OR (وظيفته رئيس قسم/مشرف AND قسمه متطابق مع القسم المعروض AND canDelete==true)
+                // استخدام صلاحيات الأرشيف الجديدة (ArchiveRbacService)
                 final Worker? cw = PermissionHelper.currentWorker;
                 final String currentScreenDept = widget.department ?? 'flexo';
-                final bool deptMatch = (currentScreenDept == 'crushing')
-                    ? (cw?.department == 'crushing' || cw?.department == 'die_cutting')
-                    : (cw?.department == currentScreenDept);
-                final bool isDeptManager = cw != null &&
-                    (cw.job == 'رئيس قسم' || cw.job == 'مشرف') &&
-                    deptMatch &&
-                    cw.canDelete == true;
-                final bool showArchiveOptions = isSuperAdmin || isDeptManager;
+                final String normalizedDept = (currentScreenDept == 'crushing' && cw?.department == 'die_cutting') 
+                    ? 'die_cutting' 
+                    : currentScreenDept;
+
+                final bool showArchiveOpen = isSuperAdmin || ArchiveRbacService.canRead(cw);
+                final bool showArchiveMove = isSuperAdmin || ArchiveRbacService.canAdd(cw, normalizedDept);
 
                 return PopupMenuButton<String>(
                   icon: Icon(Icons.more_vert, color: appBarIconColor),
@@ -489,13 +487,13 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                         child: ListTile(
                             leading: Icon(Icons.calendar_month),
                             title: Text('تصفية بالتاريخ'))),
-                    if (showArchiveOptions)
+                    if (showArchiveMove)
                       const PopupMenuItem(
                           value: 'archive_move',
                           child: ListTile(
                               leading: Icon(Icons.inventory_2),
                               title: Text('نقل للأرشيف'))),
-                    if (showArchiveOptions)
+                    if (showArchiveOpen)
                       const PopupMenuItem(
                           value: 'archive_open',
                           child: ListTile(

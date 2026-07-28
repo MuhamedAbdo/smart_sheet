@@ -166,7 +166,7 @@ class WorkerAction extends HiveObject {
 
   factory WorkerAction.fromJson(Map<String, dynamic> map) {
     return WorkerAction(
-      id: (map['id'] ?? map['sync_id'])?.toString(),
+      id: (map['sync_id'] ?? map['id'])?.toString(),
       type: map['type'] ?? 'إجازة',
       days: (map['days'] as num?)?.toDouble() ?? 1.0,
       date: DateTime.tryParse(map['date'] ?? '') ?? DateTime.now(),

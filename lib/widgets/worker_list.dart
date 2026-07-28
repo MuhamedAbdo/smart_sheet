@@ -6,13 +6,15 @@ import 'package:smart_sheet/screens/worker_details_screen.dart';
 import 'package:smart_sheet/widgets/worker_form.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/utils/auth_helper.dart';
 
 class WorkerList extends StatelessWidget {
   final Box<Worker> box; // ✅ إضافة الحقل
   final String? filterDepartment; // ✅ تصفية حية حسب القسم
 
-  const WorkerList({super.key, required this.box, this.filterDepartment}); // ✅ تعديل المُنشئ
+  const WorkerList(
+      {super.key, required this.box, this.filterDepartment}); // ✅ تعديل المُنشئ
 
   @override
   Widget build(BuildContext context) {
@@ -22,10 +24,13 @@ class WorkerList extends StatelessWidget {
         final allWorkers = box.values.toList();
         final filteredWorkers = filterDepartment == null
             ? allWorkers
-            : allWorkers.where((w) => w.department == filterDepartment).toList();
+            : allWorkers
+                .where((w) => w.department == filterDepartment)
+                .toList();
 
         // ✅ ترتيب تصاعدي بناءً على الرتبة الإدارية والتشغيلية
-        filteredWorkers.sort((a, b) => _getJobWeight(a.job).compareTo(_getJobWeight(b.job)));
+        filteredWorkers.sort(
+            (a, b) => _getJobWeight(a.job).compareTo(_getJobWeight(b.job)));
 
         if (filteredWorkers.isEmpty) {
           return const Center(child: Text("🚫 لا يوجد عمال في هذا القسم بعد"));
@@ -57,19 +62,33 @@ class WorkerList extends StatelessWidget {
                       UIUtils.showDeleteConfirmation(
                         context: context,
                         title: "حذف العامل",
-                        content: "هل أنت متأكد من حذف العامل \"${worker.name}\"؟",
+                        content:
+                            "هل أنت متأكد من حذف العامل \"${worker.name}\"؟",
                         onConfirm: () async {
                           final messenger = ScaffoldMessenger.of(context);
                           final workerJson = worker.toJson();
                           if (hiveKey != null) {
                             await box.delete(hiveKey);
                           }
+                          try {
+                            // ✅ الحذف المباشر لتجنب عودة العامل المحذوف عند إعادة التشغيل قبل معالجة الطابور
+                            await Supabase.instance.client
+                                .from('workers')
+                                .delete()
+                                .eq('sync_id', syncId);
+                            debugPrint(
+                                '🗑️ [WorkerList] تم الحذف المباشر من السحابة [sync_id=$syncId]');
+                          } catch (e) {
+                            debugPrint(
+                                '⚠️ [WorkerList] الحذف المباشر فشل، سيتم الاعتماد على الطابور: $e');
+                          }
                           SyncService.instance.pushToQueue(
                             'workers',
                             {'sync_id': syncId, 'id': syncId},
                             operation: 'delete',
                           );
-                          debugPrint('🗑️ [WorkerList] تم إرسال طلب حذف [sync_id=$syncId] إلى Queue');
+                          debugPrint(
+                              '🗑️ [WorkerList] تم إرسال طلب حذف [sync_id=$syncId] إلى Queue');
                           if (!context.mounted) return;
                           messenger.clearSnackBars();
                           UIUtils.showUndoSnackBar(
@@ -80,8 +99,10 @@ class WorkerList extends StatelessWidget {
                               if (hiveKey != null) {
                                 await box.put(hiveKey, worker);
                               }
-                              SyncService.instance.pushToQueue('workers', workerJson);
-                              debugPrint('↩️ [WorkerList] إلغاء الحذف — تم إعادة sync_id=$syncId');
+                              SyncService.instance
+                                  .pushToQueue('workers', workerJson);
+                              debugPrint(
+                                  '↩️ [WorkerList] إلغاء الحذف — تم إعادة sync_id=$syncId');
                             },
                           );
                         },
@@ -92,7 +113,8 @@ class WorkerList extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => WorkerDetailsScreen(worker: worker, box: box),
+                    builder: (_) =>
+                        WorkerDetailsScreen(worker: worker, box: box),
                   ),
                 );
               },

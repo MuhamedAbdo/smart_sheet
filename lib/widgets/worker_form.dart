@@ -50,6 +50,10 @@ class _WorkerFormState extends State<WorkerForm> {
   late bool canAddWorker;
   late bool canEditWorker;
   late bool canDeleteWorker;
+  late bool canReadArchive;
+  late bool canAddArchive;
+  late bool canRestoreArchive;
+  late bool canDeleteArchive;
 
   /// قائمة الوظائف المتاحة بناءً على القسم المختار — تُحدَّث ديناميكياً
   List<String> availableJobs = [];
@@ -193,6 +197,10 @@ class _WorkerFormState extends State<WorkerForm> {
     canAddWorker    = widget.existingWorker?.canAddWorker    ?? false;
     canEditWorker   = widget.existingWorker?.canEditWorker   ?? false;
     canDeleteWorker = widget.existingWorker?.canDeleteWorker ?? false;
+    canReadArchive  = widget.existingWorker?.canReadArchive  ?? false;
+    canAddArchive   = widget.existingWorker?.canAddArchive   ?? false;
+    canRestoreArchive = widget.existingWorker?.canRestoreArchive ?? false;
+    canDeleteArchive= widget.existingWorker?.canDeleteArchive?? false;
 
     // تحميل أي أقسام أو وظائف مخصصة محفوظة في SharedPreferences
     _loadCustomDepartmentsAndJobsFromPrefs();
@@ -806,6 +814,10 @@ class _WorkerFormState extends State<WorkerForm> {
           canAddWorker: canAddWorker,
           canEditWorker: canEditWorker,
           canDeleteWorker: canDeleteWorker,
+          canReadArchive: canReadArchive,
+          canAddArchive: canAddArchive,
+          canRestoreArchive: canRestoreArchive,
+          canDeleteArchive: canDeleteArchive,
           email: emailVal,
         );
 
@@ -831,6 +843,10 @@ class _WorkerFormState extends State<WorkerForm> {
         w.canAddWorker = canAddWorker;
         w.canEditWorker = canEditWorker;
         w.canDeleteWorker = canDeleteWorker;
+        w.canReadArchive = canReadArchive;
+        w.canAddArchive = canAddArchive;
+        w.canRestoreArchive = canRestoreArchive;
+        w.canDeleteArchive = canDeleteArchive;
         w.email = emailVal;
         
         // ✅ الحل الصحيح والآمن للتعامل مع كائنات Hive
@@ -1042,6 +1058,39 @@ class _WorkerFormState extends State<WorkerForm> {
                   value: canDeleteWorker,
                   dense: true,
                   onChanged: (val) => setState(() => canDeleteWorker = val ?? false),
+                ),
+                const SizedBox(height: 10),
+                const Divider(),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4.0),
+                    child: Text("🔒 صلاحيات الأرشيف:", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                CheckboxListTile(
+                  title: const Text("قراءة الأرشيف (جميع الأقسام)"),
+                  value: canReadArchive,
+                  dense: true,
+                  onChanged: (val) => setState(() => canReadArchive = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text("إضافة للأرشيف (نفس القسم فقط)"),
+                  value: canAddArchive,
+                  dense: true,
+                  onChanged: (val) => setState(() => canAddArchive = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text("استعادة الأرشيف (نفس القسم فقط)"),
+                  value: canRestoreArchive,
+                  dense: true,
+                  onChanged: (val) => setState(() => canRestoreArchive = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text("حذف من الأرشيف (نفس القسم فقط)"),
+                  value: canDeleteArchive,
+                  dense: true,
+                  onChanged: (val) => setState(() => canDeleteArchive = val ?? false),
                 ),
               ],
             ],

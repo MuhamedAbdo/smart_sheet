@@ -8,6 +8,7 @@ import 'package:smart_sheet/screens/flexo_archive_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/utils/archive_rbac_logic.dart';
 
 class DesktopSidebar extends StatefulWidget {
   const DesktopSidebar({super.key});
@@ -19,21 +20,13 @@ class DesktopSidebar extends StatefulWidget {
 class _DesktopSidebarState extends State<DesktopSidebar> {
   int _selectedIndex = 0;
 
-  /// نفس أسلوب الفلترة المستخدم في الأندرويد لشرط إظهار الأرشيف:
-  /// Super Admin OR (وظيفته رئيس قسم/مشرف AND قسمه مطابق AND canDelete == true)
+  /// استخدام صلاحيات الأرشيف
   bool _canViewArchive(String targetDepartment) {
     if (PermissionHelper.isSuperAdmin) return true;
     final Worker? cw = PermissionHelper.currentWorker;
     if (cw == null) return false;
 
-    final bool isManager = (cw.job == 'رئيس قسم' || cw.job == 'مشرف') &&
-        cw.canDelete == true;
-    if (!isManager) return false;
-
-    if (targetDepartment == 'crushing') {
-      return cw.department == 'crushing' || cw.department == 'die_cutting';
-    }
-    return cw.department == targetDepartment;
+    return ArchiveRbacService.canRead(cw);
   }
 
   @override

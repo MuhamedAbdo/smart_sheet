@@ -6,6 +6,8 @@ import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/widgets/active_absences_dashboard.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/utils/auth_helper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class WorkersScreen extends StatelessWidget {
   final String departmentBoxName;
@@ -28,7 +30,8 @@ class WorkersScreen extends StatelessWidget {
     } else if (departmentBoxName == 'workers_crushing') {
       filterDept = 'die_cutting';
     } else if (departmentBoxName == 'workers_staple') {
-      filterDept = 'staples'; // الدبوس والتعبئة — كود مستقل عن die_cutting (التكسير)
+      filterDept =
+          'staples'; // الدبوس والتعبئة — كود مستقل عن die_cutting (التكسير)
     } else if (departmentBoxName == 'workers_general_mgmt') {
       filterDept = 'general_mgmt';
     } else if (departmentBoxName == 'workers_technical_support') {
@@ -85,7 +88,8 @@ class WorkersScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildScreenContent(BuildContext context, Box<Worker> box, String? filterDept) {
+  Widget _buildScreenContent(
+      BuildContext context, Box<Worker> box, String? filterDept) {
     // إغلاق الإجراءات المؤقتة القديمة في الخلفية
     Worker.autoCloseHourlyActionsGlobal();
 
@@ -113,12 +117,13 @@ class WorkersScreen extends StatelessWidget {
         builder: (context, _, __) {
           // فحص RBAC: هل يملك المستخدم صلاحية إضافة عامل في هذا القسم تحديداً؟
           if (!AuthHelper.currentUserCanManageWorkers(
-                filterDept ?? '', 'canAddWorker')) {
+              filterDept ?? '', 'canAddWorker')) {
             return const SizedBox.shrink();
           }
           return FloatingActionButton(
             heroTag: "workers_fab",
-            onPressed: () => WorkerForm.show(context, box: box, defaultDepartment: filterDept),
+            onPressed: () => WorkerForm.show(context,
+                box: box, defaultDepartment: filterDept),
             child: const Icon(Icons.add),
           );
         },
@@ -126,7 +131,8 @@ class WorkersScreen extends StatelessWidget {
     );
   }
 
-  void _cleanDuplicates(BuildContext context, Box<Worker> box, String? filterDept) async {
+  void _cleanDuplicates(
+      BuildContext context, Box<Worker> box, String? filterDept) async {
     final Map<String, Worker> uniqueWorkers = {};
     final List<dynamic> keysToDelete = [];
 
@@ -162,10 +168,31 @@ class WorkersScreen extends StatelessWidget {
       UIUtils.showDeleteConfirmation(
         context: context,
         title: "حذف التكرارات",
-        content: "تم العثور على ${keysToDelete.length} سجل مكرر. هل تريد حذفهم؟",
+        content:
+            "تم العثور على ${keysToDelete.length} سجل مكرر. هل تريد حذفهم؟",
         confirmLabel: "حذف الكل",
         onConfirm: () async {
           for (final key in keysToDelete) {
+            final w = box.get(key);
+            if (w != null) {
+              final syncId = w.syncId ?? key.toString();
+              try {
+                await Supabase.instance.client
+                    .from('workers')
+                    .delete()
+                    .eq('sync_id', syncId);
+                debugPrint(
+                    '🗑️ [_cleanDuplicates] تم الحذف المباشر من السحابة [sync_id=$syncId]');
+              } catch (e) {
+                debugPrint('⚠️ [_cleanDuplicates] الحذف المباشر فشل: $e');
+              }
+              // اختياري: نضعه في الطابور احتياطاً لو انقطعت الشبكة
+              SyncService.instance.pushToQueue(
+                'workers',
+                {'sync_id': syncId, 'id': syncId},
+                operation: 'delete',
+              );
+            }
             await box.delete(key);
           }
           if (context.mounted) {
