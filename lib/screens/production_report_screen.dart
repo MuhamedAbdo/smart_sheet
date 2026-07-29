@@ -211,7 +211,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   await _productionReportBox!.put(entry.key, entry.value);
                   // إعادة رفع المحذوفات للسيرفر في حالة التراجع
                   SyncService.instance
-                      .pushToQueue('flexo_production_reports', entry.value);
+                      .pushToQueue(tableName, entry.value.toJson());
                 }
               },
             );
@@ -1134,8 +1134,9 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 await _productionReportBox!.put(syncId, report);
                 SyncService.instance.pushToQueue(tableName, report.toJson());
               } else {
-                await _productionReportBox!.put(syncId, r);
-                SyncService.instance.pushToQueue(tableName, r);
+                final reportObj = FlexoProductionReport.fromJson(r);
+                await _productionReportBox!.put(syncId, reportObj);
+                SyncService.instance.pushToQueue(tableName, reportObj.toJson());
               }
               if (c.mounted) Navigator.pop(c);
             }));
@@ -1159,7 +1160,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
               final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
                   ? 'die_cutting_production_reports' 
-                  : 'flexo_production_reports';
+                  : (widget.department == 'production_line' ? 'line_production_reports' : 'flexo_production_reports');
 
               if (tableName == 'die_cutting_production_reports') {
                 final report = DieCuttingProductionReport(
@@ -1183,8 +1184,9 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 await _productionReportBox!.put(existingSyncId, report);
                 SyncService.instance.pushToQueue(tableName, report.toJson());
               } else {
-                await _productionReportBox!.put(existingSyncId, r);
-                SyncService.instance.pushToQueue(tableName, r);
+                final reportObj = FlexoProductionReport.fromJson(r);
+                await _productionReportBox!.put(existingSyncId, reportObj);
+                SyncService.instance.pushToQueue(tableName, reportObj.toJson());
               }
               if (c.mounted) Navigator.pop(c);
             }));
@@ -1505,7 +1507,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
             final String tableName = (session.department == 'crushing' || session.department == 'die_cutting' || widget.department == 'crushing' || widget.department == 'die_cutting') 
                 ? 'die_cutting_production_reports' 
-                : 'flexo_production_reports';
+                : ((session.department == 'production_line' || widget.department == 'production_line') ? 'line_production_reports' : 'flexo_production_reports');
 
             if (tableName == 'die_cutting_production_reports') {
                 final report = DieCuttingProductionReport(
@@ -1530,9 +1532,9 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 await _productionReportBox!.put(syncId, report);
                 SyncService.instance.pushToQueue(tableName, report.toJson());
             } else {
-                // حفظ محلي بمفتاح ثابت لمنع التكرار
-                await _productionReportBox!.put(syncId, r);
                 final reportObj = FlexoProductionReport.fromJson(r);
+                // حفظ محلي بمفتاح ثابت لمنع التكرار
+                await _productionReportBox!.put(syncId, reportObj);
                 SyncService.instance.pushToQueue(tableName, reportObj.toJson());
             }
 

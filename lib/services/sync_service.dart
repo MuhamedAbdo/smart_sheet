@@ -175,8 +175,8 @@ class SyncService extends SyncServiceBase
       // 3. المزامنة المبدئية لـ workers
       await _initWorkers(factoryId);
 
-      // 4. المزامنة المبدئية لـ flexo_production_reports و archived_reports [ProductionSync]
-      await _initFlexoProductionReports(factoryId);
+      // 4. المزامنة المبدئية لـ flexo_production_reports و line_production_reports و archived_reports [ProductionSync]
+      await _initProductionReports(factoryId);
       await _initArchivedReports(factoryId);
       await _initDieCuttingReports(factoryId);
 
@@ -469,7 +469,10 @@ class SyncService extends SyncServiceBase
           final Map<String, dynamic> mapData = data.toJson();
           mapData['factory_id'] = factoryId;
           mapData.remove('sync_status');
-          await pushToQueue('flexo_production_reports', mapData, operation: 'upsert');
+          final targetTable = data.department == 'production_line' 
+              ? 'line_production_reports' 
+              : 'flexo_production_reports';
+          await pushToQueue(targetTable, mapData, operation: 'upsert');
           addedCount++;
         }
       }
@@ -839,6 +842,7 @@ class SyncService extends SyncServiceBase
           try {
             if (table == 'customers' ||
                 table == 'flexo_production_reports' ||
+                table == 'line_production_reports' ||
                 table == 'workers' ||
                 table == 'live_sessions' ||
                 table == 'archived_reports') {
@@ -939,6 +943,7 @@ class SyncService extends SyncServiceBase
               if (modified) {
                 if (table == 'customers' ||
                     table == 'flexo_production_reports' ||
+                    table == 'line_production_reports' ||
                     table == 'workers' ||
                     table == 'live_sessions') {
                   await _supabase
