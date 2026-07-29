@@ -1,3 +1,4 @@
+import 'package:smart_sheet/models/flexo_production_report.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/flexo_machine.dart';
@@ -111,12 +112,14 @@ class FlexoReportDrawer extends StatelessWidget {
   }
 
   Future<void> _handlePdfAction(BuildContext context, String machineName, {required bool isPrinting, required bool isSave}) async {
-    final box = await Hive.openBox('inkReports');
+    final box = Hive.isBoxOpen('flexo_production_reports_box') 
+        ? Hive.box<FlexoProductionReport>('flexo_production_reports_box')
+        : await Hive.openBox<FlexoProductionReport>('flexo_production_reports_box');
+        
     final records = box.values
         .where((r) {
-          final map = Map<String, dynamic>.from(r);
-          final m = (map['machineName'] ?? map['machine_name'])?.toString() ?? '';
-          final dept = map['department']?.toString();
+          final m = r.machineName ?? '';
+          final dept = r.department;
           if (department == 'crushing') {
             if (dept != 'crushing' && dept != 'die_cutting') return false;
           } else if (department == 'production_line') {
@@ -126,7 +129,7 @@ class FlexoReportDrawer extends StatelessWidget {
           }
           return m.trim() == machineName.trim();
         })
-        .map((e) => Map<String, dynamic>.from(e))
+        .map((e) => e.toJson())
         .toList();
 
     if (records.isEmpty) {
@@ -145,7 +148,7 @@ class FlexoReportDrawer extends StatelessWidget {
     if (isSave) {
       final Uint8List? pdfBytes = isPrinting
           ? await generatePrintingReportPdfBytes({'records': records, 'title': title, 'department': department})
-          : await generateProductionReportPdfBytes({'records': records, 'title': title, 'department': department});
+          : await generateFlexoProductionReportPdfBytes({'records': records, 'title': title, 'department': department});
       
       if (pdfBytes == null) return;
 
@@ -161,8 +164,9 @@ class FlexoReportDrawer extends StatelessWidget {
       if (isPrinting) {
         await exportPrintingReportsToPdf(context, records, title: title, department: department);
       } else {
-        await exportProductionReportsToPdf(context, records, title: title, department: department);
+        await exportFlexoProductionReportsToPdf(context, records, title: title, department: department);
       }
     }
   }
 }
+

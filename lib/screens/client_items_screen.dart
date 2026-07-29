@@ -1,3 +1,4 @@
+import 'package:smart_sheet/models/flexo_production_report.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -20,6 +21,7 @@ import 'package:smart_sheet/utils/auth_helper.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/utils/cache_helper.dart';
 import 'package:uuid/uuid.dart';
+import 'package:smart_sheet/models/die_cutting_production_report.dart';
 
 /// شاشة تعرض جميع الأصناف والمقاسات المرتبطة بعميل معين
 class ClientItemsScreen extends StatefulWidget {
@@ -351,7 +353,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                   canAddDieCutting: canAddDieCutting,
                   onEdit: () => _navigateToEdit(entry.key, entry.value),
                   onDelete: () => _confirmDelete(entry.key),
-                  onStartProduction: (data) => _openProductionReportWithSheetData(context, data),
+                  onStartProduction: (data) => _openFlexoProductionReportWithSheetData(context, data),
                   onStartProductionLine: (data) => _openProductionLineSessionWithSheetData(context, data),
                   onStartDieCutting: (data) => _openDieCuttingSessionWithSheetData(context, data),
                 ),
@@ -567,7 +569,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
   }
 
   // ─── BottomSheet اختيار نوع الإنتاج (فلكسو) ──────────────────────────────────
-  void _openProductionReportWithSheetData(
+  void _openFlexoProductionReportWithSheetData(
       BuildContext context, Map<String, dynamic> dataFromCard) async {
     final initialData =
         await _prepareInitialDataFromCard(context, dataFromCard);
@@ -872,14 +874,14 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => const ProductionReportScreen(department: 'crushing'),
+              builder: (_) => const FlexoProductionReportScreen(department: 'crushing'),
             ),
           );
         } else {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => const ProductionReportScreen(),
+              builder: (_) => const FlexoProductionReportScreen(),
             ),
           );
         }
@@ -905,24 +907,52 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           '',
     };
 
-    // تحديد البوكس المناسب بناءً على القسم
+    // تحديد البوكس والجدول المناسب بناءً على القسم
     Future<void> saveReport(Map<String, dynamic> r) async {
       final syncId = const Uuid().v4();
-      
-      const boxName = 'inkReports';
-      final box = Hive.isBoxOpen(boxName)
-          ? Hive.box(boxName)
-          : await Hive.openBox(boxName);
       r['sync_id'] = syncId;
       r['id'] = syncId;
-      await box.put(syncId, r);
-      SyncService.instance.pushToQueue('production_reports', r);
+
+      final bool isDieCutting = (department == 'crushing' || department == 'die_cutting');
+      final String tableName = isDieCutting ? 'die_cutting_production_reports' : 'flexo_production_reports';
+      final String boxName = isDieCutting ? 'die_cutting_production_reports' : 'flexo_production_reports_box';
+
+      if (isDieCutting) {
+        if (!Hive.isBoxOpen(boxName)) await Hive.openBox<DieCuttingProductionReport>(boxName);
+        final box = Hive.box<DieCuttingProductionReport>(boxName);
+        final report = DieCuttingProductionReport(
+          id: syncId,
+          machineName: r['machineName']?.toString() ?? '',
+          technicianName: r['technicianName']?.toString() ?? '',
+          reportDate: DateTime.tryParse(r['date']?.toString() ?? '') ?? DateTime.now(),
+          customerName: r['clientName']?.toString() ?? '',
+          itemName: r['product']?.toString() ?? '',
+          itemCode: r['productCode']?.toString() ?? '',
+          formNumber: r['formNumber']?.toString() ?? '',
+          workOrder: r['orderNumber']?.toString() ?? '',
+          runTimeStart: null,
+          runTimeEnd: null,
+          downtimeStart: null,
+          downtimeEnd: null,
+          productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
+          wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
+          notes: r['notes']?.toString(),
+        );
+        await box.put(syncId, report);
+        SyncService.instance.pushToQueue(tableName, report.toJson());
+      } else {
+        if (!Hive.isBoxOpen(boxName)) await Hive.openBox<FlexoProductionReport>(boxName);
+        final box = Hive.box<FlexoProductionReport>(boxName);
+        final reportObj = FlexoProductionReport.fromJson(r);
+        await box.put(syncId, reportObj);
+        SyncService.instance.pushToQueue(tableName, reportObj.toJson());
+      }
     }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (c) => ProductionReportForm(
+      builder: (c) => FlexoProductionReportForm(
         initialData: formData,
         department: department,
         onSave: (r) async {
@@ -934,7 +964,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => ProductionReportScreen(department: department),
+                builder: (_) => FlexoProductionReportScreen(department: department),
               ),
             );
           }
@@ -986,3 +1016,4 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     );
   }
 }
+

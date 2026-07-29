@@ -1,13 +1,13 @@
-import 'package:flutter_test/flutter_test.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 
 void main() {
-  test('Check Supabase production_reports', () async {
+  test('Check Supabase flexo_production_reports', () async {
     final supabase = SupabaseClient('https://lbvaezdeaisukxqwwrmk.supabase.co', 'sb_publishable_Twjk68loXnXuJIJKy1MkNQ_KdP1iKnQ');
     try {
-      debugPrint('Fetching from production_reports...');
-      final res = await supabase.from('production_reports').select();
+      debugPrint('Fetching from flexo_production_reports...');
+      final res = await supabase.from('flexo_production_reports').select();
       debugPrint('Total records in table: ${res.length}');
       
       Map<String, int> factoryCounts = {};
@@ -26,3 +26,4 @@ void main() {
     }
   });
 }
+

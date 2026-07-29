@@ -6,7 +6,7 @@ import 'package:smart_sheet/screens/flexo_archive_screen.dart';
 import 'package:smart_sheet/widgets/production_report_form.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
 import 'package:smart_sheet/models/live_session.dart';
-import 'package:smart_sheet/models/production_report.dart';
+import 'package:smart_sheet/models/flexo_production_report.dart';
 import 'package:smart_sheet/models/die_cutting_production_report.dart';
 import 'package:smart_sheet/widgets/active_sessions_dashboard.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
@@ -35,17 +35,17 @@ DateTime? _parseTimeForDieCutting(String? dateStr, String? timeStr) {
   }
 }
 
-class ProductionReportScreen extends StatefulWidget {
+class FlexoProductionReportScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final String? department;
 
-  const ProductionReportScreen({super.key, this.initialData, this.department});
+  const FlexoProductionReportScreen({super.key, this.initialData, this.department});
 
   @override
-  State<ProductionReportScreen> createState() => _ProductionReportScreenState();
+  State<FlexoProductionReportScreen> createState() => _FlexoProductionReportScreenState();
 }
 
-class _ProductionReportScreenState extends State<ProductionReportScreen> {
+class _FlexoProductionReportScreenState extends State<FlexoProductionReportScreen> {
   Box? _productionReportBox;
   Box<Worker>? _workersBox;
   bool _isBoxLoading = true;
@@ -79,13 +79,13 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     try {
       final targetBox = (widget.department == 'crushing' || widget.department == 'die_cutting') 
           ? 'die_cutting_production_reports' 
-          : 'inkReports';
+          : 'flexo_production_reports_box';
           
       if (!Hive.isBoxOpen(targetBox)) {
         if (targetBox == 'die_cutting_production_reports') {
           await Hive.openBox<DieCuttingProductionReport>(targetBox);
         } else {
-          await Hive.openBox(targetBox);
+          await Hive.openBox<FlexoProductionReport>(targetBox);
         }
       }
 
@@ -98,7 +98,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           if (targetBox == 'die_cutting_production_reports') {
             _productionReportBox = Hive.box<DieCuttingProductionReport>(targetBox);
           } else {
-            _productionReportBox = Hive.box(targetBox);
+            _productionReportBox = Hive.box<FlexoProductionReport>(targetBox);
           }
           _isBoxLoading = false;
         });
@@ -134,7 +134,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             record['sync_id']?.toString() ?? record['id']?.toString();
         final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
             ? 'die_cutting_production_reports' 
-            : 'production_reports';
+            : 'flexo_production_reports';
             
         if (syncId != null) {
           SyncService.instance.pushToQueue(
@@ -184,7 +184,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
 
         final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
             ? 'die_cutting_production_reports' 
-            : 'production_reports';
+            : 'flexo_production_reports';
 
         try {
           // 2. أمر المسح من السيرفر باستخدام inFilter
@@ -211,7 +211,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   await _productionReportBox!.put(entry.key, entry.value);
                   // إعادة رفع المحذوفات للسيرفر في حالة التراجع
                   SyncService.instance
-                      .pushToQueue('production_reports', entry.value);
+                      .pushToQueue('flexo_production_reports', entry.value);
                 }
               },
             );
@@ -970,6 +970,16 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           } else {
             try {
               r = (val as dynamic).toJson();
+              r['clientName'] ??= r['client_name'];
+              r['product'] ??= r['product_name'];
+              r['productCode'] ??= r['product_code'];
+              r['orderNumber'] ??= r['order_number'];
+              r['formNumber'] ??= r['form_number'];
+              r['machineName'] ??= r['machine_name'];
+              r['technicianName'] ??= r['technician_name'];
+              r['startTime'] ??= r['start_time'];
+              r['endTime'] ??= r['end_time'];
+              r['totalDowntime'] ??= r['total_downtime'];
             } catch (_) {
               r = {};
             }
@@ -1089,7 +1099,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        builder: (c) => ProductionReportForm(
+        builder: (c) => FlexoProductionReportForm(
             initialData: data,
             department: widget.department,
             onSave: (r) async {
@@ -1100,7 +1110,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
 
               final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
                   ? 'die_cutting_production_reports' 
-                  : 'production_reports';
+                  : 'flexo_production_reports';
 
               if (tableName == 'die_cutting_production_reports') {
                 final report = DieCuttingProductionReport(
@@ -1135,7 +1145,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        builder: (c) => ProductionReportForm(
+        builder: (c) => FlexoProductionReportForm(
             initialData: record,
             reportKey: key.toString(),
             department: widget.department,
@@ -1149,7 +1159,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
 
               final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
                   ? 'die_cutting_production_reports' 
-                  : 'production_reports';
+                  : 'flexo_production_reports';
 
               if (tableName == 'die_cutting_production_reports') {
                 final report = DieCuttingProductionReport(
@@ -1484,7 +1494,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       context: context,
       isScrollControlled: true,
       isDismissible: true,
-      builder: (c) => ProductionReportForm(
+      builder: (c) => FlexoProductionReportForm(
         initialData: initialData,
         department: session.department ?? widget.department,
         onSave: (r) async {
@@ -1495,7 +1505,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
 
             final String tableName = (session.department == 'crushing' || session.department == 'die_cutting' || widget.department == 'crushing' || widget.department == 'die_cutting') 
                 ? 'die_cutting_production_reports' 
-                : 'production_reports';
+                : 'flexo_production_reports';
 
             if (tableName == 'die_cutting_production_reports') {
                 final report = DieCuttingProductionReport(
@@ -1522,7 +1532,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             } else {
                 // حفظ محلي بمفتاح ثابت لمنع التكرار
                 await _productionReportBox!.put(syncId, r);
-                final reportObj = ProductionReport.fromJson(r);
+                final reportObj = FlexoProductionReport.fromJson(r);
                 SyncService.instance.pushToQueue(tableName, reportObj.toJson());
             }
 
@@ -1613,3 +1623,4 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             ]));
   }
 }
+

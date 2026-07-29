@@ -77,6 +77,7 @@ class DieCuttingProductionReport extends HiveObject {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id.toString(),
       'sync_id': id.toString(),
       'factory_id': factoryId,
       'report_date': reportDate.toIso8601String(),

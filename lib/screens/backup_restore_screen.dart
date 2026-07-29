@@ -1,3 +1,4 @@
+import 'package:smart_sheet/models/flexo_production_report.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -799,7 +800,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         if (Hive.isBoxOpen('workers_flexo')) {
           await Hive.box<Worker>('workers_flexo').clear();
         }
-        if (Hive.isBoxOpen('inkReports')) await Hive.box('inkReports').clear();
+        if (Hive.isBoxOpen('flexo_production_reports_box')) await Hive.box<FlexoProductionReport>('flexo_production_reports_box').clear();
         if (Hive.isBoxOpen('sync_queue')) await Hive.box('sync_queue').clear();
         debugPrint('🧹 تم تفريغ جميع قواعد البيانات المحلية بنجاح.');
       } catch (e) {
@@ -1226,4 +1227,5 @@ class _PairingCodeDialogState extends State<_PairingCodeDialog> {
     );
   }
 }
+
 

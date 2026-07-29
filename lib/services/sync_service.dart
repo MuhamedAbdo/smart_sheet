@@ -1,3 +1,4 @@
+import 'package:smart_sheet/models/flexo_production_report.dart';
 // lib/services/sync_service.dart
 //
 // نظام المزامنة المركزي – Offline-First + Supabase Real-time
@@ -5,7 +6,7 @@
 // الجداول المُزامَنة:
 //   customers          ↔ savedSheetSizes        (Box)          → [CustomerSync]
 //   customer_products  ↔ finished_products       (Box)          → [CustomerSync]
-//   production_reports ↔ inkReports              (Box)          → [ProductionSync]
+//   flexo_production_reports ↔ flexo_production_reports_box              (Box)          → [ProductionSync]
 //   live_sessions      ↔ flexo_live_sessions     (Box)          → [ProductionSync]
 //   workers            ↔ workers_flexo           (Box<Worker>)  → هنا
 //   machines           ↔ flexo_machines          (Box<FlexoMachine>) → هنا
@@ -36,6 +37,7 @@ import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
+import 'package:smart_sheet/models/die_cutting_production_report.dart';
 // import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
@@ -173,9 +175,10 @@ class SyncService extends SyncServiceBase
       // 3. المزامنة المبدئية لـ workers
       await _initWorkers(factoryId);
 
-      // 4. المزامنة المبدئية لـ production_reports و archived_reports [ProductionSync]
-      await _initProductionReports(factoryId);
+      // 4. المزامنة المبدئية لـ flexo_production_reports و archived_reports [ProductionSync]
+      await _initFlexoProductionReports(factoryId);
       await _initArchivedReports(factoryId);
+      await _initDieCuttingReports(factoryId);
 
       // 5. المزامنة المبدئية لـ machines [MachinesSync]
       await _initMachines(factoryId);
@@ -457,16 +460,16 @@ class SyncService extends SyncServiceBase
         }
       }
 
-      final reportsBox = Hive.isBoxOpen('inkReports')
-          ? Hive.box('inkReports')
-          : await Hive.openBox('inkReports');
+      final reportsBox = Hive.isBoxOpen('flexo_production_reports_box')
+          ? Hive.box<FlexoProductionReport>('flexo_production_reports_box')
+          : await Hive.openBox<FlexoProductionReport>('flexo_production_reports_box');
       for (var key in reportsBox.keys) {
         final data = reportsBox.get(key);
-        if (data is Map) {
-          final Map<String, dynamic> mapData = Map<String, dynamic>.from(data);
+        if (data != null) {
+          final Map<String, dynamic> mapData = data.toJson();
           mapData['factory_id'] = factoryId;
           mapData.remove('sync_status');
-          await pushToQueue('production_reports', mapData, operation: 'upsert');
+          await pushToQueue('flexo_production_reports', mapData, operation: 'upsert');
           addedCount++;
         }
       }
@@ -536,7 +539,7 @@ class SyncService extends SyncServiceBase
     // ─── [CustomerSync]  customers + customer_products ─────────────
     _setupCustomerChannels(factoryId);
 
-    // ─── [ProductionSync] production_reports + live_sessions ───────
+    // ─── [ProductionSync] flexo_production_reports + live_sessions ───────
     _setupProductionChannels(factoryId);
 
     // ─── [WorkersSync] workers + worker_actions ────────────────────
@@ -828,15 +831,27 @@ class SyncService extends SyncServiceBase
           }
         } else {
           final cleanPayload = _sanitizePayload(payload, table);
+          // ✅ FIX: تعويض الـ id المفقود من الطابور المحلي للتقارير المعلقة (Self-healing)
+          if (cleanPayload['id'] == null && cleanPayload['sync_id'] != null) {
+            cleanPayload['id'] = cleanPayload['sync_id'];
+          }
+
           try {
             if (table == 'customers' ||
-                table == 'production_reports' ||
+                table == 'flexo_production_reports' ||
                 table == 'workers' ||
                 table == 'live_sessions' ||
                 table == 'archived_reports') {
               await _supabase
                   .from(table)
                   .upsert(cleanPayload, onConflict: 'sync_id');
+            } else if (table == 'die_cutting_production_reports') {
+              // إضافة .select() لإجبار السيرفر على إرجاع السجل المُضاف (لاكتشاف الإدراج الوهمي)
+              final res = await _supabase.from(table).upsert(cleanPayload).select();
+              debugPrint('✅ [Sync] استجابة السيرفر بعد الرفع: $res');
+              if (res.isEmpty) {
+                throw Exception('السيرفر قبل الطلب 2xx ولكن لم يتم إدراج أي سجل! تأكد من عدم وجود Triggers تمنع الإدراج، أو أن الصلاحيات RLS لا تمنع ذلك.');
+              }
             } else {
               await _supabase.from(table).upsert(cleanPayload);
             }
@@ -923,7 +938,7 @@ class SyncService extends SyncServiceBase
 
               if (modified) {
                 if (table == 'customers' ||
-                    table == 'production_reports' ||
+                    table == 'flexo_production_reports' ||
                     table == 'workers' ||
                     table == 'live_sessions') {
                   await _supabase
@@ -974,8 +989,25 @@ class SyncService extends SyncServiceBase
       'sheet_width'
     };
     const uuidFields = {'sync_id', 'id', 'factory_id'};
+
+    // ✅ إصلاح حرجي: حقول جدول workers التي لا يجب إرسالها بـ null أو false من جهاز الأدمن
+    // لأن غيابها في Hive لدى الأدمن يُفضي إلى مسح ربط جهاز العامل في Supabase
+    const workerDeviceProtectedFields = {'device_id', 'is_device_linked'};
+
     final result = <String, dynamic>{};
     raw.forEach((key, value) {
+      // ✅ حماية حقول الجهاز في جدول workers: تجاهل أي قيمة null أو false مُرسَلة
+      // من جهاز الأدمن (الذي لا يملك معلومات جهاز العامل)
+      if (table == 'workers' && workerDeviceProtectedFields.contains(key)) {
+        if (value == null || value.toString().toLowerCase() == 'null') {
+          debugPrint('🛡️ [sanitize] تجاهل $key=null في جدول workers (حماية ربط الجهاز)');
+          return; // لا نُضيف الحقل لـ result
+        }
+        // نُبقي على القيمة فقط إذا كانت ذات معنى
+        result[key] = value;
+        return;
+      }
+
       if (numericFields.contains(key)) {
         if (value == null ||
             value.toString().trim().isEmpty ||
@@ -1034,3 +1066,4 @@ class SyncService extends SyncServiceBase
     }
   }
 }
+

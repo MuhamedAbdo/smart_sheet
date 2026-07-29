@@ -44,7 +44,7 @@ import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
 import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/models/store_entry_model.dart';
-import 'package:smart_sheet/models/production_report.dart';
+import 'package:smart_sheet/models/flexo_production_report.dart';
 import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/models/downtime_interval.dart';
 import 'package:smart_sheet/models/live_session.dart';
@@ -245,7 +245,7 @@ void _registerAdapters() {
   }
   if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(StoreEntryAdapter());
   if (!Hive.isAdapterRegistered(3)) {
-    Hive.registerAdapter(ProductionReportAdapter());
+    Hive.registerAdapter(FlexoProductionReportAdapter());
   }
   if (!Hive.isAdapterRegistered(15)) {
     Hive.registerAdapter(FlexoMachineAdapter());
@@ -278,10 +278,10 @@ void _initDefaultSchedule() {
 void _openBackgroundBoxes() {
   Hive.openBox<StoreEntry>('store_flexo');
   Hive.openBox<MaintenanceRecord>('maintenance_records_main');
+  Hive.openBox<FlexoProductionReport>('flexo_production_reports_box');
 
   final otherBoxes = [
     'savedSheetSizes',
-    'inkReports',
     'flexoArchive',
     'lineArchive',
     'crushingArchive',
@@ -713,3 +713,4 @@ class _InitErrorApp extends StatelessWidget {
     );
   }
 }
+

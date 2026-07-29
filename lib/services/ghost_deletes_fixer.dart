@@ -41,12 +41,15 @@ class GhostDeletesFixer {
       }
       inputStream.close();
 
-      // 3. Find inkReports.hive and rename it so Hive can open it without conflict
+      // 3. Find flexo_production_reports_box.hive and rename it so Hive can open it without conflict
       File? originalInkFile;
       for (final entity in ghostFixDir.listSync(recursive: true)) {
-        if (entity is File && p.basename(entity.path).toLowerCase() == 'inkreports.hive') {
-          originalInkFile = entity;
-          break;
+        if (entity is File) {
+          final bName = p.basename(entity.path).toLowerCase();
+          if (bName == 'inkreports.hive' || bName == 'flexo_production_reports_box.hive') {
+            originalInkFile = entity;
+            break;
+          }
         }
       }
 
@@ -91,7 +94,7 @@ class GhostDeletesFixer {
             mapData['notes'] = oldNotes.isEmpty ? '(مستعاد)' : '$oldNotes\n(مستعاد)';
         }
 
-        // Format check for production_reports schema
+        // Format check for flexo_production_reports schema
         // Ensure client_name exists
         if (!mapData.containsKey('client_name') && mapData.containsKey('clientName')) {
             mapData['client_name'] = mapData['clientName'];
@@ -100,7 +103,7 @@ class GhostDeletesFixer {
         
         // Upsert to Supabase
         try {
-            await Supabase.instance.client.from('production_reports').upsert(mapData);
+            await Supabase.instance.client.from('flexo_production_reports').upsert(mapData);
             recoveredCount++;
         } catch (e) {
             debugPrint('GhostFixer Error inserting record: $e');
@@ -119,3 +122,4 @@ class GhostDeletesFixer {
     }
   }
 }
+

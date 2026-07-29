@@ -1,4 +1,4 @@
-// lib/widgets/production_report_form.dart
+﻿// lib/widgets/production_report_form.dart
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -16,13 +16,13 @@ class ColorField {
   });
 }
 
-class ProductionReportForm extends StatefulWidget {
+class FlexoProductionReportForm extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final String? reportKey;
   final String? department;
   final void Function(Map<String, dynamic>) onSave;
 
-  const ProductionReportForm({
+  const FlexoProductionReportForm({
     super.key,
     this.initialData,
     this.reportKey,
@@ -31,10 +31,10 @@ class ProductionReportForm extends StatefulWidget {
   });
 
   @override
-  State<ProductionReportForm> createState() => _ProductionReportFormState();
+  State<FlexoProductionReportForm> createState() => _FlexoProductionReportFormState();
 }
 
-class _ProductionReportFormState extends State<ProductionReportForm> {
+class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
   bool get isProductionLine =>
       (widget.department == 'production_line') ||
       (widget.initialData?['department'] == 'production_line');
@@ -794,3 +794,4 @@ class _ProductionReportFormState extends State<ProductionReportForm> {
     }
   }
 }
+

@@ -1,4 +1,4 @@
-// lib/services/kill_switch_service.dart
+﻿// lib/services/kill_switch_service.dart
 //
 // خدمة التحكم المركزي في أجهزة العمال (Remote Kill Switch)
 //
@@ -237,14 +237,31 @@ class KillSwitchService {
         if (linkedWorkerId == null && recordId != null) {
           await _storage.write(key: 'linked_worker_id', value: recordId);
         }
-        final bool isLinked = record['is_device_linked'] as bool? ?? false;
+        final bool isLinked = record['is_device_linked'] as bool? ?? true; // افترض الارتباط إذا لم يكن الحقل موجودًا لتجنب الطرد الخاطئ
         final String? remoteDeviceId = record['device_id']?.toString();
         final localDeviceId = await DeviceManager.getDeviceId();
 
-        if (!isLinked || remoteDeviceId == null || remoteDeviceId != localDeviceId) {
-          debugPrint('🚨 KillSwitch: تم اكتشاف فك ارتباط الجهاز من الفحص المباشر! تنفيذ الطرد القسري...');
+        final bool isExplicitUnlink = !isLinked;
+        final bool isDeviceHijacked = (remoteDeviceId != null &&
+            remoteDeviceId.isNotEmpty &&
+            remoteDeviceId != localDeviceId);
+
+        if (isExplicitUnlink) {
+          debugPrint('🚨 KillSwitch: الإدارة قامت بفك ارتباط الجهاز صراحةً! تنفيذ الطرد القسري...');
           await _executeForcedLogout(onForcedLogout);
           return true;
+        } else if (isDeviceHijacked) {
+          debugPrint('🔧 KillSwitch (DirectCheck): اكتشاف تعارض في الـ device_id (ربما بعد استعادة نسخة). جاري الإصلاح الذاتي (Self-Healing)...');
+          try {
+             if (recordId != null) {
+               await _supabase.from('workers').update({'device_id': localDeviceId}).eq('id', recordId);
+               debugPrint('✅ KillSwitch: تم الإصلاح الذاتي وتحديث device_id في السحابة.');
+             }
+          } catch(e) {
+             debugPrint('⚠️ KillSwitch: فشل الإصلاح الذاتي: $e');
+          }
+        } else {
+          debugPrint('ℹ️ KillSwitch (DirectCheck): فحص مباشر سليم — لا طرد.');
         }
       }
     } catch (e) {
@@ -277,13 +294,43 @@ class KillSwitchService {
         await _storage.write(key: 'linked_worker_id', value: recordId);
       }
 
-      final bool isLinked = record['is_device_linked'] as bool? ?? false;
+      final bool isLinked = record['is_device_linked'] as bool? ?? true;
       final String? remoteDeviceId = record['device_id']?.toString();
       final localDeviceId = await DeviceManager.getDeviceId();
 
-      if (!isLinked || remoteDeviceId == null || remoteDeviceId != localDeviceId) {
-        debugPrint('🚨 KillSwitch: استلام تحديث فوري بفك ارتباط جهازي! تنفيذ الطرد القسري...');
+      // ✅ إصلاح: التمييز بين تحديث الصلاحيات وفك الارتباط الحقيقي
+      //
+      // حالة الطرد الشرعي:
+      //   1. is_device_linked = false  → الأدمن فكّ الارتباط صراحةً
+      //   2. device_id موجود ومختلف عن الجهاز الحالي → نُقل لجهاز آخر
+      //
+      // حالة التحديث الآمن (صلاحيات):
+      //   - is_device_linked = true (أو null لم يُرسل) + device_id = null أو مطابق → لا طرد
+      //
+      // ⚠️ device_id = null مع is_device_linked = true يعني أن الأدمن عدّل الصلاحيات
+      // دون إرسال حقل device_id (أرسل فقط can_add, can_edit, ...etc) → لا طرد!
+      final bool isExplicitUnlink = !isLinked;
+      final bool isDeviceHijacked = (remoteDeviceId != null &&
+          remoteDeviceId.isNotEmpty &&
+          remoteDeviceId != localDeviceId);
+
+      if (isExplicitUnlink) {
+        debugPrint('🚨 KillSwitch: الإدارة قامت بفك ارتباط الجهاز صراحةً! تنفيذ الطرد القسري...');
         await _executeForcedLogout(onForcedLogout);
+      } else if (isDeviceHijacked) {
+        debugPrint('🔧 KillSwitch: اكتشاف تعارض في الـ device_id من Realtime. جاري الإصلاح الذاتي (Self-Healing)...');
+        try {
+          if (recordId != null) {
+            await _supabase.from('workers').update({'device_id': localDeviceId}).eq('id', recordId);
+            debugPrint('✅ KillSwitch: تم الإصلاح الذاتي وتحديث device_id في السحابة.');
+          }
+        } catch(e) {
+          debugPrint('⚠️ KillSwitch: فشل الإصلاح الذاتي: $e');
+        }
+      } else {
+        // ✅ تحديث آمن للصلاحيات — لا داعي للطرد
+        debugPrint('ℹ️ KillSwitch: تحديث صلاحيات آمن للعامل — لا طرد.');
+        debugPrint('  is_device_linked=$isLinked | remote=${remoteDeviceId ?? "(لم يُرسل)"} | local=$localDeviceId');
       }
     } catch (e) {
       debugPrint('⚠️ KillSwitch.handleRealtimeWorkerRecord: $e');
@@ -306,15 +353,31 @@ class KillSwitchService {
       debugPrint(
           '🔒 KillSwitch: تغيير مُكتشَف | is_device_linked=$isDeviceLinked | remote=$remoteDeviceId | local=$localDeviceId');
 
-      // حالتا الطرد القسري:
-      // 1. is_device_linked أصبحت false (فك الارتباط من الـ Admin)
-      // 2. device_id لم يعد يطابق الجهاز الحالي (نُقل لجهاز آخر)
-      final bool shouldForceLogout =
-          !isDeviceLinked || (remoteDeviceId != null && remoteDeviceId != localDeviceId);
+      // ✅ إصلاح: فقط حالتا الطرد الشرعي:
+      // 1. is_device_linked = false صراحةً (فك ارتباط من الـ Admin)
+      // 2. device_id موجود وغير فارغ ومختلف عن الجهاز الحالي (جهاز آخر)
+      //
+      // إذا كان device_id = null مع is_device_linked = true → تحديث صلاحيات آمن → لا طرد.
+      final bool isExplicitUnlink = !isDeviceLinked;
+      final bool isDeviceHijacked = (remoteDeviceId != null &&
+          remoteDeviceId.isNotEmpty &&
+          remoteDeviceId != localDeviceId);
 
-      if (shouldForceLogout) {
-        debugPrint('🚨 KillSwitch: اكتُشف طرد قسري! تنفيذ الإجراءات...');
+      if (isExplicitUnlink) {
+        debugPrint('🚨 KillSwitch (_handleWorkerUpdate): الإدارة قامت بفك ارتباط الجهاز صراحةً! تنفيذ الطرد القسري...');
         _executeForcedLogout();
+      } else if (isDeviceHijacked) {
+        final workerId = newRecord['id']?.toString();
+        if (workerId != null) {
+          debugPrint('🔧 KillSwitch (_handleWorkerUpdate): تعارض device_id. جاري الإصلاح الذاتي (Self-Healing)...');
+          try {
+            _supabase.from('workers').update({'device_id': localDeviceId}).eq('id', workerId);
+          } catch(e) {
+            debugPrint('⚠️ KillSwitch: فشل الإصلاح الذاتي عبر التحديث المباشر: $e');
+          }
+        }
+      } else {
+        debugPrint('ℹ️ KillSwitch (_handleWorkerUpdate): تحديث صلاحيات آمن — لا طرد.');
       }
     } catch (e) {
       debugPrint('❌ KillSwitch._handleWorkerUpdate: $e');
@@ -351,7 +414,7 @@ class KillSwitchService {
         'finished_products',
         'flexo_live_sessions',
         'savedSheetSizes',
-        'inkReports',
+        'flexo_production_reports_box',
         'flexoArchive',
         'lineArchive',
         'crushingArchive',
@@ -362,10 +425,11 @@ class KillSwitchService {
       for (final boxName in hiveBoxesToClear) {
         try {
           if (Hive.isBoxOpen(boxName)) {
-            await Hive.box(boxName).clear();
+            await Hive.box(boxName).close(); // إغلاق الصندوق أولاً لتجنب Type Casting Errors
           }
+          await Hive.deleteBoxFromDisk(boxName); // مسحه من الذاكرة تماماً
         } catch (e) {
-          debugPrint('⚠️ KillSwitch clear box $boxName error: $e');
+          debugPrint('⚠️ KillSwitch delete box $boxName error: $e');
         }
       }
 
@@ -392,3 +456,4 @@ class KillSwitchService {
     }
   }
 }
+

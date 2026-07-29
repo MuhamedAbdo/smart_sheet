@@ -858,8 +858,13 @@ class _WorkerFormState extends State<WorkerForm> {
           await widget.box.put(keyToUse, w);
         }
         
-        // رفع للسحاب عبر Queue
-        SyncService.instance.pushToQueue('workers', w.toJson());
+        // ✅ إصلاح: لا نُرسل device_id و is_device_linked من جهاز الأدمن
+        // لأن الأدمن لا يملك هذه البيانات محلياً — إرسالها بـ null يمسح ربط جهاز العامل!
+        // نستخدم نسخة منقّحة من toJson() تحذف هذين الحقلين عند التعديل فقط.
+        final editPayload = Map<String, dynamic>.from(w.toJson())
+          ..remove('device_id')
+          ..remove('is_device_linked');
+        SyncService.instance.pushToQueue('workers', editPayload);
       }
       
       if (mounted) Navigator.pop(context); // الإغلاق فقط عند النجاح

@@ -126,7 +126,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<void> _fetchAndStoreUserData(String userId) async {
+  Future<void> _fetchAndStoreUserData(String userId, {bool checkDeviceLink = true}) async {
     try {
       const storage = SafeSecureStorage();
 
@@ -140,39 +140,54 @@ class AuthService extends ChangeNotifier {
         final role = response['role']?.toString() ?? 'employee';
         await storage.write(key: 'user_role', value: role);
 
-        // فحص أمني: هل تم فك ارتباط هذا العامل من الإدارة في جدول workers؟
+        // ✅ إصلاح: فحص is_device_linked فقط عند تسجيل الدخول الأولي
+        // وليس عند كل طلب بيانات — لمنع مسح factory_id عند تحديث الصلاحيات
         bool isUnlinkedEmployee = false;
-        final userEmail = _supabaseClient.auth.currentUser?.email;
-        if (role != 'admin' && userEmail != null && userEmail.isNotEmpty) {
-          try {
-            final workerRecord = await _supabaseClient
-                .from('workers')
-                .select('is_device_linked')
-                .eq('email', userEmail)
-                .maybeSingle();
-            if (workerRecord != null) {
-              final isLinked =
-                  workerRecord['is_device_linked'] as bool? ?? true;
-              if (!isLinked) {
-                isUnlinkedEmployee = true;
-                debugPrint(
-                    '🚨 AuthService: هذا الحساب تم فك ارتباطه من الإدارة! منع إعادة ربط المصنع...');
-                await _supabaseClient
-                    .from('profiles')
-                    .update({'factory_id': null}).eq('id', userId);
+        if (checkDeviceLink) {
+          final userEmail = _supabaseClient.auth.currentUser?.email;
+          if (role != 'admin' && userEmail != null && userEmail.isNotEmpty) {
+            try {
+              final workerRecord = await _supabaseClient
+                  .from('workers')
+                  .select('is_device_linked')
+                  .eq('email', userEmail)
+                  .maybeSingle();
+              if (workerRecord != null) {
+                final isLinked =
+                    workerRecord['is_device_linked'] as bool? ?? true;
+                if (!isLinked) {
+                  isUnlinkedEmployee = true;
+                  debugPrint(
+                      '🚨 AuthService: هذا الحساب تم فك ارتباطه من الإدارة! منع إعادة ربط المصنع...');
+                  await _supabaseClient
+                      .from('profiles')
+                      .update({'factory_id': null}).eq('id', userId);
+                }
               }
+            } catch (e) {
+              debugPrint('⚠️ AuthService check is_device_linked error: $e');
             }
-          } catch (e) {
-            debugPrint('⚠️ AuthService check is_device_linked error: $e');
           }
+        } else {
+          debugPrint('ℹ️ AuthService._fetchAndStoreUserData: تخطي فحص is_device_linked (تحديث دوري)');
         }
 
         _factoryId =
             isUnlinkedEmployee ? null : response['factory_id']?.toString();
         if (_factoryId != null) {
           await storage.write(key: 'factory_id', value: _factoryId!);
-        } else {
+        } else if (isUnlinkedEmployee) {
+          // ✅ فقط امسح factory_id إذا تأكدنا أن الجهاز مفكوك فعلاً
           await storage.delete(key: 'factory_id');
+        }
+        // ✅ إذا كان _factoryId == null لأن profiles.factory_id == null وليس بسبب فك الارتباط، نحتفظ بالقيمة المحلية المخزّنة
+        else if (_factoryId == null && !checkDeviceLink) {
+          // إعادة القراءة من Secure Storage لتجنب فقدان factory_id المحلي
+          final cached = await storage.read(key: 'factory_id');
+          if (cached != null && cached.isNotEmpty) {
+            _factoryId = cached;
+            debugPrint('ℹ️ AuthService: احتفظ بـ factory_id المحلي ($cached) لأن profiles.factory_id = null وتحديث دوري.');
+          }
         }
 
         _state = _state.copyWith(role: role);
@@ -183,6 +198,7 @@ class AuthService extends ChangeNotifier {
 
         // 🔔 رفع FCM Token للعامل بعد التهيئة الناجحة (Android فقط)
         // نُرسل التوكن بعد المزامنة لضمان وجود سجل العامل في Supabase
+        final userEmail = _supabaseClient.auth.currentUser?.email;
         if (userEmail != null && userEmail.isNotEmpty) {
           unawaited(PushNotificationService.uploadToken(userEmail));
         }
@@ -246,12 +262,12 @@ class AuthService extends ChangeNotifier {
       const storage = SafeSecureStorage();
       final oldFactoryId = await storage.read(key: 'factory_id');
 
-      // مسح التخزين المحلي لإجبار جلب بيانات جديدة
-      await storage.delete(key: 'factory_id');
-      await storage.delete(key: 'user_role');
+      // ✅ إصلاح: عند التحديث الدوري، لا نمسح factory_id ولا نتحقق من is_device_linked
+      // (تحقيق الجهاز يتم فقط عند تسجيل الدخول الأولي)
+      await storage.delete(key: 'user_role'); // فقط الدور يُعاد جلبه، ليس factory_id
 
-      // جلب البيانات من السيرفر وتحديث الحالة
-      await _fetchAndStoreUserData(user.id);
+      // جلب البيانات من السيرفر بدون فحص is_device_linked (لمنع مسح factory_id بالخطأ)
+      await _fetchAndStoreUserData(user.id, checkDeviceLink: false);
 
       final newRole = _state.role;
       final newFactoryId = await storage.read(key: 'factory_id');
@@ -260,13 +276,13 @@ class AuthService extends ChangeNotifier {
       notifyListeners();
 
       if ((oldRole != null && oldRole != newRole) ||
-          (oldFactoryId != null && oldFactoryId != newFactoryId)) {
-        // تم تغيير الصلاحيات أو المصنع، يجب تسجيل الخروج للمزامنة الكاملة
+          (oldFactoryId != null && newFactoryId != null && oldFactoryId != newFactoryId)) {
+        // ✅ تغيير حقيقي في المصنع — تسجيل خروج للمزامنة الكاملة
         await signOut();
         return "⚠️ تم اكتشاف تغيير في الصلاحيات أو المصنع.\nتم تسجيل الخروج تلقائياً لضمان سلامة البيانات.";
       }
 
-      return null; // نجاح التحديث بدون تغييرات حرجة
+      return null; // نجاح التحديث بدون تغييرات حرجية
     } catch (e) {
       _state = _state.copyWith(isLoading: false);
       notifyListeners();

@@ -1,4 +1,4 @@
-// lib/src/screens/production/production_line_screen.dart
+﻿// lib/src/screens/production/production_line_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/calculator_screen.dart';
@@ -108,7 +108,7 @@ class ProductionLineScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const ProductionReportScreen(
+                              builder: (context) => const FlexoProductionReportScreen(
                                   department: 'production_line'),
                             ),
                           );
@@ -213,3 +213,4 @@ class ProductionLineScreen extends StatelessWidget {
     );
   }
 }
+

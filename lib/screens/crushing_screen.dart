@@ -1,4 +1,4 @@
-// lib/screens/crushing_screen.dart
+﻿// lib/screens/crushing_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/calculator_screen.dart';
@@ -91,7 +91,7 @@ class CrushingScreen extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (context) =>
-                                  const ProductionReportScreen(
+                                  const FlexoProductionReportScreen(
                                       department: 'crushing'),
                             ),
                           );
@@ -201,3 +201,4 @@ class CrushingScreen extends StatelessWidget {
     );
   }
 }
+

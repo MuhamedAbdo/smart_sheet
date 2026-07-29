@@ -1,4 +1,4 @@
-// lib/src/utils/pdf_export_helper.dart
+﻿// lib/src/utils/pdf_export_helper.dart
 
 import 'dart:io';
 import 'dart:typed_data';
@@ -31,7 +31,7 @@ import 'package:smart_sheet/utils/arabic_pdf_helper.dart';
 // توليد الـ Bytes
 // ---------------------------------
 
-Future<Uint8List?> generateProductionReportPdfBytes(Map<String, dynamic> params) async {
+Future<Uint8List?> generateFlexoProductionReportPdfBytes(Map<String, dynamic> params) async {
   final records = params['records'] as List<Map<String, dynamic>>;
   if (records.isEmpty) return null;
   try {
@@ -59,7 +59,7 @@ Future<Uint8List?> generateProductionReportPdfBytes(Map<String, dynamic> params)
       'title': params['title'],
     });
   } catch (e) {
-    debugPrint('❌ خطأ في generateProductionReportPdfBytes: $e');
+    debugPrint('❌ خطأ في generateFlexoProductionReportPdfBytes: $e');
     return null;
   }
 }
@@ -139,7 +139,7 @@ String _formatDate(String dateStr) {
 // ---------------------------------
 
 Future<void> saveProductionPdfToDevice(BuildContext context, List<Map<String, dynamic>> records) async {
-  await _savePdfCommon(context, records, generateProductionReportPdfBytes, 'تقرير_إنتاج');
+  await _savePdfCommon(context, records, generateFlexoProductionReportPdfBytes, 'تقرير_إنتاج');
 }
 
 Future<void> savePrintingPdfToDevice(BuildContext context, List<Map<String, dynamic>> records) async {
@@ -231,8 +231,8 @@ void _showSuccessSnackBar(BuildContext context, String filePath, Uint8List bytes
 // المشاركة/الطباعة (عرض PDF)
 // ---------------------------------
 
-Future<void> exportProductionReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department}) async {
-  final pdfBytes = await generateProductionReportPdfBytes({'records': records, 'title': title, 'department': department});
+Future<void> exportFlexoProductionReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department}) async {
+  final pdfBytes = await generateFlexoProductionReportPdfBytes({'records': records, 'title': title, 'department': department});
   if (pdfBytes != null) {
     String fileName = title != null ? '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}.pdf' : 'تقرير_إنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
@@ -248,7 +248,7 @@ Future<void> exportPrintingReportsToPdf(BuildContext context, List<Map<String, d
 }
 
 Future<void> exportReportToPdf(BuildContext context, Map<String, dynamic> record, List<String> imagePaths) async {
-  await exportProductionReportsToPdf(context, [record]);
+  await exportFlexoProductionReportsToPdf(context, [record]);
 }
 
 // ---------------------------------
@@ -780,3 +780,4 @@ pw.Widget _buildGroupedHeader(String title, List<String> subs, List<double> subW
     ]),
   );
 }
+

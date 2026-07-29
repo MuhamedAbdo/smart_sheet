@@ -1,4 +1,4 @@
-// lib/src/screens/flexo/flexo_screen.dart
+﻿// lib/src/screens/flexo/flexo_screen.dart
 
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -109,7 +109,7 @@ class FlexoScreen extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const ProductionReportScreen(),
+                                builder: (context) => const FlexoProductionReportScreen(),
                               ),
                             );
                           },
@@ -215,3 +215,4 @@ class FlexoScreen extends StatelessWidget {
     );
   }
 }
+

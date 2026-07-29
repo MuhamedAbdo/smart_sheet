@@ -1,15 +1,15 @@
-// lib/widgets/production_report_list.dart
+﻿// lib/widgets/production_report_list.dart
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/pdf_export_helper.dart';
 
-class ProductionReportList extends StatelessWidget {
+class FlexoProductionReportList extends StatelessWidget {
   final Box box;
   final void Function(dynamic, Map<String, dynamic>) onEdit;
   final void Function(dynamic) onDelete;
 
-  const ProductionReportList({
+  const FlexoProductionReportList({
     super.key,
     required this.box,
     required this.onEdit,
@@ -203,3 +203,4 @@ class ProductionReportList extends StatelessWidget {
         .map((k, v) => MapEntry(k, v is Map || v is List ? v : v.toString()));
   }
 }
+

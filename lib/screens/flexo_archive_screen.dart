@@ -1,3 +1,4 @@
+import 'package:smart_sheet/models/flexo_production_report.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
@@ -91,15 +92,18 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
   // ✅ ميزة استعادة سجل واحد للأرشيف
   void _restoreEntry(dynamic key, Map data) async {
     try {
-      final reportsBox = Hive.box('inkReports');
+      final reportsBox = Hive.box<FlexoProductionReport>('flexo_production_reports_box');
       final reportData = data['data'] ?? data;
+      final parsedData = Map<String, dynamic>.from(reportData);
 
       // نقوم بإضافة نسخة للتقارير النشطة دون حذفها من الأرشيف
-      await reportsBox.add(reportData);
+      await reportsBox.add(FlexoProductionReport.fromJson(parsedData));
       
       // المزامنة الفورية للتقرير المستعاد
-      if (widget.department == 'crushing') {
-        SyncService.instance.pushToQueue('production_reports', reportData);
+      if (widget.department == 'crushing' || widget.department == 'die_cutting') {
+        SyncService.instance.pushToQueue('die_cutting_production_reports', parsedData);
+      } else {
+        SyncService.instance.pushToQueue('flexo_production_reports', parsedData);
       }
 
       if (mounted) {
@@ -127,15 +131,19 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       confirmColor: Colors.green,
       onConfirm: () async {
         try {
-          final reportsBox = Hive.box('inkReports');
+          final reportsBox = Hive.box<FlexoProductionReport>('flexo_production_reports_box');
           final allArchive = _archiveBox!.toMap();
 
           for (var entry in allArchive.entries) {
             final data = entry.value as Map;
             final reportData = data['data'] ?? data;
-            await reportsBox.add(reportData);
-            if (widget.department == 'crushing') {
-              SyncService.instance.pushToQueue('production_reports', reportData);
+            final parsedData = Map<String, dynamic>.from(reportData);
+            
+            await reportsBox.add(FlexoProductionReport.fromJson(parsedData));
+            if (widget.department == 'crushing' || widget.department == 'die_cutting') {
+              SyncService.instance.pushToQueue('die_cutting_production_reports', parsedData);
+            } else {
+              SyncService.instance.pushToQueue('flexo_production_reports', parsedData);
             }
           }
           // تم إزالة عملية التفريغ (clear) بناءً على طلب المستخدم لإبقاء الأرشيف كنسخة دائمة
@@ -200,9 +208,9 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
         final data = e.value as Map;
         final report = data['data'] ?? data;
         final clientName =
-            _normalizeString(report['clientName']?.toString() ?? '');
+            _normalizeString(report['clientName']?.toString() ?? report['client_name']?.toString() ?? '');
         final productCode =
-            _normalizeString(report['productCode']?.toString() ?? '');
+            _normalizeString(report['productCode']?.toString() ?? report['product_code']?.toString() ?? '');
         return clientName.contains(query) || productCode.contains(query);
       }).toList();
     }
@@ -565,9 +573,9 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
             if (dateCompare != 0) return dateCompare;
 
             final nameA =
-                (reportA['clientName'] ?? '').toString().toLowerCase();
+                (reportA['clientName'] ?? reportA['client_name'] ?? '').toString().toLowerCase();
             final nameB =
-                (reportB['clientName'] ?? '').toString().toLowerCase();
+                (reportB['clientName'] ?? reportB['client_name'] ?? '').toString().toLowerCase();
 
             return nameA.compareTo(nameB);
           });
@@ -613,9 +621,9 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
 
   Widget _buildArchiveCard(dynamic key, Map data) {
     final report = data['data'] ?? data;
-    final String clientName = report['clientName'] ?? "بدون اسم";
-    final String product = report['product'] ?? "بدون صنف";
-    final String productCode = report['productCode']?.toString() ?? '';
+    final String clientName = report['clientName'] ?? report['client_name'] ?? "بدون اسم";
+    final String product = report['product'] ?? report['product_name'] ?? "بدون صنف";
+    final String productCode = report['productCode']?.toString() ?? report['product_code']?.toString() ?? '';
     final String displayDate = report['date'] ?? "---";
     final String orderNumber = report['orderNumber']?.toString() ?? '';
     final String formNumber = report['formNumber']?.toString() ??
@@ -939,3 +947,4 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     );
   }
 }
+

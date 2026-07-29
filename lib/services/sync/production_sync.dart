@@ -1,10 +1,10 @@
 // lib/services/sync/production_sync.dart
 //
 // Mixin: ProductionSync on SyncServiceBase
-// المسؤولية: مزامنة جدولَي live_sessions + production_reports
+// المسؤولية: مزامنة جدولَي live_sessions + flexo_production_reports
 //   • القناتان: _liveSessionsChannel + _productionChannel
-//   • الـ Callbacks: _onLiveSessionChange + _onProductionReportChange
-//   • المزامنة المبدئية: _initLiveSessions + _initProductionReports
+//   • الـ Callbacks: _onLiveSessionChange + _onFlexoProductionReportChange
+//   • المزامنة المبدئية: _initLiveSessions + _initFlexoProductionReports
 //   • الـ Helpers: _reportToHive
 //
 // ⚠️ لا تعدّل هذا الملف إلا عند تغيير منطق جلسات الإنتاج أو تقاريرها حصراً.
@@ -19,6 +19,7 @@ mixin ProductionSync on SyncServiceBase {
   RealtimeChannel? _productionChannel;
   RealtimeChannel? _liveSessionsChannel;
   RealtimeChannel? _archivedReportsChannel;
+  RealtimeChannel? _dieCuttingProductionChannel;
 
   // ==============================================================
   // Initial Sync
@@ -63,19 +64,19 @@ mixin ProductionSync on SyncServiceBase {
     }
   }
 
-  /// المزامنة المبدئية لجدول production_reports → Hive box: inkReports
-  Future<void> _initProductionReports(String factoryId) async {
+  /// المزامنة المبدئية لجدول flexo_production_reports → Hive box: flexo_production_reports_box
+  Future<void> _initFlexoProductionReports(String factoryId) async {
     try {
       final res = await _supabase
-          .from('production_reports')
+          .from('flexo_production_reports')
           .select()
           .or('factory_id.eq.$factoryId,factory_id.is.null')
           .order('date', ascending: false)
           .order('end_time', ascending: false);
 
-      final box = Hive.isBoxOpen('inkReports')
-          ? Hive.box('inkReports')
-          : await Hive.openBox('inkReports');
+      final box = Hive.isBoxOpen('flexo_production_reports_box')
+          ? Hive.box<FlexoProductionReport>('flexo_production_reports_box')
+          : await Hive.openBox<FlexoProductionReport>('flexo_production_reports_box');
 
       if (res.isEmpty) {
         debugPrint(
@@ -84,52 +85,72 @@ mixin ProductionSync on SyncServiceBase {
         return;
       }
 
-      final Map<dynamic, dynamic> reportsMap = {};
+      final Map<String, FlexoProductionReport> reportsMap = {};
       for (final r in res) {
-        final hiveRecord = _reportToHive(r);
-        final syncId = r['sync_id'] ?? r['id'];
-        hiveRecord['sync_id'] = syncId;
+        final syncId = r['sync_id']?.toString() ?? r['id']?.toString();
+        if (syncId == null) continue;
 
         final existing = box.get(syncId);
-        if (existing is Map) {
-          final existingW = existing['weight'] ?? 0;
-          final double existingWeightVal = existingW is num
-              ? existingW.toDouble()
-              : (double.tryParse(existingW.toString()) ?? 0.0);
-          final currentW = hiveRecord['weight'] ?? 0;
-          final double currentWeightVal = currentW is num
-              ? currentW.toDouble()
-              : (double.tryParse(currentW.toString()) ?? 0.0);
+        Map<String, dynamic> updatedData = Map<String, dynamic>.from(r);
 
-          if (currentWeightVal == 0 && existingWeightVal > 0) {
-            hiveRecord['weight'] = existingWeightVal;
-            if (hiveRecord['dimensions'] is Map) {
-              (hiveRecord['dimensions'] as Map)['weight'] = existingWeightVal;
-            }
+        if (existing != null) {
+          final double existingWeight = existing.weight ?? 0.0;
+          final double currentWeight = double.tryParse(r['weight']?.toString() ?? '0') ?? 0.0;
+          if (currentWeight == 0 && existingWeight > 0) {
+            updatedData['weight'] = existingWeight;
           }
 
-          final currentLayers = hiveRecord['paperLayers'] is List
-              ? (hiveRecord['paperLayers'] as List)
-              : [];
-          final existingLayers = existing['paperLayers'] is List
-              ? (existing['paperLayers'] as List)
-              : [];
+          final List existingLayers = existing.paperLayers ?? [];
+          final List currentLayers = r['paper_layers'] as List? ?? [];
           if (currentLayers.isEmpty && existingLayers.isNotEmpty) {
-            hiveRecord['paperLayers'] = existingLayers;
-            if (hiveRecord['dimensions'] is Map) {
-              (hiveRecord['dimensions'] as Map)['paperLayers'] = existingLayers;
-            }
+            updatedData['paper_layers'] = existingLayers;
           }
         }
 
-        reportsMap[syncId] = hiveRecord;
+        reportsMap[syncId] = FlexoProductionReport.fromJson(updatedData);
       }
+      // تفريغ الصندوق لتجنب بقاء بيانات قديمة بأسماء حقول غير متوافقة (مثل ---)
+      await box.clear();
       for (var key in reportsMap.keys) {
-        await box.put(key, reportsMap[key]);
+        await box.put(key, reportsMap[key]!);
       }
-      debugPrint('✅ ProductionSync: تم استرجاع ${res.length} production_reports.');
+      debugPrint('✅ ProductionSync: تم استرجاع ${res.length} flexo_production_reports.');
     } catch (e) {
-      debugPrint('❌ ProductionSync._initProductionReports: $e');
+      debugPrint('❌ ProductionSync._initFlexoProductionReports: $e');
+    }
+  }
+
+  /// المزامنة المبدئية لجدول die_cutting_production_reports → Hive box: die_cutting_production_reports
+  Future<void> _initDieCuttingReports(String factoryId) async {
+    try {
+      final res = await _supabase
+          .from('die_cutting_production_reports')
+          .select()
+          .or('factory_id.eq.$factoryId,factory_id.is.null')
+          .order('report_date', ascending: false);
+
+      final box = Hive.isBoxOpen('die_cutting_production_reports')
+          ? Hive.box<DieCuttingProductionReport>('die_cutting_production_reports')
+          : await Hive.openBox<DieCuttingProductionReport>('die_cutting_production_reports');
+
+      if (res.isEmpty) return;
+
+      final Map<String, DieCuttingProductionReport> reportsMap = {};
+      for (final r in res) {
+        final syncId = r['sync_id']?.toString() ?? r['id']?.toString();
+        if (syncId == null) continue;
+        final reportObj = DieCuttingProductionReport.fromJson(r);
+        reportsMap[syncId] = reportObj;
+      }
+      
+      // تفريغ الصندوق للتأكد من عدم وجود بيانات قديمة متراكمة
+      await box.clear();
+      for (var key in reportsMap.keys) {
+        await box.put(key, reportsMap[key]!);
+      }
+      debugPrint('✅ ProductionSync: تم استرجاع ${res.length} die_cutting_production_reports.');
+    } catch (e) {
+      debugPrint('❌ ProductionSync._initDieCuttingReports: $e');
     }
   }
 
@@ -248,40 +269,40 @@ mixin ProductionSync on SyncServiceBase {
       value: factoryId,
     );
 
-    // ─── production_reports ────────────────────────────────────────
+    // ─── flexo_production_reports ────────────────────────────────────────
     _productionChannel = _supabase
-        .channel('rt_production_reports_${factoryId}_v2')
+        .channel('rt_flexo_production_reports_${factoryId}_v2')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'production_reports',
+          table: 'flexo_production_reports',
           filter: filter,
           callback: (payload) {
             debugPrint(
-              '📥 [production_reports] event=${payload.eventType} '
+              '📥 [flexo_production_reports] event=${payload.eventType} '
               'new=${payload.newRecord} old=${payload.oldRecord}',
             );
-            _onProductionReportChange(payload, factoryId);
+            _onFlexoProductionReportChange(payload, factoryId);
           },
         )
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('✅ SUBSCRIBED → production_reports (factory: $factoryId)');
+            debugPrint('✅ SUBSCRIBED → flexo_production_reports (factory: $factoryId)');
             _reconnectAttempts['production_channels'] = 0;
           } else if (status == RealtimeSubscribeStatus.timedOut) {
-            debugPrint('⏱️ TIMEOUT → production_reports — جدولة إعادة الاتصال...');
+            debugPrint('⏱️ TIMEOUT → flexo_production_reports — جدولة إعادة الاتصال...');
             _scheduleReconnect('production_channels', () async {
               await _tearDownProductionChannels();
               _setupProductionChannels(factoryId);
             });
           } else if (status == RealtimeSubscribeStatus.channelError) {
-            debugPrint('❌ CHANNEL ERROR → production_reports: $error');
+            debugPrint('❌ CHANNEL ERROR → flexo_production_reports: $error');
             _scheduleReconnect('production_channels', () async {
               await _tearDownProductionChannels();
               _setupProductionChannels(factoryId);
             });
           } else {
-            debugPrint('📡 production_reports: $status ${error ?? ""}');
+            debugPrint('📡 flexo_production_reports: $status ${error ?? ""}');
           }
         });
 
@@ -358,6 +379,41 @@ mixin ProductionSync on SyncServiceBase {
             debugPrint('📡 archived_reports: $status ${error ?? ""}');
           }
         });
+    // ─── die_cutting_production_reports ─────────────────────────────
+    _dieCuttingProductionChannel = _supabase
+        .channel('rt_die_cutting_reports_${factoryId}_v1')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'die_cutting_production_reports',
+          filter: filter,
+          callback: (payload) {
+            debugPrint(
+              '📥 [die_cutting_production_reports] event=${payload.eventType}',
+            );
+            _onDieCuttingReportChange(payload, factoryId);
+          },
+        )
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            debugPrint('✅ SUBSCRIBED → die_cutting_production_reports (factory: $factoryId)');
+            _reconnectAttempts['die_cutting_reports_channel'] = 0;
+          } else if (status == RealtimeSubscribeStatus.timedOut) {
+            debugPrint('⏱️ TIMEOUT → die_cutting_production_reports — جدولة إعادة الاتصال...');
+            _scheduleReconnect('die_cutting_reports_channel', () async {
+              await _tearDownProductionChannels();
+              _setupProductionChannels(factoryId);
+            });
+          } else if (status == RealtimeSubscribeStatus.channelError) {
+            debugPrint('❌ CHANNEL ERROR → die_cutting_production_reports: $error');
+            _scheduleReconnect('die_cutting_reports_channel', () async {
+              await _tearDownProductionChannels();
+              _setupProductionChannels(factoryId);
+            });
+          } else {
+            debugPrint('📡 die_cutting_production_reports: $status ${error ?? ""}');
+          }
+        });
   }
 
   /// إغلاق قنوات الإنتاج وتحريرها
@@ -374,14 +430,59 @@ mixin ProductionSync on SyncServiceBase {
       await _supabase.removeChannel(_archivedReportsChannel!);
       _archivedReportsChannel = null;
     }
+    if (_dieCuttingProductionChannel != null) {
+      await _supabase.removeChannel(_dieCuttingProductionChannel!);
+      _dieCuttingProductionChannel = null;
+    }
   }
 
   // ==============================================================
   // Real-time Callbacks
   // ==============================================================
 
-  // ─── production_reports → inkReports ────────────────────────────
-  void _onProductionReportChange(
+  // ─── die_cutting_production_reports ───────────────────────────────
+  void _onDieCuttingReportChange(
+    PostgresChangePayload payload,
+    String myFactoryId,
+  ) async {
+    try {
+      final isDelete = payload.eventType == PostgresChangeEvent.delete;
+      Map<String, dynamic> record = isDelete 
+          ? (payload.oldRecord.isNotEmpty ? payload.oldRecord : payload.newRecord)
+          : payload.newRecord;
+
+      if (record.isEmpty) return;
+
+      final recordFactoryId = record['factory_id']?.toString();
+      if (!isDelete && recordFactoryId != myFactoryId) return;
+
+      if (!Hive.isBoxOpen('die_cutting_production_reports')) return;
+      final box = Hive.box<DieCuttingProductionReport>('die_cutting_production_reports');
+      
+      final payloadSyncId = record['sync_id']?.toString();
+      final payloadId     = record['id']?.toString();
+      
+      if (isDelete) {
+        if (payloadSyncId != null && box.containsKey(payloadSyncId)) {
+          await box.delete(payloadSyncId);
+        } else if (payloadId != null && box.containsKey(payloadId)) {
+          await box.delete(payloadId);
+        }
+      } else {
+        final stableKey = payloadSyncId ?? payloadId;
+        if (stableKey == null) return;
+        
+        final reportObj = DieCuttingProductionReport.fromJson(record);
+        await box.put(stableKey, reportObj);
+        debugPrint('✅ [die_cutting_production_reports] تم حفظ محلياً: $stableKey');
+      }
+    } catch (e) {
+      debugPrint('❌ _onDieCuttingReportChange: $e');
+    }
+  }
+
+  // ─── flexo_production_reports → flexo_production_reports_box ────────────────────────────
+  void _onFlexoProductionReportChange(
     PostgresChangePayload payload,
     String myFactoryId,
   ) async {
@@ -400,21 +501,21 @@ mixin ProductionSync on SyncServiceBase {
       }
 
       if (record.isEmpty) {
-        debugPrint('⚠️ [production_reports] DELETE payload فارغ تماماً! '
-            'تأكد من: ALTER TABLE production_reports REPLICA IDENTITY FULL;');
+        debugPrint('⚠️ [flexo_production_reports] DELETE payload فارغ تماماً! '
+            'تأكد من: ALTER TABLE flexo_production_reports REPLICA IDENTITY FULL;');
         return;
       }
 
       final recordFactoryId = record['factory_id']?.toString();
       if (!isDelete && recordFactoryId != myFactoryId) {
-        debugPrint('⏭️ [production_reports] تجاهل: factory مختلف'); return;
+        debugPrint('⏭️ [flexo_production_reports] تجاهل: factory مختلف'); return;
       }
 
 
-      if (!Hive.isBoxOpen('inkReports')) {
-        debugPrint('⚠️ [production_reports] Box inkReports مغلق!'); return;
+      if (!Hive.isBoxOpen('flexo_production_reports_box')) {
+        debugPrint('⚠️ [flexo_production_reports] Box flexo_production_reports_box مغلق!'); return;
       }
-      final box = Hive.box('inkReports');
+      final box = Hive.box<FlexoProductionReport>('flexo_production_reports_box');
       final stableKey = record['sync_id']?.toString() ?? record['id']?.toString();
 
       if (isDelete) {
@@ -430,7 +531,7 @@ mixin ProductionSync on SyncServiceBase {
           if (candidateKey != null && box.containsKey(candidateKey)) {
             await box.delete(candidateKey);
             deleted = true;
-            debugPrint('🗑️ [production_reports] حُذف مباشرةً بالمفتاح=$candidateKey');
+            debugPrint('🗑️ [flexo_production_reports] حُذف مباشرةً بالمفتاح=$candidateKey');
             break;
           }
         }
@@ -439,9 +540,9 @@ mixin ProductionSync on SyncServiceBase {
         if (!deleted) {
           for (int i = 0; i < box.length; i++) {
             final v = box.getAt(i);
-            if (v is! Map) continue;
-            final vSyncId = v['sync_id']?.toString();
-            final vId     = v['id']?.toString();
+            if (v == null) continue;
+            final vSyncId = v.syncId;
+            final vId     = v.id;
             // مطابقة أي من المعرّفات الأربع
             final match =
                 (payloadSyncId != null && (vSyncId == payloadSyncId || vId == payloadSyncId)) ||
@@ -450,7 +551,7 @@ mixin ProductionSync on SyncServiceBase {
               final foundKey = box.keyAt(i);
               await box.delete(foundKey);
               deleted = true;
-              debugPrint('🗑️ [production_reports] حُذف (خطي) key=$foundKey '
+              debugPrint('🗑️ [flexo_production_reports] حُذف (خطي) key=$foundKey '
                   '(payload: sync_id=$payloadSyncId | id=$payloadId)');
               break;
             }
@@ -458,36 +559,37 @@ mixin ProductionSync on SyncServiceBase {
         }
 
         if (!deleted) {
-          debugPrint('⚠️ [production_reports] Ghost Record — لم يُعثر على سجل '
+          debugPrint('⚠️ [flexo_production_reports] Ghost Record — لم يُعثر على سجل '
               '(payload: sync_id=$payloadSyncId | id=$payloadId)');
         }
       } else {
         if (stableKey == null) {
-          debugPrint('⚠️ [production_reports] لا يوجد sync_id أو id!'); return;
+          debugPrint('⚠️ [flexo_production_reports] لا يوجد sync_id أو id!'); return;
         }
         final clientName = record['client_name'] ?? record['clientName'] ?? '';
-        debugPrint('🌟 وصلت بيانات جديدة [production_reports]: $clientName (key: $stableKey)');
+        debugPrint('🌟 وصلت بيانات جديدة [flexo_production_reports]: $clientName (key: $stableKey)');
 
         dynamic existingKey = stableKey;
-        Map<dynamic, dynamic>? existingRecord;
+        FlexoProductionReport? existingRecord;
         for (var i = 0; i < box.length; i++) {
           final item = box.getAt(i);
-          if (item is Map && item['sync_id'] == stableKey) {
+          if (item != null && item.syncId == stableKey) {
             existingKey = box.keyAt(i);
             existingRecord = item;
             break;
           }
         }
 
-        final hiveRecord = _reportToHive(record);
-        hiveRecord['sync_id'] = stableKey;
+        Map<String, dynamic> updatedData = Map<String, dynamic>.from(record);
+        updatedData['sync_id'] = stableKey;
         if (existingRecord != null &&
-            existingRecord['department'] != null &&
-            existingRecord['department'].toString().isNotEmpty) {
-          hiveRecord['department'] = existingRecord['department'];
+            existingRecord.department != null &&
+            existingRecord.department!.isNotEmpty) {
+          updatedData['department'] = existingRecord.department;
         }
-        await box.put(existingKey, hiveRecord);
-        debugPrint('✅ [production_reports] تم حفظ محلياً: $stableKey');
+        final reportObj = FlexoProductionReport.fromJson(updatedData);
+        await box.put(existingKey, reportObj);
+        debugPrint('✅ [flexo_production_reports] تم حفظ محلياً: $stableKey');
 
         if (payload.eventType == PostgresChangeEvent.insert) {
           final productName = record['product']?.toString() ?? record['product_name']?.toString() ?? '';
@@ -512,7 +614,7 @@ mixin ProductionSync on SyncServiceBase {
         }
       }
     } catch (e) {
-      debugPrint('❌ _onProductionReportChange: $e');
+      debugPrint('❌ _onFlexoProductionReportChange: $e');
     }
   }
 
@@ -821,15 +923,15 @@ mixin ProductionSync on SyncServiceBase {
   // Direct Push (Direct Batch Upsert) لتقارير الإنتاج والأرشيف
   // ==============================================================
 
-  /// الرفع المباشر المتزامن لكافة التقارير والأرشيف إلى جداول production_reports و archived_reports
+  /// الرفع المباشر المتزامن لكافة التقارير والأرشيف إلى جداول flexo_production_reports و archived_reports
   Future<void> directPushAllReports() async {
     try {
       final factoryId = await SupabaseManager.getFactoryId();
       if (factoryId == null) throw Exception('المصنع غير محدد (يجب تسجيل الدخول)');
 
-      final prodBox = Hive.isBoxOpen('inkReports')
-          ? Hive.box('inkReports')
-          : await Hive.openBox('inkReports');
+      final prodBox = Hive.isBoxOpen('flexo_production_reports_box')
+          ? Hive.box<FlexoProductionReport>('flexo_production_reports_box')
+          : await Hive.openBox<FlexoProductionReport>('flexo_production_reports_box');
 
       final flexoArchiveBox = Hive.isBoxOpen('flexoArchive')
           ? Hive.box('flexoArchive')
@@ -846,12 +948,12 @@ mixin ProductionSync on SyncServiceBase {
         return;
       }
 
-      // ─── 1. تجميع وتنظيف تقارير الإنتاج (production_reports) ───
+      // ─── 1. تجميع وتنظيف تقارير الإنتاج (flexo_production_reports) ───
       final rawProdRecords = <Map<String, dynamic>>[];
       for (final key in prodBox.keys) {
         final item = prodBox.get(key);
-        if (item is! Map) continue;
-        final payload = _normalizeReportPayload(Map<String, dynamic>.from(item), factoryId);
+        if (item == null) continue;
+        final payload = _normalizeReportPayload(item.toJson(), factoryId);
         if (payload != null) {
           rawProdRecords.add(payload);
         }
@@ -894,8 +996,8 @@ mixin ProductionSync on SyncServiceBase {
 
       // ─── 3. الرفع المباشر لجداول Supabase ───
       if (productionReportsList.isNotEmpty) {
-        debugPrint('📤 [directPushAllReports] جاري رفع ${productionReportsList.length} تقرير إنتاج إلى production_reports...');
-        await _safeUpsertReports('production_reports', productionReportsList);
+        debugPrint('📤 [directPushAllReports] جاري رفع ${productionReportsList.length} تقرير إنتاج إلى flexo_production_reports...');
+        await _safeUpsertReports('flexo_production_reports', productionReportsList);
         debugPrint('✅ [directPushAllReports] تم رفع ${productionReportsList.length} تقرير إنتاج بنجاح!');
       }
 
@@ -913,7 +1015,7 @@ mixin ProductionSync on SyncServiceBase {
       for (var i = 0; i < queueBox.length; i++) {
         final item = queueBox.getAt(i);
         if (item is Map &&
-            (item['table']?.toString() == 'production_reports' ||
+            (item['table']?.toString() == 'flexo_production_reports' ||
              item['table']?.toString() == 'archived_reports')) {
           keysToDelete.add(queueBox.keyAt(i));
         }
@@ -1022,3 +1124,4 @@ mixin ProductionSync on SyncServiceBase {
     }
   }
 }
+
