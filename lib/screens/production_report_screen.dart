@@ -7,6 +7,7 @@ import 'package:smart_sheet/widgets/production_report_form.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/production_report.dart';
+import 'package:smart_sheet/models/die_cutting_production_report.dart';
 import 'package:smart_sheet/widgets/active_sessions_dashboard.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
@@ -21,6 +22,18 @@ import 'package:smart_sheet/utils/archive_rbac_logic.dart';
 import 'dart:async';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+DateTime? _parseTimeForDieCutting(String? dateStr, String? timeStr) {
+  if (dateStr == null || timeStr == null || timeStr.isEmpty || timeStr == '--:--') return null;
+  try {
+    final d = DateTime.parse(dateStr);
+    final parts = timeStr.split(':');
+    if (parts.length < 2) return null;
+    return DateTime(d.year, d.month, d.day, int.parse(parts[0]), int.parse(parts[1]));
+  } catch (_) {
+    return null;
+  }
+}
 
 class ProductionReportScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
@@ -64,14 +77,29 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
 
   Future<void> _openBoxSafe() async {
     try {
-      if (!Hive.isBoxOpen('inkReports')) await Hive.openBox('inkReports');
+      final targetBox = (widget.department == 'crushing' || widget.department == 'die_cutting') 
+          ? 'die_cutting_production_reports' 
+          : 'inkReports';
+          
+      if (!Hive.isBoxOpen(targetBox)) {
+        if (targetBox == 'die_cutting_production_reports') {
+          await Hive.openBox<DieCuttingProductionReport>(targetBox);
+        } else {
+          await Hive.openBox(targetBox);
+        }
+      }
+
       // ✅ FIX: افتح flexo_live_sessions مبكّراً لضمان توفره قبل بناء الواجهة
       if (!Hive.isBoxOpen('flexo_live_sessions')) {
         await Hive.openBox<LiveSession>('flexo_live_sessions');
       }
       if (mounted) {
         setState(() {
-          _productionReportBox = Hive.box('inkReports');
+          if (targetBox == 'die_cutting_production_reports') {
+            _productionReportBox = Hive.box<DieCuttingProductionReport>(targetBox);
+          } else {
+            _productionReportBox = Hive.box(targetBox);
+          }
           _isBoxLoading = false;
         });
 
@@ -104,14 +132,18 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         // ✅ مزامنة الحذف مع Supabase لتحديث جميع الأجهزة
         final syncId =
             record['sync_id']?.toString() ?? record['id']?.toString();
+        final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
+            ? 'die_cutting_production_reports' 
+            : 'production_reports';
+            
         if (syncId != null) {
           SyncService.instance.pushToQueue(
-            'production_reports',
+            tableName,
             {'sync_id': syncId, 'id': syncId},
             operation: 'delete',
           );
           debugPrint(
-              '🗑️ _deleteSingleReport: تم إضافة الحذف للـ Queue (sync_id=$syncId)');
+              '🗑️ _deleteSingleReport: تم إضافة الحذف للـ Queue (sync_id=$syncId, table=$tableName)');
         }
 
         if (mounted) {
@@ -150,11 +182,15 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           }
         }
 
+        final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
+            ? 'die_cutting_production_reports' 
+            : 'production_reports';
+
         try {
           // 2. أمر المسح من السيرفر باستخدام inFilter
           if (listOfIds.isNotEmpty) {
             await Supabase.instance.client
-                .from('production_reports')
+                .from(tableName)
                 .delete()
                 .inFilter('sync_id', listOfIds);
             debugPrint(
@@ -219,8 +255,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           final allReports = _productionReportBox!.toMap();
 
           for (var entry in allReports.entries) {
-            final r = Map<String, dynamic>.from(entry.value);
-            final dept = r['department']?.toString();
+            final val = entry.value;
+            final r = val is DieCuttingProductionReport ? val.toJson() : Map<String, dynamic>.from(val);
+            final dept = r['department']?.toString() ?? (val is DieCuttingProductionReport ? (widget.department ?? 'die_cutting') : null);
             if (isProdLineDept) {
               if (dept != 'production_line') continue;
             } else {
@@ -904,18 +941,55 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     final entries = box
         .toMap()
         .entries
+        .map((e) {
+          final val = e.value;
+          Map<String, dynamic> r;
+          if (val is Map) {
+            r = Map<String, dynamic>.from(val);
+          } else if (val is DieCuttingProductionReport) {
+            r = {
+              'sync_id': val.id,
+              'id': val.id,
+              'date': val.reportDate.toIso8601String().split('T')[0],
+              'clientName': val.customerName,
+              'product': val.itemName,
+              'productCode': val.itemCode,
+              'formNumber': val.formNumber,
+              'orderNumber': val.workOrder,
+              'machineName': val.machineName,
+              'technicianName': val.technicianName,
+              'quantity': val.productionQuantity,
+              'lineWaste': val.wasteQuantity,
+              'notes': val.notes,
+              'department': widget.department ?? 'die_cutting', 
+            };
+            if (val.runTimeStart != null) r['startTime'] = "${val.runTimeStart!.hour.toString().padLeft(2, '0')}:${val.runTimeStart!.minute.toString().padLeft(2, '0')}";
+            if (val.runTimeEnd != null) r['endTime'] = "${val.runTimeEnd!.hour.toString().padLeft(2, '0')}:${val.runTimeEnd!.minute.toString().padLeft(2, '0')}";
+            if (val.downtimeStart != null) r['downtimeStart'] = "${val.downtimeStart!.hour.toString().padLeft(2, '0')}:${val.downtimeStart!.minute.toString().padLeft(2, '0')}";
+            if (val.downtimeEnd != null) r['downtimeEnd'] = "${val.downtimeEnd!.hour.toString().padLeft(2, '0')}:${val.downtimeEnd!.minute.toString().padLeft(2, '0')}";
+          } else {
+            try {
+              r = (val as dynamic).toJson();
+            } catch (_) {
+              r = {};
+            }
+          }
+          return MapEntry(e.key, r);
+        })
         .where((e) {
           final r = e.value;
           final dept = r['department']?.toString() ?? 'flexo';
           final targetDept = widget.department ?? 'flexo';
-          if (dept != targetDept) return false;
+          // Relax department filter if they match the die cutting group
+          final bool isDieCuttingGroup = (dept == 'crushing' || dept == 'die_cutting') && (targetDept == 'crushing' || targetDept == 'die_cutting');
+          if (dept != targetDept && !isDieCuttingGroup) return false;
+          
           final q = query.toLowerCase();
           return (r['clientName']?.toString() ?? '')
                   .toLowerCase()
                   .contains(q) ||
               (r['product']?.toString() ?? '').toLowerCase().contains(q);
         })
-        .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
         .toList();
 
     entries.sort((a, b) {
@@ -1024,11 +1098,35 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               r['sync_id'] = syncId;
               r['id'] = syncId; // لحماية التوافق مع الكود القديم
 
-              // FIX: box.put(syncId) — مفتاح ثابت يمنع التكرار على الجهاز الآخر
-              await _productionReportBox!.put(syncId, r);
+              final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
+                  ? 'die_cutting_production_reports' 
+                  : 'production_reports';
 
-              // رفع للسحاب عبر Queue
-              SyncService.instance.pushToQueue('production_reports', r);
+              if (tableName == 'die_cutting_production_reports') {
+                final report = DieCuttingProductionReport(
+                  id: syncId,
+                  machineName: r['machineName']?.toString() ?? '',
+                  technicianName: r['technicianName']?.toString() ?? '',
+                  reportDate: DateTime.tryParse(r['date']?.toString() ?? '') ?? DateTime.now(),
+                  customerName: r['clientName']?.toString() ?? '',
+                  itemName: r['product']?.toString() ?? '',
+                  itemCode: r['productCode']?.toString() ?? '',
+                  formNumber: r['formNumber']?.toString() ?? '',
+                  workOrder: r['orderNumber']?.toString() ?? '',
+                  runTimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['startTime']?.toString()),
+                  runTimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['endTime']?.toString()),
+                  downtimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeStart']?.toString()),
+                  downtimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeEnd']?.toString()),
+                  productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
+                  wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
+                  notes: r['notes']?.toString(),
+                );
+                await _productionReportBox!.put(syncId, report);
+                SyncService.instance.pushToQueue(tableName, report.toJson());
+              } else {
+                await _productionReportBox!.put(syncId, r);
+                SyncService.instance.pushToQueue(tableName, r);
+              }
               if (c.mounted) Navigator.pop(c);
             }));
   }
@@ -1049,11 +1147,35 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               r['sync_id'] = existingSyncId;
               r['id'] = existingSyncId;
 
-              // FIX: box.put بنفس المفتاح الأصلي
-              await _productionReportBox!.put(existingSyncId, r);
+              final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
+                  ? 'die_cutting_production_reports' 
+                  : 'production_reports';
 
-              // رفع للسحاب عبر Queue
-              SyncService.instance.pushToQueue('production_reports', r);
+              if (tableName == 'die_cutting_production_reports') {
+                final report = DieCuttingProductionReport(
+                  id: existingSyncId,
+                  machineName: r['machineName']?.toString() ?? '',
+                  technicianName: r['technicianName']?.toString() ?? '',
+                  reportDate: DateTime.tryParse(r['date']?.toString() ?? '') ?? DateTime.now(),
+                  customerName: r['clientName']?.toString() ?? '',
+                  itemName: r['product']?.toString() ?? '',
+                  itemCode: r['productCode']?.toString() ?? '',
+                  formNumber: r['formNumber']?.toString() ?? '',
+                  workOrder: r['orderNumber']?.toString() ?? '',
+                  runTimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['startTime']?.toString()),
+                  runTimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['endTime']?.toString()),
+                  downtimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeStart']?.toString()),
+                  downtimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeEnd']?.toString()),
+                  productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
+                  wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
+                  notes: r['notes']?.toString(),
+                );
+                await _productionReportBox!.put(existingSyncId, report);
+                SyncService.instance.pushToQueue(tableName, report.toJson());
+              } else {
+                await _productionReportBox!.put(existingSyncId, r);
+                SyncService.instance.pushToQueue(tableName, r);
+              }
               if (c.mounted) Navigator.pop(c);
             }));
   }
@@ -1371,13 +1493,38 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             r['sync_id'] = syncId;
             r['id'] = syncId;
 
-            // حفظ محلي بمفتاح ثابت لمنع التكرار
-            await _productionReportBox!.put(syncId, r);
+            final String tableName = (session.department == 'crushing' || session.department == 'die_cutting' || widget.department == 'crushing' || widget.department == 'die_cutting') 
+                ? 'die_cutting_production_reports' 
+                : 'production_reports';
 
-            // مزامنة فورية مع Supabase
-            final reportObj = ProductionReport.fromJson(r);
-            SyncService.instance
-                .pushToQueue('production_reports', reportObj.toJson());
+            if (tableName == 'die_cutting_production_reports') {
+                final report = DieCuttingProductionReport(
+                  id: syncId,
+                  machineName: r['machineName']?.toString() ?? '',
+                  technicianName: r['technicianName']?.toString() ?? '',
+                  reportDate: DateTime.tryParse(r['date']?.toString() ?? '') ?? DateTime.now(),
+                  customerName: r['clientName']?.toString() ?? '',
+                  itemName: r['product']?.toString() ?? '',
+                  itemCode: r['productCode']?.toString() ?? '',
+                  formNumber: r['formNumber']?.toString() ?? '',
+                  workOrder: r['orderNumber']?.toString() ?? '',
+                  runTimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['startTime']?.toString()),
+                  runTimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['endTime']?.toString()),
+                  downtimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeStart']?.toString()),
+                  downtimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeEnd']?.toString()),
+                  productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
+                  wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
+                  notes: r['notes']?.toString(),
+                );
+                // حفظ محلي بمفتاح ثابت لمنع التكرار
+                await _productionReportBox!.put(syncId, report);
+                SyncService.instance.pushToQueue(tableName, report.toJson());
+            } else {
+                // حفظ محلي بمفتاح ثابت لمنع التكرار
+                await _productionReportBox!.put(syncId, r);
+                final reportObj = ProductionReport.fromJson(r);
+                SyncService.instance.pushToQueue(tableName, reportObj.toJson());
+            }
 
             debugPrint(
                 '✅ _finishSession: تم حفظ التقرير ورفعه للمزامنة (sync_id=$syncId)');

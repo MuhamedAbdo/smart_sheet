@@ -52,6 +52,9 @@ class DieCuttingProductionReport extends HiveObject {
   @HiveField(15)
   final String? notes;
 
+  @HiveField(16)
+  final String? factoryId;
+
   DieCuttingProductionReport({
     required this.id,
     required this.machineName,
@@ -69,14 +72,16 @@ class DieCuttingProductionReport extends HiveObject {
     required this.productionQuantity,
     required this.wasteQuantity,
     this.notes,
+    this.factoryId,
   });
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id.toString(),
+      'sync_id': id.toString(),
+      'factory_id': factoryId,
+      'report_date': reportDate.toIso8601String(),
       'machine_name': machineName,
       'technician_name': technicianName,
-      'report_date': reportDate.toIso8601String(),
       'customer_name': customerName,
       'item_name': itemName,
       'item_code': itemCode,
@@ -94,11 +99,12 @@ class DieCuttingProductionReport extends HiveObject {
 
   factory DieCuttingProductionReport.fromJson(Map<String, dynamic> map) {
     return DieCuttingProductionReport(
-      id: map['id']?.toString() ?? '',
+      id: map['sync_id']?.toString() ?? map['id']?.toString() ?? '',
+      factoryId: map['factory_id']?.toString(),
       machineName: map['machine_name']?.toString() ?? '',
       technicianName: map['technician_name']?.toString() ?? '',
       reportDate: map['report_date'] != null 
-          ? DateTime.parse(map['report_date'].toString()) 
+          ? DateTime.tryParse(map['report_date'].toString()) ?? DateTime.now()
           : DateTime.now(),
       customerName: map['customer_name']?.toString() ?? '',
       itemName: map['item_name']?.toString() ?? '',
@@ -106,16 +112,16 @@ class DieCuttingProductionReport extends HiveObject {
       formNumber: map['form_number']?.toString() ?? '',
       workOrder: map['work_order']?.toString() ?? '',
       runTimeStart: map['run_time_start'] != null 
-          ? DateTime.parse(map['run_time_start'].toString()) 
+          ? DateTime.tryParse(map['run_time_start'].toString()) 
           : null,
       runTimeEnd: map['run_time_end'] != null 
-          ? DateTime.parse(map['run_time_end'].toString()) 
+          ? DateTime.tryParse(map['run_time_end'].toString()) 
           : null,
       downtimeStart: map['downtime_start'] != null 
-          ? DateTime.parse(map['downtime_start'].toString()) 
+          ? DateTime.tryParse(map['downtime_start'].toString()) 
           : null,
       downtimeEnd: map['downtime_end'] != null 
-          ? DateTime.parse(map['downtime_end'].toString()) 
+          ? DateTime.tryParse(map['downtime_end'].toString()) 
           : null,
       productionQuantity: (map['production_quantity'] as num?)?.toDouble() ?? 0.0,
       wasteQuantity: (map['waste_quantity'] as num?)?.toDouble() ?? 0.0,
