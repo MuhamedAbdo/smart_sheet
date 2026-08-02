@@ -1,4 +1,4 @@
-﻿// lib/src/utils/pdf_export_helper.dart
+// lib/src/utils/pdf_export_helper.dart
 
 import 'dart:io';
 import 'dart:typed_data';
@@ -40,6 +40,7 @@ Future<Uint8List?> generateFlexoProductionReportPdfBytes(Map<String, dynamic> pa
     final Uint8List fontBytes = fontData.buffer.asUint8List();
     final Uint8List boldFontBytes = boldFontData.buffer.asUint8List();
     final safeRecords = records.map((r) => toSerializableMap(r)).toList();
+    safeRecords.sort(_compareRecordsByDateAndEndTime);
     final String? department = params['department']?.toString() ??
         (safeRecords.isNotEmpty ? safeRecords.first['department']?.toString() : null);
 
@@ -73,6 +74,7 @@ Future<Uint8List?> generatePrintingReportPdfBytes(Map<String, dynamic> params) a
     final Uint8List fontBytes = fontData.buffer.asUint8List();
     final Uint8List boldFontBytes = boldFontData.buffer.asUint8List();
     final safeRecords = records.map((r) => toSerializableMap(r)).toList();
+    safeRecords.sort(_compareRecordsByDateAndEndTime);
 
     return await compute(_generateConsolidatedPrintingPdfBytes, {
       'records': safeRecords,
@@ -132,6 +134,28 @@ String _formatDate(String dateStr) {
     debugPrint('❌ خطأ في تنسيق التاريخ: $dateStr - $e');
   }
   return dateStr;
+}
+
+int _compareRecordsByDateAndEndTime(Map<String, dynamic> a, Map<String, dynamic> b) {
+  final String dateA = _formatDate(a['date']?.toString() ?? '');
+  final String dateB = _formatDate(b['date']?.toString() ?? '');
+  
+  int dateCmp = dateA.compareTo(dateB);
+  if (dateCmp != 0) return dateCmp;
+
+  final String timeA = (a['end_time'] ?? a['endTime'])?.toString().trim() ?? '';
+  final String timeB = (b['end_time'] ?? b['endTime'])?.toString().trim() ?? '';
+
+  String normalizeTime(String t) {
+    if (t.isEmpty) return '00:00';
+    List<String> parts = t.split(':');
+    if (parts.length == 2) {
+      return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
+    }
+    return t.padLeft(5, '0');
+  }
+
+  return normalizeTime(timeA).compareTo(normalizeTime(timeB));
 }
 
 // ---------------------------------
@@ -275,28 +299,17 @@ String _getDimensionsOnly(Map<String, dynamic> record) {
 
   if (fL == '0' || fW == '0') return '---';
 
-  if (record['isSheet'] == true) {
-    return '$fL / $fW';
+  final bool isSheet = record['isSheet'] == true || record['is_sheet'] == true || record['is_sheet'] == 'true';
+
+  if (isSheet) {
+    // للقراءة من اليمين لليسار: الطول أولاً على اليمين ثم العرض
+    return '$fW / $fL';
   } else {
-    return '$fL / $fW / $fH';
+    // للقراءة من اليمين لليسار: الطول على اليمين / العرض في المنتصف / الارتفاع على اليسار
+    return '$fH / $fW / $fL';
   }
 }
 
-String _getPaperLayersOnly(Map<String, dynamic> record) {
-  final dims = record['dimensions'] is Map ? record['dimensions'] as Map : {};
-  final rawLayers = record['paperLayers'] ??
-      record['paper_layers'] ??
-      dims['paperLayers'] ??
-      dims['paper_layers'];
-  final List<String> layers = [];
-  if (rawLayers is List) {
-    layers.addAll(rawLayers
-        .map((e) => e.toString().trim())
-        .where((e) => e.isNotEmpty));
-  }
-  if (layers.isEmpty) return '---';
-  return layers.join(' / ');
-}
 
 String _getWeightOnly(Map<String, dynamic> record) {
   final dims = record['dimensions'] is Map ? record['dimensions'] as Map : {};
@@ -374,14 +387,13 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
     final int totalPages = (records.length / recordsPerPage).ceil();
 
     // Width calculation: Total 810
-    // تم تقليل مساحة (الفني، العميل، الصنف) لتوفير مساحة لـ (طبقات الورق، الهالك، الوزن)
+    // تم تقليل مساحة (الفني، العميل، الصنف) لتوفير مساحة لـ (الهالك، الوزن)
     const double techColWidth = 52.0;
     const double clientColWidth = 72.0;
     const double productColWidth = 72.0;
-    const double layersColWidth = 80.0;
-    // Fixed columns: م(20) + الفني(52) + التاريخ(52) + العميل(72) + الصنف(72) + كود(45) + المقاس(58) + طبقات(80) + أمر(42) + إنتاج(35) + تشغيل(70) + هالك(28) + وزن(32) + أعطال(70) = 728
+    // Fixed columns: م(20) + الفني(52) + التاريخ(52) + العميل(72) + الصنف(72) + كود(45) + المقاس(70) + أمر(42) + إنتاج(35) + تشغيل(70) + هالك(28) + وزن(32) + أعطال(70) = 660
     // الملاحظات تأخذ المساحة المتبقية من 810
-    const double notesColWidth = 810.0 - 728.0; // = 82.0
+    const double notesColWidth = 810.0 - 660.0; // = 150.0
 
     for (int page = 0; page < totalPages; page++) {
       final int startIndex = page * recordsPerPage;
@@ -395,27 +407,37 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
 
-        final String tName = (record['technicianName'] ?? record['technician_name'])?.toString() ?? '---';
+        final String tName = (record['technician_name'] ?? record['technicianName'])?.toString() ?? '---';
+        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['client'])?.toString() ?? '---';
+        final String productName = (record['product_name'] ?? record['productName'] ?? record['product'])?.toString() ?? '---';
+        final String productCode = (record['product_code'] ?? record['productCode'])?.toString() ?? '---';
+        final String orderNumber = (record['order_number'] ?? record['orderNumber'])?.toString() ?? '---';
+        final String quantity = record['quantity']?.toString() ?? '---';
+        final String startTime = (record['start_time'] ?? record['startTime'])?.toString() ?? '---';
+        final String endTime = (record['end_time'] ?? record['endTime'])?.toString() ?? '---';
+        final String lineWaste = (record['line_waste'] ?? record['lineWaste'] ?? record['print_waste'] ?? record['printWaste'])?.toString() ?? '---';
+        final String downtimeStart = (record['downtime_start'] ?? record['downtimeStart'])?.toString() ?? '---';
+        final String downtimeEnd = (record['downtime_end'] ?? record['downtimeEnd'])?.toString() ?? '---';
+        final String notes = record['notes']?.toString() ?? '---';
 
         pageRows.add(
           pw.Row(children: [
             buildTableDataCell('${startIndex + i + 1}', 20.0, arabicFont, isRightMost: true),
             buildTableDataCell(tName, techColWidth, arabicFont),
             buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 52.0, arabicFont),
-            buildTableDataCell(record['clientName']?.toString() ?? '---', clientColWidth, arabicFont),
-            buildTableDataCell(record['product']?.toString() ?? '---', productColWidth, arabicFont),
-            buildTableDataCell(record['productCode']?.toString() ?? '---', 45.0, arabicFont),
-            buildTableDataCell(_getDimensionsOnly(record), 58.0, arabicFont),
-            buildTableDataCell(_getPaperLayersOnly(record), layersColWidth, arabicFont),
-            buildTableDataCell(record['orderNumber']?.toString() ?? '---', 42.0, arabicFont),
-            buildTableDataCell(record['quantity']?.toString() ?? '---', 35.0, arabicFont),
-            buildTableDataCell(record['startTime']?.toString() ?? '---', 35.0, arabicFont),
-            buildTableDataCell(record['endTime']?.toString() ?? '---', 35.0, arabicFont, isSectionEnd: true),
-            buildTableDataCell(record['lineWaste']?.toString() ?? '---', 28.0, arabicFont),
+            buildTableDataCell(clientName, clientColWidth, arabicFont),
+            buildTableDataCell(productName, productColWidth, arabicFont),
+            buildTableDataCell(productCode, 45.0, arabicFont),
+            buildTableDataCell(_getDimensionsOnly(record), 70.0, arabicFont),
+            buildTableDataCell(orderNumber, 42.0, arabicFont),
+            buildTableDataCell(quantity, 35.0, arabicFont),
+            buildTableDataCell(startTime, 35.0, arabicFont),
+            buildTableDataCell(endTime, 35.0, arabicFont, isSectionEnd: true),
+            buildTableDataCell(lineWaste, 28.0, arabicFont),
             buildTableDataCell(_getWeightOnly(record), 32.0, arabicFont, isSectionEnd: true),
-            buildTableDataCell(record['downtimeStart']?.toString() ?? '---', 35.0, arabicFont),
-            buildTableDataCell(record['downtimeEnd']?.toString() ?? '---', 35.0, arabicFont, isSectionEnd: true),
-            buildTableDataCell(record['notes']?.toString() ?? '---', notesColWidth, arabicFont),
+            buildTableDataCell(downtimeStart, 35.0, arabicFont),
+            buildTableDataCell(downtimeEnd, 35.0, arabicFont, isSectionEnd: true),
+            buildTableDataCell(notes, notesColWidth, arabicFont),
           ]),
         );
       }
@@ -433,7 +455,6 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
               clientWidth: clientColWidth,
               productWidth: productColWidth,
               techWidth: techColWidth,
-              layersWidth: layersColWidth,
               notesWidth: notesColWidth,
               font: arabicBoldFont,
             ),
@@ -453,7 +474,6 @@ pw.Widget _buildProductionHeader({
   required double clientWidth,
   required double productWidth,
   required double techWidth,
-  required double layersWidth,
   required double notesWidth,
   required pw.Font font,
 }) {
@@ -465,8 +485,7 @@ pw.Widget _buildProductionHeader({
       _buildSpannedHeader('إسم العميل', clientWidth, font),
       _buildSpannedHeader('الصنف', productWidth, font),
       _buildSpannedHeader('كود الصنف', 45.0, font),
-      _buildSpannedHeader('المقاس', 58.0, font),
-      _buildSpannedHeader('طبقات الورق', layersWidth, font),
+      _buildSpannedHeader('المقاس', 70.0, font),
       _buildSpannedHeader('أمر التشغيل', 42.0, font),
       _buildSpannedHeader('الإنتاج', 35.0, font),
       _buildGroupedHeader('وقت التشغيل', ['من', 'إلى'], [35.0, 35.0], font, isSectionEnd: true),
@@ -496,8 +515,8 @@ Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> param
     const double clientColWidth = 75.0;
     const double productColWidth = 75.0;
     const double formNumColWidth = 60.0;
-    // Fixed columns: م(20) + الفني(55) + التاريخ(52) + العميل(75) + الصنف(75) + كود(45) + رقم الفورمة(60) + المقاس(58) + أمر(45) + إنتاج(40) + تشغيل(70) + هالك(35) + أعطال(70) = 700
-    const double notesColWidth = 810.0 - 700.0; // = 110.0
+    // Fixed columns: م(20) + الفني(55) + التاريخ(52) + العميل(75) + الصنف(75) + كود(45) + رقم الفورمة(60) + المقاس(70) + أمر(45) + إنتاج(40) + تشغيل(70) + هالك(35) + أعطال(70) = 712
+    const double notesColWidth = 810.0 - 712.0; // = 98.0
 
     for (int page = 0; page < totalPages; page++) {
       final int startIndex = page * recordsPerPage;
@@ -511,30 +530,40 @@ Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> param
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
 
-        final String tName = (record['technicianName'] ?? record['technician_name'])?.toString() ?? '---';
-        final String formNumber = (record['formNumber'] ?? record['form_number'])?.toString() ?? '---';
-        final String wasteValue = (record['lineWaste'] ?? record['waste'] ?? record['wasteQuantity'] ?? record['waste_quantity'])?.toString() ?? '---';
+        final String tName = (record['technician_name'] ?? record['technicianName'])?.toString() ?? '---';
+        final String formNumber = (record['form_number'] ?? record['formNumber'])?.toString() ?? '---';
+        final String wasteValue = (record['line_waste'] ?? record['lineWaste'] ?? record['waste'] ?? record['wasteQuantity'] ?? record['waste_quantity'])?.toString() ?? '---';
         final String formNumDisplay = formNumber.trim().isEmpty || formNumber == 'null' ? '---' : formNumber;
         final String wasteDisplay = wasteValue.trim().isEmpty || wasteValue == 'null' ? '---' : wasteValue;
+        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['client'])?.toString() ?? '---';
+        final String productName = (record['product_name'] ?? record['productName'] ?? record['product'])?.toString() ?? '---';
+        final String productCode = (record['product_code'] ?? record['productCode'])?.toString() ?? '---';
+        final String orderNumber = (record['order_number'] ?? record['orderNumber'])?.toString() ?? '---';
+        final String quantity = record['quantity']?.toString() ?? '---';
+        final String startTime = (record['start_time'] ?? record['startTime'])?.toString() ?? '---';
+        final String endTime = (record['end_time'] ?? record['endTime'])?.toString() ?? '---';
+        final String downtimeStart = (record['downtime_start'] ?? record['downtimeStart'])?.toString() ?? '---';
+        final String downtimeEnd = (record['downtime_end'] ?? record['downtimeEnd'])?.toString() ?? '---';
+        final String notes = record['notes']?.toString() ?? '---';
 
         pageRows.add(
           pw.Row(children: [
             buildTableDataCell('${startIndex + i + 1}', 20.0, arabicFont, isRightMost: true),
             buildTableDataCell(tName, techColWidth, arabicFont),
             buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 52.0, arabicFont),
-            buildTableDataCell(record['clientName']?.toString() ?? '---', clientColWidth, arabicFont),
-            buildTableDataCell(record['product']?.toString() ?? '---', productColWidth, arabicFont),
-            buildTableDataCell(record['productCode']?.toString() ?? '---', 45.0, arabicFont),
+            buildTableDataCell(clientName, clientColWidth, arabicFont),
+            buildTableDataCell(productName, productColWidth, arabicFont),
+            buildTableDataCell(productCode, 45.0, arabicFont),
             buildTableDataCell(formNumDisplay, formNumColWidth, arabicFont),
-            buildTableDataCell(_getDimensionsOnly(record), 58.0, arabicFont),
-            buildTableDataCell(record['orderNumber']?.toString() ?? '---', 45.0, arabicFont),
-            buildTableDataCell(record['quantity']?.toString() ?? '---', 40.0, arabicFont),
-            buildTableDataCell(record['startTime']?.toString() ?? '---', 35.0, arabicFont),
-            buildTableDataCell(record['endTime']?.toString() ?? '---', 35.0, arabicFont, isSectionEnd: true),
+            buildTableDataCell(_getDimensionsOnly(record), 70.0, arabicFont),
+            buildTableDataCell(orderNumber, 45.0, arabicFont),
+            buildTableDataCell(quantity, 40.0, arabicFont),
+            buildTableDataCell(startTime, 35.0, arabicFont),
+            buildTableDataCell(endTime, 35.0, arabicFont, isSectionEnd: true),
             buildTableDataCell(wasteDisplay, 35.0, arabicFont, isSectionEnd: true),
-            buildTableDataCell(record['downtimeStart']?.toString() ?? '---', 35.0, arabicFont),
-            buildTableDataCell(record['downtimeEnd']?.toString() ?? '---', 35.0, arabicFont, isSectionEnd: true),
-            buildTableDataCell(record['notes']?.toString() ?? '---', notesColWidth, arabicFont),
+            buildTableDataCell(downtimeStart, 35.0, arabicFont),
+            buildTableDataCell(downtimeEnd, 35.0, arabicFont, isSectionEnd: true),
+            buildTableDataCell(notes, notesColWidth, arabicFont),
           ]),
         );
       }
@@ -585,7 +614,7 @@ pw.Widget _buildCrushingProductionHeader({
       _buildSpannedHeader('الصنف', productWidth, font),
       _buildSpannedHeader('كود الصنف', 45.0, font),
       _buildSpannedHeader('رقم الفورمة', formNumWidth, font),
-      _buildSpannedHeader('المقاس', 58.0, font),
+      _buildSpannedHeader('المقاس', 70.0, font),
       _buildSpannedHeader('أمر التشغيل', 45.0, font),
       _buildSpannedHeader('الإنتاج', 40.0, font),
       _buildGroupedHeader('وقت التشغيل', ['من', 'إلى'], [35.0, 35.0], font, isSectionEnd: true),
@@ -621,11 +650,11 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
     final int totalPages = (records.length / recordsPerPage).ceil();
 
     // Width calculation: Total 810
-    // Fixed columns: م(20), التاريخ(55), المقاس(60), العدد(40) = 175
+    // Fixed columns: م(20), التاريخ(55), المقاس(70), العدد(40) = 185
     // Colors width: maxColorsCount * 35.0
-    // Remaining = 810 - 175 - (colorsWidth)
+    // Remaining = 810 - 185 - (colorsWidth)
     final double colorsWidth = maxColorsCount * 35.0;
-    final double remainingWidth = 810 - 175 - colorsWidth;
+    final double remainingWidth = 810 - 185 - colorsWidth;
     final double flexibleColWidth = (remainingWidth / 3).floorToDouble();
 
     for (int page = 0; page < totalPages; page++) {
@@ -640,13 +669,18 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
         
+        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['client'])?.toString() ?? '---';
+        final String productName = (record['product_name'] ?? record['productName'] ?? record['product'])?.toString() ?? '---';
+        final String quantity = record['quantity']?.toString() ?? '---';
+        final String notes = record['notes']?.toString() ?? '---';
+
         pageRows.add(
           pw.Row(children: [
             buildTableDataCell('${startIndex + i + 1}', 20.0, arabicFont, isRightMost: true),
             buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 55.0, arabicFont),
-            buildTableDataCell(record['clientName']?.toString() ?? '---', flexibleColWidth, arabicFont),
-            buildTableDataCell(record['product']?.toString() ?? '---', flexibleColWidth, arabicFont),
-            buildTableDataCell(_getDimensionsOnly(record), 60.0, arabicFont),
+            buildTableDataCell(clientName, flexibleColWidth, arabicFont),
+            buildTableDataCell(productName, flexibleColWidth, arabicFont),
+            buildTableDataCell(_getDimensionsOnly(record), 70.0, arabicFont),
             
             // الأحبار المقسمة بديناميكية
             ...List.generate(maxColorsCount, (j) {
@@ -669,8 +703,8 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
               );
             }),
             
-            buildTableDataCell(record['quantity']?.toString() ?? '---', 40.0, arabicFont),
-            buildTableDataCell(record['notes']?.toString() ?? '---', flexibleColWidth, arabicFont),
+            buildTableDataCell(quantity, 40.0, arabicFont),
+            buildTableDataCell(notes, flexibleColWidth, arabicFont),
           ]),
         );
       }
@@ -704,7 +738,7 @@ pw.Widget _buildPrintingHeader({required int maxColorsCount, required double fle
       _buildSpannedHeader('التاريخ', 55.0, font),
       _buildSpannedHeader('إسم العميل', flexibleWidth, font),
       _buildSpannedHeader('الصنف', flexibleWidth, font),
-      _buildSpannedHeader('المقاس', 60.0, font),
+      _buildSpannedHeader('المقاس', 70.0, font),
       if (maxColorsCount > 0)
         _buildSpannedHeader('كمية الحبر بالليتر', maxColorsCount * 35.0, font, isSectionEnd: true),
       _buildSpannedHeader('العدد', 40.0, font),

@@ -1063,7 +1063,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     final String height = d?['height']?.toString() ?? '0';
 
     final String displayText =
-        isSheet ? "$length / $width" : "$length / $width / $height";
+        isSheet ? "$width / $length" : "$height / $width / $length";
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),

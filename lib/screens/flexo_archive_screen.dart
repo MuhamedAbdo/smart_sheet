@@ -644,7 +644,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     final String width = dims?['width']?.toString() ?? '0';
     final String height = dims?['height']?.toString() ?? '0';
     final String dimStr = dims != null && (dims['length'] != 0 || dims['width'] != 0)
-        ? (isSheet ? "$length / $width" : "$length / $width / $height")
+        ? (isSheet ? "$width / $length" : "$height / $width / $length")
         : "";
 
     final quantity = report['quantity'] ?? 0;

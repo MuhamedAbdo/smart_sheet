@@ -75,6 +75,10 @@ class HomeScreen extends StatelessWidget {
                       crossAxisCount = 3;
                     }
 
+                    if (!Hive.isBoxOpen('workers')) {
+                      // في حالة استعادة نسخة سحابية وإغلاق الصناديق قبل إعادة التشغيل
+                      return const Center(child: CircularProgressIndicator());
+                    }
                     return ValueListenableBuilder<Box<Worker>>(
                       valueListenable: Hive.box<Worker>('workers').listenable(),
                       builder: (context, box, child) {
