@@ -9,6 +9,7 @@ import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/utils/route_observer.dart';
 import 'package:smart_sheet/utils/cache_helper.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/utils/data_normalization_helper.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
@@ -119,6 +120,11 @@ Future<void> main() async {
         Hive.openBox<DieCuttingProductionReport>('die_cutting_production_reports'),
       ]);
       _openBackgroundBoxes();
+      
+      // ✅ التنظيف الفوري: طبقة التوافق (Migration/Normalization Layer)
+      // نضمن تحويل أي مفاتيح قديمة في الأرشيف وقائمة الانتظار لـ snake_case مباشرة
+      await DataNormalizationHelper.normalizeUntypedBoxes();
+      
       // تهيئة القيم الافتراضية لجدول أيام الوردية إذا كان فارغاً
       _initDefaultSchedule();
 

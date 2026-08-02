@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:smart_sheet/utils/data_normalization_helper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -136,6 +137,9 @@ class BackupService {
         _initService();
         await _startService();
       }
+
+      // تنظيف البيانات والتأكد من توافقها قبل أخذ النسخة المحلية (Sanitization Layer)
+      await DataNormalizationHelper.normalizeUntypedBoxes();
 
       final localBackupPath = await _createLocalBackupFile();
       if (localBackupPath == null) {
