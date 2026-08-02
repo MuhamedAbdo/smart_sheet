@@ -1132,7 +1132,7 @@ mixin ProductionSync on SyncServiceBase {
           : factoryId,
       'date': r['date']?.toString() ?? DateTime.now().toIso8601String(),
       'client_name': r['client_name']?.toString() ?? r['clientName']?.toString() ?? '',
-      'product': r['product']?.toString() ?? r['product_name']?.toString() ?? '',
+      'product_name': r['product']?.toString() ?? r['product_name']?.toString() ?? '',
       'product_code': r['product_code']?.toString() ?? r['productCode']?.toString() ?? '',
       'dimensions': dims,
       'colors': (r['colors'] is List)
@@ -1156,7 +1156,6 @@ mixin ProductionSync on SyncServiceBase {
                   r['machineName']?.toString() == 'خط الإنتاج')
               ? 'production_line'
               : 'flexo'),
-      'paperLayers': layersList,
       'paper_layers': layersList,
       'weight': weightVal,
       'is_sheet': r['is_sheet'] == true || r['isSheet'] == true || r['is_sheet'] == 'true',
@@ -1184,6 +1183,10 @@ mixin ProductionSync on SyncServiceBase {
         for (var r in records) {
           if (e.message.contains('technician_id')) r.remove('technician_id');
           if (e.message.contains('is_sheet')) r.remove('is_sheet');
+          if (e.message.contains('paperLayers') || e.message.contains('paper_layers')) {
+            r.remove('paperLayers');
+            r.remove('paper_layers');
+          }
         }
         await _supabase.from(table).upsert(records, onConflict: 'sync_id');
       } else {
