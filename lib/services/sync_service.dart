@@ -822,19 +822,7 @@ class SyncService extends SyncServiceBase
           final rawIds = rawData['sync_ids'];
           if (rawIds is List && rawIds.isNotEmpty) {
             final ids = rawIds.map((e) => e.toString()).toList();
-            if (table == 'die_cutting_forms') {
-              await _supabase.from(table).delete().inFilter('id', ids);
-            } else {
-              // ✅ محاولة بـ sync_id أولاً، ثم بـ id كـ fallback
-              final res1 = await _supabase.from(table).delete()
-                  .inFilter('sync_id', ids).select('sync_id');
-              final deletedIds = (res1 as List).map((r) => r['sync_id']?.toString()).whereType<String>().toSet();
-              final remaining = ids.where((id) => !deletedIds.contains(id)).toList();
-              if (remaining.isNotEmpty) {
-                await _supabase.from(table).delete().inFilter('id', remaining);
-                debugPrint('🔄 Queue: batch_delete fallback بـ id [${remaining.length} عنصر]');
-              }
-            }
+            await _supabase.from(table).delete().inFilter('id', ids);
             debugPrint('✅ Queue: batch_delete من $table [${ids.length} عنصر]');
           } else {
             debugPrint('⚠️ Queue: batch_delete فارغ — $table');
@@ -843,20 +831,8 @@ class SyncService extends SyncServiceBase
           final deleteSyncId =
               payload['sync_id']?.toString() ?? payload['id']?.toString();
           if (deleteSyncId != null && deleteSyncId.isNotEmpty) {
-            if (table == 'die_cutting_forms') {
-              await _supabase.from(table).delete().eq('id', deleteSyncId);
-              debugPrint('✅ Queue: حذف من $table [id=$deleteSyncId]');
-            } else {
-              // ✅ محاولة بـ sync_id أولاً
-              final res1 = await _supabase.from(table).delete()
-                  .eq('sync_id', deleteSyncId).select('sync_id');
-              if ((res1 as List).isEmpty) {
-                // Fallback: حذف بـ id (في حالة اختلاف sync_id عن id في السيرفر)
-                debugPrint('⚠️ Queue: delete بـ sync_id لم يجد نتيجة، محاولة بـ id...');
-                await _supabase.from(table).delete().eq('id', deleteSyncId);
-              }
-              debugPrint('✅ Queue: حذف من $table [sync_id/id=$deleteSyncId]');
-            }
+            await _supabase.from(table).delete().eq('id', deleteSyncId);
+            debugPrint('✅ Queue: حذف من $table [id=$deleteSyncId]');
           } else {
             debugPrint('⚠️ Queue: تجاهل delete — لا معرف في $table');
           }

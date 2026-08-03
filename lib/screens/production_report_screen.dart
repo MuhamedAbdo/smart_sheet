@@ -146,7 +146,9 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         
         final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
             ? 'die_cutting_production_reports' 
-            : 'flexo_production_reports';
+            : (widget.department == 'production_line') 
+                ? 'line_production_reports' 
+                : 'flexo_production_reports';
             
         if (syncId != null) {
           SyncService.instance.pushToQueue(
@@ -207,7 +209,9 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
         final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
             ? 'die_cutting_production_reports' 
-            : 'flexo_production_reports';
+            : (widget.department == 'production_line') 
+                ? 'line_production_reports' 
+                : 'flexo_production_reports';
 
         try {
           // 2. أمر المسح من السيرفر باستخدام inFilter
@@ -215,7 +219,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             await Supabase.instance.client
                 .from(tableName)
                 .delete()
-                .inFilter('sync_id', listOfIds);
+                .inFilter('id', listOfIds);
             debugPrint(
                 '🗑️ _deleteAllReports: تم مسح ${listOfIds.length} تقرير من السيرفر دفعة واحدة.');
           }
@@ -267,6 +271,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     final archiveBox = Hive.isBoxOpen(archiveBoxName)
         ? Hive.box(archiveBoxName)
         : await Hive.openBox(archiveBoxName);
+
+    if (!mounted) return;
 
     // 1. جمع قائمة بالـ IDs الموجودة مسبقاً في الأرشيف
     final Set<String> archivedIds = {};
@@ -857,7 +863,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("📅 ${record['date'] ?? ''}",
+                Text("📅 ${((record['date'] ?? '').toString().split('T')[0].split(' ')[0])}",
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, color: Colors.blue)),
                 const Icon(Icons.receipt_long, color: Colors.grey, size: 18),

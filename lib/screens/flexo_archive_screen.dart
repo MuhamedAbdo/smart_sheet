@@ -1,4 +1,3 @@
-import 'package:uuid/uuid.dart';
 import 'package:smart_sheet/models/die_cutting_production_report.dart';
 import 'package:smart_sheet/models/flexo_production_report.dart';
 import 'package:flutter/material.dart';
@@ -877,7 +876,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                   );
 
                   final dateText = Text(
-                    displayDate,
+                    displayDate.split('T')[0].split(' ')[0],
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,

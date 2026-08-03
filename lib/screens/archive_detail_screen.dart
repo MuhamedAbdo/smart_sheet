@@ -36,7 +36,7 @@ class ArchiveDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionHeader(Icons.event_note, "معلومات أساسية"),
-            _buildDetailRow(context, "📅 التاريخ:", record['date'] ?? record['reportDate'] ?? record['report_date'] ?? '---'),
+            _buildDetailRow(context, "📅 التاريخ:", (record['date'] ?? record['reportDate'] ?? record['report_date'] ?? '---').toString().split('T')[0].split(' ')[0]),
             _buildDetailRow(context, "👤 العميل:", (record['clientName'] ?? record['client_name'] ?? record['customerName'] ?? record['customer_name'])?.toString() ?? '---'),
             Builder(builder: (context) {
               final productCode = record['productCode'] ?? record['product_code'] ?? record['itemCode'] ?? record['item_code'];

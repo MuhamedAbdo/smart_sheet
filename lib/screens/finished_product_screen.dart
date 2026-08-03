@@ -430,7 +430,7 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        "التاريخ: ${product.dateBacker}",
+                        "التاريخ: ${(product.dateBacker ?? '').toString().split('T')[0].split(' ')[0]}",
                         style:
                             const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
