@@ -28,47 +28,62 @@ class MachineManagementScreen extends StatelessWidget {
               )
             : null,
       ),
-      body: ValueListenableBuilder(
-        valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
-        builder: (context, Box<FlexoMachine> box, _) {
-          final machines = box.values.where((m) {
-            final mDept = m.department;
-            if (department == 'flexo') {
-              return mDept == 'flexo' || mDept.isEmpty;
-            }
-            return mDept == department;
-          }).toList();
-
-          if (machines.isEmpty) {
-            return const Center(
-              child: Text('لا توجد ماكينات مسجلة حالياً لهذا القسم'),
-            );
+      body: FutureBuilder<Box<FlexoMachine>>(
+        future: Hive.isBoxOpen('flexo_machines')
+            ? Future.value(Hive.box<FlexoMachine>('flexo_machines'))
+            : Hive.openBox<FlexoMachine>('flexo_machines'),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('خطأ في تحميل الماكينات: ${snapshot.error}'));
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: machines.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final machine = machines[index];
-              return Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Colors.blueAccent,
-                    child: Icon(Icons.settings, color: Colors.white),
-                  ),
-                  title: Text(
-                    machine.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    onPressed: () => _deleteMachine(context, machine),
-                  ),
-                ),
+          final box = snapshot.data!;
+          return ValueListenableBuilder(
+            valueListenable: box.listenable(),
+            builder: (context, Box<FlexoMachine> box, _) {
+              final machines = box.values.where((m) {
+                final mDept = m.department;
+                if (department == 'flexo') {
+                  return mDept == 'flexo' || mDept.isEmpty;
+                }
+                return mDept == department;
+              }).toList();
+
+              if (machines.isEmpty) {
+                return const Center(
+                  child: Text('لا توجد ماكينات مسجلة حالياً لهذا القسم'),
+                );
+              }
+
+              return ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: machines.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final machine = machines[index];
+                  return Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.blueAccent,
+                        child: Icon(Icons.settings, color: Colors.white),
+                      ),
+                      title: Text(
+                        machine.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        onPressed: () => _deleteMachine(context, machine),
+                      ),
+                    ),
+                  );
+                },
               );
             },
           );

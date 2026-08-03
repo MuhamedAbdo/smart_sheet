@@ -55,6 +55,9 @@ class DieCuttingProductionReport extends HiveObject {
   @HiveField(16)
   final String? factoryId;
 
+  @HiveField(17)
+  final Map<String, dynamic>? dimensions;
+
   DieCuttingProductionReport({
     required this.id,
     required this.machineName,
@@ -73,6 +76,7 @@ class DieCuttingProductionReport extends HiveObject {
     required this.wasteQuantity,
     this.notes,
     this.factoryId,
+    this.dimensions,
   });
 
   Map<String, dynamic> toJson() {
@@ -95,6 +99,7 @@ class DieCuttingProductionReport extends HiveObject {
       'production_quantity': productionQuantity,
       'waste_quantity': wasteQuantity,
       'notes': notes,
+      'dimensions': dimensions,
     };
   }
 
@@ -124,9 +129,11 @@ class DieCuttingProductionReport extends HiveObject {
       downtimeEnd: map['downtime_end'] != null 
           ? DateTime.tryParse(map['downtime_end'].toString()) 
           : null,
-      productionQuantity: (map['production_quantity'] as num?)?.toDouble() ?? 0.0,
-      wasteQuantity: (map['waste_quantity'] as num?)?.toDouble() ?? 0.0,
+      productionQuantity: (map['production_quantity'] as num?)?.toDouble() ?? (map['quantity'] as num?)?.toDouble() ?? double.tryParse(map['production_quantity']?.toString() ?? '') ?? double.tryParse(map['quantity']?.toString() ?? '') ?? 0.0,
+      wasteQuantity: (map['waste_quantity'] as num?)?.toDouble() ?? (map['line_waste'] as num?)?.toDouble() ?? double.tryParse(map['waste_quantity']?.toString() ?? '') ?? double.tryParse(map['line_waste']?.toString() ?? '') ?? 0.0,
       notes: map['notes']?.toString(),
+      dimensions: map['dimensions'] is Map ? Map<String, dynamic>.from(map['dimensions']) : null,
     );
   }
 }
+

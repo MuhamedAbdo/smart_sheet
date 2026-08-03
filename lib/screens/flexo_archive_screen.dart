@@ -1,3 +1,4 @@
+import 'package:smart_sheet/models/die_cutting_production_report.dart';
 import 'package:smart_sheet/models/flexo_production_report.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -28,7 +29,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     super.initState();
     final boxName = widget.department == 'production_line'
         ? 'lineArchive'
-        : widget.department == 'crushing'
+        : (widget.department == 'crushing' ||
+                widget.department == 'die_cutting')
             ? 'crushingArchive'
             : 'flexoArchive';
     if (Hive.isBoxOpen(boxName)) {
@@ -46,14 +48,21 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       title: "تأكيد حذف الأرشيف",
       content: "هل أنت متأكد من حذف هذا السجل نهائياً؟",
       onConfirm: () async {
-        if (widget.department == 'crushing') {
-          final data = _archiveBox!.get(key);
-          if (data is Map) {
-            final report = data['data'] ?? data;
-            final syncId = report['sync_id'] ?? report['id'];
-            if (syncId != null) {
-              SyncService.instance.pushToQueue('archived_reports', {'id': syncId, 'sync_id': syncId}, operation: 'delete');
-            }
+        final targetTable = widget.department == 'production_line'
+            ? 'line_archived_reports'
+            : (widget.department == 'crushing' ||
+                    widget.department == 'die_cutting')
+                ? 'die_cutting_archived_reports'
+                : 'flexo_archived_reports';
+
+        final data = _archiveBox!.get(key);
+        if (data is Map) {
+          final report = data['data'] ?? data;
+          final syncId = report['sync_id'] ?? report['id'];
+          if (syncId != null) {
+            SyncService.instance.pushToQueue(
+                targetTable, {'id': syncId, 'sync_id': syncId},
+                operation: 'delete');
           }
         }
         await _archiveBox!.delete(key);
@@ -68,21 +77,26 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       title: "⚠️ مسح الأرشيف بالكامل",
       content: "هل أنت متأكد من مسح كافة بيانات الأرشيف نهائياً؟",
       onConfirm: () async {
-        if (widget.department == 'crushing') {
-          // ✅ جمع جميع sync_ids في قائمة واحدة ثم إرسال batch_delete واحد
-          final syncIds = <String>[];
-          for (var value in _archiveBox!.values) {
-            if (value is Map) {
-              final report = value['data'] ?? value;
-              final syncId = report['sync_id']?.toString() ?? report['id']?.toString();
-              if (syncId != null && syncId.isNotEmpty) {
-                syncIds.add(syncId);
-              }
+        // جمع جميع sync_ids في قائمة واحدة ثم إرسال batch_delete واحد
+        final targetTable = widget.department == 'production_line'
+            ? 'line_archived_reports'
+            : (widget.department == 'crushing' ||
+                    widget.department == 'die_cutting')
+                ? 'die_cutting_archived_reports'
+                : 'flexo_archived_reports';
+        final syncIds = <String>[];
+        for (var value in _archiveBox!.values) {
+          if (value is Map) {
+            final report = value['data'] ?? value;
+            final syncId =
+                report['sync_id']?.toString() ?? report['id']?.toString();
+            if (syncId != null && syncId.isNotEmpty) {
+              syncIds.add(syncId);
             }
           }
-          if (syncIds.isNotEmpty) {
-            SyncService.instance.pushBatchDeleteToQueue('archived_reports', syncIds);
-          }
+        }
+        if (syncIds.isNotEmpty) {
+          SyncService.instance.pushBatchDeleteToQueue(targetTable, syncIds);
         }
         await _archiveBox!.clear();
       },
@@ -92,18 +106,22 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
   // ✅ ميزة استعادة سجل واحد للأرشيف
   void _restoreEntry(dynamic key, Map data) async {
     try {
-      final reportsBox = Hive.box<FlexoProductionReport>('flexo_production_reports_box');
+      final reportsBox =
+          Hive.box<FlexoProductionReport>('flexo_production_reports_box');
       final reportData = data['data'] ?? data;
       final parsedData = Map<String, dynamic>.from(reportData);
 
       // نقوم بإضافة نسخة للتقارير النشطة دون حذفها من الأرشيف
       await reportsBox.add(FlexoProductionReport.fromJson(parsedData));
-      
+
       // المزامنة الفورية للتقرير المستعاد
-      if (widget.department == 'crushing' || widget.department == 'die_cutting') {
-        SyncService.instance.pushToQueue('die_cutting_production_reports', parsedData);
+      if (widget.department == 'crushing' ||
+          widget.department == 'die_cutting') {
+        SyncService.instance
+            .pushToQueue('die_cutting_production_reports', parsedData);
       } else {
-        SyncService.instance.pushToQueue('flexo_production_reports', parsedData);
+        SyncService.instance
+            .pushToQueue('flexo_production_reports', parsedData);
       }
 
       if (mounted) {
@@ -131,19 +149,27 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       confirmColor: Colors.green,
       onConfirm: () async {
         try {
-          final reportsBox = Hive.box<FlexoProductionReport>('flexo_production_reports_box');
+          final reportsBox =
+              Hive.box<FlexoProductionReport>('flexo_production_reports_box');
           final allArchive = _archiveBox!.toMap();
 
           for (var entry in allArchive.entries) {
             final data = entry.value as Map;
             final reportData = data['data'] ?? data;
             final parsedData = Map<String, dynamic>.from(reportData);
-            
+
             await reportsBox.add(FlexoProductionReport.fromJson(parsedData));
-            if (widget.department == 'crushing' || widget.department == 'die_cutting') {
-              SyncService.instance.pushToQueue('die_cutting_production_reports', parsedData);
+            if (widget.department == 'crushing' ||
+                widget.department == 'die_cutting') {
+              Hive.box<DieCuttingProductionReport>(
+                      'die_cutting_production_reports_box')
+                  .add(DieCuttingProductionReport.fromJson(parsedData));
+              SyncService.instance
+                  .pushToQueue('die_cutting_production_reports', parsedData);
+              continue;
             } else {
-              SyncService.instance.pushToQueue('flexo_production_reports', parsedData);
+              SyncService.instance
+                  .pushToQueue('flexo_production_reports', parsedData);
             }
           }
           // تم إزالة عملية التفريغ (clear) بناءً على طلب المستخدم لإبقاء الأرشيف كنسخة دائمة
@@ -198,6 +224,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     entries = entries.where((e) {
       final data = e.value as Map;
       final report = data['data'] ?? data;
+      if (targetDept == 'crushing') return true;
       final dept = report['department']?.toString() ?? 'flexo';
       return dept == targetDept;
     }).toList();
@@ -207,11 +234,24 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       entries = entries.where((e) {
         final data = e.value as Map;
         final report = data['data'] ?? data;
-        final clientName =
-            _normalizeString(report['clientName']?.toString() ?? report['client_name']?.toString() ?? '');
-        final productCode =
-            _normalizeString(report['productCode']?.toString() ?? report['product_code']?.toString() ?? '');
-        return clientName.contains(query) || productCode.contains(query);
+        final clientName = _normalizeString(report['clientName']?.toString() ??
+            report['client_name']?.toString() ??
+            report['customerName']?.toString() ??
+            report['customer_name']?.toString() ??
+            '');
+        final productCode = _normalizeString(
+            report['productCode']?.toString() ??
+                report['product_code']?.toString() ??
+                report['itemCode']?.toString() ??
+                report['item_code']?.toString() ??
+                '');
+        final productName = _normalizeString(report['product']?.toString() ??
+            report['itemName']?.toString() ??
+            report['item_name']?.toString() ??
+            '');
+        return clientName.contains(query) ||
+            productCode.contains(query) ||
+            productName.contains(query);
       }).toList();
     }
 
@@ -220,7 +260,9 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       entries = entries.where((e) {
         final data = e.value as Map;
         final report = data['data'] ?? data;
-        final prodDate = _normalizeDateOnly(report['date']?.toString());
+        final prodDate = _normalizeDateOnly(report['date']?.toString() ??
+            report['reportDate']?.toString() ??
+            report['report_date']?.toString());
         return prodDate == _selectedDate;
       }).toList();
     }
@@ -228,110 +270,34 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     return entries;
   }
 
-  List<String> _getUniqueDates() {
-    if (_archiveBox == null) return [];
-    final Set<String> dates = {};
-    for (var value in _archiveBox!.values) {
-      final data = value as Map;
-      final report = data['data'] ?? data;
-      final rawDate = report['date']?.toString();
-      final normalizedDate = _normalizeDateOnly(rawDate);
-      if (normalizedDate.isNotEmpty) {
-        dates.add(normalizedDate);
-      }
-    }
-    final sortedDates = dates.toList();
-    sortedDates.sort((a, b) {
-      final dA = DateTime.tryParse(a) ?? DateTime(2000);
-      final dB = DateTime.tryParse(b) ?? DateTime(2000);
-      return dB.compareTo(dA);
-    });
-    return sortedDates;
-  }
 
-  void _showDateFilterDialog() {
-    final uniqueDates = _getUniqueDates();
 
-    showDialog(
+  void _showDateFilterDialog() async {
+    final DateTime? pickedDate = await showDatePicker(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding: const EdgeInsets.all(0),
-        title: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-            color: Colors.blueAccent,
-            borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.blueAccent,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
           ),
-          child: const Row(
-            children: [
-              Icon(Icons.calendar_month, color: Colors.white),
-              SizedBox(width: 10),
-              Text("اختر تاريخ الإنتاج",
-                  style: TextStyle(
-                      color: Colors.white, fontFamily: 'Cairo', fontSize: 18)),
-            ],
-          ),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // خيار عرض الكل
-              ListTile(
-                leading: const Icon(Icons.all_inclusive, color: Colors.green),
-                title: const Text("عرض الكل (إلغاء الفلترة)",
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                        fontFamily: 'Cairo')),
-                onTap: () {
-                  setState(() => _selectedDate = null);
-                  Navigator.pop(context);
-                },
-              ),
-              const Divider(),
-              if (uniqueDates.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text("لا توجد تواريخ متاحة"),
-                )
-              else
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: uniqueDates.length,
-                    itemBuilder: (ctx, index) {
-                      final date = uniqueDates[index];
-                      final isSelected = _selectedDate == date;
-                      return ListTile(
-                        leading: Icon(Icons.date_range,
-                            color:
-                                isSelected ? Colors.blueAccent : Colors.grey),
-                        title: Text(date,
-                            style: TextStyle(
-                              color: isSelected ? Colors.blueAccent : null,
-                              fontWeight: isSelected ? FontWeight.bold : null,
-                            )),
-                        trailing: isSelected
-                            ? const Icon(Icons.check_circle,
-                                color: Colors.blueAccent)
-                            : null,
-                        onTap: () {
-                          setState(() => _selectedDate = date);
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+          child: child!,
+        );
+      },
     );
+
+    if (pickedDate != null) {
+      setState(() {
+        _selectedDate =
+            "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+      });
+    }
   }
 
   @override
@@ -343,266 +309,285 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     }
 
     return ValueListenableBuilder<dynamic>(
-      valueListenable: (Hive.isBoxOpen('workers') 
-          ? Hive.box<Worker>('workers').listenable()
-          : ValueNotifier<Box<Worker>?>(null)) as ValueListenable<dynamic>,
-      builder: (context, workersBox, _) {
-        final bool isDark = Theme.of(context).brightness == Brightness.dark;
-        final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
+        valueListenable: (Hive.isBoxOpen('workers')
+            ? Hive.box<Worker>('workers').listenable()
+            : ValueNotifier<Box<Worker>?>(null)) as ValueListenable<dynamic>,
+        builder: (context, workersBox, _) {
+          final bool isDark = Theme.of(context).brightness == Brightness.dark;
+          final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
 
-        final Worker? cw = PermissionHelper.currentWorker;
-        final String currentScreenDept = widget.department ?? 'flexo';
-        final String normalizedDept = (currentScreenDept == 'crushing' && cw?.department == 'die_cutting') 
-            ? 'die_cutting' 
-            : currentScreenDept;
+          final Worker? cw = PermissionHelper.currentWorker;
+          final String currentScreenDept = widget.department ?? 'flexo';
+          final String normalizedDept = (currentScreenDept == 'crushing' &&
+                  cw?.department == 'die_cutting')
+              ? 'die_cutting'
+              : currentScreenDept;
 
-        return Scaffold(
-      appBar: AppBar(
-        iconTheme: IconThemeData(color: appBarIconColor),
-        leading: Navigator.canPop(context)
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.pop(context),
-              )
-            : null,
-        title: _isSearching
-            ? Container(
-                height: 40,
-                decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white10
-                        : Colors.black.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(10)),
-                child: TextField(
-                  autofocus: true,
-                  style:
-                      TextStyle(color: isDark ? Colors.white : Colors.black87),
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                  decoration: InputDecoration(
-                    hintText: 'بحث باسم العميل...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: IconButton(
-                        icon: const Icon(Icons.close, size: 20),
-                        onPressed: () => setState(() {
-                              _isSearching = false;
-                              _searchQuery = '';
-                              _selectedDate = null;
-                            })),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                ),
-              )
-            : Text(widget.department == 'production_line'
-                ? "أرشيف خط الإنتاج"
-                : widget.department == 'crushing'
-                    ? "أرشيف تقارير التكسير"
-                    : "أرشيف تقارير الفلكسو"),
-        centerTitle: !_isSearching,
-        actions: [
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, color: appBarIconColor),
-            tooltip: "خيارات الأرشيف",
-            onSelected: (value) async {
-              if (value == 'search') {
-                setState(() => _isSearching = true);
-              } else if (value == 'filter') {
-                _showDateFilterDialog();
-              } else if (value == 'restore') {
-                _restoreAllEntries();
-              } else if (value == 'clear') {
-                _clearArchive();
-              }
-            },
-            itemBuilder: (context) {
-              final bool showRestoreAll = PermissionHelper.isSuperAdmin || ArchiveRbacService.canRestore(cw, normalizedDept);
-              final bool showClearArchive = PermissionHelper.isSuperAdmin || ArchiveRbacService.canDelete(cw, normalizedDept);
-              
-              return [
-                const PopupMenuItem(
-                    value: 'search',
-                    child:
-                        ListTile(leading: Icon(Icons.search), title: Text('بحث'))),
-                const PopupMenuItem(
-                    value: 'filter',
-                    child: ListTile(
-                        leading: Icon(Icons.calendar_month),
-                        title: Text('تصفية بالتاريخ'))),
-                if (showRestoreAll)
-                  const PopupMenuItem(
-                      value: 'restore',
-                      child: ListTile(
-                          leading: Icon(Icons.settings_backup_restore),
-                          title: Text('استعادة الكل'))),
-                if (showClearArchive)
-                  const PopupMenuItem(
-                      value: 'clear',
-                      child: ListTile(
-                          leading:
-                              Icon(Icons.delete_sweep_outlined, color: Colors.red),
-                          title: Text('مسح الأرشيف',
-                              style: TextStyle(color: Colors.red)))),
-              ];
-            },
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(40.0),
-          child: ValueListenableBuilder(
-            valueListenable: _archiveBox!.listenable(),
-            builder: (context, Box box, _) {
-              final filteredCount = _getFilteredEntries(box).length;
-              final isDark = Theme.of(context).brightness == Brightness.dark;
-
-              return Container(
-                height: 40,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[900] : Colors.blueGrey[50],
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isDark ? Colors.black54 : Colors.blueGrey[100]!,
-                      width: 1,
-                    ),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.inventory_2,
-                      size: 16,
-                      color:
-                          isDark ? Colors.blueAccent[100] : Colors.blueAccent,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'إجمالي التقارير: $filteredCount',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Cairo',
-                        color: isDark ? Colors.grey[300] : Colors.blueGrey[800],
-                      ),
-                    ),
-                    if (_selectedDate != null) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(10),
+          return Scaffold(
+            appBar: AppBar(
+              iconTheme: IconThemeData(color: appBarIconColor),
+              leading: Navigator.canPop(context)
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.pop(context),
+                    )
+                  : null,
+              title: _isSearching
+                  ? Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white10
+                              : Colors.black.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(10)),
+                      child: TextField(
+                        autofocus: true,
+                        style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87),
+                        onChanged: (v) => setState(() => _searchQuery = v),
+                        decoration: InputDecoration(
+                          hintText: 'بحث باسم العميل...',
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          suffixIcon: IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              onPressed: () => setState(() {
+                                    _isSearching = false;
+                                    _searchQuery = '';
+                                    _selectedDate = null;
+                                  })),
+                          border: InputBorder.none,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 10),
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.event,
-                                size: 14, color: Colors.orange),
-                            const SizedBox(width: 4),
-                            Text(
-                              _selectedDate!,
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.orange),
+                      ),
+                    )
+                  : Text(widget.department == 'production_line'
+                      ? "أرشيف خط الإنتاج"
+                      : widget.department == 'crushing'
+                          ? "أرشيف تقارير التكسير"
+                          : "أرشيف تقارير الفلكسو"),
+              centerTitle: !_isSearching,
+              actions: [
+                // ✅ تم نقل مسح الكل إلى القائمة المنسدلة
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, color: appBarIconColor),
+                  tooltip: "خيارات الأرشيف",
+                  onSelected: (value) async {
+                    if (value == 'search') {
+                      setState(() => _isSearching = true);
+                    } else if (value == 'filter') {
+                      _showDateFilterDialog();
+                    } else if (value == 'archive') {
+                      _showDateFilterDialog();
+                    } else if (value == 'restore') {
+                      _restoreAllEntries();
+                    } else if (value == 'clear_all') {
+                      _clearArchive();
+                    } else if (value == 'open_archive') {
+                      // no-op
+                    } else if (value == 'sort') {
+                      // no-op
+                    }
+                  },
+                  itemBuilder: (context) {
+                    final bool showRestoreAll = PermissionHelper.isSuperAdmin ||
+                        ArchiveRbacService.canRestore(cw, normalizedDept);
+
+                    return [
+                      const PopupMenuItem(
+                          value: 'search',
+                          child: ListTile(
+                              leading: Icon(Icons.search), title: Text('بحث'))),
+                      const PopupMenuItem(
+                          value: 'filter',
+                          child: ListTile(
+                              leading: Icon(Icons.calendar_month),
+                              title: Text('تصفية بالتاريخ'))),
+                      if (showRestoreAll)
+                        const PopupMenuItem(
+                            value: 'restore',
+                            child: ListTile(
+                                leading: Icon(Icons.settings_backup_restore),
+                                title: Text('استعادة الكل'))),
+                      if (PermissionHelper.isSuperAdmin || (cw?.canDeleteArchive ?? false))
+                        const PopupMenuItem(
+                            value: 'clear_all',
+                            child: ListTile(
+                                leading: Icon(Icons.delete_sweep, color: Colors.red),
+                                title: Text('مسح الأرشيف بالكامل', style: TextStyle(color: Colors.red)))),
+                    ];
+                  },
+                ),
+              ],
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(40.0),
+                child: ValueListenableBuilder(
+                  valueListenable: _archiveBox!.listenable(),
+                  builder: (context, Box box, _) {
+                    final filteredCount = _getFilteredEntries(box).length;
+                    final isDark =
+                        Theme.of(context).brightness == Brightness.dark;
+
+                    return Container(
+                      height: 40,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[900] : Colors.blueGrey[50],
+                        border: Border(
+                          bottom: BorderSide(
+                            color:
+                                isDark ? Colors.black54 : Colors.blueGrey[100]!,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.inventory_2,
+                            size: 16,
+                            color: isDark
+                                ? Colors.blueAccent[100]
+                                : Colors.blueAccent,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'إجمالي التقارير: $filteredCount',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Cairo',
+                              color: isDark
+                                  ? Colors.grey[300]
+                                  : Colors.blueGrey[800],
                             ),
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: () => setState(() => _selectedDate = null),
-                              child: const Icon(Icons.close,
-                                  size: 14, color: Colors.red),
+                          ),
+                          if (_selectedDate != null) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.event,
+                                      size: 14, color: Colors.orange),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _selectedDate!,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _selectedDate = null),
+                                    child: const Icon(Icons.close,
+                                        size: 14, color: Colors.red),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
-                    ],
-                  ],
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-        ),
-      ),
-      body: ValueListenableBuilder(
-        valueListenable: _archiveBox!.listenable(),
-        builder: (context, Box box, _) {
-          if (box.isEmpty) {
-            return const Center(child: Text("📂 الأرشيف فارغ"));
-          }
-
-          var entries = _getFilteredEntries(box);
-
-          if (entries.isEmpty && _isSearching) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search_off, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    "لا توجد تقارير مؤرشفة لهذا العميل",
-                    style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ],
               ),
-            );
-          }
+            ),
+            body: ValueListenableBuilder(
+              valueListenable: _archiveBox!.listenable(),
+              builder: (context, Box box, _) {
+                if (box.isEmpty) {
+                  return const Center(child: Text("📂 الأرشيف فارغ"));
+                }
 
-          if (entries.isEmpty) {
-            return const Center(child: Text("📂 لا توجد بيانات"));
-          }
+                var entries = _getFilteredEntries(box);
 
-          // ✅ الفرز النهائي: التاريخ (تنازلي) ثم اسم العميل (تصاعدي)
-          entries.sort((a, b) {
-            final dataA = a.value as Map;
-            final dataB = b.value as Map;
+                if (entries.isEmpty && _isSearching) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          "لا توجد تقارير مؤرشفة لهذا العميل",
+                          style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-            final reportA = dataA['data'] ?? dataA;
-            final reportB = dataB['data'] ?? dataB;
+                if (entries.isEmpty) {
+                  return const Center(child: Text("📂 لا توجد بيانات"));
+                }
 
-            final dateAStr = reportA['date']?.toString() ?? '2000-01-01';
-            final dateBStr = reportB['date']?.toString() ?? '2000-01-01';
+                // ✅ الفرز النهائي: التاريخ (تنازلي) ثم اسم العميل (تصاعدي)
+                entries.sort((a, b) {
+                  final dataA = a.value as Map;
+                  final dataB = b.value as Map;
 
-            final dateA = DateTime.tryParse(dateAStr) ?? DateTime(2000);
-            final dateB = DateTime.tryParse(dateBStr) ?? DateTime(2000);
+                  final reportA = dataA['data'] ?? dataA;
+                  final reportB = dataB['data'] ?? dataB;
 
-            int dateCompare = dateB.compareTo(dateA);
-            if (dateCompare != 0) return dateCompare;
+                  final dateAStr = reportA['date']?.toString() ?? '2000-01-01';
+                  final dateBStr = reportB['date']?.toString() ?? '2000-01-01';
 
-            final nameA =
-                (reportA['clientName'] ?? reportA['client_name'] ?? '').toString().toLowerCase();
-            final nameB =
-                (reportB['clientName'] ?? reportB['client_name'] ?? '').toString().toLowerCase();
+                  final dateA = DateTime.tryParse(dateAStr) ?? DateTime(2000);
+                  final dateB = DateTime.tryParse(dateBStr) ?? DateTime(2000);
 
-            return nameA.compareTo(nameB);
-          });
+                  int dateCompare = dateB.compareTo(dateA);
+                  if (dateCompare != 0) return dateCompare;
 
-          return ListView.builder(
-            itemCount: entries.length,
-            padding: const EdgeInsets.all(10),
-            itemBuilder: (context, index) {
-              final entry = entries[index];
-              return _buildArchiveCard(entry.key, entry.value as Map);
-            },
+                  final nameA =
+                      (reportA['clientName'] ?? reportA['client_name'] ?? '')
+                          .toString()
+                          .toLowerCase();
+                  final nameB =
+                      (reportB['clientName'] ?? reportB['client_name'] ?? '')
+                          .toString()
+                          .toLowerCase();
+
+                  return nameA.compareTo(nameB);
+                });
+
+                return ListView.builder(
+                  itemCount: entries.length,
+                  padding: const EdgeInsets.all(10),
+                  itemBuilder: (context, index) {
+                    final entry = entries[index];
+                    return _buildArchiveCard(entry.key, entry.value as Map);
+                  },
+                );
+              },
+            ),
           );
-        },
-      ),
-    );
-      }
-    );
+        });
   }
 
-  Widget _buildArchiveInfoRow(IconData icon, String label, String value, {Color? valueColor}) {
+  Widget _buildArchiveInfoRow(IconData icon, String label, String value,
+      {Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
           Icon(icon, size: 16, color: Colors.blueGrey),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(label,
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -621,35 +606,78 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
 
   Widget _buildArchiveCard(dynamic key, Map data) {
     final report = data['data'] ?? data;
-    final String clientName = report['clientName'] ?? report['client_name'] ?? "بدون اسم";
-    final String product = report['product'] ?? report['product_name'] ?? "بدون صنف";
-    final String productCode = report['productCode']?.toString() ?? report['product_code']?.toString() ?? '';
-    final String displayDate = report['date'] ?? "---";
-    final String orderNumber = report['orderNumber']?.toString() ?? '';
+    final String clientName = report['clientName'] ??
+        report['client_name'] ??
+        report['customerName'] ??
+        report['customer_name'] ??
+        "";
+    final String product = report['product'] ??
+        report['product_name'] ??
+        report['itemName'] ??
+        report['item_name'] ??
+        "";
+    final String productCode = report['productCode']?.toString() ??
+        report['product_code']?.toString() ??
+        report['itemCode']?.toString() ??
+        report['item_code']?.toString() ??
+        '';
+    final String displayDate = report['date'] ??
+        report['reportDate'] ??
+        report['report_date'] ??
+        "---";
+    final String orderNumber = report['orderNumber']?.toString() ??
+        report['order_number']?.toString() ??
+        report['workOrder']?.toString() ??
+        report['work_order']?.toString() ??
+        '';
     final String formNumber = report['formNumber']?.toString() ??
         report['form_number']?.toString() ??
-        (report['dimensions'] is Map ? (report['dimensions'] as Map)['form_number']?.toString() : null) ??
+        (report['dimensions'] is Map
+            ? (report['dimensions'] as Map)['form_number']?.toString()
+            : null) ??
         '';
-    final String startTime = report['startTime']?.toString() ?? '';
-    final String endTime = report['endTime']?.toString() ?? '';
-    final String machineName = (report['machineName'] ?? report['machine_name'])?.toString() ?? '';
-    final String technicianName = (report['technicianName'] ?? report['technician_name'])?.toString() ?? '';
+    final String startTime = report['startTime']?.toString() ??
+        report['start_time']?.toString() ??
+        report['runTimeStart']?.toString() ??
+        report['run_time_start']?.toString() ??
+        '';
+    final String endTime = report['endTime']?.toString() ??
+        report['end_time']?.toString() ??
+        report['runTimeEnd']?.toString() ??
+        report['run_time_end']?.toString() ??
+        '';
+    final String machineName =
+        (report['machineName'] ?? report['machine_name'])?.toString() ?? '';
+    final String technicianName =
+        (report['technicianName'] ?? report['technician_name'])?.toString() ??
+            '';
     final String dept = report['department']?.toString() ?? '';
-    final bool isProdLine = dept == 'production_line' || machineName == 'خط الإنتاج' || widget.department == 'production_line';
-    final bool isCrushing = dept == 'crushing' || widget.department == 'crushing';
+    final bool isProdLine = dept == 'production_line' ||
+        machineName == 'خط الإنتاج' ||
+        widget.department == 'production_line';
+    final bool isCrushing =
+        dept == 'crushing' || dept == 'die_cutting' ||
+        widget.department == 'crushing' || widget.department == 'die_cutting';
 
     final dims = report['dimensions'];
     final bool isSheet = report['isSheet'] ?? false;
     final String length = dims?['length']?.toString() ?? '0';
     final String width = dims?['width']?.toString() ?? '0';
     final String height = dims?['height']?.toString() ?? '0';
-    final String dimStr = dims != null && (dims['length'] != 0 || dims['width'] != 0)
-        ? (isSheet ? "$width / $length" : "$height / $width / $length")
-        : "";
+    final String dimStr =
+        dims != null && (dims['length'] != 0 || dims['width'] != 0)
+            ? isCrushing
+                // التكسير: طول / عرض / ارتفاع (من اليمين لليسار)
+                ? "$length / $width / $height"
+                : (isSheet ? "$width / $length" : "$height / $width / $length")
+            : "";
 
-    final quantity = report['quantity'] ?? 0;
-    final lineWaste = report['lineWaste'] ?? 0;
-    final printWaste = report['printWaste'] ?? 0;
+    final quantity = report['quantity'] ??
+        report['production_quantity'] ??
+        report['productionQuantity'] ??
+        0;
+    final lineWaste = report['lineWaste'] ?? report['line_waste'] ?? report['waste_quantity'] ?? report['wasteQuantity'] ?? 0;
+    final printWaste = report['printWaste'] ?? report['print_waste'] ?? 0;
 
     final w = report['weight'];
     final double weightVal = w != null
@@ -659,8 +687,32 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     final rawLayers = report['paperLayers'] ?? report['paper_layers'];
     final List<String> layers = [];
     if (rawLayers is List) {
-      layers.addAll(rawLayers.map((e) => e.toString().trim()).where((e) => e.isNotEmpty));
+      layers.addAll(
+          rawLayers.map((e) => e.toString().trim()).where((e) => e.isNotEmpty));
     }
+
+    // ─── تنسيق الوقت: تحويل ISO 8601 أو أي صيغة إلى HH:mm بدون تغيير المنطقة الزمنية ─────────────────
+    String formatCardTime(dynamic raw) {
+      if (raw == null) return '';
+      final s = raw.toString().trim();
+      if (s.isEmpty || s == 'null' || s == '--:--') return '';
+      
+      // استخراج الوقت مباشرة من نص ISO 8601 لتجنب تغيير المنطقة الزمنية (toLocal)
+      final isoMatch = RegExp(r'T(\d{2}:\d{2})').firstMatch(s);
+      if (isoMatch != null) {
+        return isoMatch.group(1)!;
+      }
+      
+      final dt = DateTime.tryParse(s);
+      if (dt != null) {
+        return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      }
+      if (RegExp(r'^\d{1,2}:\d{2}').hasMatch(s)) return s.substring(0, 5);
+      return s;
+    }
+
+    final startFormatted = formatCardTime(startTime.isNotEmpty ? startTime : null);
+    final endFormatted = formatCardTime(endTime.isNotEmpty ? endTime : null);
 
     final downtimeStart = report['downtimeStart'] ?? report['downtime_start'];
     final downtimeEnd = report['downtimeEnd'] ?? report['downtime_end'];
@@ -674,7 +726,9 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
         (downtimeEnd != null && downtimeEnd.toString().isNotEmpty) ||
         totalDowntime > 0) {
       if (downtimeStart != null && downtimeStart.toString().isNotEmpty) {
-        downtimeDisplay += "$downtimeStart إلى ${downtimeEnd ?? ''}";
+        final ds = formatCardTime(downtimeStart);
+        final de = formatCardTime(downtimeEnd);
+        downtimeDisplay += "${ds.isNotEmpty ? ds : downtimeStart}  ▶  ${de.isNotEmpty ? de : (downtimeEnd ?? '')}";
       }
       if (totalDowntime > 0) {
         downtimeDisplay += " (إجمالي: $totalDowntime دقيقة)";
@@ -716,12 +770,16 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                   // ─── الأزرار (مشتركة بين الحالتين) ───────────────
                   final Worker? cw = PermissionHelper.currentWorker;
                   final String currentScreenDept = widget.department ?? 'flexo';
-                  final String normalizedDept = (currentScreenDept == 'crushing' && cw?.department == 'die_cutting') 
-                      ? 'die_cutting' 
-                      : currentScreenDept;
+                  final String normalizedDept =
+                      (currentScreenDept == 'crushing' &&
+                              cw?.department == 'die_cutting')
+                          ? 'die_cutting'
+                          : currentScreenDept;
 
-                  final bool showRestore = PermissionHelper.isSuperAdmin || ArchiveRbacService.canRestore(cw, normalizedDept);
-                  final bool showDelete = PermissionHelper.isSuperAdmin || ArchiveRbacService.canDelete(cw, normalizedDept);
+                  final bool showRestore = PermissionHelper.isSuperAdmin ||
+                      ArchiveRbacService.canRestore(cw, normalizedDept);
+                  final bool showDelete = PermissionHelper.isSuperAdmin ||
+                      (cw?.canDeleteArchive ?? false);
 
                   final actionButtons = Row(
                     mainAxisSize: MainAxisSize.min,
@@ -735,8 +793,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                           onPressed: () => _restoreEntry(key, data),
                           tooltip: "إستعادة للرئيسية",
                         ),
-                      if (showRestore && showDelete)
-                        const SizedBox(width: 12),
+                      if (showRestore && showDelete) const SizedBox(width: 12),
                       if (showDelete)
                         IconButton(
                           constraints: const BoxConstraints(),
@@ -839,21 +896,25 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               ),
               const SizedBox(height: 6),
               if (orderNumber.isNotEmpty)
-                _buildArchiveInfoRow(Icons.numbers, "أمر التشغيل:", orderNumber),
+                _buildArchiveInfoRow(
+                    Icons.numbers, "أمر التشغيل:", orderNumber),
               if (formNumber.isNotEmpty)
-                _buildArchiveInfoRow(Icons.description, "رقم الفورمة:", formNumber),
-              if (startTime.isNotEmpty || endTime.isNotEmpty)
+                _buildArchiveInfoRow(
+                    Icons.description, "رقم الفورمة:", formNumber),
+              if (startFormatted.isNotEmpty || endFormatted.isNotEmpty)
                 _buildArchiveInfoRow(Icons.schedule, "وقت التشغيل:",
-                    "${startTime.isNotEmpty ? startTime : '--:--'} إلى ${endTime.isNotEmpty ? endTime : '--:--'}"),
+                    "${startFormatted.isNotEmpty ? startFormatted : '--:--'}  ▶  ${endFormatted.isNotEmpty ? endFormatted : '--:--'}"),
               if (dimStr.isNotEmpty)
                 _buildArchiveInfoRow(Icons.straighten, "المقاس:", dimStr,
                     valueColor: Colors.blueAccent),
-              _buildArchiveInfoRow(Icons.format_list_numbered, "الكمية:", "$quantity"),
+              _buildArchiveInfoRow(
+                  Icons.format_list_numbered, "الكمية:", "$quantity"),
               if (weightVal > 0)
                 _buildArchiveInfoRow(Icons.scale, "الوزن:", "$weightVal طن",
                     valueColor: Colors.teal),
               if (layers.isNotEmpty)
-                _buildArchiveInfoRow(Icons.layers, "طبقات الورق:", layers.join('  |  '),
+                _buildArchiveInfoRow(
+                    Icons.layers, "طبقات الورق:", layers.join('  |  '),
                     valueColor: Colors.brown),
               _buildArchiveInfoRow(
                 Icons.trending_down,
@@ -863,11 +924,14 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                     : "إنتاج: $lineWaste | طباعة: $printWaste",
               ),
               if (machineName.isNotEmpty)
-                _buildArchiveInfoRow(Icons.precision_manufacturing, "الماكينة:", machineName),
+                _buildArchiveInfoRow(
+                    Icons.precision_manufacturing, "الماكينة:", machineName),
               if (technicianName.isNotEmpty)
-                _buildArchiveInfoRow(Icons.person, "الفني المسؤول:", technicianName),
+                _buildArchiveInfoRow(
+                    Icons.person, "الفني المسؤول:", technicianName),
               if (downtimeDisplay.isNotEmpty)
-                _buildArchiveInfoRow(Icons.timer_off, "وقت الأعطال:", downtimeDisplay,
+                _buildArchiveInfoRow(
+                    Icons.timer_off, "وقت الأعطال:", downtimeDisplay,
                     valueColor: Colors.redAccent),
               if (report['notes'] != null &&
                   report['notes'].toString().trim().isNotEmpty &&
@@ -904,7 +968,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                     ),
                   ),
                 ),
-              if (!isProdLine && colors.isNotEmpty) ...[
+              if (!isProdLine && !isCrushing && colors.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -947,4 +1011,3 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     );
   }
 }
-

@@ -760,11 +760,23 @@ class SyncService extends SyncServiceBase
       final item = queueBox.getAt(i);
       if (item is! Map) continue;
 
-      final table = item['table']?.toString();
+      String? table = item['table']?.toString();
       final rawData = item['data'];
       final operation = item['operation']?.toString() ?? 'upsert';
       final retries = (item['retries'] as int?) ?? 0;
       if (table == null || rawData is! Map) continue;
+
+      // ✅ FIX: تعويض وتوجيه العناصر القديمة العالقة في الطابور والتي تشير لجدول قديم
+      if (table == 'archived_reports') {
+        final dept = rawData['department']?.toString();
+        if (dept == 'production_line') {
+          table = 'line_archived_reports';
+        } else if (dept == 'crushing' || dept == 'die_cutting') {
+          table = 'die_cutting_archived_reports';
+        } else {
+          table = 'flexo_archived_reports';
+        }
+      }
 
       // ✅ عمليات batch_delete تستخدم sync_ids (قائمة) وليس sync_id مفرداً
       // → تجاوز فحص sync_id لها وإلا ستُحذف كـ "تقارير تالفة" قبل تنفيذها
@@ -813,7 +825,15 @@ class SyncService extends SyncServiceBase
             if (table == 'die_cutting_forms') {
               await _supabase.from(table).delete().inFilter('id', ids);
             } else {
-              await _supabase.from(table).delete().inFilter('sync_id', ids);
+              // ✅ محاولة بـ sync_id أولاً، ثم بـ id كـ fallback
+              final res1 = await _supabase.from(table).delete()
+                  .inFilter('sync_id', ids).select('sync_id');
+              final deletedIds = (res1 as List).map((r) => r['sync_id']?.toString()).whereType<String>().toSet();
+              final remaining = ids.where((id) => !deletedIds.contains(id)).toList();
+              if (remaining.isNotEmpty) {
+                await _supabase.from(table).delete().inFilter('id', remaining);
+                debugPrint('🔄 Queue: batch_delete fallback بـ id [${remaining.length} عنصر]');
+              }
             }
             debugPrint('✅ Queue: batch_delete من $table [${ids.length} عنصر]');
           } else {
@@ -825,10 +845,18 @@ class SyncService extends SyncServiceBase
           if (deleteSyncId != null && deleteSyncId.isNotEmpty) {
             if (table == 'die_cutting_forms') {
               await _supabase.from(table).delete().eq('id', deleteSyncId);
+              debugPrint('✅ Queue: حذف من $table [id=$deleteSyncId]');
             } else {
-              await _supabase.from(table).delete().eq('sync_id', deleteSyncId);
+              // ✅ محاولة بـ sync_id أولاً
+              final res1 = await _supabase.from(table).delete()
+                  .eq('sync_id', deleteSyncId).select('sync_id');
+              if ((res1 as List).isEmpty) {
+                // Fallback: حذف بـ id (في حالة اختلاف sync_id عن id في السيرفر)
+                debugPrint('⚠️ Queue: delete بـ sync_id لم يجد نتيجة، محاولة بـ id...');
+                await _supabase.from(table).delete().eq('id', deleteSyncId);
+              }
+              debugPrint('✅ Queue: حذف من $table [sync_id/id=$deleteSyncId]');
             }
-            debugPrint('✅ Queue: حذف من $table [id/sync_id=$deleteSyncId]');
           } else {
             debugPrint('⚠️ Queue: تجاهل delete — لا معرف في $table');
           }
@@ -840,25 +868,33 @@ class SyncService extends SyncServiceBase
           }
 
           try {
+            debugPrint('📤 [Queue] جاري رفع البيانات إلى $table: $cleanPayload');
+            
+            late final List<dynamic> res;
             if (table == 'customers' ||
                 table == 'flexo_production_reports' ||
                 table == 'line_production_reports' ||
                 table == 'workers' ||
                 table == 'live_sessions' ||
-                table == 'archived_reports') {
-              await _supabase
+                table == 'archived_reports' ||
+                table == 'flexo_archived_reports' ||
+                table == 'line_archived_reports') {
+              res = await _supabase
                   .from(table)
-                  .upsert(cleanPayload, onConflict: 'sync_id');
-            } else if (table == 'die_cutting_production_reports') {
-              // إضافة .select() لإجبار السيرفر على إرجاع السجل المُضاف (لاكتشاف الإدراج الوهمي)
-              final res = await _supabase.from(table).upsert(cleanPayload).select();
-              debugPrint('✅ [Sync] استجابة السيرفر بعد الرفع: $res');
-              if (res.isEmpty) {
-                throw Exception('السيرفر قبل الطلب 2xx ولكن لم يتم إدراج أي سجل! تأكد من عدم وجود Triggers تمنع الإدراج، أو أن الصلاحيات RLS لا تمنع ذلك.');
-              }
+                  .upsert(cleanPayload, onConflict: 'sync_id')
+                  .select();
             } else {
-              await _supabase.from(table).upsert(cleanPayload);
+              res = await _supabase
+                  .from(table)
+                  .upsert(cleanPayload)
+                  .select();
             }
+            
+            debugPrint('✅ [Sync] استجابة السيرفر بعد الرفع ($table): $res');
+            if (res.isEmpty) {
+              throw Exception('السيرفر قبل الطلب 2xx ولكن لم يتم إدراج أي سجل! تأكد من عدم وجود Triggers تمنع الإدراج، أو أن الصلاحيات RLS لا تمنع ذلك.');
+            }
+
           } on PostgrestException catch (e) {
             // ✅ معالجة تعارض الإيميل للعمال (تحديث بيانات العامل الموجود فعلياً بالسحابة)
             if (table == 'workers' && e.code == '23505' && e.message.contains('unique_worker_email')) {
@@ -941,17 +977,24 @@ class SyncService extends SyncServiceBase
 
 
               if (modified) {
+                late final List<dynamic> resFallback;
                 if (table == 'customers' ||
                     table == 'flexo_production_reports' ||
                     table == 'line_production_reports' ||
                     table == 'workers' ||
                     table == 'live_sessions') {
-                  await _supabase
+                  resFallback = await _supabase
                       .from(table)
-                      .upsert(cleanPayload, onConflict: 'sync_id');
+                      .upsert(cleanPayload, onConflict: 'sync_id')
+                      .select();
                 } else {
-                  await _supabase.from(table).upsert(cleanPayload);
+                  resFallback = await _supabase.from(table).upsert(cleanPayload).select();
                 }
+                debugPrint('✅ [Sync] استجابة السيرفر بعد الرفع (الاحتياطي) ($table): $resFallback');
+                if (resFallback.isEmpty) {
+                  throw Exception('السيرفر قبل الطلب 2xx ولكن لم يتم إدراج أي سجل في المحاولة الاحتياطية!');
+                }
+
               } else {
                 rethrow;
               }

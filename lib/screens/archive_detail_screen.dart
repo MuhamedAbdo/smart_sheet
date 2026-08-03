@@ -5,6 +5,24 @@ class ArchiveDetailScreen extends StatelessWidget {
 
   const ArchiveDetailScreen({super.key, required this.record});
 
+  /// تحويل وقت ISO 8601 أو HH:mm أو أي صيغة إلى HH:mm فقط
+  String _formatTime(dynamic raw) {
+    if (raw == null) return '--:--';
+    final s = raw.toString().trim();
+    if (s.isEmpty || s == 'null' || s == '--:--') return '--:--';
+    // حاول تحليلها كـ DateTime (يدعم ISO 8601)
+    final dt = DateTime.tryParse(s);
+    if (dt != null) {
+      final local = dt.toLocal();
+      return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    }
+    // إذا كان بصيغة HH:mm مباشرة
+    if (RegExp(r'^\d{1,2}:\d{2}').hasMatch(s)) {
+      return s.substring(0, 5);
+    }
+    return s;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -18,15 +36,16 @@ class ArchiveDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionHeader(Icons.event_note, "معلومات أساسية"),
-            _buildDetailRow(context, "📅 التاريخ:", record['date'] ?? '---'),
-            _buildDetailRow(context, "👤 العميل:", (record['clientName'] ?? record['client_name'])?.toString() ?? '---'),
+            _buildDetailRow(context, "📅 التاريخ:", record['date'] ?? record['reportDate'] ?? record['report_date'] ?? '---'),
+            _buildDetailRow(context, "👤 العميل:", (record['clientName'] ?? record['client_name'] ?? record['customerName'] ?? record['customer_name'])?.toString() ?? '---'),
             Builder(builder: (context) {
-              final productCode = record['productCode'] ?? record['product_code'];
+              final productCode = record['productCode'] ?? record['product_code'] ?? record['itemCode'] ?? record['item_code'];
+              final productName = record['product'] ?? record['product_name'] ?? record['itemName'] ?? record['item_name'] ?? '---';
               return _buildDetailRow(context, "📦 الصنف:",
-                  "${record['product']?.toString() ?? '---'} ${productCode != null && productCode.toString().isNotEmpty ? '[ $productCode ]' : ''}");
+                  "$productName ${productCode != null && productCode.toString().isNotEmpty ? '[ $productCode ]' : ''}");
             }),
             Builder(builder: (context) {
-              final orderNumber = record['orderNumber'] ?? record['order_number'];
+              final orderNumber = record['orderNumber'] ?? record['order_number'] ?? record['workOrder'] ?? record['work_order'];
               if (orderNumber != null && orderNumber.toString().isNotEmpty) {
                 return _buildDetailRow(context, "🔢 أمر التشغيل:", orderNumber.toString());
               }
@@ -55,12 +74,13 @@ class ArchiveDetailScreen extends StatelessWidget {
               _buildDetailRow(context, "👤 الفني المسؤول:",
                   (record['technicianName'] ?? record['technician_name']).toString()),
             Builder(builder: (context) {
-              final sTime = record['startTime'] ?? record['start_time'];
-              final eTime = record['endTime'] ?? record['end_time'];
-              if ((sTime != null && sTime.toString().isNotEmpty) ||
-                  (eTime != null && eTime.toString().isNotEmpty)) {
+              final sTime = record['startTime'] ?? record['start_time'] ?? record['run_time_start'] ?? record['runTimeStart'];
+              final eTime = record['endTime'] ?? record['end_time'] ?? record['run_time_end'] ?? record['runTimeEnd'];
+              final sFormatted = _formatTime(sTime);
+              final eFormatted = _formatTime(eTime);
+              if (sFormatted != '--:--' || eFormatted != '--:--') {
                 return _buildDetailRow(context, "🕒 وقت التشغيل:",
-                    "${sTime ?? '--:--'} إلى ${eTime ?? '--:--'}");
+                    "$sFormatted  ▶  $eFormatted");
               }
               return const SizedBox.shrink();
             }),
@@ -68,7 +88,7 @@ class ArchiveDetailScreen extends StatelessWidget {
               builder: (context) {
                 final dStart = record['downtimeStart'] ?? record['downtime_start'];
                 final dEnd = record['downtimeEnd'] ?? record['downtime_end'];
-                final rawTotal = record['totalDowntime'];
+                final rawTotal = record['totalDowntime'] ?? record['total_downtime'];
                 final int totalDt = rawTotal is num
                     ? rawTotal.toInt()
                     : int.tryParse(rawTotal?.toString() ?? '0') ?? 0;
@@ -77,7 +97,9 @@ class ArchiveDetailScreen extends StatelessWidget {
                     (dEnd != null && dEnd.toString().isNotEmpty) ||
                     totalDt > 0) {
                   if (dStart != null && dStart.toString().isNotEmpty) {
-                    dtDisplay += "$dStart إلى ${dEnd ?? ''}";
+                    final ds = _formatTime(dStart);
+                    final de = _formatTime(dEnd);
+                    dtDisplay += "$ds  ▶  $de";
                   }
                   if (totalDt > 0) {
                     dtDisplay += " (إجمالي: $totalDt دقيقة)";
@@ -90,8 +112,13 @@ class ArchiveDetailScreen extends StatelessWidget {
             const SizedBox(height: 20),
 
             _buildSectionHeader(Icons.straighten, "المقاسات والكميات والأوزان"),
-            _buildDimensionsDetails(context, record['dimensions']),
-            _buildDetailRow(context, "🔢 الكمية:", "${record['quantity'] ?? 0}"),
+            Builder(builder: (context) {
+              final dept = record['department']?.toString();
+              final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
+              final isCrushingDept = dept == 'crushing' || dept == 'die_cutting' || mName.contains('كسارة');
+              return _buildDimensionsDetails(context, record['dimensions'], isCrushing: isCrushingDept);
+            }),
+            _buildDetailRow(context, "🔢 الكمية:", "${record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity'] ?? 0}"),
             Builder(
               builder: (context) {
                 final dims = record['dimensions'] is Map
@@ -114,8 +141,8 @@ class ArchiveDetailScreen extends StatelessWidget {
                 final dept = record['department']?.toString();
                 final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
                 final isProdLine = dept == 'production_line' || mName == 'خط الإنتاج';
-                final isCrushing = dept == 'crushing';
-                final lineWaste = record['lineWaste'] ?? record['line_waste'] ?? 0;
+                final isCrushing = dept == 'crushing' || dept == 'die_cutting' || mName.contains('كسارة');
+                final lineWaste = record['lineWaste'] ?? record['line_waste'] ?? record['wasteQuantity'] ?? record['waste_quantity'] ?? 0;
                 final printWaste = record['printWaste'] ?? record['print_waste'] ?? 0;
                 return _buildDetailRow(
                   context,
@@ -183,7 +210,9 @@ class ArchiveDetailScreen extends StatelessWidget {
                 final dept = record['department']?.toString();
                 final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
                 final isProdLine = dept == 'production_line' || mName == 'خط الإنتاج';
-                final isCrushing = dept == 'crushing';
+                // إخفاء الألوان لقسم التكسير (سواء بالقسم أو اسم الماكينة)
+                final isCrushing = dept == 'crushing' || dept == 'die_cutting' ||
+                    mName.contains('كسارة') || mName.contains('تكسير');
                 if (isProdLine || isCrushing) return const SizedBox.shrink();
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,11 +311,13 @@ class ArchiveDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDimensionsDetails(BuildContext context, Map? d) {
+  Widget _buildDimensionsDetails(BuildContext context, Map? d, {bool isCrushing = false}) {
     final String length = d?['length']?.toString() ?? '0';
     final String width = d?['width']?.toString() ?? '0';
     final String height = d?['height']?.toString() ?? '0';
 
+    // التكسير: طول / عرض / ارتفاع (من اليمين لليسار) مثل باقي الأقسام
+    // باقي الأقسام: ارتفاع / عرض / طول
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(12),
@@ -296,11 +327,17 @@ class ArchiveDetailScreen extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildDimItem(context, "طول", length),
-          _buildDimItem(context, "عرض", width),
-          _buildDimItem(context, "ارتفاع", height),
-        ],
+        children: isCrushing
+            ? [
+                _buildDimItem(context, "طول", length),
+                _buildDimItem(context, "عرض", width),
+                _buildDimItem(context, "ارتفاع", height),
+              ]
+            : [
+                _buildDimItem(context, "ارتفاع", height),
+                _buildDimItem(context, "عرض", width),
+                _buildDimItem(context, "طول", length),
+              ],
       ),
     );
   }

@@ -35,13 +35,14 @@ class DieCuttingProductionReportAdapter
       wasteQuantity: fields[14] as double,
       notes: fields[15] as String?,
       factoryId: fields[16] as String?,
+      dimensions: (fields[17] as Map?)?.cast<String, dynamic>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, DieCuttingProductionReport obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(18)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -75,7 +76,9 @@ class DieCuttingProductionReportAdapter
       ..writeByte(15)
       ..write(obj.notes)
       ..writeByte(16)
-      ..write(obj.factoryId);
+      ..write(obj.factoryId)
+      ..writeByte(17)
+      ..write(obj.dimensions);
   }
 
   @override

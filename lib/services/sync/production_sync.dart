@@ -19,7 +19,9 @@ mixin ProductionSync on SyncServiceBase {
   RealtimeChannel? _productionChannel;
   RealtimeChannel? _lineProductionChannel;
   RealtimeChannel? _liveSessionsChannel;
-  RealtimeChannel? _archivedReportsChannel;
+  RealtimeChannel? _flexoArchivedReportsChannel;
+  RealtimeChannel? _lineArchivedReportsChannel;
+  RealtimeChannel? _crushingArchivedReportsChannel;
   RealtimeChannel? _dieCuttingProductionChannel;
 
   // ==============================================================
@@ -90,19 +92,20 @@ mixin ProductionSync on SyncServiceBase {
           ? Hive.box<FlexoProductionReport>('flexo_production_reports_box')
           : await Hive.openBox<FlexoProductionReport>('flexo_production_reports_box');
 
+      // ✅ حفظ نسخة مؤقتة لتفادي فقدان البيانات المحلية ثم مسح الصندوق
+      final Map<dynamic, dynamic> tempMap = box.toMap();
+      await box.clear();
+
       if (res.isEmpty) {
-        debugPrint(
-          '⚠️ [Safe Pull] بيانات التقارير من السيرفر فارغة... لا يوجد ما يتم تحديثه.',
-        );
+        debugPrint('⚠️ [Safe Pull] بيانات التقارير من السيرفر فارغة.');
         return;
       }
 
-      final Map<String, FlexoProductionReport> reportsMap = {};
       for (final r in res) {
         final syncId = r['sync_id']?.toString() ?? r['id']?.toString();
         if (syncId == null) continue;
 
-        final existing = box.get(syncId);
+        final existing = tempMap[syncId];
         Map<String, dynamic> updatedData = Map<String, dynamic>.from(r);
 
         if (existing != null) {
@@ -119,12 +122,7 @@ mixin ProductionSync on SyncServiceBase {
           }
         }
 
-        reportsMap[syncId] = FlexoProductionReport.fromJson(updatedData);
-      }
-      // تفريغ الصندوق لتجنب بقاء بيانات قديمة بأسماء حقول غير متوافقة (مثل ---)
-      await box.clear();
-      for (var key in reportsMap.keys) {
-        await box.put(key, reportsMap[key]!);
+        await box.put(syncId, FlexoProductionReport.fromJson(updatedData));
       }
       debugPrint('✅ ProductionSync: تم استرجاع ${res.length} production_reports (flexo + line).');
     } catch (e) {
@@ -145,20 +143,18 @@ mixin ProductionSync on SyncServiceBase {
           ? Hive.box<DieCuttingProductionReport>('die_cutting_production_reports')
           : await Hive.openBox<DieCuttingProductionReport>('die_cutting_production_reports');
 
-      if (res.isEmpty) return;
+      await box.clear();
 
-      final Map<String, DieCuttingProductionReport> reportsMap = {};
+      if (res.isEmpty) {
+        debugPrint('⚠️ [Safe Pull] بيانات التقارير (die_cutting) فارغة.');
+        return;
+      }
+
       for (final r in res) {
         final syncId = r['sync_id']?.toString() ?? r['id']?.toString();
         if (syncId == null) continue;
         final reportObj = DieCuttingProductionReport.fromJson(r);
-        reportsMap[syncId] = reportObj;
-      }
-      
-      // تفريغ الصندوق للتأكد من عدم وجود بيانات قديمة متراكمة
-      await box.clear();
-      for (var key in reportsMap.keys) {
-        await box.put(key, reportsMap[key]!);
+        await box.put(syncId, reportObj);
       }
       debugPrint('✅ ProductionSync: تم استرجاع ${res.length} die_cutting_production_reports.');
     } catch (e) {
@@ -166,75 +162,81 @@ mixin ProductionSync on SyncServiceBase {
     }
   }
 
-  /// المزامنة المبدئية لجدول archived_reports → Hive boxes: flexoArchive & lineArchive
+  /// المزامنة المبدئية لجداول الأرشيف المتفرقة → Hive boxes
   Future<void> _initArchivedReports(String factoryId) async {
     try {
-      final res = await _supabase
-          .from('archived_reports')
+      final flexoBox = Hive.isBoxOpen('flexoArchive') ? Hive.box('flexoArchive') : await Hive.openBox('flexoArchive');
+      final lineBox = Hive.isBoxOpen('lineArchive') ? Hive.box('lineArchive') : await Hive.openBox('lineArchive');
+      final crushingBox = Hive.isBoxOpen('crushingArchive') ? Hive.box('crushingArchive') : await Hive.openBox('crushingArchive');
+
+      // 1. Flexo
+      final flexoRes = await _supabase
+          .from('flexo_archived_reports')
           .select()
           .or('factory_id.eq.$factoryId,factory_id.is.null')
           .order('date', ascending: false);
+      await _populateArchiveBox(flexoBox, flexoRes);
 
-      final flexoBox = Hive.isBoxOpen('flexoArchive')
-          ? Hive.box('flexoArchive')
-          : await Hive.openBox('flexoArchive');
-      final lineBox = Hive.isBoxOpen('lineArchive')
-          ? Hive.box('lineArchive')
-          : await Hive.openBox('lineArchive');
-      final crushingBox = Hive.isBoxOpen('crushingArchive')
-          ? Hive.box('crushingArchive')
-          : await Hive.openBox('crushingArchive');
+      // 2. Line
+      final lineRes = await _supabase
+          .from('line_archived_reports')
+          .select()
+          .or('factory_id.eq.$factoryId,factory_id.is.null')
+          .order('date', ascending: false);
+      await _populateArchiveBox(lineBox, lineRes);
 
-      if (res.isEmpty) {
-        debugPrint(
-          '⚠️ [Safe Pull] بيانات الأرشيف من السيرفر فارغة... يُمنع مسح الصندوق المحلي.',
-        );
-        return;
-      }
+      // 3. Crushing
+      final crushingRes = await _supabase
+          .from('die_cutting_archived_reports')
+          .select()
+          .or('factory_id.eq.$factoryId,factory_id.is.null')
+          .order('report_date', ascending: false);
+      await _populateArchiveBox(crushingBox, crushingRes, isCrushing: true);
 
+      debugPrint('✅ ProductionSync: تم استرجاع تقارير الأرشيف الموزعة بنجاح.');
+    } catch (e) {
+      debugPrint('❌ ProductionSync._initArchivedReports: $e');
+    }
+  }
+
+  Future<void> _populateArchiveBox(Box targetBox, List<dynamic> res, {bool isCrushing = false}) async {
+      // ✅ حفظ نسخة مؤقتة من الصندوق لتفادي فقدان البيانات المحلية (مثل الوزن) التي لا تخزن في السيرفر
+      final Map<dynamic, dynamic> tempMap = targetBox.toMap();
+      
+      // ✅ مسح الصندوق المحلي بالكامل لإزالة التقارير المحذوفة (Ghost Records)
+      await targetBox.clear();
+
+      if (res.isEmpty) return;
+      
       for (final r in res) {
-        final hiveRecord = _reportToHive(r);
-        final syncId = r['sync_id'] ?? r['id'];
+        // ✅ جدول die_cutting_archived_reports لا يحتوي على عمود department
+        // نضيفه يدوياً قبل استدعاء _reportToHive
+        final Map<String, dynamic> record = isCrushing && r['department'] == null
+            ? {...Map<String, dynamic>.from(r), 'department': 'crushing'}
+            : Map<String, dynamic>.from(r);
+
+        final hiveRecord = _reportToHive(record);
+        final syncId = record['sync_id'] ?? record['id'];
         if (syncId == null) continue;
         hiveRecord['sync_id'] = syncId;
 
-        // حدّد الـ box الصحيح حسب القسم
-        final dept = hiveRecord['department']?.toString() ?? 'flexo';
-        final isProdLine = dept == 'production_line' ||
-            (hiveRecord['machineName'] ?? hiveRecord['machine_name'])?.toString() == 'خط الإنتاج';
-        final isCrushing = dept == 'crushing';
-
-        final targetBox = isProdLine 
-            ? lineBox 
-            : isCrushing 
-                ? crushingBox 
-                : flexoBox;
-
-        final existing = targetBox.get(syncId);
+        // نقرأ من النسخة المؤقتة بدلاً من الصندوق المفرغ
+        final existing = tempMap[syncId];
         if (existing is Map && existing['data'] is Map) {
           final existingData = existing['data'] as Map;
           final existingW = existingData['weight'] ?? 0;
-          final double existingWeightVal = existingW is num
-              ? existingW.toDouble()
-              : (double.tryParse(existingW.toString()) ?? 0.0);
+          final double existingWeightVal = existingW is num ? existingW.toDouble() : (double.tryParse(existingW.toString()) ?? 0.0);
           final currentW = hiveRecord['weight'] ?? 0;
-          final double currentWeightVal = currentW is num
-              ? currentW.toDouble()
-              : (double.tryParse(currentW.toString()) ?? 0.0);
-
+          final double currentWeightVal = currentW is num ? currentW.toDouble() : (double.tryParse(currentW.toString()) ?? 0.0);
+          
           if (currentWeightVal == 0 && existingWeightVal > 0) {
             hiveRecord['weight'] = existingWeightVal;
             if (hiveRecord['dimensions'] is Map) {
               (hiveRecord['dimensions'] as Map)['weight'] = existingWeightVal;
             }
           }
-
-          final currentLayers = hiveRecord['paperLayers'] is List
-              ? (hiveRecord['paperLayers'] as List)
-              : [];
-          final existingLayers = existingData['paperLayers'] is List
-              ? (existingData['paperLayers'] as List)
-              : [];
+          final currentLayers = hiveRecord['paperLayers'] is List ? (hiveRecord['paperLayers'] as List) : [];
+          final existingLayers = existingData['paperLayers'] is List ? (existingData['paperLayers'] as List) : [];
           if (currentLayers.isEmpty && existingLayers.isNotEmpty) {
             hiveRecord['paperLayers'] = existingLayers;
             if (hiveRecord['dimensions'] is Map) {
@@ -243,30 +245,15 @@ mixin ProductionSync on SyncServiceBase {
           }
         }
 
-        // نقل أي سجل موجود في الـ box الخاطئ إلى الصحيح
-        if (targetBox != flexoBox && flexoBox.containsKey(syncId)) {
-          await flexoBox.delete(syncId);
-        }
-        if (targetBox != lineBox && lineBox.containsKey(syncId)) {
-          await lineBox.delete(syncId);
-        }
-        if (targetBox != crushingBox && crushingBox.containsKey(syncId)) {
-          await crushingBox.delete(syncId);
-        }
-
         final archiveEntry = {
           'type': 'REPORT',
           'data': hiveRecord,
-          'archiveDate':
-              r['date']?.toString() ?? DateTime.now().toIso8601String(),
+          'archiveDate': isCrushing 
+              ? (r['report_date']?.toString() ?? r['date']?.toString() ?? DateTime.now().toIso8601String())
+              : (r['date']?.toString() ?? r['report_date']?.toString() ?? DateTime.now().toIso8601String()),
         };
         await targetBox.put(syncId, archiveEntry);
       }
-      debugPrint(
-          '✅ ProductionSync: تم استرجاع ${res.length} archived_reports (مُقسَّمة بين flexoArchive و lineArchive و crushingArchive).');
-    } catch (e) {
-      debugPrint('❌ ProductionSync._initArchivedReports: $e');
-    }
   }
 
   // ==============================================================
@@ -392,40 +379,66 @@ mixin ProductionSync on SyncServiceBase {
           }
         });
 
-    // ─── archived_reports ──────────────────────────────────────────
-    _archivedReportsChannel = _supabase
-        .channel('rt_archived_reports_${factoryId}_v1')
+    // ─── flexo_archived_reports ──────────────────────────────────────────
+    _flexoArchivedReportsChannel = _supabase
+        .channel('rt_flexo_archived_reports_${factoryId}_v1')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'archived_reports',
+          table: 'flexo_archived_reports',
           filter: filter,
           callback: (payload) {
-            debugPrint(
-              '📥 [archived_reports] event=${payload.eventType} '
-              'new=${payload.newRecord} old=${payload.oldRecord}',
-            );
-            _onArchivedReportChange(payload, factoryId);
+            _onArchivedReportChange(payload, factoryId, boxName: 'flexoArchive');
           },
         )
         .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('✅ SUBSCRIBED → archived_reports (factory: $factoryId)');
-            _reconnectAttempts['archived_reports_channel'] = 0;
-          } else if (status == RealtimeSubscribeStatus.timedOut) {
-            debugPrint('⏱️ TIMEOUT → archived_reports — جدولة إعادة الاتصال...');
+          if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {
             _scheduleReconnect('archived_reports_channel', () async {
               await _tearDownProductionChannels();
               _setupProductionChannels(factoryId);
             });
-          } else if (status == RealtimeSubscribeStatus.channelError) {
-            debugPrint('❌ CHANNEL ERROR → archived_reports: $error');
+          }
+        });
+
+    // ─── line_archived_reports ──────────────────────────────────────────
+    _lineArchivedReportsChannel = _supabase
+        .channel('rt_line_archived_reports_${factoryId}_v1')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'line_archived_reports',
+          filter: filter,
+          callback: (payload) {
+            _onArchivedReportChange(payload, factoryId, boxName: 'lineArchive');
+          },
+        )
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {
             _scheduleReconnect('archived_reports_channel', () async {
               await _tearDownProductionChannels();
               _setupProductionChannels(factoryId);
             });
-          } else {
-            debugPrint('📡 archived_reports: $status ${error ?? ""}');
+          }
+        });
+
+    // ─── die_cutting_archived_reports ──────────────────────────────────────────
+    _crushingArchivedReportsChannel = _supabase
+        .channel('rt_die_cutting_archived_reports_${factoryId}_v1')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'die_cutting_archived_reports',
+          filter: filter,
+          callback: (payload) {
+            _onArchivedReportChange(payload, factoryId, boxName: 'crushingArchive', isCrushing: true);
+          },
+        )
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {
+            _scheduleReconnect('archived_reports_channel', () async {
+              await _tearDownProductionChannels();
+              _setupProductionChannels(factoryId);
+            });
           }
         });
     // ─── die_cutting_production_reports ─────────────────────────────
@@ -480,9 +493,17 @@ mixin ProductionSync on SyncServiceBase {
         await _supabase.removeChannel(_liveSessionsChannel!);
         _liveSessionsChannel = null;
       }
-      if (_archivedReportsChannel != null) {
-        await _supabase.removeChannel(_archivedReportsChannel!);
-        _archivedReportsChannel = null;
+      if (_flexoArchivedReportsChannel != null) {
+        await _supabase.removeChannel(_flexoArchivedReportsChannel!);
+        _flexoArchivedReportsChannel = null;
+      }
+      if (_lineArchivedReportsChannel != null) {
+        await _supabase.removeChannel(_lineArchivedReportsChannel!);
+        _lineArchivedReportsChannel = null;
+      }
+      if (_crushingArchivedReportsChannel != null) {
+        await _supabase.removeChannel(_crushingArchivedReportsChannel!);
+        _crushingArchivedReportsChannel = null;
       }
       if (_dieCuttingProductionChannel != null) {
         await _supabase.removeChannel(_dieCuttingProductionChannel!);
@@ -513,7 +534,9 @@ mixin ProductionSync on SyncServiceBase {
       final recordFactoryId = record['factory_id']?.toString();
       if (!isDelete && recordFactoryId != myFactoryId) return;
 
-      if (!Hive.isBoxOpen('die_cutting_production_reports')) return;
+      if (!Hive.isBoxOpen('die_cutting_production_reports')) {
+        await Hive.openBox<DieCuttingProductionReport>('die_cutting_production_reports');
+      }
       final box = Hive.box<DieCuttingProductionReport>('die_cutting_production_reports');
       
       final payloadSyncId = record['sync_id']?.toString();
@@ -532,6 +555,29 @@ mixin ProductionSync on SyncServiceBase {
         final reportObj = DieCuttingProductionReport.fromJson(record);
         await box.put(stableKey, reportObj);
         debugPrint('✅ [die_cutting_production_reports] تم حفظ محلياً: $stableKey');
+
+        if (payload.eventType == PostgresChangeEvent.insert) {
+          final customerName = record['customer_name']?.toString() ?? '';
+          final itemName = record['item_name']?.toString() ?? '';
+          final machineName = record['machine_name']?.toString() ?? '';
+          const title = "📊 تقرير إنتاج تكسير جديد";
+          final bodyParts = <String>[
+            if (customerName.trim().isNotEmpty) "العميل: $customerName",
+            if (itemName.trim().isNotEmpty) "الصنف: $itemName",
+            if (machineName.trim().isNotEmpty) "الماكينة: $machineName",
+          ];
+          final body = bodyParts.isNotEmpty ? bodyParts.join(' | ') : "تم إضافة تقرير إنتاج تكسير جديد";
+
+          UIUtils.showTopOverlay(
+            title: title,
+            message: body,
+          );
+
+          UIUtils.showDesktopNotification(
+            title: title,
+            body: body,
+          );
+        }
       }
     } catch (e) {
       debugPrint('❌ _onDieCuttingReportChange: $e');
@@ -679,120 +725,77 @@ mixin ProductionSync on SyncServiceBase {
   // ─── archived_reports → crushingArchive / lineArchive / flexoArchive ──
   void _onArchivedReportChange(
     PostgresChangePayload payload,
-    String myFactoryId,
-  ) async {
+    String myFactoryId, {
+    required String boxName,
+    bool isCrushing = false,
+  }) async {
     try {
       final isDelete = payload.eventType == PostgresChangeEvent.delete;
 
       Map<String, dynamic> record;
       if (isDelete) {
-        record = payload.oldRecord.isNotEmpty
-            ? payload.oldRecord
-            : payload.newRecord;
+        record = payload.oldRecord.isNotEmpty ? payload.oldRecord : payload.newRecord;
       } else {
         record = payload.newRecord;
       }
 
-      if (record.isEmpty) {
-        debugPrint(
-          '⚠️ [archived_reports] DELETE payload فارغ — تأكد من: '
-          'ALTER TABLE archived_reports REPLICA IDENTITY FULL;',
-        );
-        return;
+      if (record.isEmpty) return;
+      if (!isDelete && record['factory_id']?.toString() != myFactoryId) return;
+
+      // ✅ جدول die_cutting_archived_reports لا يحتوي على عمود department
+      // نضيفه يدوياً حتى يعمل _reportToHive بشكل صحيح
+      if (isCrushing && record['department'] == null) {
+        record = Map<String, dynamic>.from(record);
+        record['department'] = 'crushing';
       }
 
-      final recordFactoryId = record['factory_id']?.toString();
-      if (!isDelete && recordFactoryId != myFactoryId) return;
-
-      // تحديد الصندوق المناسب
       final hiveRecord = isDelete ? record : _reportToHive(record);
-      final dept = isDelete
-          ? (record['department']?.toString() ?? '')
-          : (hiveRecord['department']?.toString() ?? 'flexo');
-      final isCrushing = dept == 'crushing' || dept == 'die_cutting';
-      final isProdLine = dept == 'production_line' ||
-          (!isDelete && (hiveRecord['machineName'] ?? hiveRecord['machine_name'])?.toString() == 'خط الإنتاج');
-
-      final String boxName = isCrushing
-          ? 'crushingArchive'
-          : isProdLine
-              ? 'lineArchive'
-              : 'flexoArchive';
-
-      final Box targetBox = Hive.isBoxOpen(boxName)
-          ? Hive.box(boxName)
-          : await Hive.openBox(boxName);
-
+      final Box targetBox = Hive.isBoxOpen(boxName) ? Hive.box(boxName) : await Hive.openBox(boxName);
       final syncId = record['sync_id']?.toString() ?? record['id']?.toString();
-      if (syncId == null || syncId.isEmpty) {
-        debugPrint('⚠️ [archived_reports] لا يوجد sync_id أو id في payload!');
-        return;
-      }
+      if (syncId == null || syncId.isEmpty) return;
 
       if (isDelete) {
-        // ✅ نستخرج كلا المعرّفين من oldRecord للمقارنة الشاملة
         final payloadSyncId = record['sync_id']?.toString();
         final payloadId     = record['id']?.toString();
-
-        // بحث شامل في جميع صناديق الأرشيف لضمان الحذف الصحيح
         bool deleted = false;
-        for (final name in ['crushingArchive', 'lineArchive', 'flexoArchive']) {
-          if (deleted) break; // وجدناه في صندوق سابق، لا داعي للاستمرار
-          final box = Hive.isBoxOpen(name)
-              ? Hive.box(name)
-              : await Hive.openBox(name);
 
-          // 1️⃣ بحث مباشر بالمفتاح (الأسرع)
-          for (final candidateKey in [payloadSyncId, payloadId]) {
-            if (candidateKey != null && box.containsKey(candidateKey)) {
-              await box.delete(candidateKey);
-              deleted = true;
-              debugPrint('🗑️ [archived_reports] حُذف مباشرةً من $name بالمفتاح=$candidateKey');
-              break;
-            }
+        for (final candidateKey in [payloadSyncId, payloadId]) {
+          if (candidateKey != null && targetBox.containsKey(candidateKey)) {
+            await targetBox.delete(candidateKey);
+            deleted = true;
+            break;
           }
-          if (deleted) break;
+        }
 
-          // 2️⃣ بحث خطي شامل — (id, sync_id) من payload مع (id, sync_id) من كل سجل
-          for (int i = 0; i < box.length; i++) {
-            final v = box.getAt(i);
+        if (!deleted) {
+          for (int i = 0; i < targetBox.length; i++) {
+            final v = targetBox.getAt(i);
             if (v is! Map) continue;
-            // الأرشيف مُغلَّف في { 'type', 'data', 'archiveDate' } أو مباشر
             final vData = (v['data'] is Map) ? v['data'] as Map : v;
             final vSyncId = vData['sync_id']?.toString();
             final vId     = vData['id']?.toString();
-            // أيضاً المفتاح نفسه (box key قد يكون sync_id)
-            final boxKey  = box.keyAt(i)?.toString();
+            final boxKey  = targetBox.keyAt(i)?.toString();
 
             final match =
-                (payloadSyncId != null &&
-                    (vSyncId == payloadSyncId || vId == payloadSyncId || boxKey == payloadSyncId)) ||
-                (payloadId != null &&
-                    (vSyncId == payloadId || vId == payloadId || boxKey == payloadId));
+                (payloadSyncId != null && (vSyncId == payloadSyncId || vId == payloadSyncId || boxKey == payloadSyncId)) ||
+                (payloadId != null && (vSyncId == payloadId || vId == payloadId || boxKey == payloadId));
+            
             if (match) {
-              final foundKey = box.keyAt(i);
-              await box.delete(foundKey);
-              deleted = true;
-              debugPrint('🗑️ [archived_reports] حُذف (خطي) من $name key=$foundKey '
-                  '(payload: sync_id=$payloadSyncId | id=$payloadId)');
+              await targetBox.delete(targetBox.keyAt(i));
               break;
             }
           }
         }
-        if (!deleted) {
-          debugPrint('⚠️ [archived_reports] Ghost Record — لم يُعثر على السجل '
-              '(payload: sync_id=$payloadSyncId | id=$payloadId)');
-        }
       } else {
-        // INSERT / UPDATE → حفظ في الصندوق الصحيح
         hiveRecord['sync_id'] = syncId;
         final archiveEntry = {
           'type': 'REPORT',
           'data': hiveRecord,
-          'archiveDate': record['date']?.toString() ?? DateTime.now().toIso8601String(),
+          'archiveDate': isCrushing
+              ? (record['report_date']?.toString() ?? DateTime.now().toIso8601String())
+              : (record['date']?.toString() ?? DateTime.now().toIso8601String()),
         };
         await targetBox.put(syncId, archiveEntry);
-        debugPrint('✅ [archived_reports] تم حفظ/تحديث في $boxName: $syncId');
       }
     } catch (e) {
       debugPrint('❌ _onArchivedReportChange: $e');
@@ -946,28 +949,63 @@ mixin ProductionSync on SyncServiceBase {
         [];
     final List<dynamic> layersList = rawLayers is List ? rawLayers : [];
 
+    // ─── دعم أسماء أعمدة جدول die_cutting_archived_reports ───────────────────
+    // الجدول يستخدم: customer_name, item_name, item_code, production_quantity,
+    // waste_quantity, work_order, report_date بدلاً من الأسماء المعتادة
+    final clientName = r['clientName'] ?? r['client_name'] ??
+        r['customer_name'] ?? r['customerName'];
+    final product = r['product'] ?? r['product_name'] ??
+        r['item_name'] ?? r['itemName'];
+    final productCode = r['productCode'] ?? r['product_code'] ??
+        r['item_code'] ?? r['itemCode'];
+    final orderNumber = r['orderNumber'] ?? r['order_number'] ??
+        r['work_order'] ?? r['workOrder'];
+    final formNumber = r['formNumber'] ?? r['form_number'];
+    final startTime = r['startTime'] ?? r['start_time'] ??
+        r['run_time_start'] ?? r['runTimeStart'];
+    final endTime = r['endTime'] ?? r['end_time'] ??
+        r['run_time_end'] ?? r['runTimeEnd'];
+    // التاريخ: يدعم كلاً من 'date' و 'report_date'
+    final date = r['date'] ?? r['report_date'] ?? r['reportDate'];
+    // الكمية: يدعم production_quantity أيضاً
+    final quantity = r['quantity'] ?? r['production_quantity'] ??
+        r['productionQuantity'];
+    // الهالك: يدعم waste_quantity أيضاً
+    final lineWaste = r['lineWaste'] ?? r['line_waste'] ??
+        r['waste_quantity'] ?? r['wasteQuantity'];
+
     return {
       'sync_id': r['sync_id'],
       'id': r['id'] ?? r['sync_id'],
       'department': dept,
-      'date': r['date'],
-      'clientName': r['clientName'] ?? r['client_name'],
-      'product': r['product'] ?? r['product_name'],
-      'productCode': r['productCode'] ?? r['product_code'],
-      'orderNumber': r['orderNumber'] ?? r['order_number'],
-      'formNumber': r['formNumber'] ?? r['form_number'],
-      'startTime': r['startTime'] ?? r['start_time'],
-      'endTime': r['endTime'] ?? r['end_time'],
+      'date': date,
+      'clientName': clientName,
+      'customer_name': clientName,
+      'product': product,
+      'item_name': product,
+      'productCode': productCode,
+      'item_code': productCode,
+      'orderNumber': orderNumber,
+      'work_order': orderNumber,
+      'formNumber': formNumber,
+      'form_number': formNumber,
+      'startTime': startTime,
+      'run_time_start': r['run_time_start'] ?? r['runTimeStart'] ?? r['startTime'] ?? r['start_time'],
+      'endTime': endTime,
+      'run_time_end': r['run_time_end'] ?? r['runTimeEnd'] ?? r['endTime'] ?? r['end_time'],
       'downtimeStart': r['downtimeStart'] ?? r['downtime_start'],
       'downtimeEnd': r['downtimeEnd'] ?? r['downtime_end'],
       'totalDowntime': r['totalDowntime'] ?? r['total_downtime'],
       'machineName': r['machineName'] ?? r['machine_name'],
       'technicianName': r['technicianName'] ?? r['technician_name'],
       'technician_id': r['technician_id'] ?? r['technicianId'],
-      'quantity': r['quantity'],
+      'quantity': quantity,
+      'production_quantity': quantity,
       'weight': weightVal,
       'paperLayers': layersList,
-      'lineWaste': r['lineWaste'] ?? r['line_waste'],
+      'lineWaste': lineWaste,
+      'waste_quantity': lineWaste,
+      'line_waste': lineWaste,
       'printWaste': r['printWaste'] ?? r['print_waste'],
       'notes': r['notes'],
       'isSheet': r['isSheet'] ?? r['is_sheet'] ?? false,
@@ -1068,10 +1106,21 @@ mixin ProductionSync on SyncServiceBase {
         debugPrint('✅ [directPushAllReports] تم رفع ${lineReports.length} تقرير إنتاج خط بنجاح!');
       }
 
-      if (archivedReportsList.isNotEmpty) {
-        debugPrint('📤 [directPushAllReports] جاري رفع ${archivedReportsList.length} تقرير أرشيف إلى archived_reports...');
-        await _safeUpsertReports('archived_reports', archivedReportsList);
-        debugPrint('✅ [directPushAllReports] تم رفع ${archivedReportsList.length} تقرير أرشيف بنجاح!');
+      final flexoArchivedReports = archivedReportsList.where((r) => r['department'] != 'production_line' && r['department'] != 'crushing' && r['department'] != 'die_cutting').toList();
+      final lineArchivedReports = archivedReportsList.where((r) => r['department'] == 'production_line').toList();
+      final crushingArchivedReports = archivedReportsList.where((r) => r['department'] == 'crushing' || r['department'] == 'die_cutting').toList();
+
+      if (flexoArchivedReports.isNotEmpty) {
+        debugPrint('📤 [directPushAllReports] جاري رفع ${flexoArchivedReports.length} تقرير أرشيف إلى flexo_archived_reports...');
+        await _safeUpsertReports('flexo_archived_reports', flexoArchivedReports);
+      }
+      if (lineArchivedReports.isNotEmpty) {
+        debugPrint('📤 [directPushAllReports] جاري رفع ${lineArchivedReports.length} تقرير أرشيف إلى line_archived_reports...');
+        await _safeUpsertReports('line_archived_reports', lineArchivedReports);
+      }
+      if (crushingArchivedReports.isNotEmpty) {
+        debugPrint('📤 [directPushAllReports] جاري رفع ${crushingArchivedReports.length} تقرير أرشيف إلى die_cutting_archived_reports...');
+        await _safeUpsertReports('die_cutting_archived_reports', crushingArchivedReports);
       }
 
       // ─── 4. تنظيف طابور المزامنة من السجلات التي رُفعت بالفعل ───
@@ -1084,7 +1133,9 @@ mixin ProductionSync on SyncServiceBase {
         if (item is Map &&
             (item['table']?.toString() == 'flexo_production_reports' ||
              item['table']?.toString() == 'line_production_reports' ||
-             item['table']?.toString() == 'archived_reports')) {
+             item['table']?.toString() == 'flexo_archived_reports' ||
+             item['table']?.toString() == 'line_archived_reports' ||
+             item['table']?.toString() == 'die_cutting_archived_reports')) {
           keysToDelete.add(queueBox.keyAt(i));
         }
       }

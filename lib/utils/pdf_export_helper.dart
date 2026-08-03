@@ -311,19 +311,6 @@ String _getDimensionsOnly(Map<String, dynamic> record) {
 }
 
 
-String _getWeightOnly(Map<String, dynamic> record) {
-  final dims = record['dimensions'] is Map ? record['dimensions'] as Map : {};
-  final rawWeight = record['weight'] ?? dims['weight'];
-  if (rawWeight == null) return '---';
-  final wStr = rawWeight.toString().trim();
-  if (wStr.isEmpty || wStr == '0' || wStr == '0.0') return '---';
-  if (wStr.contains('.')) {
-    final parts = wStr.split('.');
-    if (parts.length > 1 && parts[1] == '0') return parts[0];
-    return wStr.replaceAll(RegExp(r'0*$'), '').replaceAll(RegExp(r'\.$'), '');
-  }
-  return wStr;
-}
 
 // بناء الخلايا الأساسية للجدول
 pw.Widget buildTableDataCell(String text, double width, pw.Font font, {bool isRightMost = false, bool isSectionEnd = false}) {
@@ -415,7 +402,8 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
         final String quantity = record['quantity']?.toString() ?? '---';
         final String startTime = (record['start_time'] ?? record['startTime'])?.toString() ?? '---';
         final String endTime = (record['end_time'] ?? record['endTime'])?.toString() ?? '---';
-        final String lineWaste = (record['line_waste'] ?? record['lineWaste'] ?? record['print_waste'] ?? record['printWaste'])?.toString() ?? '---';
+        final String lineWaste = (record['line_waste'] ?? record['lineWaste'])?.toString() ?? '---';
+        final String printWaste = (record['print_waste'] ?? record['printWaste'])?.toString() ?? '---';
         final String downtimeStart = (record['downtime_start'] ?? record['downtimeStart'])?.toString() ?? '---';
         final String downtimeEnd = (record['downtime_end'] ?? record['downtimeEnd'])?.toString() ?? '---';
         final String notes = record['notes']?.toString() ?? '---';
@@ -433,8 +421,8 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
             buildTableDataCell(quantity, 35.0, arabicFont),
             buildTableDataCell(startTime, 35.0, arabicFont),
             buildTableDataCell(endTime, 35.0, arabicFont, isSectionEnd: true),
-            buildTableDataCell(lineWaste, 28.0, arabicFont),
-            buildTableDataCell(_getWeightOnly(record), 32.0, arabicFont, isSectionEnd: true),
+            buildTableDataCell(lineWaste, 30.0, arabicFont),
+            buildTableDataCell(printWaste, 30.0, arabicFont, isSectionEnd: true),
             buildTableDataCell(downtimeStart, 35.0, arabicFont),
             buildTableDataCell(downtimeEnd, 35.0, arabicFont, isSectionEnd: true),
             buildTableDataCell(notes, notesColWidth, arabicFont),
@@ -489,8 +477,7 @@ pw.Widget _buildProductionHeader({
       _buildSpannedHeader('أمر التشغيل', 42.0, font),
       _buildSpannedHeader('الإنتاج', 35.0, font),
       _buildGroupedHeader('وقت التشغيل', ['من', 'إلى'], [35.0, 35.0], font, isSectionEnd: true),
-      _buildSpannedHeader('الهالك', 28.0, font),
-      _buildSpannedHeader('الوزن', 32.0, font, isSectionEnd: true),
+      _buildGroupedHeader('الهالك', ['خ', 'ط'], [30.0, 30.0], font, isSectionEnd: true),
       _buildGroupedHeader('الأعطال', ['من', 'إلى'], [35.0, 35.0], font, isSectionEnd: true),
       _buildSpannedHeader('الملاحظات', notesWidth, font),
     ],

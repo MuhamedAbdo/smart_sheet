@@ -130,8 +130,20 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         await _productionReportBox!.delete(key);
 
         // ✅ مزامنة الحذف مع Supabase لتحديث جميع الأجهزة
-        final syncId =
-            record['sync_id']?.toString() ?? record['id']?.toString();
+        String? syncId;
+        if (record is DieCuttingProductionReport) {
+          syncId = record.id;
+        } else if (record is FlexoProductionReport) {
+          syncId = record.id;
+        } else if (record is Map) {
+          syncId = record['sync_id']?.toString() ?? record['id']?.toString();
+        } else {
+          try {
+            final r = (record as dynamic).toJson();
+            syncId = r['sync_id']?.toString() ?? r['id']?.toString();
+          } catch (_) {}
+        }
+        
         final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
             ? 'die_cutting_production_reports' 
             : 'flexo_production_reports';
@@ -175,8 +187,19 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         // 1. جلب جميع المعرفات (sync_id) لحذفها من السيرفر دفعة واحدة
         final List<String> listOfIds = [];
         for (var record in backup.values) {
-          final syncId =
-              record['sync_id']?.toString() ?? record['id']?.toString();
+          String? syncId;
+          if (record is DieCuttingProductionReport) {
+            syncId = record.id;
+          } else if (record is FlexoProductionReport) {
+            syncId = record.id;
+          } else if (record is Map) {
+            syncId = record['sync_id']?.toString() ?? record['id']?.toString();
+          } else {
+            try {
+              final r = (record as dynamic).toJson();
+              syncId = r['sync_id']?.toString() ?? r['id']?.toString();
+            } catch (_) {}
+          }
           if (syncId != null && syncId.isNotEmpty) {
             listOfIds.add(syncId);
           }
@@ -283,12 +306,14 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             };
             await archiveBox.put(archiveSyncId, archiveEntry);
 
-            // مزامنة فورية للأرشيف (مخصصة لقسم التكسير بناءً على طلب المستخدم)
-            if (widget.department == 'crushing') {
-              // ✅ تمرير r مع sync_id مضمون لطابور المزامنة
-              SyncService.instance.pushToQueue('archived_reports', r);
-              debugPrint('📤 الأرشفة (crushing): تم إضافة للقائمة (sync_id=$archiveSyncId)');
-            }
+            // مزامنة فورية للأرشيف لجميع الأقسام
+            String archiveTable = 'flexo_archived_reports';
+            if (widget.department == 'production_line') archiveTable = 'line_archived_reports';
+            if (widget.department == 'crushing' || widget.department == 'die_cutting') archiveTable = 'die_cutting_archived_reports';
+
+            // ✅ تمرير r مع sync_id مضمون لطابور المزامنة
+            SyncService.instance.pushToQueue(archiveTable, r);
+            debugPrint('📤 الأرشفة (${widget.department}): تم إضافة للقائمة (sync_id=$archiveSyncId)');
           }
 
           if (mounted) {
@@ -324,103 +349,34 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     return dateStr.split(' ')[0].split('T')[0];
   }
 
-  List<String> _getUniqueDates() {
-    if (_productionReportBox == null) return [];
-    final Set<String> dates = {};
-    for (var value in _productionReportBox!.values) {
-      final data = Map<String, dynamic>.from(value);
-      final rawDate = data['date']?.toString();
-      final normalizedDate = _normalizeDateOnly(rawDate);
-      if (normalizedDate.isNotEmpty) {
-        dates.add(normalizedDate);
-      }
-    }
-    final sortedDates = dates.toList();
-    sortedDates.sort((a, b) {
-      final dA = DateTime.tryParse(a) ?? DateTime(2000);
-      final dB = DateTime.tryParse(b) ?? DateTime(2000);
-      return dB.compareTo(dA);
-    });
-    return sortedDates;
-  }
 
-  void _showDateFilterDialog() {
-    final uniqueDates = _getUniqueDates();
-    showDialog(
+
+  void _showDateFilterDialog() async {
+    final DateTime? pickedDate = await showDatePicker(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding: EdgeInsets.zero,
-        title: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-            color: Colors.blueAccent,
-            borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.blueAccent, // header background color
+              onPrimary: Colors.white, // header text color
+              onSurface: Colors.black, // body text color
+            ),
           ),
-          child: const Row(
-            children: [
-              Icon(Icons.calendar_month, color: Colors.white),
-              SizedBox(width: 10),
-              Text("اختر تاريخ الإنتاج",
-                  style: TextStyle(color: Colors.white, fontSize: 18)),
-            ],
-          ),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.all_inclusive, color: Colors.green),
-                title: const Text("عرض الكل",
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, color: Colors.green)),
-                onTap: () {
-                  setState(() => _selectedDate = null);
-                  Navigator.pop(context);
-                },
-              ),
-              const Divider(),
-              if (uniqueDates.isEmpty)
-                const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text("لا توجد تواريخ متاحة"))
-              else
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: uniqueDates.length,
-                    itemBuilder: (ctx, index) {
-                      final date = uniqueDates[index];
-                      final isSelected = _selectedDate == date;
-                      return ListTile(
-                        leading: Icon(Icons.date_range,
-                            color:
-                                isSelected ? Colors.blueAccent : Colors.grey),
-                        title: Text(date,
-                            style: TextStyle(
-                                color: isSelected ? Colors.blueAccent : null,
-                                fontWeight:
-                                    isSelected ? FontWeight.bold : null)),
-                        trailing: isSelected
-                            ? const Icon(Icons.check_circle,
-                                color: Colors.blueAccent)
-                            : null,
-                        onTap: () {
-                          setState(() => _selectedDate = date);
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+          child: child!,
+        );
+      },
     );
+
+    if (pickedDate != null) {
+      setState(() {
+        _selectedDate =
+            "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+      });
+    }
   }
 
   @override
@@ -490,9 +446,14 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
                 final bool showArchiveOpen = isSuperAdmin || ArchiveRbacService.canRead(cw);
                 final bool showArchiveMove = isSuperAdmin || ArchiveRbacService.canAdd(cw, normalizedDept);
+                final bool showClearAll = isSuperAdmin || AuthHelper.currentUserCanManageProduction(normalizedDept, 'canDelete');
 
-                return PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert, color: appBarIconColor),
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // تم نقل مسح الكل إلى القائمة المنسدلة
+                    PopupMenuButton<String>(
+                      icon: Icon(Icons.more_vert, color: appBarIconColor),
                   tooltip: "خيارات التقارير",
                   onSelected: (value) async {
                     if (value == 'search') {
@@ -540,8 +501,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                         value: 'sort',
                         child: ListTile(
                             leading: Icon(Icons.sort), title: Text('الترتيب'))),
-                    // ─── مسح الكل: Super Admin فقط ───
-                    if (isSuperAdmin)
+                    // ─── مسح الكل: للصلاحيات الكاملة ───
+                    if (showClearAll)
                       const PopupMenuItem(
                           value: 'clear',
                           child: ListTile(
@@ -549,6 +510,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                                   Icon(Icons.delete_sweep, color: Colors.red),
                               title: Text('مسح الكل',
                                   style: TextStyle(color: Colors.red)))),
+                  ],
+                ),
                   ],
                 );
               },
@@ -807,8 +770,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               _buildInfoRow("🕒 وقت التشغيل:",
                   "${record['startTime'] ?? '--:--'} إلى ${record['endTime'] ?? '--:--'}"),
             _buildDimensionsText(record['dimensions'],
-                isSheet: record['isSheet'] ?? false),
-            _buildQuantityText(record['quantity']),
+                  isSheet: record['isSheet'] ?? false),
+            _buildQuantityText(record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity']),
             Builder(
               builder: (context) {
                 final dims = record['dimensions'] is Map
@@ -873,7 +836,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 widget.department != 'crushing' &&
                 record['department'] != 'crushing')
               _buildColorsList(record['colors'] ?? []),
-            if (record['lineWaste'] != null || record['printWaste'] != null)
+            if (record['lineWaste'] != null || record['printWaste'] != null || record['waste_quantity'] != null || record['wasteQuantity'] != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Row(
@@ -883,7 +846,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                     Text((widget.department == 'production_line' ||
                             widget.department == 'crushing' ||
                             record['department'] == 'crushing')
-                        ? "${record['lineWaste'] ?? 0}"
+                        ? "${record['lineWaste'] ?? record['waste_quantity'] ?? record['wasteQuantity'] ?? 0}"
                         : "إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
                   ],
                 ),
@@ -961,6 +924,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               'quantity': val.productionQuantity,
               'lineWaste': val.wasteQuantity,
               'notes': val.notes,
+              'dimensions': val.dimensions,
               'department': widget.department ?? 'die_cutting', 
             };
             if (val.runTimeStart != null) r['startTime'] = "${val.runTimeStart!.hour.toString().padLeft(2, '0')}:${val.runTimeStart!.minute.toString().padLeft(2, '0')}";
@@ -1130,6 +1094,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
                   wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
                   notes: r['notes']?.toString(),
+                  dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
                 );
                 await _productionReportBox!.put(syncId, report);
                 SyncService.instance.pushToQueue(tableName, report.toJson());
@@ -1180,6 +1145,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
                   wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
                   notes: r['notes']?.toString(),
+                  dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
                 );
                 await _productionReportBox!.put(existingSyncId, report);
                 SyncService.instance.pushToQueue(tableName, report.toJson());
@@ -1527,6 +1493,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
                   wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
                   notes: r['notes']?.toString(),
+                  dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
                 );
                 // حفظ محلي بمفتاح ثابت لمنع التكرار
                 await _productionReportBox!.put(syncId, report);
@@ -1625,4 +1592,9 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             ]));
   }
 }
+
+
+
+
+
 
