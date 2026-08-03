@@ -4,6 +4,7 @@ import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MachineManagementScreen extends StatelessWidget {
   final String department;
@@ -27,6 +28,64 @@ class MachineManagementScreen extends StatelessWidget {
                 onPressed: () => Navigator.pop(context),
               )
             : null,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.cloud_sync, color: Colors.blueAccent),
+            tooltip: 'مزامنة جميع الماكينات (طوارئ)',
+            onPressed: () async {
+              try {
+                if (!Hive.isBoxOpen('flexo_machines')) return;
+                final box = Hive.box<FlexoMachine>('flexo_machines');
+                final factoryId = await SupabaseManager.getFactoryId();
+                final List<Map<String, dynamic>> machinesData = [];
+                
+                for (var machine in box.values) {
+                  if (machine.id == 'dummy_production_line') continue;
+                  
+                  final json = machine.toJson();
+                  if (factoryId != null) {
+                    json['factory_id'] = factoryId;
+                  }
+                  
+                  // تعويض الحقل id المفقود لتجنب خطأ not-null constraint
+                  if (json['id'] == null && json['sync_id'] != null) {
+                    json['id'] = json['sync_id'];
+                  }
+                  
+                  machinesData.add(json);
+                }
+
+                if (machinesData.isNotEmpty) {
+                  await Supabase.instance.client
+                      .from('machines')
+                      .upsert(machinesData, onConflict: 'sync_id');
+                      
+                  if (context.mounted) {
+                    UIUtils.showInfoSnackBar(
+                      message: 'تم رفع ${machinesData.length} ماكينة بنجاح إلى السيرفر',
+                      backgroundColor: Colors.green,
+                      icon: Icons.check_circle,
+                    );
+                  }
+                } else {
+                  if (context.mounted) {
+                    UIUtils.showInfoSnackBar(
+                      message: 'لا توجد ماكينات محلية لرفعها',
+                      backgroundColor: Colors.orange,
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  UIUtils.showInfoSnackBar(
+                    message: 'حدث خطأ أثناء رفع الماكينات: $e',
+                    backgroundColor: Colors.red,
+                  );
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: FutureBuilder<Box<FlexoMachine>>(
         future: Hive.isBoxOpen('flexo_machines')
