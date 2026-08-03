@@ -1,3 +1,4 @@
+import 'package:uuid/uuid.dart';
 import 'package:smart_sheet/models/die_cutting_production_report.dart';
 import 'package:smart_sheet/models/flexo_production_report.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:smart_sheet/utils/archive_rbac_logic.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FlexoArchiveScreen extends StatefulWidget {
   final String? department;
@@ -153,24 +155,53 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               Hive.box<FlexoProductionReport>('flexo_production_reports_box');
           final allArchive = _archiveBox!.toMap();
 
-          for (var entry in allArchive.entries) {
-            final data = entry.value as Map;
-            final reportData = data['data'] ?? data;
-            final parsedData = Map<String, dynamic>.from(reportData);
+          final supabase = Supabase.instance.client;
+          final List<Map<String, dynamic>> flexoArchiveToUpsert = [];
+          final List<Map<String, dynamic>> dieCuttingArchiveToUpsert = [];
 
-            await reportsBox.add(FlexoProductionReport.fromJson(parsedData));
-            if (widget.department == 'crushing' ||
-                widget.department == 'die_cutting') {
-              Hive.box<DieCuttingProductionReport>(
-                      'die_cutting_production_reports_box')
-                  .add(DieCuttingProductionReport.fromJson(parsedData));
-              SyncService.instance
-                  .pushToQueue('die_cutting_production_reports', parsedData);
-              continue;
-            } else {
-              SyncService.instance
-                  .pushToQueue('flexo_production_reports', parsedData);
+          for (var entry in allArchive.entries) {
+            try {
+              final data = entry.value as Map;
+              final reportData = data['data'] ?? data;
+              final parsedData = Map<String, dynamic>.from(reportData);
+
+              await reportsBox.add(FlexoProductionReport.fromJson(parsedData));
+              if (widget.department == 'crushing' ||
+                  widget.department == 'die_cutting') {
+                Hive.box<DieCuttingProductionReport>(
+                        'die_cutting_production_reports_box')
+                    .add(DieCuttingProductionReport.fromJson(parsedData));
+                SyncService.instance
+                    .pushToQueue('die_cutting_production_reports', parsedData);
+                SyncService.instance
+                    .pushToQueue('die_cutting_archived_reports', parsedData);
+                dieCuttingArchiveToUpsert.add(parsedData);
+                continue;
+              } else {
+                SyncService.instance
+                    .pushToQueue('flexo_production_reports', parsedData);
+                SyncService.instance
+                    .pushToQueue('flexo_archived_reports', parsedData);
+                flexoArchiveToUpsert.add(parsedData);
+              }
+            } catch (e) {
+              debugPrint("❌ فشل استعادة تسجيلة (Exception: $e)");
+              debugPrint("❌ محتوى التسجيلة المرفوضة: ${entry.value}");
+              // ننتقل للتسجيلة التي تليها دون إيقاف العملية
             }
+          }
+
+          try {
+            if (flexoArchiveToUpsert.isNotEmpty) {
+              await supabase.from('flexo_archived_reports').upsert(flexoArchiveToUpsert);
+              debugPrint('✅ تم الرفع المباشر لـ ${flexoArchiveToUpsert.length} تسجيلة أرشيف (فلكسو).');
+            }
+            if (dieCuttingArchiveToUpsert.isNotEmpty) {
+              await supabase.from('die_cutting_archived_reports').upsert(dieCuttingArchiveToUpsert);
+              debugPrint('✅ تم الرفع المباشر لـ ${dieCuttingArchiveToUpsert.length} تسجيلة أرشيف (تكسير).');
+            }
+          } catch (e) {
+             debugPrint('⚠️ فشل الرفع المباشر للأرشيف، سيتم الاعتماد على طابور المزامنة: $e');
           }
           // تم إزالة عملية التفريغ (clear) بناءً على طلب المستخدم لإبقاء الأرشيف كنسخة دائمة
 
@@ -273,29 +304,67 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
 
 
   void _showDateFilterDialog() async {
-    final DateTime? pickedDate = await showDatePicker(
+    if (_archiveBox == null || _archiveBox!.isEmpty) {
+      UIUtils.showInfoSnackBar(message: "لا توجد تقارير مسجلة لعرض تواريخها", backgroundColor: Colors.orange);
+      return;
+    }
+
+    final Set<String> uniqueDates = {};
+    for (var entry in _archiveBox!.values) {
+      if (entry is Map) {
+        final report = entry['data'] ?? entry;
+        final date = _normalizeDateOnly(report['date']?.toString() ??
+            report['reportDate']?.toString() ??
+            report['report_date']?.toString());
+        if (date.isNotEmpty) {
+          uniqueDates.add(date);
+        }
+      }
+    }
+
+    if (uniqueDates.isEmpty) {
+      UIUtils.showInfoSnackBar(message: "لا توجد تواريخ مسجلة لعرضها", backgroundColor: Colors.orange);
+      return;
+    }
+
+    final List<String> sortedDates = uniqueDates.toList()..sort((a, b) => b.compareTo(a));
+
+    final String? pickedDate = await showDialog<String>(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.blueAccent,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('اختر التاريخ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 300,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: sortedDates.length,
+              itemBuilder: (context, index) {
+                final date = sortedDates[index];
+                return ListTile(
+                  title: Text(date, style: const TextStyle(fontSize: 16)),
+                  trailing: const Icon(Icons.calendar_today, size: 16, color: Colors.blueAccent),
+                  onTap: () {
+                    Navigator.pop(context, date);
+                  },
+                );
+              },
             ),
           ),
-          child: child!,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إلغاء'),
+            ),
+          ],
         );
       },
     );
 
     if (pickedDate != null) {
       setState(() {
-        _selectedDate =
-            "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+        _selectedDate = pickedDate;
       });
     }
   }
@@ -368,6 +437,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                           : "أرشيف تقارير الفلكسو"),
               centerTitle: !_isSearching,
               actions: [
+
                 // ✅ تم نقل مسح الكل إلى القائمة المنسدلة
                 PopupMenuButton<String>(
                   icon: Icon(Icons.more_vert, color: appBarIconColor),

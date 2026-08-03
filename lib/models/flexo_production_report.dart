@@ -76,10 +76,10 @@ class FlexoProductionReport extends HiveObject {
   @HiveField(23)
   final double? averageSpeed;
 
-  @HiveField(24)
+  @HiveField(24, defaultValue: [])
   final List<dynamic> colors;
 
-  @HiveField(25)
+  @HiveField(25, defaultValue: {})
   final Map<String, dynamic> dimensions;
 
   @HiveField(26)
@@ -189,17 +189,15 @@ class FlexoProductionReport extends HiveObject {
       printWaste: _toInt(map['print_waste']) ?? _toInt(map['printwaste']) ?? _toInt(map['printWaste']),
       weight: _toDouble(map['weight']),
       totalDowntime: _toInt(map['total_downtime']) ?? _toInt(map['totaldowntime']) ?? _toInt(map['totalDowntime']),
-      downtimeIntervals: map['downtime_intervals'] as List<dynamic>? ?? map['downtimeIntervals'] as List<dynamic>?,
+      downtimeIntervals: (map['downtime_intervals'] ?? map['downtimeIntervals']) is List ? (map['downtime_intervals'] ?? map['downtimeIntervals']) as List<dynamic> : null,
       elapsedTime: _toInt(map['elapsed_time']) ?? _toInt(map['elapsedtime']) ?? _toInt(map['elapsedTime']),
       netTime: _toInt(map['net_time']) ?? _toInt(map['nettime']) ?? _toInt(map['netTime']),
       averageSpeed: _toDouble(map['average_speed']) ?? _toDouble(map['averagespeed']) ?? _toDouble(map['averageSpeed']),
-      colors: map['colors'] as List<dynamic>? ?? [],
-      dimensions: map['dimensions'] is Map 
-          ? Map<String, dynamic>.from(map['dimensions']) 
-          : {},
-      paperLayers: map['paper_layers'] as List<dynamic>? ?? map['paperLayers'] as List<dynamic>?,
+      colors: map['colors'] is List ? map['colors'] as List<dynamic> : [],
+      dimensions: map['dimensions'] is Map ? Map<String, dynamic>.from(map['dimensions']) : {},
+      paperLayers: (map['paper_layers'] ?? map['paperLayers']) is List ? (map['paper_layers'] ?? map['paperLayers']) as List<dynamic> : null,
       rollWidth: _toDouble(map['roll_width']) ?? _toDouble(map['rollwidth']) ?? _toDouble(map['rollWidth']),
-      imagePaths: map['image_paths'] as List<dynamic>? ?? map['imagePaths'] as List<dynamic>?,
+      imagePaths: (map['image_paths'] ?? map['imagePaths']) is List ? (map['image_paths'] ?? map['imagePaths']) as List<dynamic> : null,
       isSheet: map['is_sheet'] == true || map['isSheet'] == true,
       notes: map['notes']?.toString(),
     );

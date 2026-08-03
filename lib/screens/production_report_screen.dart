@@ -253,88 +253,159 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     );
   }
 
-  // ✅ ميزة الأرشفة الشاملة (نسخ فقط مع بقاء الأصل)
-  void _moveToArchive() {
+  // ✅ ميزة الأرشفة الذكية (تمنع التكرار)
+  void _moveToArchive() async {
     if (_productionReportBox == null || _productionReportBox!.isEmpty) return;
 
-    UIUtils.showDeleteConfirmation(
-      context: context,
-      title: "نقل التقارير للأرشيف",
-      content:
-          "سيتم عمل نسخة من التقارير الحالية في الأرشيف مع بقائها هنا. هل تريد الاستمرار؟",
-      confirmLabel: "نقل للأرشيف",
-      confirmColor: Colors.blueAccent,
-      onConfirm: () async {
-        try {
-          final isProdLineDept = widget.department == 'production_line';
-          final archiveBoxName = isProdLineDept
-              ? 'lineArchive'
-              : widget.department == 'crushing'
-                  ? 'crushingArchive'
-                  : 'flexoArchive';
-          final archiveBox = Hive.isBoxOpen(archiveBoxName)
-              ? Hive.box(archiveBoxName)
-              : await Hive.openBox(archiveBoxName);
-          final allReports = _productionReportBox!.toMap();
+    final isProdLineDept = widget.department == 'production_line';
+    final archiveBoxName = isProdLineDept
+        ? 'lineArchive'
+        : widget.department == 'crushing'
+            ? 'crushingArchive'
+            : 'flexoArchive';
+    
+    final archiveBox = Hive.isBoxOpen(archiveBoxName)
+        ? Hive.box(archiveBoxName)
+        : await Hive.openBox(archiveBoxName);
 
-          for (var entry in allReports.entries) {
-            final val = entry.value;
-            final r = val is DieCuttingProductionReport ? val.toJson() : Map<String, dynamic>.from(val);
-            final dept = r['department']?.toString() ?? (val is DieCuttingProductionReport ? (widget.department ?? 'die_cutting') : null);
-            if (isProdLineDept) {
-              if (dept != 'production_line') continue;
-            } else {
-              if (dept == 'production_line') continue;
-            }
-
-            // ✅ ضمان وجود sync_id سليم قبل الأرشفة والمزامنة
-            // إذا كان التقرير بدون sync_id فارغ أو غير موجود، نولد له UUID جديد
-            final existingSyncId = r['sync_id']?.toString();
-            final archiveSyncId = (existingSyncId != null &&
-                    existingSyncId.isNotEmpty &&
-                    existingSyncId != 'null')
-                ? existingSyncId
-                : const Uuid().v4();
-            r['sync_id'] = archiveSyncId;
-
-            // ✅ الحفظ بالـ sync_id كمفتاح لمنع التكرار عند وصول Insert event من Realtime
-            final archiveEntry = {
-              'type': 'REPORT',
-              'data': r,
-              'archiveDate':
-                  ServerTimeService.nowLocal.toString().split('.')[0],
-            };
-            await archiveBox.put(archiveSyncId, archiveEntry);
-
-            // مزامنة فورية للأرشيف لجميع الأقسام
-            String archiveTable = 'flexo_archived_reports';
-            if (widget.department == 'production_line') archiveTable = 'line_archived_reports';
-            if (widget.department == 'crushing' || widget.department == 'die_cutting') archiveTable = 'die_cutting_archived_reports';
-
-            // ✅ تمرير r مع sync_id مضمون لطابور المزامنة
-            SyncService.instance.pushToQueue(archiveTable, r);
-            debugPrint('📤 الأرشفة (${widget.department}): تم إضافة للقائمة (sync_id=$archiveSyncId)');
-          }
-
-          if (mounted) {
-            UIUtils.showInfoSnackBar(
-              message:
-                  "تم نقل التقارير للأرشيف بنجاح. يمكنك الآن مسحها يدوياً من هذه الصفحة إذا أردت.",
-              backgroundColor: Colors.blueAccent,
-              icon: Icons.inventory_2,
-            );
-          }
-        } catch (e) {
-          debugPrint("Archive Error: $e");
-          if (mounted) {
-            UIUtils.showInfoSnackBar(
-              message: "فشل نسخ البيانات للأرشيف",
-              backgroundColor: Colors.red,
-            );
-          }
+    // 1. جمع قائمة بالـ IDs الموجودة مسبقاً في الأرشيف
+    final Set<String> archivedIds = {};
+    for (var entry in archiveBox.values) {
+      if (entry is Map) {
+        final reportData = entry['data'] ?? entry;
+        final reportId = reportData['id']?.toString();
+        if (reportId != null && reportId.isNotEmpty) {
+          archivedIds.add(reportId);
         }
-      },
-    );
+      }
+    }
+
+    final allReports = _productionReportBox!.toMap();
+    
+    final List<Map<String, dynamic>> newReports = [];
+    final List<Map<String, dynamic>> duplicateReports = [];
+
+    // 2. فرز التقارير إلى جديدة ومكررة
+    for (var entry in allReports.entries) {
+      final val = entry.value;
+      final r = val is DieCuttingProductionReport 
+          ? val.toJson() 
+          : (val is FlexoProductionReport ? val.toJson() : Map<String, dynamic>.from(val));
+          
+      final dept = r['department']?.toString() ?? (val is DieCuttingProductionReport ? (widget.department ?? 'die_cutting') : (val is FlexoProductionReport ? (widget.department ?? 'flexo') : null));
+      
+      if (isProdLineDept) {
+        if (dept != 'production_line') continue;
+      } else {
+        if (dept == 'production_line') continue;
+      }
+
+      final reportId = r['id']?.toString();
+      if (reportId != null && archivedIds.contains(reportId)) {
+        duplicateReports.add(r);
+      } else {
+        newReports.add(r);
+      }
+    }
+
+    if (newReports.isEmpty && duplicateReports.isEmpty) {
+      return; // لا يوجد تقارير لهذا القسم
+    }
+
+    // السيناريو الثاني (الكل مكرر)
+    if (newReports.isEmpty) {
+      UIUtils.showInfoSnackBar(
+        message: "جميع هذه التقارير تم نقلها للأرشيف مسبقاً!",
+        backgroundColor: Colors.orange,
+        icon: Icons.info,
+      );
+      return;
+    }
+
+    // السيناريو الثالث (مختلط)
+    if (duplicateReports.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('تنبيه: سجلات مكررة', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+            content: Text(
+                'يوجد ${duplicateReports.length} تقرير موجود بالفعل في الأرشيف، وهناك ${newReports.length} تقرير جديد.\nهل تريد نقل التقارير الجديدة فقط؟',
+                style: const TextStyle(fontSize: 16)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _executeArchiveTransfer(archiveBox, newReports);
+                },
+                child: const Text('نقل الجديد فقط', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      // السيناريو الأول (الكل جديد)
+      UIUtils.showDeleteConfirmation(
+        context: context,
+        title: "نقل التقارير للأرشيف",
+        content: "سيتم عمل نسخة من التقارير الحالية في الأرشيف مع بقائها هنا. هل تريد الاستمرار؟",
+        confirmLabel: "نقل للأرشيف",
+        confirmColor: Colors.blueAccent,
+        onConfirm: () async {
+          _executeArchiveTransfer(archiveBox, newReports);
+        },
+      );
+    }
+  }
+
+  Future<void> _executeArchiveTransfer(Box archiveBox, List<Map<String, dynamic>> reportsToArchive) async {
+    try {
+      for (var r in reportsToArchive) {
+        final existingSyncId = r['sync_id']?.toString();
+        final archiveSyncId = (existingSyncId != null &&
+                existingSyncId.isNotEmpty &&
+                existingSyncId != 'null')
+            ? existingSyncId
+            : const Uuid().v4();
+        r['sync_id'] = archiveSyncId;
+
+        final archiveEntry = {
+          'type': 'REPORT',
+          'data': r,
+          'archiveDate': ServerTimeService.nowLocal.toString().split('.')[0],
+        };
+        await archiveBox.put(archiveSyncId, archiveEntry);
+
+        String archiveTable = 'flexo_archived_reports';
+        if (widget.department == 'production_line') archiveTable = 'line_archived_reports';
+        if (widget.department == 'crushing' || widget.department == 'die_cutting') archiveTable = 'die_cutting_archived_reports';
+
+        SyncService.instance.pushToQueue(archiveTable, r);
+        debugPrint('📤 الأرشفة (${widget.department}): تم إضافة للقائمة (sync_id=$archiveSyncId)');
+      }
+
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "تم نقل التقارير للأرشيف بنجاح. يمكنك الآن مسحها يدوياً من هذه الصفحة إذا أردت.",
+          backgroundColor: Colors.blueAccent,
+          icon: Icons.inventory_2,
+        );
+      }
+    } catch (e) {
+      debugPrint("Archive Error: $e");
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "فشل نسخ البيانات للأرشيف",
+          backgroundColor: Colors.red,
+        );
+      }
+    }
   }
 
   // ✅ توحيد صيغة التاريخ وتجاهل الوقت (YYYY-MM-DD)
@@ -352,29 +423,70 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
 
   void _showDateFilterDialog() async {
-    final DateTime? pickedDate = await showDatePicker(
+    if (_productionReportBox == null || _productionReportBox!.isEmpty) {
+      UIUtils.showInfoSnackBar(message: "لا توجد تقارير مسجلة لعرض تواريخها", backgroundColor: Colors.orange);
+      return;
+    }
+
+    final Set<String> uniqueDates = {};
+    for (var entry in _productionReportBox!.values) {
+      dynamic r;
+      if (entry is DieCuttingProductionReport) {
+        r = entry.toJson();
+      } else if (entry is FlexoProductionReport) {
+        r = entry.toJson();
+      } else {
+        r = Map<String, dynamic>.from(entry as dynamic);
+      }
+      final date = _normalizeDateOnly(r['date']?.toString());
+      if (date.isNotEmpty) {
+        uniqueDates.add(date);
+      }
+    }
+
+    if (uniqueDates.isEmpty) {
+      UIUtils.showInfoSnackBar(message: "لا توجد تواريخ مسجلة لعرضها", backgroundColor: Colors.orange);
+      return;
+    }
+
+    final List<String> sortedDates = uniqueDates.toList()..sort((a, b) => b.compareTo(a));
+
+    final String? pickedDate = await showDialog<String>(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.blueAccent, // header background color
-              onPrimary: Colors.white, // header text color
-              onSurface: Colors.black, // body text color
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('اختر التاريخ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 300,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: sortedDates.length,
+              itemBuilder: (context, index) {
+                final date = sortedDates[index];
+                return ListTile(
+                  title: Text(date, style: const TextStyle(fontSize: 16)),
+                  trailing: const Icon(Icons.calendar_today, size: 16, color: Colors.blueAccent),
+                  onTap: () {
+                    Navigator.pop(context, date);
+                  },
+                );
+              },
             ),
           ),
-          child: child!,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إلغاء'),
+            ),
+          ],
         );
       },
     );
 
     if (pickedDate != null) {
       setState(() {
-        _selectedDate =
-            "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+        _selectedDate = pickedDate;
       });
     }
   }
