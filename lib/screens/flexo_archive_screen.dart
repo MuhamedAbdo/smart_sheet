@@ -112,17 +112,18 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       final reportData = data['data'] ?? data;
       final parsedData = Map<String, dynamic>.from(reportData);
 
-      // نقوم بإضافة نسخة للتقارير النشطة دون حذفها من الأرشيف
-      await reportsBox.add(FlexoProductionReport.fromJson(parsedData));
+      final dept = parsedData['department']?.toString() ?? widget.department;
 
-      // المزامنة الفورية للتقرير المستعاد
-      if (widget.department == 'crushing' ||
-          widget.department == 'die_cutting') {
-        SyncService.instance
-            .pushToQueue('die_cutting_production_reports', parsedData);
+      if (dept == 'crushing' || dept == 'die_cutting') {
+        final reportObj = DieCuttingProductionReport.fromJson(parsedData);
+        Hive.box<DieCuttingProductionReport>('die_cutting_production_reports_box').add(reportObj);
+        SyncService.instance.pushToQueue('die_cutting_production_reports', reportObj.toJson());
       } else {
-        SyncService.instance
-            .pushToQueue('flexo_production_reports', parsedData);
+        final reportObj = FlexoProductionReport.fromJson(parsedData);
+        await reportsBox.add(reportObj);
+        
+        final targetProdTable = (dept == 'production_line') ? 'line_production_reports' : 'flexo_production_reports';
+        SyncService.instance.pushToQueue(targetProdTable, reportObj.toJson());
       }
 
       if (mounted) {
@@ -163,25 +164,30 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               final data = entry.value as Map;
               final reportData = data['data'] ?? data;
               final parsedData = Map<String, dynamic>.from(reportData);
+              final dept = parsedData['department']?.toString() ?? widget.department;
 
-              await reportsBox.add(FlexoProductionReport.fromJson(parsedData));
-              if (widget.department == 'crushing' ||
-                  widget.department == 'die_cutting') {
-                Hive.box<DieCuttingProductionReport>(
-                        'die_cutting_production_reports_box')
-                    .add(DieCuttingProductionReport.fromJson(parsedData));
-                SyncService.instance
-                    .pushToQueue('die_cutting_production_reports', parsedData);
-                SyncService.instance
-                    .pushToQueue('die_cutting_archived_reports', parsedData);
-                dieCuttingArchiveToUpsert.add(parsedData);
+              if (dept == 'crushing' || dept == 'die_cutting') {
+                final reportObj = DieCuttingProductionReport.fromJson(parsedData);
+                Hive.box<DieCuttingProductionReport>('die_cutting_production_reports_box').add(reportObj);
+                SyncService.instance.pushToQueue('die_cutting_production_reports', reportObj.toJson());
+                SyncService.instance.pushToQueue('die_cutting_archived_reports', reportObj.toJson());
+                dieCuttingArchiveToUpsert.add(reportObj.toJson());
                 continue;
               } else {
-                SyncService.instance
-                    .pushToQueue('flexo_production_reports', parsedData);
-                SyncService.instance
-                    .pushToQueue('flexo_archived_reports', parsedData);
-                flexoArchiveToUpsert.add(parsedData);
+                final reportObj = FlexoProductionReport.fromJson(parsedData);
+                await reportsBox.add(reportObj);
+
+                final targetProdTable = (dept == 'production_line') ? 'line_production_reports' : 'flexo_production_reports';
+                final targetArchTable = (dept == 'production_line') ? 'line_archived_reports' : 'flexo_archived_reports';
+
+                SyncService.instance.pushToQueue(targetProdTable, reportObj.toJson());
+                SyncService.instance.pushToQueue(targetArchTable, reportObj.toJson());
+                
+                // Add to flexoArchiveToUpsert, but we should probably separate line_archived_reports if needed. 
+                // Since there is only one array for direct upsert in this function, let's just rely on the Queue.
+                if (targetArchTable == 'flexo_archived_reports') {
+                    flexoArchiveToUpsert.add(reportObj.toJson());
+                }
               }
             } catch (e) {
               debugPrint("❌ فشل استعادة تسجيلة (Exception: $e)");
@@ -735,8 +741,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     final String height = dims?['height']?.toString() ?? '0';
     final String dimStr =
         dims != null && (dims['length'] != 0 || dims['width'] != 0)
-            ? isCrushing
-                // التكسير: طول / عرض / ارتفاع (من اليمين لليسار)
+            ? (isCrushing || isProdLine)
+                // التكسير وخط الإنتاج: طول / عرض / ارتفاع (من اليمين لليسار)
                 ? "$length / $width / $height"
                 : (isSheet ? "$width / $length" : "$height / $width / $length")
             : "";
@@ -797,7 +803,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       if (downtimeStart != null && downtimeStart.toString().isNotEmpty) {
         final ds = formatCardTime(downtimeStart);
         final de = formatCardTime(downtimeEnd);
-        downtimeDisplay += "${ds.isNotEmpty ? ds : downtimeStart}  ▶  ${de.isNotEmpty ? de : (downtimeEnd ?? '')}";
+        downtimeDisplay += "${ds.isNotEmpty ? ds : downtimeStart}  ◀  ${de.isNotEmpty ? de : (downtimeEnd ?? '')}";
       }
       if (totalDowntime > 0) {
         downtimeDisplay += " (إجمالي: $totalDowntime دقيقة)";
@@ -972,7 +978,7 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                     Icons.description, "رقم الفورمة:", formNumber),
               if (startFormatted.isNotEmpty || endFormatted.isNotEmpty)
                 _buildArchiveInfoRow(Icons.schedule, "وقت التشغيل:",
-                    "${startFormatted.isNotEmpty ? startFormatted : '--:--'}  ▶  ${endFormatted.isNotEmpty ? endFormatted : '--:--'}"),
+                    "${startFormatted.isNotEmpty ? startFormatted : '--:--'}  ◀  ${endFormatted.isNotEmpty ? endFormatted : '--:--'}"),
               if (dimStr.isNotEmpty)
                 _buildArchiveInfoRow(Icons.straighten, "المقاس:", dimStr,
                     valueColor: Colors.blueAccent),

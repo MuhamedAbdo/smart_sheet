@@ -80,7 +80,7 @@ class ArchiveDetailScreen extends StatelessWidget {
               final eFormatted = _formatTime(eTime);
               if (sFormatted != '--:--' || eFormatted != '--:--') {
                 return _buildDetailRow(context, "🕒 وقت التشغيل:",
-                    "$sFormatted  ▶  $eFormatted");
+                    "$sFormatted  ◀  $eFormatted");
               }
               return const SizedBox.shrink();
             }),
@@ -99,7 +99,7 @@ class ArchiveDetailScreen extends StatelessWidget {
                   if (dStart != null && dStart.toString().isNotEmpty) {
                     final ds = _formatTime(dStart);
                     final de = _formatTime(dEnd);
-                    dtDisplay += "$ds  ▶  $de";
+                    dtDisplay += "$ds  ◀  $de";
                   }
                   if (totalDt > 0) {
                     dtDisplay += " (إجمالي: $totalDt دقيقة)";
@@ -116,7 +116,8 @@ class ArchiveDetailScreen extends StatelessWidget {
               final dept = record['department']?.toString();
               final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
               final isCrushingDept = dept == 'crushing' || dept == 'die_cutting' || mName.contains('كسارة');
-              return _buildDimensionsDetails(context, record['dimensions'], isCrushing: isCrushingDept);
+              final isProdLine = dept == 'production_line' || mName == 'خط الإنتاج';
+              return _buildDimensionsDetails(context, record['dimensions'], isCrushing: isCrushingDept || isProdLine);
             }),
             _buildDetailRow(context, "🔢 الكمية:", "${record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity'] ?? 0}"),
             Builder(

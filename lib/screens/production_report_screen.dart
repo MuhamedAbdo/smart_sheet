@@ -1144,8 +1144,12 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     final String width = d?['width']?.toString() ?? '0';
     final String height = d?['height']?.toString() ?? '0';
 
-    final String displayText =
-        isSheet ? "$width / $length" : "$height / $width / $length";
+    final bool isCrushing = widget.department == 'crushing' || widget.department == 'die_cutting';
+    final bool isProdLine = widget.department == 'production_line';
+
+    final String displayText = (isCrushing || isProdLine)
+        ? "$length / $width / $height"
+        : (isSheet ? "$width / $length" : "$height / $width / $length");
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -1153,11 +1157,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         children: [
           const Text("📏 المقاس: ",
               style: TextStyle(fontWeight: FontWeight.bold)),
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: Text(displayText,
-                style: const TextStyle(color: Colors.blueGrey)),
-          ),
+          Text(displayText,
+              style: const TextStyle(color: Colors.blueGrey)),
         ],
       ),
     );
@@ -1192,7 +1193,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
               final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
                   ? 'die_cutting_production_reports' 
-                  : 'flexo_production_reports';
+                  : (widget.department == 'production_line' ? 'line_production_reports' : 'flexo_production_reports');
 
               if (tableName == 'die_cutting_production_reports') {
                 final report = DieCuttingProductionReport(
@@ -1627,7 +1628,17 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 '✅ _finishSession: تم حفظ التقرير ورفعه للمزامنة (sync_id=$syncId)');
 
             // ─── حذف الجلسة بعد نجاح الحفظ ───
-            await session.delete();
+            try {
+              if (Hive.isBoxOpen('flexo_live_sessions')) {
+                await Hive.box<LiveSession>('flexo_live_sessions').delete(sessionId);
+              }
+              if (Hive.isBoxOpen('live_sessions')) {
+                await Hive.box<LiveSession>('live_sessions').delete(sessionId);
+              }
+            } catch (e) {
+              debugPrint('⚠️ فشل حذف الجلسة محلياً: $e');
+            }
+
             SyncService.instance.pushToQueue(
               'live_sessions',
               {'sync_id': sessionId, 'id': sessionId},
@@ -1661,7 +1672,17 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
       confirmLabel: "إلغاء الجلسة",
       onConfirm: () async {
         final sessionId = session.id;
-        await session.delete(); // حذف مباشر من Hive دون ترحيل
+        try {
+          if (Hive.isBoxOpen('flexo_live_sessions')) {
+            await Hive.box<LiveSession>('flexo_live_sessions').delete(sessionId);
+          }
+          if (Hive.isBoxOpen('live_sessions')) {
+            await Hive.box<LiveSession>('live_sessions').delete(sessionId);
+          }
+        } catch (e) {
+          debugPrint('⚠️ فشل حذف الجلسة محلياً: $e');
+        }
+
         SyncService.instance.pushToQueue(
           'live_sessions',
           {'sync_id': sessionId, 'id': sessionId},

@@ -548,11 +548,18 @@ class _SmartSheetAppState extends State<SmartSheetApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       final now = DateTime.now();
-      // تجاهل أي استدعاء ثانٍ في غضون 3 ثوانٍ من الأول
+
+      // تحديد مدة الـ Debounce بناءً على المنصة:
+      // الموبايل (Android/iOS): 3 ثوانٍ فقط، لأن التطبيق قد يعود من الخلفية ويحتاج تحديث سريع.
+      // الديسكتوب (Windows/Mac/Linux): 5 دقائق (300 ثانية)، لأن مجرد النقر على النافذة (Gain Focus)
+      // يطلق حدث resumed، مما يؤدي إلى إعادة تهيئة المزامنة بشكل مستمر ومزعج إذا لم نضع مسافة زمنية طويلة.
+      final int debounceSeconds = (Platform.isAndroid || Platform.isIOS) ? 3 : 300;
+
+      // تجاهل أي استدعاء ثانٍ في غضون المدة المحددة
       if (_lastResumeTime != null &&
-          now.difference(_lastResumeTime!).inSeconds < 3) {
+          now.difference(_lastResumeTime!).inSeconds < debounceSeconds) {
         debugPrint(
-            '⏭️ SmartSheetApp: تجاهل resume مكرر (${now.difference(_lastResumeTime!).inMilliseconds}ms)');
+            '⏭️ SmartSheetApp: تجاهل resume مكرر (${now.difference(_lastResumeTime!).inSeconds}s < $debounceSeconds)');
         return;
       }
       _lastResumeTime = now;

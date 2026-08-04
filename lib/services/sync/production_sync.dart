@@ -55,8 +55,15 @@ mixin ProductionSync on SyncServiceBase {
       }
 
       await liveSessionsBox.clear();
+      if (Hive.isBoxOpen('live_sessions')) {
+        await Hive.box<LiveSession>('live_sessions').clear();
+      }
+      
       for (var key in sessionsMap.keys) {
         await liveSessionsBox.put(key, sessionsMap[key]!);
+        if (Hive.isBoxOpen('live_sessions')) {
+          await Hive.box<LiveSession>('live_sessions').put(key, sessionsMap[key]!);
+        }
       }
       debugPrint(
         '✅ ProductionSync: تم استرجاع ${sessionsMap.length} جلسة نشطة '
@@ -392,11 +399,17 @@ mixin ProductionSync on SyncServiceBase {
           },
         )
         .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {
-            _scheduleReconnect('archived_reports_channel', () async {
-              await _tearDownProductionChannels();
-              _setupProductionChannels(factoryId);
-            });
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            debugPrint('✅ SUBSCRIBED → flexo_archived_reports (factory: $factoryId)');
+            _reconnectAttempts['archived_reports_channel'] = 0;
+          } else {
+            debugPrint('❌ FAILED/STATUS → flexo_archived_reports: status=$status, error=$error');
+            if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {
+              _scheduleReconnect('archived_reports_channel', () async {
+                await _tearDownProductionChannels();
+                _setupProductionChannels(factoryId);
+              });
+            }
           }
         });
 
@@ -413,11 +426,17 @@ mixin ProductionSync on SyncServiceBase {
           },
         )
         .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {
-            _scheduleReconnect('archived_reports_channel', () async {
-              await _tearDownProductionChannels();
-              _setupProductionChannels(factoryId);
-            });
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            debugPrint('✅ SUBSCRIBED → line_archived_reports (factory: $factoryId)');
+            _reconnectAttempts['archived_reports_channel'] = 0;
+          } else {
+            debugPrint('❌ FAILED/STATUS → line_archived_reports: status=$status, error=$error');
+            if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {
+              _scheduleReconnect('archived_reports_channel', () async {
+                await _tearDownProductionChannels();
+                _setupProductionChannels(factoryId);
+              });
+            }
           }
         });
 
@@ -434,11 +453,17 @@ mixin ProductionSync on SyncServiceBase {
           },
         )
         .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {
-            _scheduleReconnect('archived_reports_channel', () async {
-              await _tearDownProductionChannels();
-              _setupProductionChannels(factoryId);
-            });
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            debugPrint('✅ SUBSCRIBED → die_cutting_archived_reports (factory: $factoryId)');
+            _reconnectAttempts['archived_reports_channel'] = 0;
+          } else {
+            debugPrint('❌ FAILED/STATUS → die_cutting_archived_reports: status=$status, error=$error');
+            if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {
+              _scheduleReconnect('archived_reports_channel', () async {
+                await _tearDownProductionChannels();
+                _setupProductionChannels(factoryId);
+              });
+            }
           }
         });
     // ─── die_cutting_production_reports ─────────────────────────────
@@ -1226,10 +1251,21 @@ mixin ProductionSync on SyncServiceBase {
   /// رفع آمن مع التعامل مع احتمال اختلاف أعمدة الجدول بالسحابة
   Future<void> _safeUpsertReports(String table, List<Map<String, dynamic>> records) async {
     if (records.isEmpty) return;
+    
+    // Ensure all records have an id if we need to fallback
+    for (var r in records) {
+      if (r['id'] == null && r['sync_id'] != null) {
+        r['id'] = r['sync_id'];
+      }
+    }
+
     try {
       await _supabase.from(table).upsert(records, onConflict: 'sync_id');
     } on PostgrestException catch (e) {
-      if (e.code == 'PGRST204' || e.code == '42703' || e.message.toLowerCase().contains('column')) {
+      if (e.code == '42P10' || e.message.toLowerCase().contains('unique or exclusion constraint')) {
+        debugPrint('⚠️ [directPushAllReports] جدول $table لا يحتوي على قيد فريد لـ sync_id. المحاولة بـ id...');
+        await _supabase.from(table).upsert(records);
+      } else if (e.code == 'PGRST204' || e.code == '42703' || e.message.toLowerCase().contains('column')) {
         debugPrint('⚠️ [directPushAllReports] حقل غير موجود في جدول $table (${e.message})، جاري إزالة الأعمدة الاختيارية وإعادة الرفع...');
         for (var r in records) {
           if (e.message.contains('technician_id')) r.remove('technician_id');
@@ -1239,7 +1275,15 @@ mixin ProductionSync on SyncServiceBase {
             r.remove('paper_layers');
           }
         }
-        await _supabase.from(table).upsert(records, onConflict: 'sync_id');
+        try {
+          await _supabase.from(table).upsert(records, onConflict: 'sync_id');
+        } on PostgrestException catch (fallbackErr) {
+          if (fallbackErr.code == '42P10' || fallbackErr.message.toLowerCase().contains('unique or exclusion constraint')) {
+            await _supabase.from(table).upsert(records);
+          } else {
+            rethrow;
+          }
+        }
       } else {
         rethrow;
       }

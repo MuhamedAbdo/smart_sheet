@@ -817,13 +817,32 @@ class SyncService extends SyncServiceBase
         final payload = Map<String, dynamic>.from(rawData);
         payload['factory_id'] = factoryId;
 
+        final bool usesSyncId = (
+            table == 'customers' ||
+            table == 'flexo_production_reports' ||
+            table == 'line_production_reports' ||
+            table == 'workers' ||
+            table == 'live_sessions' ||
+            table == 'archived_reports' ||
+            table == 'flexo_archived_reports' ||
+            table == 'line_archived_reports' ||
+            table == 'die_cutting_production_reports' ||
+            table == 'die_cutting_archived_reports'
+        );
+        final pkColumn = usesSyncId ? 'sync_id' : 'id';
+
         if (operation == 'batch_delete') {
           // ✅ حذف مجمّع: عملية واحدة لحذف قائمة سجلات دفعةً
           final rawIds = rawData['sync_ids'];
           if (rawIds is List && rawIds.isNotEmpty) {
             final ids = rawIds.map((e) => e.toString()).toList();
-            await _supabase.from(table).delete().inFilter('id', ids);
-            debugPrint('✅ Queue: batch_delete من $table [${ids.length} عنصر]');
+            final deleteRes = await _supabase.from(table).delete().inFilter(pkColumn, ids).select();
+            if (deleteRes.isEmpty) {
+              debugPrint('❌ Queue: فشل الحذف المجمع، السجلات غير موجودة في $table');
+              throw Exception('لم يتم العثور على السجلات للحذف المجمع في السيرفر: $table');
+            } else {
+              debugPrint('✅ Queue: تم الحذف المجمع بنجاح من السيرفر لجدول $table [${deleteRes.length} عنصر]');
+            }
           } else {
             debugPrint('⚠️ Queue: batch_delete فارغ — $table');
           }
@@ -831,8 +850,13 @@ class SyncService extends SyncServiceBase
           final deleteSyncId =
               payload['sync_id']?.toString() ?? payload['id']?.toString();
           if (deleteSyncId != null && deleteSyncId.isNotEmpty) {
-            await _supabase.from(table).delete().eq('id', deleteSyncId);
-            debugPrint('✅ Queue: حذف من $table [id=$deleteSyncId]');
+            final deleteRes = await _supabase.from(table).delete().eq(pkColumn, deleteSyncId).select();
+            if (deleteRes.isEmpty) {
+              debugPrint('❌ Queue: فشل الحذف، السجل غير موجود في السيرفر لجدول $table [$pkColumn=$deleteSyncId]');
+              throw Exception('لم يتم العثور على السجل للحذف في السيرفر: $table [$pkColumn=$deleteSyncId]');
+            } else {
+              debugPrint('✅ Queue: تم الحذف بنجاح من السيرفر لجدول $table [$pkColumn=$deleteSyncId]');
+            }
           } else {
             debugPrint('⚠️ Queue: تجاهل delete — لا معرف في $table');
           }
@@ -846,24 +870,37 @@ class SyncService extends SyncServiceBase
           try {
             debugPrint('📤 [Queue] جاري رفع البيانات إلى $table: $cleanPayload');
             
-            late final List<dynamic> res;
-            if (table == 'customers' ||
-                table == 'flexo_production_reports' ||
-                table == 'line_production_reports' ||
-                table == 'workers' ||
-                table == 'live_sessions' ||
-                table == 'archived_reports' ||
-                table == 'flexo_archived_reports' ||
-                table == 'line_archived_reports') {
-              res = await _supabase
-                  .from(table)
-                  .upsert(cleanPayload, onConflict: 'sync_id')
-                  .select();
-            } else {
-              res = await _supabase
-                  .from(table)
-                  .upsert(cleanPayload)
-                  .select();
+            late List<dynamic> res;
+            try {
+              if (table == 'customers' ||
+                  table == 'flexo_production_reports' ||
+                  table == 'line_production_reports' ||
+                  table == 'workers' ||
+                  table == 'live_sessions' ||
+                  table == 'archived_reports' ||
+                  table == 'flexo_archived_reports' ||
+                  table == 'line_archived_reports' ||
+                  table == 'die_cutting_archived_reports') {
+                res = await _supabase
+                    .from(table)
+                    .upsert(cleanPayload, onConflict: 'sync_id')
+                    .select();
+              } else {
+                res = await _supabase
+                    .from(table)
+                    .upsert(cleanPayload)
+                    .select();
+              }
+            } on PostgrestException catch (upsertError) {
+              if (upsertError.code == '42P10' || upsertError.message.toLowerCase().contains('unique or exclusion constraint')) {
+                debugPrint('⚠️ [Queue] جدول $table لا يحتوي على قيد فريد (Unique Constraint) لعمود sync_id. جاري المحاولة باستخدام المفتاح الأساسي (id)...');
+                res = await _supabase
+                    .from(table)
+                    .upsert(cleanPayload)
+                    .select();
+              } else {
+                rethrow;
+              }
             }
             
             debugPrint('✅ [Sync] استجابة السيرفر بعد الرفع ($table): $res');
@@ -953,7 +990,7 @@ class SyncService extends SyncServiceBase
 
 
               if (modified) {
-                late final List<dynamic> resFallback;
+                late List<dynamic> resFallback;
                 if (table == 'customers' ||
                     table == 'flexo_production_reports' ||
                     table == 'line_production_reports' ||
@@ -1063,7 +1100,7 @@ class SyncService extends SyncServiceBase
     });
 
     // الحذف القاطع لمفتاح id بدون أي شروط (Unconditional Remove) لتوحيد هيكل الدفعة
-    if (table != 'die_cutting_forms' && table != 'worker_actions') {
+    if (table != 'die_cutting_forms' && table != 'worker_actions' && table != 'line_archived_reports') {
       result.remove('id');
     }
 
