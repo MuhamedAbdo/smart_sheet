@@ -937,6 +937,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
           wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
           notes: r['notes']?.toString(),
+          dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
         );
         await box.put(syncId, report);
         SyncService.instance.pushToQueue(tableName, report.toJson());

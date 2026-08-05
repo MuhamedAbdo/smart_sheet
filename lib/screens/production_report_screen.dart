@@ -682,61 +682,65 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               final isLiveSessionsEmpty = liveSessionsBox.isEmpty;
               final allRecords =
                   _filterAndSortRecords(box, _searchQuery, _sortDescending);
-              return CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: ActiveSessionsDashboard(
-                      department: widget.department,
-                      onFinishSession: (session) => _finishSession(session),
-                      onCancelSession: (session) =>
-                          _cancelSession(session), // ✅ إضافة دالة الإلغاء
-                    ),
-                  ),
-                  if (box.isEmpty && isLiveSessionsEmpty)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: Text("🚫 لا يوجد تقارير أو جلسات نشطة")),
-                    ),
-                  if (box.isNotEmpty || !isLiveSessionsEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: _buildSummaryBar(allRecords.length),
-                    ),
-                    if (_selectedDate != null)
-                      SliverToBoxAdapter(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          color: Colors.blue.withValues(alpha: 0.1),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.filter_list,
-                                  size: 16, color: Colors.blue),
-                              const SizedBox(width: 8),
-                              Text("تصفية بتاريخ: $_selectedDate",
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue)),
-                              const Spacer(),
-                              TextButton(
-                                  onPressed: () =>
-                                      setState(() => _selectedDate = null),
-                                  child: const Text("إلغاء"))
-                            ],
+              return Column(
+                children: [
+                  _buildSummaryBar(allRecords.length),
+                  Expanded(
+                    child: CustomScrollView(
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: ActiveSessionsDashboard(
+                            department: widget.department,
+                            onFinishSession: (session) => _finishSession(session),
+                            onCancelSession: (session) =>
+                                _cancelSession(session),
                           ),
                         ),
-                      ),
-                    SliverPadding(
-                      padding: const EdgeInsets.only(bottom: 80),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            return _buildReportCard(allRecords[index]);
-                          },
-                          childCount: allRecords.length,
-                        ),
-                      ),
+                        if (allRecords.isEmpty && isLiveSessionsEmpty)
+                          const SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Center(child: Text("🚫 لا يوجد تقارير أو جلسات نشطة")),
+                          ),
+                        if (allRecords.isNotEmpty || !isLiveSessionsEmpty) ...[
+                          if (_selectedDate != null)
+                            SliverToBoxAdapter(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                color: Colors.blue.withValues(alpha: 0.1),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.filter_list,
+                                        size: 16, color: Colors.blue),
+                                    const SizedBox(width: 8),
+                                    Text("تصفية بتاريخ: $_selectedDate",
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue)),
+                                    const Spacer(),
+                                    TextButton(
+                                        onPressed: () =>
+                                            setState(() => _selectedDate = null),
+                                        child: const Text("إلغاء"))
+                                  ],
+                                ),
+                              ),
+                            ),
+                          SliverPadding(
+                            padding: const EdgeInsets.only(bottom: 80),
+                            sliver: SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  return _buildReportCard(allRecords[index]);
+                                },
+                                childCount: allRecords.length,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
+                  ),
                 ],
               );
             },
