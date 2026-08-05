@@ -1197,7 +1197,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
     final String displayText = (isCrushing || isProdLine)
         ? (height == '0' || height == '0.0' || height.isEmpty ? "$length / $width" : "$length / $width / $height")
-        : (isSheet ? (height == '0' || height == '0.0' || height.isEmpty ? "$width / $length" : "$height / $width / $length") : "$height / $width / $length");
+        // الفلكسو: طول / عرض / إرتفاع (يُقرأ من اليمين لليسار)
+        : (height == '0' || height == '0.0' || height.isEmpty ? "$length / $width" : "$length / $width / $height");
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),

@@ -927,7 +927,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
 
       final bool isDieCutting = (department == 'crushing' || department == 'die_cutting');
       final String tableName = isDieCutting ? 'die_cutting_production_reports' : (department == 'production_line' ? 'line_production_reports' : 'flexo_production_reports');
-      final String boxName = isDieCutting ? 'die_cutting_production_reports_box' : 'flexo_production_reports_box';
+      final String boxName = isDieCutting ? 'die_cutting_production_reports' : 'flexo_production_reports_box';
 
       if (isDieCutting) {
         if (!Hive.isBoxOpen(boxName)) await Hive.openBox<DieCuttingProductionReport>(boxName);

@@ -414,14 +414,14 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
         final record = pageRecords[i] as Map<String, dynamic>;
 
         final String tName = (record['technician_name'] ?? record['technicianName'])?.toString() ?? '---';
-        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['client'])?.toString() ?? '---';
-        final String productName = (record['product_name'] ?? record['productName'] ?? record['product'])?.toString() ?? '---';
-        final String productCode = (record['product_code'] ?? record['productCode'])?.toString() ?? '---';
-        final String orderNumber = (record['order_number'] ?? record['orderNumber'])?.toString() ?? '---';
-        final String quantity = record['quantity']?.toString() ?? '---';
-        final String startTime = (record['start_time'] ?? record['startTime'])?.toString() ?? '---';
-        final String endTime = (record['end_time'] ?? record['endTime'])?.toString() ?? '---';
-        final String lineWaste = (record['line_waste'] ?? record['lineWaste'])?.toString() ?? '---';
+        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['customer_name'] ?? record['customerName'] ?? record['client'])?.toString() ?? '---';
+        final String productName = (record['product_name'] ?? record['productName'] ?? record['item_name'] ?? record['itemName'] ?? record['product'])?.toString() ?? '---';
+        final String productCode = (record['product_code'] ?? record['productCode'] ?? record['item_code'] ?? record['itemCode'])?.toString() ?? '---';
+        final String orderNumber = (record['order_number'] ?? record['orderNumber'] ?? record['work_order'] ?? record['workOrder'])?.toString() ?? '---';
+        final String quantity = (record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity'])?.toString() ?? '---';
+        final String startTime = (record['start_time'] ?? record['startTime'] ?? record['run_time_start'] ?? record['runTimeStart'])?.toString() ?? '---';
+        final String endTime = (record['end_time'] ?? record['endTime'] ?? record['run_time_end'] ?? record['runTimeEnd'])?.toString() ?? '---';
+        final String lineWaste = (record['line_waste'] ?? record['lineWaste'] ?? record['waste_quantity'] ?? record['wasteQuantity'])?.toString() ?? '---';
         final String printWaste = (record['print_waste'] ?? record['printWaste'])?.toString() ?? '---';
         final String downtimeStart = (record['downtime_start'] ?? record['downtimeStart'])?.toString() ?? '---';
         final String downtimeEnd = (record['downtime_end'] ?? record['downtimeEnd'])?.toString() ?? '---';

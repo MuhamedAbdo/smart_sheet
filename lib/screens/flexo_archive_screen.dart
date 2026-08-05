@@ -744,7 +744,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
             ? (isCrushing || isProdLine)
                 // قسمي التكسير وخط الإنتاج: طول / عرض / ارتفاع (إذا كان الارتفاع غير صفري)
                 ? (height == '0' || height == '0.0' || height.isEmpty ? "$length / $width" : "$length / $width / $height")
-                : (isSheet ? (height == '0' || height == '0.0' || height.isEmpty ? "$width / $length" : "$height / $width / $length") : "$height / $width / $length")
+                // الفلكسو: طول / عرض / إرتفاع (يُقرأ من اليمين لليسار)
+                : (height == '0' || height == '0.0' || height.isEmpty ? "$length / $width" : "$length / $width / $height")
             : "";
 
     final quantity = report['quantity'] ??
@@ -1004,6 +1005,19 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               if (technicianName.isNotEmpty)
                 _buildArchiveInfoRow(
                     Icons.person, "الفني المسؤول:", technicianName),
+              Builder(
+                builder: (context) {
+                  final crew = report['crewMembers'] ?? report['crew_members'];
+                  if (crew != null) {
+                    if (crew is List && crew.isNotEmpty) {
+                      return _buildArchiveInfoRow(Icons.group, "طاقم العمل:", "عرض (${crew.length} عمال)", valueColor: Colors.blue);
+                    } else if (crew is String && crew.trim().isNotEmpty && crew != 'null' && crew != '[]') {
+                      return _buildArchiveInfoRow(Icons.group, "طاقم العمل:", "عرض (عمال)", valueColor: Colors.blue);
+                    }
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
               if (downtimeDisplay.isNotEmpty)
                 _buildArchiveInfoRow(
                     Icons.timer_off, "وقت الأعطال:", downtimeDisplay,

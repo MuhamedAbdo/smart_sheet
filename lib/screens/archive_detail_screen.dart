@@ -81,6 +81,8 @@ class ArchiveDetailScreen extends StatelessWidget {
                 } else if (crew is String && crew.trim().isNotEmpty && crew != 'null' && crew != '[]') {
                   final displayStr = crew.replaceAll(RegExp(r'[\[\]"]'), '');
                   return _buildDetailRow(context, "👥 طاقم العمل:", displayStr);
+                } else if (crew.toString() != 'null' && crew.toString() != '[]' && crew.toString().trim().isNotEmpty) {
+                  return _buildDetailRow(context, "👥 طاقم العمل:", crew.toString());
                 }
               }
               return const SizedBox.shrink();

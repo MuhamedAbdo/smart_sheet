@@ -90,24 +90,30 @@ class DataNormalizationHelper {
     }
   }
 
-  static Future<void> _normalizeArchiveBox(String boxName, Map<String, dynamic> Function(Map<String, dynamic>) normalizer) async {
-    if (Hive.isBoxOpen(boxName)) {
-      final box = Hive.box(boxName);
-      int updatedCount = 0;
-      for (var key in box.keys.toList()) {
-        final entry = box.get(key);
-        if (entry != null && entry is Map) {
-          try {
-            final rawMap = Map<String, dynamic>.from(entry);
-            final cleanMap = normalizer(rawMap);
-            await box.put(key, cleanMap);
-            updatedCount++;
-          } catch (e) {
-            debugPrint('⚠️ DataNormalizationHelper: Failed to normalize entry in $boxName - $e');
+    static Future<void> _normalizeArchiveBox(String boxName, Map<String, dynamic> Function(Map<String, dynamic>) normalizer) async {
+      if (Hive.isBoxOpen(boxName)) {
+        final box = Hive.box(boxName);
+        int updatedCount = 0;
+        for (var key in box.keys.toList()) {
+          final entry = box.get(key);
+          if (entry != null && entry is Map) {
+            try {
+              final rawMap = Map<String, dynamic>.from(entry);
+              if (rawMap.containsKey('data') && rawMap['data'] is Map) {
+                final innerData = Map<String, dynamic>.from(rawMap['data']);
+                rawMap['data'] = normalizer(innerData);
+                await box.put(key, rawMap);
+              } else {
+                final cleanMap = normalizer(rawMap);
+                await box.put(key, cleanMap);
+              }
+              updatedCount++;
+            } catch (e) {
+              debugPrint('❌ DataNormalizationHelper: Failed to normalize entry in $boxName - $e');
+            }
           }
         }
+        debugPrint('✅ DataNormalizationHelper: Normalized $updatedCount entries in $boxName.');
       }
-      debugPrint('🧹 DataNormalizationHelper: Normalized $updatedCount entries in $boxName.');
     }
-  }
 }
