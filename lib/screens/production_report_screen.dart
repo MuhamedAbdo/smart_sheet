@@ -665,6 +665,51 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               ],
             ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(40.0),
+          child: _productionReportBox == null
+              ? const SizedBox.shrink()
+              : ValueListenableBuilder(
+                  valueListenable: _productionReportBox!.listenable(),
+                  builder: (context, Box box, _) {
+                    final allRecords = _filterAndSortRecords(box, _searchQuery, _sortDescending);
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
+                    return Container(
+                      height: 40,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[900] : Colors.blueGrey[50],
+                        border: Border(
+                          bottom: BorderSide(
+                            color: isDark ? Colors.black54 : Colors.blueGrey[100]!,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.receipt_long,
+                            size: 16,
+                            color: isDark ? Colors.blueAccent[100] : Colors.blueAccent,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'إجمالي التقارير: ${allRecords.length}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Cairo',
+                              color: isDark ? Colors.grey[300] : Colors.blueGrey[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
       ),
       drawer: const AppDrawer(),
       endDrawer: FlexoReportDrawer(department: widget.department ?? 'flexo'),
@@ -682,13 +727,9 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               final isLiveSessionsEmpty = liveSessionsBox.isEmpty;
               final allRecords =
                   _filterAndSortRecords(box, _searchQuery, _sortDescending);
-              return Column(
-                children: [
-                  _buildSummaryBar(allRecords.length),
-                  Expanded(
-                    child: CustomScrollView(
-                      slivers: [
-                        SliverToBoxAdapter(
+              return CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
                           child: ActiveSessionsDashboard(
                             department: widget.department,
                             onFinishSession: (session) => _finishSession(session),
@@ -966,8 +1007,11 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                     const Text("📉 الهالك: ",
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     Text((widget.department == 'production_line' ||
+                            record['department'] == 'production_line' ||
                             widget.department == 'crushing' ||
-                            record['department'] == 'crushing')
+                            widget.department == 'die_cutting' ||
+                            record['department'] == 'crushing' ||
+                            record['department'] == 'die_cutting')
                         ? "${record['lineWaste'] ?? record['waste_quantity'] ?? record['wasteQuantity'] ?? 0}"
                         : "إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
                   ],
@@ -977,6 +1021,44 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               _buildInfoRowWithIcon(Icons.settings, "الماكينة:", mName),
             if (tName.isNotEmpty)
               _buildInfoRowWithIcon(Icons.person, "الفني المسؤول:", tName),
+            if (record['crewMembers'] != null && (record['crewMembers'] as List).isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    const Icon(Icons.group, size: 16, color: Colors.blueGrey),
+                    const SizedBox(width: 8),
+                    const Text("طاقم العمل:", style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('طاقم العمل', style: TextStyle(fontFamily: 'Cairo')),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: (record['crewMembers'] as List)
+                                    .map((name) => Text('• $name', style: const TextStyle(fontFamily: 'Cairo', fontSize: 16)))
+                                    .toList(),
+                              ),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('موافق', style: TextStyle(fontFamily: 'Cairo'))),
+                              ],
+                            ),
+                          );
+                        },
+                        child: Text(
+                          "عرض (${(record['crewMembers'] as List).length} عمال)",
+                          style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (downtimeDisplay.trim().isNotEmpty)
               _buildInfoRowWithIcon(
                   Icons.timer_off, "وقت الأعطال:", downtimeDisplay.trim()),
@@ -1048,6 +1130,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               'notes': val.notes,
               'dimensions': val.dimensions,
               'department': widget.department ?? 'die_cutting', 
+              'crewMembers': val.crewMembers,
             };
             if (val.runTimeStart != null) r['startTime'] = "${val.runTimeStart!.hour.toString().padLeft(2, '0')}:${val.runTimeStart!.minute.toString().padLeft(2, '0')}";
             if (val.runTimeEnd != null) r['endTime'] = "${val.runTimeEnd!.hour.toString().padLeft(2, '0')}:${val.runTimeEnd!.minute.toString().padLeft(2, '0')}";
@@ -1066,6 +1149,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               r['startTime'] ??= r['start_time'];
               r['endTime'] ??= r['end_time'];
               r['totalDowntime'] ??= r['total_downtime'];
+              r['crewMembers'] ??= r['crew_members'];
             } catch (_) {
               r = {};
             }
@@ -1218,6 +1302,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
                   notes: r['notes']?.toString(),
                   dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
+                  crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
                 );
                 await _productionReportBox!.put(syncId, report);
                 SyncService.instance.pushToQueue(tableName, report.toJson());
@@ -1269,6 +1354,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
                   notes: r['notes']?.toString(),
                   dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
+                  crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
                 );
                 await _productionReportBox!.put(existingSyncId, report);
                 SyncService.instance.pushToQueue(tableName, report.toJson());

@@ -32,6 +32,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
   final techController = TextEditingController();
   final formNumberController = TextEditingController();
   String? selectedMachine;
+  List<String> selectedCrewMembers = [];
 
   @override
   void initState() {
@@ -138,6 +139,10 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
               const SizedBox(height: 12),
             ],
             _buildWorkerSuggestField(techController),
+            if (widget.department == 'die_cutting' || widget.department == 'crushing' || widget.department == 'production_line') ...[
+              const SizedBox(height: 12),
+              _buildCrewMembersSelector(),
+            ],
             const SizedBox(height: 20),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -195,6 +200,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                   technicianId: techId,
                   department: widget.department,
                   formNumber: formNumberController.text.trim().isNotEmpty ? formNumberController.text.trim() : null,
+                  crewMembers: selectedCrewMembers.isNotEmpty ? selectedCrewMembers : null,
                 );
 
                 // 3. الحفظ المحلي في Hive (لتحديث الواجهة فوراً)
@@ -253,6 +259,96 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildCrewMembersSelector() {
+    return InkWell(
+      onTap: () async {
+        final sortedWorkers = WorkerUtils.getSortedWorkers(widget.department);
+        
+        await showDialog(
+          context: context,
+          builder: (context) {
+            return StatefulBuilder(
+              builder: (context, setStateDialog) {
+                return AlertDialog(
+                  title: const Text('اختر طاقم الماكينة', style: TextStyle(fontFamily: 'Cairo')),
+                  content: SizedBox(
+                    width: double.maxFinite,
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: sortedWorkers.length,
+                      itemBuilder: (context, index) {
+                        final worker = sortedWorkers[index];
+                        // وضع خط فاصل إذا تغير القسم من القسم الحالي للقسم الآخر
+                        bool showDivider = false;
+                        if (index > 0) {
+                          final prevWorker = sortedWorkers[index - 1];
+                          String normDept = widget.department == 'crushing' ? 'die_cutting' : widget.department;
+                          if (prevWorker.department == normDept && worker.department != normDept) {
+                            showDivider = true;
+                          }
+                        }
+
+                        final isSelected = selectedCrewMembers.contains(worker.name);
+                        final tile = CheckboxListTile(
+                          title: Text('${worker.name} (${worker.job})', style: const TextStyle(fontFamily: 'Cairo')),
+                          value: isSelected,
+                          onChanged: (bool? value) {
+                            setStateDialog(() {
+                              if (value == true) {
+                                selectedCrewMembers.add(worker.name);
+                              } else {
+                                selectedCrewMembers.remove(worker.name);
+                              }
+                            });
+                          },
+                        );
+
+                        if (showDivider) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Divider(thickness: 2),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                                child: Text('باقي أقسام المصنع', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                              ),
+                              tile,
+                            ],
+                          );
+                        }
+                        return tile;
+                      },
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('موافق', style: TextStyle(fontFamily: 'Cairo')),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+        setState(() {}); // Update the UI with selected count
+      },
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'طاقم الماكينة (اختياري)',
+          border: OutlineInputBorder(),
+          prefixIcon: Icon(Icons.group),
+        ),
+        child: Text(
+          selectedCrewMembers.isEmpty 
+              ? 'اضغط لاختيار الطاقم' 
+              : 'تم اختيار ${selectedCrewMembers.length} عمال',
+          style: const TextStyle(fontSize: 16),
+        ),
+      ),
     );
   }
 

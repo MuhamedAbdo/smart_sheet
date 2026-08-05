@@ -12,6 +12,17 @@ class FlexoReportDrawer extends StatelessWidget {
   final String department;
   const FlexoReportDrawer({super.key, this.department = 'flexo'});
 
+  String _normalizeString(String input) {
+    return input
+        .replaceAll('أ', 'ا')
+        .replaceAll('إ', 'ا')
+        .replaceAll('آ', 'ا')
+        .replaceAll('ة', 'ه')
+        .replaceAll('ى', 'ي')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isProductionLine = department == 'production_line';
@@ -122,14 +133,26 @@ class FlexoReportDrawer extends StatelessWidget {
           ? Hive.box<DieCuttingProductionReport>(boxName)
           : await Hive.openBox<DieCuttingProductionReport>(boxName);
           
-      records = box.values
-          .where((r) => (r.machineName).trim() == machineName.trim())
+      final newRecords = box.values
+          .where((r) => _normalizeString(r.machineName) == _normalizeString(machineName))
           .map((e) {
             final json = e.toJson();
             json['department'] = department;
             return json;
           })
           .toList();
+          
+      final oldBoxName = 'flexo_production_reports_box';
+      final oldBox = Hive.isBoxOpen(oldBoxName) 
+          ? Hive.box<FlexoProductionReport>(oldBoxName)
+          : await Hive.openBox<FlexoProductionReport>(oldBoxName);
+          
+      final oldRecords = oldBox.values
+          .where((r) => (r.department == 'crushing' || r.department == 'die_cutting') && _normalizeString(r.machineName ?? '') == _normalizeString(machineName))
+          .map((e) => e.toJson())
+          .toList();
+
+      records = [...newRecords, ...oldRecords];
     } else {
       final boxName = 'flexo_production_reports_box';
       final box = Hive.isBoxOpen(boxName) 
@@ -145,7 +168,7 @@ class FlexoReportDrawer extends StatelessWidget {
             } else {
               if (dept == 'crushing' || dept == 'die_cutting' || dept == 'production_line') return false;
             }
-            return m.trim() == machineName.trim();
+            return _normalizeString(m) == _normalizeString(machineName);
           })
           .map((e) => e.toJson())
           .toList();

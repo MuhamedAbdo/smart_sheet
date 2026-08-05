@@ -22,6 +22,19 @@ import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/utils/cache_helper.dart';
 import 'package:uuid/uuid.dart';
 import 'package:smart_sheet/models/die_cutting_production_report.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+DateTime? _parseTimeForDieCutting(String? dateStr, String? timeStr) {
+  if (dateStr == null || timeStr == null || timeStr.isEmpty || timeStr == '--:--') return null;
+  try {
+    final d = DateTime.parse(dateStr);
+    final parts = timeStr.split(':');
+    if (parts.length < 2) return null;
+    return DateTime(d.year, d.month, d.day, int.parse(parts[0]), int.parse(parts[1]));
+  } catch (_) {
+    return null;
+  }
+}
 
 /// شاشة تعرض جميع الأصناف والمقاسات المرتبطة بعميل معين
 class ClientItemsScreen extends StatefulWidget {
@@ -930,10 +943,10 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           itemCode: r['productCode']?.toString() ?? '',
           formNumber: r['formNumber']?.toString() ?? '',
           workOrder: r['orderNumber']?.toString() ?? '',
-          runTimeStart: null,
-          runTimeEnd: null,
-          downtimeStart: null,
-          downtimeEnd: null,
+          runTimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['startTime']?.toString()),
+          runTimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['endTime']?.toString()),
+          downtimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeStart']?.toString()),
+          downtimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeEnd']?.toString()),
           productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
           wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
           notes: r['notes']?.toString(),

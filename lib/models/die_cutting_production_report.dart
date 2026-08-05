@@ -58,6 +58,9 @@ class DieCuttingProductionReport extends HiveObject {
   @HiveField(17)
   final Map<String, dynamic>? dimensions;
 
+  @HiveField(18)
+  final List<String>? crewMembers;
+
   DieCuttingProductionReport({
     required this.id,
     required this.machineName,
@@ -77,6 +80,7 @@ class DieCuttingProductionReport extends HiveObject {
     this.notes,
     this.factoryId,
     this.dimensions,
+    this.crewMembers,
   });
 
   Map<String, dynamic> toJson() {
@@ -100,6 +104,7 @@ class DieCuttingProductionReport extends HiveObject {
       'waste_quantity': wasteQuantity,
       'notes': notes,
       'dimensions': dimensions,
+      'crew_members': crewMembers,
     };
   }
 
@@ -133,6 +138,7 @@ class DieCuttingProductionReport extends HiveObject {
       wasteQuantity: (map['waste_quantity'] as num?)?.toDouble() ?? (map['line_waste'] as num?)?.toDouble() ?? double.tryParse(map['waste_quantity']?.toString() ?? '') ?? double.tryParse(map['line_waste']?.toString() ?? '') ?? 0.0,
       notes: map['notes']?.toString(),
       dimensions: map['dimensions'] is Map ? Map<String, dynamic>.from(map['dimensions']) : null,
+      crewMembers: map['crew_members'] is List ? List<String>.from(map['crew_members']) : null,
     );
   }
 }

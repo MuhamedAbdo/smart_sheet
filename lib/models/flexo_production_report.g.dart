@@ -42,19 +42,21 @@ class FlexoProductionReportAdapter extends TypeAdapter<FlexoProductionReport> {
       netTime: fields[22] as int?,
       averageSpeed: fields[23] as double?,
       colors: fields[24] == null ? [] : (fields[24] as List).cast<dynamic>(),
-      dimensions: fields[25] == null ? {} : (fields[25] as Map).cast<String, dynamic>(),
+      dimensions:
+          fields[25] == null ? {} : (fields[25] as Map).cast<String, dynamic>(),
       paperLayers: (fields[26] as List?)?.cast<dynamic>(),
       rollWidth: fields[27] as double?,
       imagePaths: (fields[28] as List?)?.cast<dynamic>(),
       isSheet: fields[29] as bool?,
       notes: fields[30] as String?,
+      crewMembers: (fields[31] as List?)?.cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, FlexoProductionReport obj) {
     writer
-      ..writeByte(31)
+      ..writeByte(32)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -116,7 +118,9 @@ class FlexoProductionReportAdapter extends TypeAdapter<FlexoProductionReport> {
       ..writeByte(29)
       ..write(obj.isSheet)
       ..writeByte(30)
-      ..write(obj.notes);
+      ..write(obj.notes)
+      ..writeByte(31)
+      ..write(obj.crewMembers);
   }
 
   @override

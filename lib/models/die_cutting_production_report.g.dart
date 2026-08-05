@@ -36,13 +36,14 @@ class DieCuttingProductionReportAdapter
       notes: fields[15] as String?,
       factoryId: fields[16] as String?,
       dimensions: (fields[17] as Map?)?.cast<String, dynamic>(),
+      crewMembers: (fields[18] as List?)?.cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, DieCuttingProductionReport obj) {
     writer
-      ..writeByte(18)
+      ..writeByte(19)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -78,7 +79,9 @@ class DieCuttingProductionReportAdapter
       ..writeByte(16)
       ..write(obj.factoryId)
       ..writeByte(17)
-      ..write(obj.dimensions);
+      ..write(obj.dimensions)
+      ..writeByte(18)
+      ..write(obj.crewMembers);
   }
 
   @override

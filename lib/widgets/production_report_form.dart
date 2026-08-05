@@ -1,4 +1,4 @@
-﻿// lib/widgets/production_report_form.dart
+// lib/widgets/production_report_form.dart
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -74,6 +74,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isSaving = false;
   bool isSheet = false;
+  List<String> selectedCrewMembers = [];
 
 
   @override
@@ -110,6 +111,11 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
 
     if (widget.initialData != null) {
       _loadInitialData(widget.initialData!);
+      // Ensure date is set even if not in initialData
+      if (dateController.text.isEmpty) {
+        final now = DateTime.now();
+        dateController.text = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+      }
     } else {
       final now = DateTime.now();
       dateController.text =
@@ -127,18 +133,18 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
 
   void _loadInitialData(Map<String, dynamic> data) {
     dateController.text = data['date']?.toString() ?? '';
-    clientNameController.text = data['clientName']?.toString() ?? '';
+    clientNameController.text = data['clientName']?.toString() ?? data['client_name']?.toString() ?? data['client']?.toString() ?? '';
     productController.text = data['product']?.toString() ??
-        data['productName']?.toString() ??
+        data['productName']?.toString() ?? data['product_name']?.toString() ?? data['item_name']?.toString() ??
         '';
-    productCodeController.text = data['productCode']?.toString() ?? '';
+    productCodeController.text = data['productCode']?.toString() ?? data['product_code']?.toString() ?? data['item_code']?.toString() ?? '';
     isSheet = data['isSheet'] ?? false;
 
 
     final dimensions = Map<String, dynamic>.from(data['dimensions'] ?? {});
-    lengthController.text = dimensions['length']?.toString() ?? '';
-    widthController.text = dimensions['width']?.toString() ?? '';
-    heightController.text = dimensions['height']?.toString() ?? '';
+    lengthController.text = dimensions['length']?.toString() ?? data['length']?.toString() ?? '';
+    widthController.text = dimensions['width']?.toString() ?? data['width']?.toString() ?? '';
+    heightController.text = dimensions['height']?.toString() ?? data['height']?.toString() ?? '';
 
     quantityController.text = data['quantity']?.toString() ?? '';
     weightController.text =
@@ -158,6 +164,12 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
     if (_selectedMachineName != null && _selectedMachineName!.isEmpty) _selectedMachineName = null;
     _selectedTechnicianName = data['technicianName']?.toString() ?? data['technician_name']?.toString();
     if (_selectedTechnicianName != null && _selectedTechnicianName!.isEmpty) _selectedTechnicianName = null;
+
+    if (data['crewMembers'] is List) {
+      selectedCrewMembers = List<String>.from(data['crewMembers']);
+    } else if (data['crew_members'] is List) {
+      selectedCrewMembers = List<String>.from(data['crew_members']);
+    }
 
     paperLayerControllers.clear();
     final pLayers = data['paperLayers'] ??
@@ -241,6 +253,8 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
         'totalDowntime': int.tryParse(totalDowntimeController.text) ?? 0,
         'machineName': _selectedMachineName ?? '',
         'technicianName': _selectedTechnicianName ?? '',
+        'crewMembers': selectedCrewMembers.isNotEmpty ? selectedCrewMembers : null,
+        'crew_members': selectedCrewMembers.isNotEmpty ? selectedCrewMembers : null,
       };
 
       widget.onSave(report);
@@ -346,6 +360,10 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                     _buildTextField(productCodeController, "كود الصنف", icon: Icons.qr_code, keyboardType: TextInputType.number),
                     const SizedBox(height: 16),
                     _buildMachineAndTechRow(),
+                    if (isCrushing || isProductionLine) ...[
+                      const SizedBox(height: 16),
+                      _buildCrewMembersSelector(),
+                    ],
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -443,6 +461,95 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
           ),
           if (_isSaving) const Center(child: CircularProgressIndicator()),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCrewMembersSelector() {
+    return InkWell(
+      onTap: () async {
+        final sortedWorkers = WorkerUtils.getSortedWorkers(widget.department ?? 'flexo');
+        
+        await showDialog(
+          context: context,
+          builder: (context) {
+            return StatefulBuilder(
+              builder: (context, setStateDialog) {
+                return AlertDialog(
+                  title: const Text('اختر طاقم الماكينة', style: TextStyle(fontFamily: 'Cairo')),
+                  content: SizedBox(
+                    width: double.maxFinite,
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: sortedWorkers.length,
+                      itemBuilder: (context, index) {
+                        final worker = sortedWorkers[index];
+                        bool showDivider = false;
+                        if (index > 0) {
+                          final prevWorker = sortedWorkers[index - 1];
+                          String normDept = (widget.department == 'crushing') ? 'die_cutting' : (widget.department ?? 'flexo');
+                          if (prevWorker.department == normDept && worker.department != normDept) {
+                            showDivider = true;
+                          }
+                        }
+
+                        final isSelected = selectedCrewMembers.contains(worker.name);
+                        final tile = CheckboxListTile(
+                          title: Text('${worker.name} (${worker.job})', style: const TextStyle(fontFamily: 'Cairo')),
+                          value: isSelected,
+                          onChanged: (bool? value) {
+                            setStateDialog(() {
+                              if (value == true) {
+                                selectedCrewMembers.add(worker.name);
+                              } else {
+                                selectedCrewMembers.remove(worker.name);
+                              }
+                            });
+                          },
+                        );
+
+                        if (showDivider) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Divider(thickness: 2),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                                child: Text('باقي أقسام المصنع', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                              ),
+                              tile,
+                            ],
+                          );
+                        }
+                        return tile;
+                      },
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('موافق', style: TextStyle(fontFamily: 'Cairo')),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+        setState(() {}); // Update UI to reflect selected count
+      },
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'طاقم الماكينة (اختياري)',
+          border: OutlineInputBorder(),
+          prefixIcon: Icon(Icons.group),
+        ),
+        child: Text(
+          selectedCrewMembers.isEmpty 
+              ? 'اضغط لاختيار الطاقم' 
+              : 'تم اختيار ${selectedCrewMembers.length} عمال',
+          style: const TextStyle(fontSize: 16),
+        ),
       ),
     );
   }

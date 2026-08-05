@@ -74,6 +74,13 @@ class ArchiveDetailScreen extends StatelessWidget {
               _buildDetailRow(context, "👤 الفني المسؤول:",
                   (record['technicianName'] ?? record['technician_name']).toString()),
             Builder(builder: (context) {
+              final crew = record['crewMembers'] ?? record['crew_members'];
+              if (crew != null && crew is List && crew.isNotEmpty) {
+                return _buildDetailRow(context, "👥 طاقم العمل:", crew.join('، '));
+              }
+              return const SizedBox.shrink();
+            }),
+            Builder(builder: (context) {
               final sTime = record['startTime'] ?? record['start_time'] ?? record['run_time_start'] ?? record['runTimeStart'];
               final eTime = record['endTime'] ?? record['end_time'] ?? record['run_time_end'] ?? record['runTimeEnd'];
               final sFormatted = _formatTime(sTime);
