@@ -22,7 +22,6 @@ import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/utils/cache_helper.dart';
 import 'package:uuid/uuid.dart';
 import 'package:smart_sheet/models/die_cutting_production_report.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 DateTime? _parseTimeForDieCutting(String? dateStr, String? timeStr) {
   if (dateStr == null || timeStr == null || timeStr.isEmpty || timeStr == '--:--') return null;

@@ -128,7 +128,7 @@ class FlexoReportDrawer extends StatelessWidget {
     List<Map<String, dynamic>> records = [];
 
     if (isDieCutting) {
-      final boxName = 'die_cutting_production_reports';
+      const boxName = 'die_cutting_production_reports';
       final box = Hive.isBoxOpen(boxName) 
           ? Hive.box<DieCuttingProductionReport>(boxName)
           : await Hive.openBox<DieCuttingProductionReport>(boxName);
@@ -142,7 +142,7 @@ class FlexoReportDrawer extends StatelessWidget {
           })
           .toList();
           
-      final oldBoxName = 'flexo_production_reports_box';
+      const oldBoxName = 'flexo_production_reports_box';
       final oldBox = Hive.isBoxOpen(oldBoxName) 
           ? Hive.box<FlexoProductionReport>(oldBoxName)
           : await Hive.openBox<FlexoProductionReport>(oldBoxName);
@@ -154,7 +154,7 @@ class FlexoReportDrawer extends StatelessWidget {
 
       records = [...newRecords, ...oldRecords];
     } else {
-      final boxName = 'flexo_production_reports_box';
+      const boxName = 'flexo_production_reports_box';
       final box = Hive.isBoxOpen(boxName) 
           ? Hive.box<FlexoProductionReport>(boxName)
           : await Hive.openBox<FlexoProductionReport>(boxName);

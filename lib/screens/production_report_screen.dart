@@ -779,9 +779,6 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                             ),
                           ),
                         ],
-                      ],
-                    ),
-                  ),
                 ],
               );
             },
@@ -828,43 +825,6 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 );
               },
             ),
-    );
-  }
-
-  Widget _buildSummaryBar(int totalReports) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade900, Colors.blue.shade600],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.receipt_long, color: Colors.white, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            '$totalReports تقرير مسجل',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
