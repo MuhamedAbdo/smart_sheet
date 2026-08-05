@@ -1,7 +1,8 @@
-import 'package:smart_sheet/models/flexo_production_report.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/flexo_machine.dart';
+import 'package:smart_sheet/models/flexo_production_report.dart';
+import 'package:smart_sheet/models/die_cutting_production_report.dart';
 import 'package:smart_sheet/utils/pdf_export_helper.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:file_picker/file_picker.dart';
@@ -112,25 +113,43 @@ class FlexoReportDrawer extends StatelessWidget {
   }
 
   Future<void> _handlePdfAction(BuildContext context, String machineName, {required bool isPrinting, required bool isSave}) async {
-    final box = Hive.isBoxOpen('flexo_production_reports_box') 
-        ? Hive.box<FlexoProductionReport>('flexo_production_reports_box')
-        : await Hive.openBox<FlexoProductionReport>('flexo_production_reports_box');
-        
-    final records = box.values
-        .where((r) {
-          final m = r.machineName ?? '';
-          final dept = r.department;
-          if (department == 'crushing') {
-            if (dept != 'crushing' && dept != 'die_cutting') return false;
-          } else if (department == 'production_line') {
-            if (dept != 'production_line') return false;
-          } else {
-            if (dept == 'crushing' || dept == 'die_cutting' || dept == 'production_line') return false;
-          }
-          return m.trim() == machineName.trim();
-        })
-        .map((e) => e.toJson())
-        .toList();
+    final bool isDieCutting = (department == 'crushing' || department == 'die_cutting');
+    List<Map<String, dynamic>> records = [];
+
+    if (isDieCutting) {
+      final boxName = 'die_cutting_production_reports';
+      final box = Hive.isBoxOpen(boxName) 
+          ? Hive.box<DieCuttingProductionReport>(boxName)
+          : await Hive.openBox<DieCuttingProductionReport>(boxName);
+          
+      records = box.values
+          .where((r) => (r.machineName).trim() == machineName.trim())
+          .map((e) {
+            final json = e.toJson();
+            json['department'] = department;
+            return json;
+          })
+          .toList();
+    } else {
+      final boxName = 'flexo_production_reports_box';
+      final box = Hive.isBoxOpen(boxName) 
+          ? Hive.box<FlexoProductionReport>(boxName)
+          : await Hive.openBox<FlexoProductionReport>(boxName);
+          
+      records = box.values
+          .where((r) {
+            final m = r.machineName ?? '';
+            final dept = r.department;
+            if (department == 'production_line') {
+              if (dept != 'production_line') return false;
+            } else {
+              if (dept == 'crushing' || dept == 'die_cutting' || dept == 'production_line') return false;
+            }
+            return m.trim() == machineName.trim();
+          })
+          .map((e) => e.toJson())
+          .toList();
+    }
 
     if (records.isEmpty) {
       UIUtils.showInfoSnackBar(message: "لا توجد تقارير لهذه الماكينة", backgroundColor: Colors.orange);
@@ -169,4 +188,3 @@ class FlexoReportDrawer extends StatelessWidget {
     }
   }
 }
-

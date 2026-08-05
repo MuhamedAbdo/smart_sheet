@@ -58,6 +58,7 @@ Future<Uint8List?> generateFlexoProductionReportPdfBytes(Map<String, dynamic> pa
       'font': fontBytes,
       'bold': boldFontBytes,
       'title': params['title'],
+      'department': department,
     });
   } catch (e) {
     debugPrint('❌ خطأ في generateFlexoProductionReportPdfBytes: $e');
@@ -136,18 +137,35 @@ String _formatDate(String dateStr) {
   return dateStr;
 }
 
+String _formatTime(String t) {
+  if (t.isEmpty || t == 'null' || t == '---') return '---';
+  try {
+    DateTime? dt = DateTime.tryParse(t);
+    if (dt != null) {
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+  } catch (_) {}
+  return t;
+}
+
 int _compareRecordsByDateAndEndTime(Map<String, dynamic> a, Map<String, dynamic> b) {
-  final String dateA = _formatDate(a['date']?.toString() ?? '');
-  final String dateB = _formatDate(b['date']?.toString() ?? '');
+  final String dateA = _formatDate((a['date'] ?? a['report_date'] ?? a['reportDate'])?.toString() ?? '');
+  final String dateB = _formatDate((b['date'] ?? b['report_date'] ?? b['reportDate'])?.toString() ?? '');
   
   int dateCmp = dateA.compareTo(dateB);
   if (dateCmp != 0) return dateCmp;
 
-  final String timeA = (a['end_time'] ?? a['endTime'])?.toString().trim() ?? '';
-  final String timeB = (b['end_time'] ?? b['endTime'])?.toString().trim() ?? '';
+  final String timeA = (a['end_time'] ?? a['endTime'] ?? a['run_time_end'] ?? a['runTimeEnd'])?.toString().trim() ?? '';
+  final String timeB = (b['end_time'] ?? b['endTime'] ?? b['run_time_end'] ?? b['runTimeEnd'])?.toString().trim() ?? '';
 
   String normalizeTime(String t) {
-    if (t.isEmpty) return '00:00';
+    if (t.isEmpty || t == 'null') return '00:00';
+    try {
+      DateTime? dt = DateTime.tryParse(t);
+      if (dt != null) {
+        return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      }
+    } catch (_) {}
     List<String> parts = t.split(':');
     if (parts.length == 2) {
       return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
@@ -368,6 +386,7 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
     final String customTitle = params['title']?.toString() ?? 'تقرير الإنتاج لقسم الفلكسو';
     final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
     final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
+    final bool isProductionLine = params['department']?.toString() == 'production_line';
 
     final pdf = pw.Document();
     const int recordsPerPage = 13;
@@ -421,8 +440,12 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
             buildTableDataCell(quantity, 35.0, arabicFont),
             buildTableDataCell(startTime, 35.0, arabicFont),
             buildTableDataCell(endTime, 35.0, arabicFont, isSectionEnd: true),
-            buildTableDataCell(lineWaste, 30.0, arabicFont),
-            buildTableDataCell(printWaste, 30.0, arabicFont, isSectionEnd: true),
+            if (isProductionLine)
+              buildTableDataCell(lineWaste, 60.0, arabicFont, isSectionEnd: true)
+            else ...[
+              buildTableDataCell(lineWaste, 30.0, arabicFont),
+              buildTableDataCell(printWaste, 30.0, arabicFont, isSectionEnd: true),
+            ],
             buildTableDataCell(downtimeStart, 35.0, arabicFont),
             buildTableDataCell(downtimeEnd, 35.0, arabicFont, isSectionEnd: true),
             buildTableDataCell(notes, notesColWidth, arabicFont),
@@ -445,6 +468,7 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
               techWidth: techColWidth,
               notesWidth: notesColWidth,
               font: arabicBoldFont,
+              isProductionLine: isProductionLine,
             ),
             pw.Column(children: pageRows),
           ]),
@@ -464,6 +488,7 @@ pw.Widget _buildProductionHeader({
   required double techWidth,
   required double notesWidth,
   required pw.Font font,
+  bool isProductionLine = false,
 }) {
   return pw.Row(
     children: [
@@ -477,7 +502,10 @@ pw.Widget _buildProductionHeader({
       _buildSpannedHeader('أمر التشغيل', 42.0, font),
       _buildSpannedHeader('الإنتاج', 35.0, font),
       _buildGroupedHeader('وقت التشغيل', ['من', 'إلى'], [35.0, 35.0], font, isSectionEnd: true),
-      _buildGroupedHeader('الهالك', ['خ', 'ط'], [30.0, 30.0], font, isSectionEnd: true),
+      if (isProductionLine)
+        _buildSpannedHeader('الهالك', 60.0, font, isSectionEnd: true)
+      else
+        _buildGroupedHeader('الهالك', ['خ', 'ط'], [30.0, 30.0], font, isSectionEnd: true),
       _buildGroupedHeader('الأعطال', ['من', 'إلى'], [35.0, 35.0], font, isSectionEnd: true),
       _buildSpannedHeader('الملاحظات', notesWidth, font),
     ],
@@ -522,22 +550,24 @@ Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> param
         final String wasteValue = (record['line_waste'] ?? record['lineWaste'] ?? record['waste'] ?? record['wasteQuantity'] ?? record['waste_quantity'])?.toString() ?? '---';
         final String formNumDisplay = formNumber.trim().isEmpty || formNumber == 'null' ? '---' : formNumber;
         final String wasteDisplay = wasteValue.trim().isEmpty || wasteValue == 'null' ? '---' : wasteValue;
-        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['client'])?.toString() ?? '---';
-        final String productName = (record['product_name'] ?? record['productName'] ?? record['product'])?.toString() ?? '---';
-        final String productCode = (record['product_code'] ?? record['productCode'])?.toString() ?? '---';
-        final String orderNumber = (record['order_number'] ?? record['orderNumber'])?.toString() ?? '---';
-        final String quantity = record['quantity']?.toString() ?? '---';
-        final String startTime = (record['start_time'] ?? record['startTime'])?.toString() ?? '---';
-        final String endTime = (record['end_time'] ?? record['endTime'])?.toString() ?? '---';
-        final String downtimeStart = (record['downtime_start'] ?? record['downtimeStart'])?.toString() ?? '---';
-        final String downtimeEnd = (record['downtime_end'] ?? record['downtimeEnd'])?.toString() ?? '---';
+        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['client'] ?? record['customer_name'] ?? record['customerName'])?.toString() ?? '---';
+        final String productName = (record['product_name'] ?? record['productName'] ?? record['product'] ?? record['item_name'] ?? record['itemName'])?.toString() ?? '---';
+        final String productCode = (record['product_code'] ?? record['productCode'] ?? record['item_code'] ?? record['itemCode'])?.toString() ?? '---';
+        final String orderNumber = (record['order_number'] ?? record['orderNumber'] ?? record['work_order'] ?? record['workOrder'])?.toString() ?? '---';
+        final String quantity = (record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity'])?.toString() ?? '---';
+        final String startTime = _formatTime((record['start_time'] ?? record['startTime'] ?? record['run_time_start'] ?? record['runTimeStart'])?.toString() ?? '---');
+        final String endTime = _formatTime((record['end_time'] ?? record['endTime'] ?? record['run_time_end'] ?? record['runTimeEnd'])?.toString() ?? '---');
+        final String downtimeStart = _formatTime((record['downtime_start'] ?? record['downtimeStart'])?.toString() ?? '---');
+        final String downtimeEnd = _formatTime((record['downtime_end'] ?? record['downtimeEnd'])?.toString() ?? '---');
         final String notes = record['notes']?.toString() ?? '---';
+
+        final String dateStr = (record['date'] ?? record['report_date'] ?? record['reportDate'])?.toString() ?? '---';
 
         pageRows.add(
           pw.Row(children: [
             buildTableDataCell('${startIndex + i + 1}', 20.0, arabicFont, isRightMost: true),
             buildTableDataCell(tName, techColWidth, arabicFont),
-            buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 52.0, arabicFont),
+            buildTableDataCell(_formatDate(dateStr), 52.0, arabicFont),
             buildTableDataCell(clientName, clientColWidth, arabicFont),
             buildTableDataCell(productName, productColWidth, arabicFont),
             buildTableDataCell(productCode, 45.0, arabicFont),
