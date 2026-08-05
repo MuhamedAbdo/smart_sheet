@@ -75,8 +75,13 @@ class ArchiveDetailScreen extends StatelessWidget {
                   (record['technicianName'] ?? record['technician_name']).toString()),
             Builder(builder: (context) {
               final crew = record['crewMembers'] ?? record['crew_members'];
-              if (crew != null && crew is List && crew.isNotEmpty) {
-                return _buildDetailRow(context, "👥 طاقم العمل:", crew.join('، '));
+              if (crew != null) {
+                if (crew is List && crew.isNotEmpty) {
+                  return _buildDetailRow(context, "👥 طاقم العمل:", crew.join('، '));
+                } else if (crew is String && crew.trim().isNotEmpty && crew != 'null' && crew != '[]') {
+                  final displayStr = crew.replaceAll(RegExp(r'[\[\]"]'), '');
+                  return _buildDetailRow(context, "👥 طاقم العمل:", displayStr);
+                }
               }
               return const SizedBox.shrink();
             }),
