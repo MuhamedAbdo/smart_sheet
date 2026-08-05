@@ -1196,8 +1196,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     final bool isProdLine = widget.department == 'production_line';
 
     final String displayText = (isCrushing || isProdLine)
-        ? "$length / $width / $height"
-        : (isSheet ? "$width / $length" : "$height / $width / $length");
+        ? (height == '0' || height == '0.0' || height.isEmpty ? "$length / $width" : "$length / $width / $height")
+        : (isSheet ? (height == '0' || height == '0.0' || height.isEmpty ? "$width / $length" : "$height / $width / $length") : "$height / $width / $length");
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),

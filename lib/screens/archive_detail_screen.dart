@@ -344,10 +344,10 @@ class ArchiveDetailScreen extends StatelessWidget {
             ? [
                 _buildDimItem(context, "طول", length),
                 _buildDimItem(context, "عرض", width),
-                _buildDimItem(context, "ارتفاع", height),
+                if (height != '0' && height != '0.0' && height.isNotEmpty) _buildDimItem(context, "ارتفاع", height),
               ]
             : [
-                _buildDimItem(context, "ارتفاع", height),
+                if (height != '0' && height != '0.0' && height.isNotEmpty) _buildDimItem(context, "ارتفاع", height),
                 _buildDimItem(context, "عرض", width),
                 _buildDimItem(context, "طول", length),
               ],

@@ -742,9 +742,9 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     final String dimStr =
         dims != null && (dims['length'] != 0 || dims['width'] != 0)
             ? (isCrushing || isProdLine)
-                // التكسير وخط الإنتاج: طول / عرض / ارتفاع (من اليمين لليسار)
-                ? "$length / $width / $height"
-                : (isSheet ? "$width / $length" : "$height / $width / $length")
+                // قسمي التكسير وخط الإنتاج: طول / عرض / ارتفاع (إذا كان الارتفاع غير صفري)
+                ? (height == '0' || height == '0.0' || height.isEmpty ? "$length / $width" : "$length / $width / $height")
+                : (isSheet ? (height == '0' || height == '0.0' || height.isEmpty ? "$width / $length" : "$height / $width / $length") : "$height / $width / $length")
             : "";
 
     final quantity = report['quantity'] ??
