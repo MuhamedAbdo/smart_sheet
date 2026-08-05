@@ -1623,6 +1623,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
       'department': session.department ?? widget.department ?? 'flexo',
       'paperLayers': session.paperLayers ?? [],
       'paper_layers': session.paperLayers ?? [],
+      'crewMembers': session.crewMembers,
+      'crew_members': session.crewMembers,
       'notes': "",
     };
 
@@ -1663,6 +1665,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
                   notes: r['notes']?.toString(),
                   dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
+                  crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
                 );
                 // حفظ محلي بمفتاح ثابت لمنع التكرار
                 await _productionReportBox!.put(syncId, report);
