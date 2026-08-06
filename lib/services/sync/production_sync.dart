@@ -402,6 +402,8 @@ mixin ProductionSync on SyncServiceBase {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → flexo_archived_reports (factory: $factoryId)');
             _reconnectAttempts['archived_reports_channel'] = 0;
+          } else if (status == RealtimeSubscribeStatus.closed) {
+            debugPrint('📡 flexo_archived_reports: $status');
           } else {
             debugPrint('❌ FAILED/STATUS → flexo_archived_reports: status=$status, error=$error');
             if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {
@@ -429,6 +431,8 @@ mixin ProductionSync on SyncServiceBase {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → line_archived_reports (factory: $factoryId)');
             _reconnectAttempts['archived_reports_channel'] = 0;
+          } else if (status == RealtimeSubscribeStatus.closed) {
+            debugPrint('📡 line_archived_reports: $status');
           } else {
             debugPrint('❌ FAILED/STATUS → line_archived_reports: status=$status, error=$error');
             if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {
@@ -456,6 +460,8 @@ mixin ProductionSync on SyncServiceBase {
           if (status == RealtimeSubscribeStatus.subscribed) {
             debugPrint('✅ SUBSCRIBED → die_cutting_archived_reports (factory: $factoryId)');
             _reconnectAttempts['archived_reports_channel'] = 0;
+          } else if (status == RealtimeSubscribeStatus.closed) {
+            debugPrint('📡 die_cutting_archived_reports: $status');
           } else {
             debugPrint('❌ FAILED/STATUS → die_cutting_archived_reports: status=$status, error=$error');
             if (status == RealtimeSubscribeStatus.timedOut || status == RealtimeSubscribeStatus.channelError) {

@@ -735,7 +735,6 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
         widget.department == 'crushing' || widget.department == 'die_cutting';
 
     final dims = report['dimensions'];
-    final bool isSheet = report['isSheet'] ?? false;
     final String length = dims?['length']?.toString() ?? '0';
     final String width = dims?['width']?.toString() ?? '0';
     final String height = dims?['height']?.toString() ?? '0';

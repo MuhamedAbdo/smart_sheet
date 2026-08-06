@@ -863,7 +863,9 @@ class SyncService extends SyncServiceBase
         } else {
           final cleanPayload = _sanitizePayload(payload, table);
           // ✅ FIX: تعويض الـ id المفقود من الطابور المحلي للتقارير المعلقة (Self-healing)
-          if (cleanPayload['id'] == null && cleanPayload['sync_id'] != null) {
+          if (table == 'customers') {
+            cleanPayload.remove('id'); // Unconditional remove for customers to avoid type mismatches
+          } else if (cleanPayload['id'] == null && cleanPayload['sync_id'] != null) {
             cleanPayload['id'] = cleanPayload['sync_id'];
           }
 

@@ -232,9 +232,12 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       }
     }
 
+    final String syncId = widget.existingData?['sync_id']?.toString() ??
+        widget.existingData?['id']?.toString() ??
+        const Uuid().v4();
+
     final newRecord = <String, dynamic>{
-      'sync_id': widget.existingDataKey?.toString() ??
-          const Uuid().v4(),
+      'sync_id': syncId,
       'processType': _processType,
       'clientName': clientName,
       'productName': productNameController.text.trim(),
@@ -699,8 +702,9 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isEditingItem = widget.existingDataKey != null && !widget.isClientOnlyMode;
     final bool isLockedMode =
-        widget.clientName != null && widget.existingDataKey == null;
+        (widget.clientName != null && widget.existingDataKey == null) || isEditingItem;
 
     return Scaffold(
       appBar: AppBar(
