@@ -6,6 +6,7 @@ import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
 import 'package:smart_sheet/screens/flexo_archive_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
+import 'package:smart_sheet/screens/super_admin_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/utils/archive_rbac_logic.dart';
@@ -161,6 +162,19 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
             nav?.pushNamed(SettingsScreen.routeName);
           },
         ),
+        if (auth.user?.email == 'mohamedabdo9999933@gmail.com')
+          _buildNavItem(
+            icon: Icons.admin_panel_settings,
+            title: 'لوحة تحكم النظام',
+            index: 7,
+            color: Colors.red[800],
+            onTap: () {
+              setState(() => _selectedIndex = 7);
+              final nav = context.read<AuthService>().navigatorKey.currentState;
+              nav?.popUntil((route) => route.isFirst);
+              nav?.push(MaterialPageRoute(builder: (_) => const SuperAdminScreen()));
+            },
+          ),
         const Divider(),
         if (!auth.isAuthenticated)
           _buildNavItem(

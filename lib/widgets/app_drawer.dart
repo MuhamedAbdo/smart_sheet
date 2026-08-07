@@ -5,6 +5,7 @@ import 'package:smart_sheet/screens/about_screen.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
 import 'package:smart_sheet/screens/privacy_policy_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
+import 'package:smart_sheet/screens/super_admin_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -56,6 +57,18 @@ class AppDrawer extends StatelessWidget {
                     Navigator.pushNamed(context, SettingsScreen.routeName);
                   },
                 ),
+                if (auth.user?.email == 'mohamedabdo9999933@gmail.com')
+                  ListTile(
+                    leading: Icon(Icons.admin_panel_settings, color: Colors.red[800]),
+                    title: Text(
+                      'لوحة تحكم النظام (Super Admin)',
+                      style: TextStyle(color: Colors.red[800], fontWeight: FontWeight.bold),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SuperAdminScreen()));
+                    },
+                  ),
 
                 // ─── معلومات وقانوني ───────────────────────────────────
                 const Divider(),
