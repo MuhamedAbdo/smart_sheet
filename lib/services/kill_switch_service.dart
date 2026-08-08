@@ -33,8 +33,6 @@ class KillSwitchService {
 
   RealtimeChannel? _workerChannel;
   RealtimeChannel? _factoryChannel;
-  String? _watchedWorkerId; // معرّف العامل المراقَب
-  bool _isListening = false;
 
   // Callback يُستدعى عند اكتشاف الطرد القسري مع سبب الطرد (يُمرَّر من main.dart)
   Function(String message)? _onForcedLogout;
@@ -55,8 +53,6 @@ class KillSwitchService {
     await stopListening(); // إغلاق أي قناة سابقة
 
     _onForcedLogout = onForcedLogout;
-    _isListening = true;
-    _watchedWorkerId = workerId;
 
     debugPrint('🔒 KillSwitch: بدء الاستماع | factoryId=$factoryId | workerId=$workerId');
 
@@ -110,8 +106,6 @@ class KillSwitchService {
     }
     debugPrint('🔒 KillSwitch: تم إغلاق قنوات المراقبة');
 
-    _isListening = false;
-    _watchedWorkerId = null;
     _onForcedLogout = null;
   }
 
@@ -233,7 +227,7 @@ class KillSwitchService {
         // PGRST116 يعني أن RLS منع القراءة = المصنع موقوف!
         if (e.code == 'PGRST116') {
            debugPrint('🚨 KillSwitch: تم حجب البروفايل (RLS Block). المصنع موقوف!');
-           await _executeForcedLogout(
+           await forceLogout(
              onForcedLogout: onForcedLogout,
              clearProfileFactoryId: false,
              reason: 'تم إيقاف اشتراك هذا المصنع. يرجى التواصل مع الإدارة.'
@@ -262,7 +256,7 @@ class KillSwitchService {
 
         if (factoryRecord['status'] == 'suspended') {
            debugPrint('🚨 KillSwitch: المصنع موقوف صراحة (status = suspended).');
-           await _executeForcedLogout(
+           await forceLogout(
              onForcedLogout: onForcedLogout,
              clearProfileFactoryId: false,
              reason: 'تم إيقاف اشتراك هذا المصنع. يرجى التواصل مع الإدارة.'
@@ -272,7 +266,7 @@ class KillSwitchService {
       } on PostgrestException catch (e) {
         if (e.code == 'PGRST116') {
            debugPrint('🚨 KillSwitch: تم حجب المصنع (RLS Block). المصنع موقوف!');
-           await _executeForcedLogout(
+           await forceLogout(
              onForcedLogout: onForcedLogout,
              clearProfileFactoryId: false,
              reason: 'تم إيقاف اشتراك هذا المصنع. يرجى التواصل مع الإدارة.'
@@ -337,7 +331,7 @@ class KillSwitchService {
 
       if (isExplicitUnlink) {
         debugPrint('🚨 KillSwitch: الإدارة قامت بفك ارتباط الجهاز صراحةً! تنفيذ الطرد القسري...');
-        await _executeForcedLogout(onForcedLogout: onForcedLogout, reason: 'تم فك ارتباط الجهاز بواسطة الإدارة.');
+        await forceLogout(onForcedLogout: onForcedLogout, reason: 'تم فك ارتباط الجهاز بواسطة الإدارة.');
       } else if (isDeviceHijacked) {
         debugPrint('🔧 KillSwitch: اكتشاف تعارض في الـ device_id من Realtime. جاري الإصلاح الذاتي (Self-Healing)...');
         try {
@@ -369,7 +363,7 @@ class KillSwitchService {
       
       if (newRecord['status'] == 'suspended') {
         debugPrint('🚨 KillSwitch (_handleFactoryUpdate): المصنع موقوف مؤقتاً! تنفيذ الطرد القسري...');
-        _executeForcedLogout(reason: 'تم إيقاف اشتراك هذا المصنع. يرجى التواصل مع الإدارة.');
+        forceLogout(reason: 'تم إيقاف اشتراك هذا المصنع. يرجى التواصل مع الإدارة.');
       }
     } catch (e) {
       debugPrint('❌ KillSwitch._handleFactoryUpdate: $e');
@@ -400,7 +394,7 @@ class KillSwitchService {
 
       if (isExplicitUnlink) {
         debugPrint('🚨 KillSwitch (_handleWorkerUpdate): الإدارة قامت بفك ارتباط الجهاز صراحةً! تنفيذ الطرد القسري...');
-        _executeForcedLogout(reason: 'تم فك ارتباط الجهاز بواسطة الإدارة.');
+        forceLogout(reason: 'تم فك ارتباط الجهاز بواسطة الإدارة.');
       } else if (isDeviceHijacked) {
         final workerId = newRecord['id']?.toString();
         if (workerId != null) {
@@ -419,7 +413,7 @@ class KillSwitchService {
     }
   }
 
-  Future<void> _executeForcedLogout({
+  Future<void> forceLogout({
     Function(String)? onForcedLogout,
     bool clearProfileFactoryId = true,
     String reason = 'تم إغلاق الجلسة بواسطة الإدارة',

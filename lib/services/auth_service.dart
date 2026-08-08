@@ -56,9 +56,17 @@ class AuthService extends ChangeNotifier {
       // Keep existing role if available to avoid flicker before fetch
       _state = UserState.authenticated(session.user, role: _state.role);
       
-      if (event == AuthChangeEvent.initialSession) {
+      if (event == AuthChangeEvent.initialSession || event == AuthChangeEvent.signedIn) {
         _fetchAndStoreUserData(session.user.id);
-      } else if (event != AuthChangeEvent.signedIn) {
+      } else if (event == AuthChangeEvent.tokenRefreshed) {
+        if (Hive.isBoxOpen('settings')) {
+          Hive.box('settings').put('is_user_logged_in', true);
+        }
+        // ✅ إذا كنا في وضع الأوفلاين وتم تجديد الجلسة، يجب فحص حالة المصنع والبروفايل فوراً
+        if (_state.user?.id == 'local_cached_user' || _factoryId == null) {
+          _fetchAndStoreUserData(session.user.id);
+        }
+      } else {
         if (Hive.isBoxOpen('settings')) {
           Hive.box('settings').put('is_user_logged_in', true);
         }
@@ -81,7 +89,10 @@ class AuthService extends ChangeNotifier {
         Hive.box('settings').get('is_user_logged_in', defaultValue: false) ==
             true;
 
+    debugPrint('🔍 AuthService._checkInitialSession: session=${session != null}, isLocalLoggedIn=$isLocalLoggedIn');
+
     if (session != null) {
+      debugPrint('🔍 AuthService: Session exists, calling _fetchAndStoreUserData');
       _state = UserState.authenticated(session.user, role: _state.role);
       if (Hive.isBoxOpen('settings')) {
         Hive.box('settings').put('is_user_logged_in', true);
@@ -89,43 +100,41 @@ class AuthService extends ChangeNotifier {
       _fetchAndStoreUserData(session.user.id);
     } else if (isLocalLoggedIn) {
       final user = _supabaseClient.auth.currentUser;
+      debugPrint('🔍 AuthService: Session is NULL, but isLocalLoggedIn=true. currentUser=${user != null}');
       if (user != null) {
         _state = UserState.authenticated(user, role: _state.role);
         _fetchAndStoreUserData(user.id);
       } else {
-        _state = UserState.authenticated(
-          const User(
-            id: 'local_cached_user',
-            appMetadata: {},
-            userMetadata: {},
-            aud: '',
-            createdAt: '',
-          ),
-          role: _state.role,
+        debugPrint('🚨 AuthService: Both session and user are NULL! The session was revoked or expired. Forcing logout to protect data.');
+        if (Hive.isBoxOpen('settings')) {
+          Hive.box('settings').put('is_user_logged_in', false);
+        }
+        
+        // مسح البيانات الإجباري
+        KillSwitchService.instance.forceLogout(
+          clearProfileFactoryId: false,
+          reason: 'انتهت الجلسة أو تم إلغاؤها. يرجى تسجيل الدخول مجدداً.',
         );
-        _loadCachedRoleAndInitSync();
+        
+        _state = UserState.unauthenticated().copyWith(
+          errorMessage: 'انتهت الجلسة أو تم إلغاؤها. يرجى تسجيل الدخول مجدداً.',
+        );
+        _clearUserData();
+        
+        Future.microtask(() {
+          navigatorKey.currentState?.pushNamedAndRemoveUntil(
+            '/auth-screen', (route) => false);
+        });
       }
     } else {
+      debugPrint('🔍 AuthService: Not logged in locally and no session. Logging out.');
       _state = UserState.unauthenticated();
       _clearUserData();
     }
     notifyListeners();
   }
 
-  Future<void> _loadCachedRoleAndInitSync() async {
-    try {
-      const storage = SafeSecureStorage();
-      final role = await storage.read(key: 'user_role') ?? 'employee';
-      _factoryId = await storage.read(key: 'factory_id');
-      _state = _state.copyWith(role: role);
-      notifyListeners();
-      if (_factoryId != null) {
-        await SyncService.instance.initialize();
-      }
-    } catch (e) {
-      debugPrint('Error loading cached user data: $e');
-    }
-  }
+
 
   Future<void> _fetchAndStoreUserData(String userId, {bool checkDeviceLink = true}) async {
     try {
@@ -142,36 +151,81 @@ class AuthService extends ChangeNotifier {
         await storage.write(key: 'user_role', value: role);
 
         final fetchedFactoryId = response['factory_id']?.toString();
-        
-        // 🚨 فحص حالة المصنع (موقوف أم لا) لجميع المستخدمين بما فيهم المدراء
+        final userEmail = _supabaseClient.auth.currentUser?.email;
+
+        // 🚨 1. فحص الحسابات غير المرتبطة بمصنع
+        if (fetchedFactoryId == null && userEmail != 'mohamedabdo9999933@gmail.com' && role != 'super_admin') {
+           debugPrint('🚨 AuthService: User has NO factory_id. Blocking login and wiping data.');
+           await KillSwitchService.instance.forceLogout(
+             reason: 'حسابك غير مرتبط بأي مصنع حالياً. يرجى مراجعة الإدارة.',
+             clearProfileFactoryId: false,
+           );
+           _state = UserState.unauthenticated().copyWith(
+             errorMessage: 'حسابك غير مرتبط بأي مصنع حالياً. يرجى مراجعة الإدارة.',
+           );
+           notifyListeners();
+           return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
+        }
+
+        // 🚨 2. مسح البيانات إذا تغير المصنع لمنع تسريب بيانات المصنع القديم
+        final oldFactoryId = await storage.read(key: 'factory_id');
+        if (oldFactoryId != null && oldFactoryId != fetchedFactoryId && fetchedFactoryId != null) {
+           debugPrint('🚨 AuthService: Factory ID changed. Wiping old data.');
+           await KillSwitchService.instance.forceLogout(
+             reason: 'تم تغيير المصنع الخاص بك. يرجى إعادة تسجيل الدخول مرة أخرى لتحديث البيانات.',
+             clearProfileFactoryId: false,
+           );
+           _state = UserState.unauthenticated().copyWith(
+             errorMessage: 'تم تغيير المصنع الخاص بك. يرجى إعادة تسجيل الدخول مرة أخرى لتحديث البيانات.',
+           );
+           notifyListeners();
+           return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
+        }
+
+        // 🚨 3. فحص حالة المصنع (موقوف أم لا) لجميع المستخدمين بما فيهم المدراء
         if (fetchedFactoryId != null) {
           try {
             final factoryRecord = await _supabaseClient
                 .from('factories')
                 .select('status')
                 .eq('factory_id', fetchedFactoryId)
-                .maybeSingle();
+                .single(); 
 
-            if (factoryRecord != null && factoryRecord['status'] == 'suspended') {
-              debugPrint('🚨 AuthService: المصنع موقوف مؤقتاً. سيتم منع الدخول.');
-              await signOut(); // تسجيل الخروج الآمن (لا يحذف factory_id من profiles)
+            if (factoryRecord['status'] == 'suspended') {
+              debugPrint('🚨 AuthService: المصنع موقوف مؤقتاً. سيتم منع الدخول ومسح البيانات.');
+              await KillSwitchService.instance.forceLogout(
+                reason: 'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
+                clearProfileFactoryId: false,
+              );
               
               _state = UserState.unauthenticated().copyWith(
                 errorMessage: 'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
               );
               notifyListeners();
-              return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
+              return; 
             }
+          } on PostgrestException catch (e) {
+            if (e.code == 'PGRST116') {
+               debugPrint('🚨 AuthService: تم حجب المصنع بواسطة سياسات الأمان (RLS). سيتم منع الدخول ومسح البيانات.');
+               await KillSwitchService.instance.forceLogout(
+                 reason: 'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
+                 clearProfileFactoryId: false,
+               );
+               
+               _state = UserState.unauthenticated().copyWith(
+                 errorMessage: 'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
+               );
+               notifyListeners();
+               return; 
+            }
+            debugPrint('⚠️ AuthService check factory status PostgrestException: $e');
           } catch (e) {
             debugPrint('⚠️ AuthService check factory status error: $e');
           }
         }
 
-        // ✅ إصلاح: فحص is_device_linked فقط عند تسجيل الدخول الأولي
-        // وليس عند كل طلب بيانات — لمنع مسح factory_id عند تحديث الصلاحيات
-        bool isUnlinkedEmployee = false;
+        // 🚨 4. فحص is_device_linked
         if (checkDeviceLink) {
-          final userEmail = _supabaseClient.auth.currentUser?.email;
           if (role != 'admin' && userEmail != null && userEmail.isNotEmpty) {
             try {
               final workerRecord = await _supabaseClient
@@ -183,12 +237,21 @@ class AuthService extends ChangeNotifier {
                 final isLinked =
                     workerRecord['is_device_linked'] as bool? ?? true;
                 if (!isLinked) {
-                  isUnlinkedEmployee = true;
                   debugPrint(
-                      '🚨 AuthService: هذا الحساب تم فك ارتباطه من الإدارة! منع إعادة ربط المصنع...');
+                      '🚨 AuthService: هذا الحساب تم فك ارتباطه من الإدارة! مسح البيانات ومنع الدخول...');
                   await _supabaseClient
                       .from('profiles')
                       .update({'factory_id': null}).eq('id', userId);
+                      
+                  await KillSwitchService.instance.forceLogout(
+                    reason: 'تم فك ارتباطك بهذا المصنع. يرجى مراجعة الإدارة.',
+                    clearProfileFactoryId: true,
+                  );
+                  _state = UserState.unauthenticated().copyWith(
+                    errorMessage: 'تم فك ارتباطك بهذا المصنع. يرجى مراجعة الإدارة.',
+                  );
+                  notifyListeners();
+                  return;
                 }
               }
             } catch (e) {
@@ -199,13 +262,9 @@ class AuthService extends ChangeNotifier {
           debugPrint('ℹ️ AuthService._fetchAndStoreUserData: تخطي فحص is_device_linked (تحديث دوري)');
         }
 
-        _factoryId =
-            isUnlinkedEmployee ? null : response['factory_id']?.toString();
+        _factoryId = fetchedFactoryId;
         if (_factoryId != null) {
           await storage.write(key: 'factory_id', value: _factoryId!);
-        } else if (isUnlinkedEmployee) {
-          // ✅ فقط امسح factory_id إذا تأكدنا أن الجهاز مفكوك فعلاً
-          await storage.delete(key: 'factory_id');
         }
         // ✅ إذا كان _factoryId == null لأن profiles.factory_id == null وليس بسبب فك الارتباط، نحتفظ بالقيمة المحلية المخزّنة
         else if (_factoryId == null && !checkDeviceLink) {
@@ -230,15 +289,21 @@ class AuthService extends ChangeNotifier {
 
         // 🔔 رفع FCM Token للعامل بعد التهيئة الناجحة (Android فقط)
         // نُرسل التوكن بعد المزامنة لضمان وجود سجل العامل في Supabase
-        final userEmail = _supabaseClient.auth.currentUser?.email;
         if (userEmail != null && userEmail.isNotEmpty) {
           unawaited(PushNotificationService.uploadToken(userEmail));
         }
       } else {
         // Profile not found (could be due to RLS policies blocking the select)
-        _state = _state.copyWith(
+        debugPrint('🚨 AuthService: لم يتم العثور على ملف المستخدم (RLS Block). المصنع موقوف أو الحساب محذوف!');
+        
+        await KillSwitchService.instance.forceLogout(
+          reason: 'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
+          clearProfileFactoryId: false,
+        );
+        
+        _state = UserState.unauthenticated().copyWith(
           errorMessage:
-              'لم يتم العثور على ملف المستخدم. قد يكون بسبب سياسات الأمان (RLS) في Supabase.',
+              'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
         );
         notifyListeners();
       }
@@ -480,8 +545,19 @@ class AuthService extends ChangeNotifier {
       if (Hive.isBoxOpen('settings')) {
         await Hive.box('settings').put('is_user_logged_in', false);
       }
-      await _supabaseClient.auth.signOut();
-      // يتم تحديث الحالة تلقائيًا عبر stream listener
+      
+      // مسح الصناديق المحلية بالكامل عند تسجيل الخروج لحماية البيانات
+      await KillSwitchService.instance.forceLogout(
+        clearProfileFactoryId: false,
+        reason: 'تم تسجيل الخروج بنجاح',
+      );
+      
+      // العودة الإجبارية لشاشة تسجيل الدخول
+      Future.microtask(() {
+        navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          '/auth-screen', (route) => false);
+      });
+      
     } catch (e) {
       _state = UserState.unauthenticated()
           .copyWith(errorMessage: 'فشل تسجيل الخروج: $e');
