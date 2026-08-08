@@ -178,15 +178,15 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
     // ② التحقق من تكرار اسم العميل (في وضع الإضافة فقط)
     if (widget.existingDataKey == null && widget.clientName == null) {
-      final String newClientLower = clientName.toLowerCase();
+      final String newClientNormalized = _normalizeString(clientName);
       bool clientAlreadyExists = false;
 
       for (var i = 0; i < _savedSheetSizesBox.length; i++) {
         final record = _savedSheetSizesBox.getAt(i);
         if (record is Map) {
           final existingClient =
-              (record['clientName'] ?? '').toString().trim().toLowerCase();
-          if (existingClient == newClientLower) {
+              _normalizeString((record['clientName'] ?? '').toString());
+          if (existingClient == newClientNormalized) {
             clientAlreadyExists = true;
             break;
           }

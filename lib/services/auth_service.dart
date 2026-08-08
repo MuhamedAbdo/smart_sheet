@@ -55,12 +55,13 @@ class AuthService extends ChangeNotifier {
     if (session != null) {
       // Keep existing role if available to avoid flicker before fetch
       _state = UserState.authenticated(session.user, role: _state.role);
-      if (Hive.isBoxOpen('settings')) {
-        Hive.box('settings').put('is_user_logged_in', true);
-      }
-      if (event == AuthChangeEvent.signedIn ||
-          event == AuthChangeEvent.initialSession) {
+      
+      if (event == AuthChangeEvent.initialSession) {
         _fetchAndStoreUserData(session.user.id);
+      } else if (event != AuthChangeEvent.signedIn) {
+        if (Hive.isBoxOpen('settings')) {
+          Hive.box('settings').put('is_user_logged_in', true);
+        }
       }
     } else {
       final isLocalLoggedIn = Hive.isBoxOpen('settings') &&
@@ -140,6 +141,32 @@ class AuthService extends ChangeNotifier {
         final role = response['role']?.toString() ?? 'employee';
         await storage.write(key: 'user_role', value: role);
 
+        final fetchedFactoryId = response['factory_id']?.toString();
+        
+        // 🚨 فحص حالة المصنع (موقوف أم لا) لجميع المستخدمين بما فيهم المدراء
+        if (fetchedFactoryId != null) {
+          try {
+            final factoryRecord = await _supabaseClient
+                .from('factories')
+                .select('status')
+                .eq('factory_id', fetchedFactoryId)
+                .maybeSingle();
+
+            if (factoryRecord != null && factoryRecord['status'] == 'suspended') {
+              debugPrint('🚨 AuthService: المصنع موقوف مؤقتاً. سيتم منع الدخول.');
+              await signOut(); // تسجيل الخروج الآمن (لا يحذف factory_id من profiles)
+              
+              _state = UserState.unauthenticated().copyWith(
+                errorMessage: 'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
+              );
+              notifyListeners();
+              return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
+            }
+          } catch (e) {
+            debugPrint('⚠️ AuthService check factory status error: $e');
+          }
+        }
+
         // ✅ إصلاح: فحص is_device_linked فقط عند تسجيل الدخول الأولي
         // وليس عند كل طلب بيانات — لمنع مسح factory_id عند تحديث الصلاحيات
         bool isUnlinkedEmployee = false;
@@ -191,6 +218,11 @@ class AuthService extends ChangeNotifier {
         }
 
         _state = _state.copyWith(role: role);
+        
+        if (Hive.isBoxOpen('settings')) {
+          Hive.box('settings').put('is_user_logged_in', true);
+        }
+        
         notifyListeners();
 
         // تفعيل Real-time channels والمزامنة المبدئية بعد تخزين factory_id
@@ -231,11 +263,22 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _supabaseClient.auth.signInWithPassword(
+      final res = await _supabaseClient.auth.signInWithPassword(
         email: email,
         password: password,
       );
-      // يتم تحديث الحالة تلقائيًا عبر stream listener
+      
+      if (res.session != null) {
+        // ننتظر تحميل بيانات المستخدم وحالة المصنع بدلاً من الاعتماد على الخلفية
+        await _fetchAndStoreUserData(res.session!.user.id);
+        
+        if (!isAuthenticated || _state.errorMessage != null) {
+           return _state.errorMessage ?? 'عفواً، لا يمكن تسجيل الدخول.';
+        }
+      }
+      
+      _state = _state.copyWith(isLoading: false);
+      notifyListeners();
       return null; // نجاح
     } on AuthException catch (e) {
       _state = _state.copyWith(isLoading: false, errorMessage: e.message);

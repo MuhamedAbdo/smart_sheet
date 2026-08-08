@@ -474,9 +474,8 @@ class _SmartSheetAppState extends State<SmartSheetApp>
       final factoryId = await storage.read(key: 'factory_id');
       final userRole = await storage.read(key: 'user_role');
 
-      // المستمع فقط للعمال المرتبطين (ليس للآدمن)
-      if (factoryId == null || userRole == 'admin') {
-        debugPrint('⏭️ KillSwitch: غير ممكّن (آدمن أو غير مرتبط بمصنع)');
+      if (factoryId == null) {
+        debugPrint('⏭️ KillSwitch: غير ممكّن (غير مرتبط بمصنع)');
         return;
       }
 
@@ -487,23 +486,23 @@ class _SmartSheetAppState extends State<SmartSheetApp>
       );
       if (loggedOut) return;
 
-      // 2. جلب معرّف العامل المحفوظ محلياً وبدء قناة الاستماع
-      final workerId = await KillSwitchService.instance.getLinkedWorkerId();
-      if (workerId != null && workerId.isNotEmpty) {
-        debugPrint('🔒 KillSwitch: تفعيل المستمع للعامل $workerId');
-        await KillSwitchService.instance.startListening(
-          workerId: workerId,
-          onForcedLogout: _onForcedLogout,
-        );
-      }
+      // 2. جلب معرّف العامل المحفوظ محلياً (إذا لم يكن آدمن) وبدء قناة الاستماع
+      final workerId = userRole == 'admin' ? null : await KillSwitchService.instance.getLinkedWorkerId();
+      
+      debugPrint('🔒 KillSwitch: تفعيل المستمع (Factory: $factoryId, Worker: $workerId)');
+      await KillSwitchService.instance.startListening(
+        factoryId: factoryId,
+        workerId: workerId,
+        onForcedLogout: _onForcedLogout,
+      );
     } catch (e) {
       debugPrint('❌ KillSwitch._startKillSwitchListener: $e');
     }
   }
 
   /// الطرد القسري من التطبيق وإعادة التوجيه لشاشة الربط.
-  void _onForcedLogout() {
-    debugPrint('🚨 KillSwitch: تنفيذ الطرد القسري...');
+  void _onForcedLogout(String message) {
+    debugPrint('🚨 KillSwitch: تنفيذ الطرد القسري... السبب: $message');
     // إعادة التوجيه لشاشة Auth (الربط بالمصنع)
     if (!mounted) return;
 
@@ -519,22 +518,22 @@ class _SmartSheetAppState extends State<SmartSheetApp>
     // عرض SnackBar بعد الانتقال
     WidgetsBinding.instance.addPostFrameCallback((_) {
       scaffoldMessengerKey.currentState?.showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Row(
             children: [
-              Icon(Icons.link_off, color: Colors.white),
-              SizedBox(width: 12),
+              const Icon(Icons.link_off, color: Colors.white),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'تم إغلاق الجلسة أو فك ارتباط الجهاز بواسطة الإدارة',
-                  style: TextStyle(color: Colors.white),
+                  message,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   textDirection: TextDirection.rtl,
                 ),
               ),
             ],
           ),
-          backgroundColor: Color(0xFFD32F2F),
-          duration: Duration(seconds: 6),
+          backgroundColor: const Color(0xFFD32F2F),
+          duration: const Duration(seconds: 6),
           behavior: SnackBarBehavior.floating,
         ),
       );

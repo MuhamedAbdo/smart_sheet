@@ -1,4 +1,4 @@
-﻿// lib/services/kill_switch_service.dart
+// lib/services/kill_switch_service.dart
 //
 // خدمة التحكم المركزي في أجهزة العمال (Remote Kill Switch)
 //
@@ -31,12 +31,13 @@ class KillSwitchService {
   final SupabaseClient _supabase = Supabase.instance.client;
   static const _storage = SafeSecureStorage();
 
-  RealtimeChannel? _channel;
+  RealtimeChannel? _workerChannel;
+  RealtimeChannel? _factoryChannel;
   String? _watchedWorkerId; // معرّف العامل المراقَب
   bool _isListening = false;
 
-  // Callback يُستدعى عند اكتشاف الطرد القسري (يُمرَّر من main.dart)
-  VoidCallback? _onForcedLogout;
+  // Callback يُستدعى عند اكتشاف الطرد القسري مع سبب الطرد (يُمرَّر من main.dart)
+  Function(String message)? _onForcedLogout;
 
   // ==============================================================================
   // Public API
@@ -47,71 +48,68 @@ class KillSwitchService {
   /// [workerId]        : معرّف سجل العامل في جدول workers
   /// [onForcedLogout]  : callback يُستدعى فور اكتشاف فك الارتباط
   Future<void> startListening({
-    required String workerId,
-    required VoidCallback onForcedLogout,
+    required String factoryId,
+    String? workerId,
+    required Function(String message) onForcedLogout,
   }) async {
-    // تفادي الاشتراك المزدوج
-    if (_isListening && _watchedWorkerId == workerId) {
-      debugPrint('🔒 KillSwitch: الاستماع نشط بالفعل للعامل $workerId');
-      return;
-    }
-
     await stopListening(); // إغلاق أي قناة سابقة
 
-    _watchedWorkerId = workerId;
     _onForcedLogout = onForcedLogout;
     _isListening = true;
+    _watchedWorkerId = workerId;
 
-    // جلب device_id المحلي للمقارنة
-    final localDeviceId = await DeviceManager.getDeviceId();
-    debugPrint('🔒 KillSwitch: بدء الاستماع | workerId=$workerId | localDevice=$localDeviceId');
+    debugPrint('🔒 KillSwitch: بدء الاستماع | factoryId=$factoryId | workerId=$workerId');
 
-    _channel = _supabase
-        .channel('kill_switch_worker_$workerId')
+    // 1. استماع لجدول المصانع (لكافة المستخدمين)
+    _factoryChannel = _supabase
+        .channel('kill_switch_factory_$factoryId')
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
-          table: 'workers',
+          table: 'factories',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'id',
-            value: workerId,
+            column: 'factory_id',
+            value: factoryId,
           ),
-          callback: (payload) {
-            _handleWorkerUpdate(payload, localDeviceId);
-          },
+          callback: _handleFactoryUpdate,
         )
-        .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('✅ KillSwitch: مُشترك في قناة مراقبة العامل $workerId');
-          } else if (status == RealtimeSubscribeStatus.channelError ||
-              status == RealtimeSubscribeStatus.timedOut) {
-            debugPrint('⚠️ KillSwitch: خطأ في القناة ($status): $error');
-            // إعادة المحاولة بعد 10 ثوانٍ
-            Future.delayed(const Duration(seconds: 10), () {
-              if (_isListening && _watchedWorkerId == workerId) {
-                debugPrint('🔄 KillSwitch: إعادة الاتصال...');
-                startListening(
-                  workerId: workerId,
-                  onForcedLogout: onForcedLogout,
-                );
-              }
-            });
-          }
-        });
+        .subscribe();
+
+    // 2. استماع لجدول العمال (للعمال المحددين فقط)
+    if (workerId != null && workerId.isNotEmpty) {
+      final localDeviceId = await DeviceManager.getDeviceId();
+      _workerChannel = _supabase
+          .channel('kill_switch_worker_$workerId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'public',
+            table: 'workers',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'id',
+              value: workerId,
+            ),
+            callback: (payload) {
+              _handleWorkerUpdate(payload, localDeviceId);
+            },
+          )
+          .subscribe();
+    }
   }
 
   /// إيقاف الاستماع وإغلاق القناة.
   Future<void> stopListening() async {
-    if (_channel != null) {
-      try {
-        await _supabase.removeChannel(_channel!);
-        debugPrint('🔒 KillSwitch: تم إغلاق قناة المراقبة');
-      } catch (e) {
-        debugPrint('⚠️ KillSwitch: خطأ عند إغلاق القناة: $e');
-      }
-      _channel = null;
+    if (_workerChannel != null) {
+      try { await _supabase.removeChannel(_workerChannel!); } catch (_) {}
+      _workerChannel = null;
     }
+    if (_factoryChannel != null) {
+      try { await _supabase.removeChannel(_factoryChannel!); } catch (_) {}
+      _factoryChannel = null;
+    }
+    debugPrint('🔒 KillSwitch: تم إغلاق قنوات المراقبة');
+
     _isListening = false;
     _watchedWorkerId = null;
     _onForcedLogout = null;
@@ -203,75 +201,98 @@ class KillSwitchService {
   }
 
   /// فحص مباشر لحالة ارتباط الجهاز من Supabase (عند بدء أو استئناف التطبيق).
-  Future<bool> checkAndEnforceKillSwitch({VoidCallback? onForcedLogout}) async {
+  Future<bool> checkAndEnforceKillSwitch({Function(String)? onForcedLogout}) async {
     try {
-      final userRole = await _storage.read(key: 'user_role');
-      final factoryId = await _storage.read(key: 'factory_id');
-      if (userRole == 'admin' || factoryId == null) return false;
-
-      final linkedWorkerId = await getLinkedWorkerId();
-      final currentUserEmail = _supabase.auth.currentUser?.email;
-      if ((linkedWorkerId == null || linkedWorkerId.isEmpty) &&
-          (currentUserEmail == null || currentUserEmail.isEmpty)) {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        debugPrint('⏭️ KillSwitch: لا يوجد مستخدم مسجل دخول في Auth.');
         return false;
       }
 
-      Map<String, dynamic>? record;
-      if (linkedWorkerId != null && linkedWorkerId.isNotEmpty) {
-        record = await _supabase
-            .from('workers')
-            .select('id, is_device_linked, device_id')
-            .eq('id', linkedWorkerId)
-            .maybeSingle();
-      }
-      if (record == null && currentUserEmail != null && currentUserEmail.isNotEmpty) {
-        record = await _supabase
-            .from('workers')
-            .select('id, is_device_linked, device_id')
-            .eq('email', currentUserEmail)
-            .maybeSingle();
+      // 1. حماية السوبر آدمن
+      if (user.email == 'mohamedabdo9999933@gmail.com') {
+        debugPrint('⏭️ KillSwitch: تخطي الفحص لحساب Super Admin.');
+        return false;
       }
 
-      if (record != null) {
-        final recordId = record['id']?.toString();
-        if (linkedWorkerId == null && recordId != null) {
-          await _storage.write(key: 'linked_worker_id', value: recordId);
+      String? factoryId;
+
+      // 2. جلب factory_id من profiles باستخدام single() الإجبارية
+      try {
+        debugPrint('⏳ KillSwitch: جاري فحص جدول profiles...');
+        final profileData = await _supabase
+            .from('profiles')
+            .select('factory_id')
+            .eq('id', user.id)
+            .single(); 
+            
+        factoryId = profileData['factory_id'] as String?;
+        debugPrint('✅ KillSwitch: تم العثور على factory_id: $factoryId');
+        
+      } on PostgrestException catch (e) {
+        // PGRST116 يعني أن RLS منع القراءة = المصنع موقوف!
+        if (e.code == 'PGRST116') {
+           debugPrint('🚨 KillSwitch: تم حجب البروفايل (RLS Block). المصنع موقوف!');
+           await _executeForcedLogout(
+             onForcedLogout: onForcedLogout,
+             clearProfileFactoryId: false,
+             reason: 'تم إيقاف اشتراك هذا المصنع. يرجى التواصل مع الإدارة.'
+           );
+           return true;
         }
-        final bool isLinked = record['is_device_linked'] as bool? ?? true; // افترض الارتباط إذا لم يكن الحقل موجودًا لتجنب الطرد الخاطئ
-        final String? remoteDeviceId = record['device_id']?.toString();
-        final localDeviceId = await DeviceManager.getDeviceId();
-
-        final bool isExplicitUnlink = !isLinked;
-        final bool isDeviceHijacked = (remoteDeviceId != null &&
-            remoteDeviceId.isNotEmpty &&
-            remoteDeviceId != localDeviceId);
-
-        if (isExplicitUnlink) {
-          debugPrint('🚨 KillSwitch: الإدارة قامت بفك ارتباط الجهاز صراحةً! تنفيذ الطرد القسري...');
-          await _executeForcedLogout(onForcedLogout);
-          return true;
-        } else if (isDeviceHijacked) {
-          debugPrint('🔧 KillSwitch (DirectCheck): اكتشاف تعارض في الـ device_id (ربما بعد استعادة نسخة). جاري الإصلاح الذاتي (Self-Healing)...');
-          try {
-             if (recordId != null) {
-               await _supabase.from('workers').update({'device_id': localDeviceId}).eq('id', recordId);
-               debugPrint('✅ KillSwitch: تم الإصلاح الذاتي وتحديث device_id في السحابة.');
-             }
-          } catch(e) {
-             debugPrint('⚠️ KillSwitch: فشل الإصلاح الذاتي: $e');
-          }
-        } else {
-          debugPrint('ℹ️ KillSwitch (DirectCheck): فحص مباشر سليم — لا طرد.');
-        }
+        debugPrint('⚠️ KillSwitch: خطأ في الشبكة أو قاعدة البيانات: ${e.message}');
       }
+
+      // إذا لم يجد المصنع في السيرفر، نحاول جلبه من التخزين المحلي كخطة بديلة
+      factoryId ??= await _storage.read(key: 'factory_id');
+
+      if (factoryId == null) {
+        debugPrint('⏭️ KillSwitch: غير ممكّن (غير مرتبط بمصنع).');
+        return false;
+      }
+
+      // 3. التأكد من حالة المصنع في جدول factories
+      try {
+        debugPrint('⏳ KillSwitch: جاري فحص حالة المصنع $factoryId...');
+        final factoryRecord = await _supabase
+            .from('factories')
+            .select('status')
+            .eq('factory_id', factoryId)
+            .single();
+
+        if (factoryRecord['status'] == 'suspended') {
+           debugPrint('🚨 KillSwitch: المصنع موقوف صراحة (status = suspended).');
+           await _executeForcedLogout(
+             onForcedLogout: onForcedLogout,
+             clearProfileFactoryId: false,
+             reason: 'تم إيقاف اشتراك هذا المصنع. يرجى التواصل مع الإدارة.'
+           );
+           return true;
+        }
+      } on PostgrestException catch (e) {
+        if (e.code == 'PGRST116') {
+           debugPrint('🚨 KillSwitch: تم حجب المصنع (RLS Block). المصنع موقوف!');
+           await _executeForcedLogout(
+             onForcedLogout: onForcedLogout,
+             clearProfileFactoryId: false,
+             reason: 'تم إيقاف اشتراك هذا المصنع. يرجى التواصل مع الإدارة.'
+           );
+           return true;
+        }
+        debugPrint('⚠️ KillSwitch: خطأ في فحص المصنع: ${e.message}');
+      }
+
+      debugPrint('✅ KillSwitch: المصنع نشط والأمور طبيعية.');
+      return false;
+
     } catch (e) {
-      debugPrint('⚠️ KillSwitch.checkAndEnforceKillSwitch: $e');
+      debugPrint('❌ KillSwitch خطأ عام: $e');
+      return false;
     }
-    return false;
   }
 
   /// معالجة أي تحديث يصل من WorkersSync لجدول workers وتنفيذ الطرد فوراً إذا كان يخص هذا الجهاز.
-  Future<void> handleRealtimeWorkerRecord(Map<String, dynamic> record, {VoidCallback? onForcedLogout}) async {
+  Future<void> handleRealtimeWorkerRecord(Map<String, dynamic> record, {Function(String)? onForcedLogout}) async {
     try {
       final userRole = await _storage.read(key: 'user_role');
       final factoryId = await _storage.read(key: 'factory_id');
@@ -316,7 +337,7 @@ class KillSwitchService {
 
       if (isExplicitUnlink) {
         debugPrint('🚨 KillSwitch: الإدارة قامت بفك ارتباط الجهاز صراحةً! تنفيذ الطرد القسري...');
-        await _executeForcedLogout(onForcedLogout);
+        await _executeForcedLogout(onForcedLogout: onForcedLogout, reason: 'تم فك ارتباط الجهاز بواسطة الإدارة.');
       } else if (isDeviceHijacked) {
         debugPrint('🔧 KillSwitch: اكتشاف تعارض في الـ device_id من Realtime. جاري الإصلاح الذاتي (Self-Healing)...');
         try {
@@ -340,6 +361,20 @@ class KillSwitchService {
   // ==============================================================================
   // Private: معالجة تغييرات Realtime
   // ==============================================================================
+
+  void _handleFactoryUpdate(PostgresChangePayload payload) {
+    try {
+      final newRecord = payload.newRecord;
+      if (newRecord.isEmpty) return;
+      
+      if (newRecord['status'] == 'suspended') {
+        debugPrint('🚨 KillSwitch (_handleFactoryUpdate): المصنع موقوف مؤقتاً! تنفيذ الطرد القسري...');
+        _executeForcedLogout(reason: 'تم إيقاف اشتراك هذا المصنع. يرجى التواصل مع الإدارة.');
+      }
+    } catch (e) {
+      debugPrint('❌ KillSwitch._handleFactoryUpdate: $e');
+    }
+  }
 
   void _handleWorkerUpdate(
       PostgresChangePayload payload, String localDeviceId) {
@@ -365,7 +400,7 @@ class KillSwitchService {
 
       if (isExplicitUnlink) {
         debugPrint('🚨 KillSwitch (_handleWorkerUpdate): الإدارة قامت بفك ارتباط الجهاز صراحةً! تنفيذ الطرد القسري...');
-        _executeForcedLogout();
+        _executeForcedLogout(reason: 'تم فك ارتباط الجهاز بواسطة الإدارة.');
       } else if (isDeviceHijacked) {
         final workerId = newRecord['id']?.toString();
         if (workerId != null) {
@@ -384,11 +419,15 @@ class KillSwitchService {
     }
   }
 
-  Future<void> _executeForcedLogout([VoidCallback? onForcedLogout]) async {
+  Future<void> _executeForcedLogout({
+    Function(String)? onForcedLogout,
+    bool clearProfileFactoryId = true,
+    String reason = 'تم إغلاق الجلسة بواسطة الإدارة',
+  }) async {
     try {
       // 0. تصفير factory_id في السحاب (profiles) للمستخدم الحالي لمنع إعادة ربطه تلقائياً عند تسجيل الدخول مجدداً
       final currentUser = _supabase.auth.currentUser;
-      if (currentUser != null) {
+      if (currentUser != null && clearProfileFactoryId) {
         try {
           await _supabase.from('profiles').update({
             'factory_id': null,
@@ -421,6 +460,11 @@ class KillSwitchService {
         'store_flexo',
         'maintenance_records_main',
         'flexo_machines',
+        'factory_schedule',
+        'sync_queue',
+        'die_cutting_forms',
+        'die_cutting_production_reports',
+        'serial_setup_state',
       ];
       for (final boxName in hiveBoxesToClear) {
         try {
@@ -450,7 +494,7 @@ class KillSwitchService {
 
       // 5. استدعاء الـ callback للطرد من الـ UI
       final callback = onForcedLogout ?? _onForcedLogout;
-      callback?.call();
+      callback?.call(reason);
     } catch (e) {
       debugPrint('❌ KillSwitch._executeForcedLogout: $e');
     }
