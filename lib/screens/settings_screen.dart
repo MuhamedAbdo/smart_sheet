@@ -65,7 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Expanded(flex: 2, child: FactoryScheduleCard()),
+                      Expanded(flex: 2, child: FactoryScheduleCard(isAdmin: isAdmin)),
                       const SizedBox(width: 16),
                       Expanded(flex: 1, child: _buildAboutCard(context)),
                     ],
@@ -84,7 +84,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     isAdmin: isAdmin,
                   ),
                   const SizedBox(height: 16),
-                  const FactoryScheduleCard(),
+                  FactoryScheduleCard(isAdmin: isAdmin),
                   const SizedBox(height: 16),
                   _buildAboutCard(context),
                 ],
@@ -257,7 +257,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           final payload = {
                             'shift_start_time': fmtTime(picked),
                             'shift_end_time': fmtTime(themeProvider.shiftEnd),
+                            'shift_start_hour': picked.hour,
+                            'shift_start_minute': picked.minute,
+                            'shift_end_hour': themeProvider.shiftEnd.hour,
+                            'shift_end_minute': themeProvider.shiftEnd.minute,
+                            'shift_hours': totalHours, // it's already calculated, but wait, `totalHours` was calculated before picked.
                           };
+                          
+                          // Recalculate totalHours with the new start time
+                          double newTotalHours = themeProvider.shiftEnd.hour + 
+                              themeProvider.shiftEnd.minute / 60.0 - 
+                              (picked.hour + picked.minute / 60.0);
+                          if (newTotalHours < 0) newTotalHours += 24;
+                          payload['shift_hours'] = newTotalHours;
+
                           final updatedRows = await client
                               .from('factories')
                               .update(payload)
@@ -312,7 +325,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'shift_start_time':
                                 fmtTime(themeProvider.shiftStart),
                             'shift_end_time': fmtTime(picked),
+                            'shift_start_hour': themeProvider.shiftStart.hour,
+                            'shift_start_minute': themeProvider.shiftStart.minute,
+                            'shift_end_hour': picked.hour,
+                            'shift_end_minute': picked.minute,
                           };
+                          
+                          // Recalculate totalHours with the new end time
+                          double newTotalHours = picked.hour + 
+                              picked.minute / 60.0 - 
+                              (themeProvider.shiftStart.hour + themeProvider.shiftStart.minute / 60.0);
+                          if (newTotalHours < 0) newTotalHours += 24;
+                          payload['shift_hours'] = newTotalHours;
+
                           final updatedRows = await client
                               .from('factories')
                               .update(payload)

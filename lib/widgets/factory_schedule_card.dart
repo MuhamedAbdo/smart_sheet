@@ -11,11 +11,12 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
-import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 
 class FactoryScheduleCard extends StatelessWidget {
-  const FactoryScheduleCard({super.key});
+  final bool isAdmin;
+
+  const FactoryScheduleCard({super.key, required this.isAdmin});
 
   // ─── تحويل '08:00 AM' → TimeOfDay ──────────────────────────────────────
   static TimeOfDay _parseTime(String raw) {
@@ -52,8 +53,6 @@ class FactoryScheduleCard extends StatelessWidget {
     return ValueListenableBuilder<Box<DaySchedule>>(
       valueListenable: box.listenable(),
       builder: (context, scheduleBox, _) {
-        final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
-
         return Card(
           elevation: 2,
           child: Padding(
@@ -65,7 +64,8 @@ class FactoryScheduleCard extends StatelessWidget {
                 // ─── عنوان الكارت ───────────────────────────────────────
                 Row(
                   children: [
-                    const Icon(Icons.calendar_month, color: Colors.teal, size: 20),
+                    const Icon(Icons.calendar_month,
+                        color: Colors.teal, size: 20),
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
@@ -74,7 +74,7 @@ class FactoryScheduleCard extends StatelessWidget {
                             fontSize: 17, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    if (isSuperAdmin)
+                    if (isAdmin)
                       const Tooltip(
                         message: 'أنت مسجّل كمسؤول — يمكنك التعديل',
                         child: Icon(Icons.admin_panel_settings,
@@ -90,13 +90,13 @@ class FactoryScheduleCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
 
-                if (!isSuperAdmin)
+                if (!isAdmin)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
                       'يمكنك رؤية الجدول فقط، لا يحق لك تعديله.',
-                      style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade500),
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     ),
                   ),
 
@@ -108,7 +108,7 @@ class FactoryScheduleCard extends StatelessWidget {
                   if (schedule == null) return const SizedBox.shrink();
                   return _DayRow(
                     schedule: schedule,
-                    isSuperAdmin: isSuperAdmin,
+                    isAdmin: isAdmin,
                     onToggleWorkDay: (val) async {
                       schedule.isWorkingDay = val;
                       await schedule.save();
@@ -166,7 +166,8 @@ class FactoryScheduleCard extends StatelessWidget {
       await Supabase.instance.client
           .from('factory_schedule')
           .upsert(payload, onConflict: 'day_name');
-      debugPrint('✅ [factory_schedule] تم رفع ${schedule.dayName} إلى Supabase.');
+      debugPrint(
+          '✅ [factory_schedule] تم رفع ${schedule.dayName} إلى Supabase.');
     } catch (e) {
       debugPrint('❌ [factory_schedule] فشل الرفع: $e');
     }
@@ -176,14 +177,14 @@ class FactoryScheduleCard extends StatelessWidget {
 // ─── صف يوم واحد ────────────────────────────────────────────────────────────
 class _DayRow extends StatelessWidget {
   final DaySchedule schedule;
-  final bool isSuperAdmin;
+  final bool isAdmin;
   final ValueChanged<bool> onToggleWorkDay;
   final VoidCallback onPickStart;
   final VoidCallback onPickEnd;
 
   const _DayRow({
     required this.schedule,
-    required this.isSuperAdmin,
+    required this.isAdmin,
     required this.onToggleWorkDay,
     required this.onPickStart,
     required this.onPickEnd,
@@ -218,7 +219,7 @@ class _DayRow extends StatelessWidget {
                 scale: 0.80,
                 child: Switch(
                   value: schedule.isWorkingDay,
-                  onChanged: isSuperAdmin ? onToggleWorkDay : null,
+                  onChanged: isAdmin ? onToggleWorkDay : null,
                   activeTrackColor: Colors.teal,
                   inactiveThumbColor: disabledColor,
                 ),
@@ -239,7 +240,7 @@ class _DayRow extends StatelessWidget {
                   child: _TimeChip(
                     label: 'بداية',
                     value: schedule.shiftStart,
-                    enabled: isSuperAdmin,
+                    enabled: isAdmin,
                     onTap: onPickStart,
                   ),
                 ),
@@ -252,7 +253,7 @@ class _DayRow extends StatelessWidget {
                   child: _TimeChip(
                     label: 'نهاية',
                     value: schedule.shiftEnd,
-                    enabled: isSuperAdmin,
+                    enabled: isAdmin,
                     onTap: onPickEnd,
                   ),
                 ),
@@ -294,10 +295,7 @@ class _TimeChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: enabled
-                ? Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withValues(alpha: 0.3)
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)
                 : Colors.grey.shade300,
           ),
         ),

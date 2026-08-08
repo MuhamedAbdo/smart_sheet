@@ -30,7 +30,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
       });
 
       try {
-        print('🔥 جاري إرسال الطلب إلى الدالة السحابية...');
+        debugPrint('🔥 جاري إرسال الطلب إلى الدالة السحابية...');
         await Supabase.instance.client.functions.invoke(
           'create_factory_admin',
           body: {
@@ -40,7 +40,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           },
         );
 
-        print('✅ تم تنفيذ الطلب بنجاح!');
+        debugPrint('✅ تم تنفيذ الطلب بنجاح!');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -53,20 +53,30 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
         _adminEmailController.clear();
         _adminPasswordController.clear();
       } on FunctionException catch (e) {
-        print('❌ FunctionException Caught!');
-        print('تفاصيل الخطأ (Details): ${e.details}');
-        print('حالة الرد (Reason): ${e.reasonPhrase}');
+        debugPrint('❌ FunctionException Caught!');
+        debugPrint('تفاصيل الخطأ (Details): ${e.details}');
+        debugPrint('حالة الرد (Reason): ${e.reasonPhrase}');
 
         if (!mounted) return;
+        
+        String errorMessage = 'حدث خطأ غير متوقع';
+        if (e.details is Map && (e.details as Map).containsKey('error')) {
+          errorMessage = (e.details as Map)['error'].toString();
+        } else if (e.details != null) {
+          errorMessage = e.details.toString();
+        } else if (e.reasonPhrase != null) {
+          errorMessage = e.reasonPhrase!;
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                "خطأ: ${e.reasonPhrase ?? e.details ?? 'حدث خطأ من السيرفر'}"),
+            content: Text("فشل: $errorMessage"),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       } catch (e) {
-        print('❌ General Error Caught: $e');
+        debugPrint('❌ General Error Caught: $e');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
