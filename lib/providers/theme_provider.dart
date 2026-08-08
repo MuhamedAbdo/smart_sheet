@@ -10,17 +10,23 @@ class ThemeProvider with ChangeNotifier {
   static const String _shiftStartMinuteKey = 'shiftStartMinute';
   static const String _shiftEndHourKey = 'shiftEndHour';
   static const String _shiftEndMinuteKey = 'shiftEndMinute';
+  static const String _printedFactoryNameKey = 'printedFactoryName';
+  static const String _factoryLogoBase64Key = 'factoryLogoBase64';
   static const String _boxName = 'settings';
 
   bool _isDarkTheme = false;
   double _fontScale = 1.0;
   TimeOfDay _shiftStart = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay _shiftEnd = const TimeOfDay(hour: 16, minute: 0);
+  String _printedFactoryName = "العاشر للطباعة والنشر والتغليف\n( كازنبرس )";
+  String? _factoryLogoBase64;
 
   bool get isDarkTheme => _isDarkTheme;
   double get fontScale => _fontScale;
   TimeOfDay get shiftStart => _shiftStart;
   TimeOfDay get shiftEnd => _shiftEnd;
+  String get printedFactoryName => _printedFactoryName;
+  String? get factoryLogoBase64 => _factoryLogoBase64;
 
   ThemeProvider() {
     _loadSettings();
@@ -43,6 +49,9 @@ class ThemeProvider with ChangeNotifier {
       final endH = box.get(_shiftEndHourKey, defaultValue: 16) as int;
       final endM = box.get(_shiftEndMinuteKey, defaultValue: 0) as int;
       _shiftEnd = TimeOfDay(hour: endH, minute: endM);
+
+      _printedFactoryName = box.get(_printedFactoryNameKey, defaultValue: "العاشر للطباعة والنشر والتغليف\n( كازنبرس )") as String;
+      _factoryLogoBase64 = box.get(_factoryLogoBase64Key) as String?;
 
       notifyListeners();
     } catch (e) {
@@ -93,6 +102,32 @@ class ThemeProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error setting shift end: $e');
+    }
+  }
+
+  Future<void> setPrintedFactoryName(String name) async {
+    try {
+      _printedFactoryName = name;
+      final box = await Hive.openBox(_boxName);
+      await box.put(_printedFactoryNameKey, _printedFactoryName);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error setting printed factory name: $e');
+    }
+  }
+
+  Future<void> setFactoryLogoBase64(String? base64Str) async {
+    try {
+      _factoryLogoBase64 = base64Str;
+      final box = await Hive.openBox(_boxName);
+      if (base64Str == null || base64Str.isEmpty) {
+        await box.delete(_factoryLogoBase64Key);
+      } else {
+        await box.put(_factoryLogoBase64Key, base64Str);
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error setting factory logo: $e');
     }
   }
 

@@ -1,8 +1,11 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image/image.dart' as img;
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/about_screen.dart';
 import 'package:smart_sheet/screens/backup_restore_screen.dart';
@@ -227,6 +230,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
 
+            // ─── شعار المصنع (لوجو) ────────────────────────────────────
+            ListTile(
+              leading: const Icon(Icons.image, color: Colors.purple),
+              title: const Text("شعار المصنع (لوجو)"),
+              subtitle: const Text("يظهر كعلامة مائية في أمر التشغيل"),
+              trailing: isAdmin ? const Icon(Icons.upload, size: 18) : null,
+              onTap: isAdmin ? () => _pickAndUploadLogo(context, themeProvider) : null,
+            ),
+            const Divider(),
+
+            // ─── إسم المصنع المطبوع ────────────────────────────────────
+            ListTile(
+              leading: const Icon(Icons.print, color: Colors.blue),
+              title: const Text("إسم المصنع في الطباعة"),
+              subtitle: Text(themeProvider.printedFactoryName, maxLines: 2, overflow: TextOverflow.ellipsis),
+              trailing: isAdmin ? const Icon(Icons.edit, size: 18) : null,
+              onTap: isAdmin ? () => _editPrintedFactoryName(context, themeProvider) : null,
+            ),
+            const Divider(),
+
             // ─── بداية الوردية ──────────────────────────────────────────
             ListTile(
               leading: const Icon(Icons.access_time, color: Colors.orange),
@@ -433,5 +456,115 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _editPrintedFactoryName(BuildContext context, ThemeProvider themeProvider) async {
+    final controller = TextEditingController(text: themeProvider.printedFactoryName);
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("تعديل إسم المصنع في الطباعة"),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: "أدخل إسم المصنع (يمكنك استخدام أكثر من سطر)",
+                border: OutlineInputBorder(),
+              ),
+              validator: (val) => val == null || val.trim().isEmpty ? "الرجاء إدخال إسم المصنع" : null,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("إلغاء"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(ctx, controller.text.trim());
+                }
+              },
+              child: const Text("حفظ"),
+            ),
+          ],
+        );
+      }
+    );
+
+    if (result != null && result != themeProvider.printedFactoryName) {
+      await themeProvider.setPrintedFactoryName(result);
+      
+      final factoryId = await SupabaseManager.getFactoryId();
+      if (factoryId != null) {
+        try {
+          final client = Supabase.instance.client;
+          await client.from('factories').update({
+            'print_factory_name': result,
+          }).eq('factory_id', factoryId);
+          debugPrint('✅ [factories] تم رفع إسم المصنع للطباعة');
+        } catch (e) {
+          debugPrint('❌ [factories] فشل رفع إسم المصنع للطباعة: $e');
+        }
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadLogo(BuildContext context, ThemeProvider themeProvider) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final bytes = result.files.first.bytes;
+        if (bytes != null) {
+          // ضغط الصورة (Max width: 250)
+          final originalImage = img.decodeImage(bytes);
+          if (originalImage != null) {
+            final resized = img.copyResize(originalImage, width: 250);
+            final compressedBytes = img.encodePng(resized);
+            final base64String = base64Encode(compressedBytes);
+            
+            await themeProvider.setFactoryLogoBase64(base64String);
+
+            final factoryId = await SupabaseManager.getFactoryId();
+            if (factoryId != null) {
+              try {
+                await Supabase.instance.client.from('factories').update({
+                  'factory_logo_base64': base64String,
+                }).eq('factory_id', factoryId);
+              } catch (dbError) {
+                debugPrint("❌ [factories] فشل رفع الشعار للسحابة (قد يكون العمود مفقوداً): $dbError");
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('تم حفظ الشعار محلياً، لكن فشل الرفع للسحابة (يرجى إضافة العمود)'), backgroundColor: Colors.orange),
+                  );
+                }
+              }
+            }
+            
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('تم حفظ الشعار بنجاح!'), backgroundColor: Colors.green),
+              );
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error picking logo: $e");
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('فشل اختيار الشعار'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }

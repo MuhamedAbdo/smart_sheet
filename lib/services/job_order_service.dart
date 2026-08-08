@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../utils/arabic_pdf_helper.dart';
 
 // ─── Data Models ────────────────────────────────────────────────────────────
@@ -117,7 +119,8 @@ class JobOrderService {
 
   /// يولد وثيقة PDF أصلية (Native) بدون الحاجة إلى HTML
   static Future<Uint8List> generateNativePdf(JobOrderData data) async {
-    debugPrint("📄 generateNativePdf: start generating for job ${data.jobNumber}...");
+    debugPrint(
+        "📄 generateNativePdf: start generating for job ${data.jobNumber}...");
     final doc = pw.Document();
 
     final regularFontData =
@@ -129,13 +132,20 @@ class JobOrderService {
 
     final theme = pw.ThemeData.withFont(base: regularFont, bold: boldFont);
 
+    // Get printed factory name and logo from Hive
+    final box = await Hive.openBox('settings');
+    final printedFactoryName = box.get('printedFactoryName',
+        defaultValue: "العاشر للطباعة والنشر والتغليف\n( كازنبرس )") as String;
+    final factoryLogoBase64 = box.get('factoryLogoBase64') as String?;
+
     // الصفحة الأولى: البيانات الأساسية، جدول الأصناف، التضليع، تجهيزات الكرتون، وطباعة الأوفست والفلكسو
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         theme: theme,
-        build: (pw.Context ctx) => _buildPage1(data, regularFont, boldFont),
+        build: (pw.Context ctx) => _buildPage1(
+            data, regularFont, boldFont, printedFactoryName, factoryLogoBase64),
       ),
     );
 
@@ -150,7 +160,8 @@ class JobOrderService {
     );
 
     final bytes = await doc.save();
-    debugPrint("✅ generateNativePdf: finished generating PDF bytes (${bytes.length} bytes).");
+    debugPrint(
+        "✅ generateNativePdf: finished generating PDF bytes (${bytes.length} bytes).");
     return bytes;
   }
 
@@ -263,8 +274,8 @@ class JobOrderService {
 
   // ── Layout Builders ─────────────────────────────────────────────────────────
 
-  static pw.Widget _buildPage1(
-      JobOrderData data, pw.Font regularFont, pw.Font boldFont) {
+  static pw.Widget _buildPage1(JobOrderData data, pw.Font regularFont,
+      pw.Font boldFont, String printedFactoryName, String? logoBase64) {
     final regularStyle = pw.TextStyle(font: regularFont, fontSize: 7.5);
     final boldStyle = pw.TextStyle(
         font: boldFont, fontSize: 7.5, fontWeight: pw.FontWeight.bold);
@@ -295,7 +306,8 @@ class JobOrderService {
           ),
 
           // 1. Header (Company + Order Box)
-          _buildPage1Header(data, boldStyle, regularStyle),
+          _buildPage1Header(
+              data, boldStyle, regularStyle, printedFactoryName, logoBase64),
 
           // Title
           pw.Container(
@@ -326,21 +338,23 @@ class JobOrderService {
           pw.SizedBox(height: 1.5),
 
           // 4. التضليع
-          _buildCorrugationSection(data, boldStyle, regularStyle, headerBarColor),
+          _buildCorrugationSection(
+              data, boldStyle, regularStyle, headerBarColor),
           pw.SizedBox(height: 1.5),
 
           // 5. تقرير قسم التضليع (5 صفوف)
-          _buildCorrugationReportTable(data, boldStyle, regularStyle, headerBarColor),
+          _buildCorrugationReportTable(
+              data, boldStyle, regularStyle, headerBarColor),
           pw.SizedBox(height: 1.5),
 
           // 6. Carton Preparations (تجهيزات الكرتون)
-          _buildPage1CartonPrep(boldStyle, regularStyle, barStyle,
-              headerBarColor, labelBgColor),
+          _buildPage1CartonPrep(
+              boldStyle, regularStyle, barStyle, headerBarColor, labelBgColor),
           pw.SizedBox(height: 1.5),
 
           // 7. Flexo Printing (طباعة الفلكسو) - في نفس المكان الذي كان يحتله طباعة الأوفست
-          _buildPage1FlexoPrinting(boldStyle, regularStyle, barStyle,
-              headerBarColor, sigBgColor),
+          _buildPage1FlexoPrinting(
+              boldStyle, regularStyle, barStyle, headerBarColor, sigBgColor),
         ],
       ),
     );
@@ -391,10 +405,6 @@ class JobOrderService {
       ),
     );
   }
-
-
-
-
 
   static pw.Widget _buildClosingReport(pw.TextStyle boldStyle) {
     return pw.Container(
@@ -458,21 +468,51 @@ class JobOrderService {
   }
 
   static pw.Widget _buildPage1Header(
-      JobOrderData data, pw.TextStyle boldStyle, pw.TextStyle regularStyle) {
+      JobOrderData data,
+      pw.TextStyle boldStyle,
+      pw.TextStyle regularStyle,
+      String printedFactoryName,
+      String? logoBase64) {
+    final lines = printedFactoryName.split('\n');
+
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         // Company Name
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(_ar("العاشر للطباعة والنشر والتغليف"),
-                style: boldStyle.copyWith(fontSize: 12.5)),
-            pw.Text(_ar("( كارتبرس )"),
-                style: boldStyle.copyWith(fontSize: 11)),
-          ],
+        pw.Container(
+          width: 145,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: lines
+                .map((line) => pw.Text(_ar(line.trim()),
+                    style: boldStyle.copyWith(fontSize: 12.5)))
+                .toList(),
+          ),
         ),
+
+        // Middle Logo (Watermark / Image)
+        if (logoBase64 != null && logoBase64.isNotEmpty)
+          pw.Expanded(
+            child: pw.Container(
+              alignment: pw.Alignment.center,
+              child: pw.Container(
+                height: 65,
+                padding: const pw.EdgeInsets.all(6),
+                decoration: const pw.BoxDecoration(
+                  color: PdfColors.grey200,
+                  borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
+                ),
+                child: pw.Image(
+                  pw.MemoryImage(base64Decode(logoBase64)),
+                  fit: pw.BoxFit.contain,
+                ),
+              ),
+            ),
+          )
+        else
+          pw.Expanded(child: pw.SizedBox()),
+
         // Order Box (طلبية رقم / بتاريخ / محرر أمر التشغيل)
         pw.Container(
           width: 145,
@@ -745,8 +785,6 @@ class JobOrderService {
     );
   }
 
-
-
   static pw.Widget _plainCheckboxWithLabel(String label) {
     return pw.Row(
       mainAxisSize: pw.MainAxisSize.min,
@@ -768,8 +806,6 @@ class JobOrderService {
     );
   }
 
-
-
   static pw.Widget _prepRow(String label, pw.Widget content,
       pw.TextStyle boldStyle, pw.TextStyle regularStyle, PdfColor labelBgColor,
       {bool isLast = false, double height = 18}) {
@@ -787,7 +823,8 @@ class JobOrderService {
             decoration: pw.BoxDecoration(
                 color: labelBgColor,
                 border: pw.Border(
-                    left: const pw.BorderSide(color: PdfColors.black, width: 1.0),
+                    left:
+                        const pw.BorderSide(color: PdfColors.black, width: 1.0),
                     bottom: bottomBorder)),
             padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 2),
             child: pw.Text(_ar(label),
@@ -796,8 +833,8 @@ class JobOrderService {
           ),
           pw.Expanded(
             child: pw.Container(
-              decoration: pw.BoxDecoration(
-                  border: pw.Border(bottom: bottomBorder)),
+              decoration:
+                  pw.BoxDecoration(border: pw.Border(bottom: bottomBorder)),
               padding:
                   const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 1),
               alignment: pw.Alignment.centerRight,
@@ -808,8 +845,6 @@ class JobOrderService {
       ),
     );
   }
-
-
 
   static pw.Widget _buildPage1CartonPrep(
       pw.TextStyle boldStyle,
@@ -910,12 +945,12 @@ class JobOrderService {
                 color: labelBgColor,
                 border: pw.Border(
                     left: hasLeftBorder
-                        ? const pw.BorderSide(color: PdfColors.black, width: 1.0)
+                        ? const pw.BorderSide(
+                            color: PdfColors.black, width: 1.0)
                         : sideBorder,
                     right: sideBorder,
                     bottom: bottomBorder)),
-            padding:
-                const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 2),
+            padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 2),
             child: pw.Text(_ar(label),
                 style: boldStyle.copyWith(fontSize: 8),
                 textAlign: pw.TextAlign.center),
@@ -978,8 +1013,8 @@ class JobOrderService {
                 pw.Expanded(
                   flex: 80,
                   child: pw.Container(
-                    padding:
-                        const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
                     alignment: pw.Alignment.centerRight,
                     child: pw.Text(_ar("تقرير رئيس القسم .."),
                         style: regularStyle.copyWith(fontSize: 8)),
@@ -1069,8 +1104,8 @@ class JobOrderService {
                             horizontal: 6, vertical: 1),
                         alignment: pw.Alignment.centerRight,
                         decoration: const pw.BoxDecoration(
-                            border: pw.Border(
-                                bottom: pw.BorderSide(width: 1.0))),
+                            border:
+                                pw.Border(bottom: pw.BorderSide(width: 1.0))),
                         child: pw.Text(
                             _ar("طباعة   ألوان (             ) - إجمالى عدد الألوان ............................."),
                             style: regularStyle.copyWith(fontSize: 8)),
@@ -1081,8 +1116,8 @@ class JobOrderService {
                             horizontal: 6, vertical: 1),
                         alignment: pw.Alignment.centerRight,
                         decoration: const pw.BoxDecoration(
-                            border: pw.Border(
-                                bottom: pw.BorderSide(width: 1.0))),
+                            border:
+                                pw.Border(bottom: pw.BorderSide(width: 1.0))),
                         child: pw.Row(
                           crossAxisAlignment: pw.CrossAxisAlignment.center,
                           children: [
@@ -1134,10 +1169,7 @@ class JobOrderService {
         corrugationItems.add(data.items[i]);
       } else {
         corrugationItems.add(JobOrderItem(
-            productName: '',
-            productCode: '',
-            quantity: '',
-            itemNotes: ''));
+            productName: '', productCode: '', quantity: '', itemNotes: ''));
       }
     }
 
@@ -1170,7 +1202,8 @@ class JobOrderService {
                     color: headerColor,
                     alignment: pw.Alignment.center,
                     child: pw.Text(_ar("التضليع"),
-                        style: boldStyle.copyWith(color: PdfColors.white, fontSize: 8.5)),
+                        style: boldStyle.copyWith(
+                            color: PdfColors.white, fontSize: 8.5)),
                   ),
                   pw.Expanded(
                     child: pw.Column(
@@ -1268,7 +1301,8 @@ class JobOrderService {
     required int itemIndex,
     required int totalItems,
   }) {
-    final bool isEmptyItem = item.productName.isEmpty && item.productCode.isEmpty;
+    final bool isEmptyItem =
+        item.productName.isEmpty && item.productCode.isEmpty;
     return pw.Container(
       decoration: isLast
           ? null
@@ -1327,11 +1361,14 @@ class JobOrderService {
                                     pw.SizedBox(width: 6),
                                     _corrugationCheckbox('C', false, boldStyle),
                                     pw.SizedBox(width: 6),
-                                    _corrugationCheckbox('E/E', false, boldStyle),
+                                    _corrugationCheckbox(
+                                        'E/E', false, boldStyle),
                                     pw.SizedBox(width: 6),
-                                    _corrugationCheckbox('C/C', false, boldStyle),
+                                    _corrugationCheckbox(
+                                        'C/C', false, boldStyle),
                                     pw.SizedBox(width: 6),
-                                    _corrugationCheckbox('C/E', false, boldStyle),
+                                    _corrugationCheckbox(
+                                        'C/E', false, boldStyle),
                                   ]
                                 : (item.corrugationTypes.isEmpty &&
                                         item.customCorrugation.isEmpty
@@ -1346,7 +1383,8 @@ class JobOrderService {
                                             return pw.Row(
                                               mainAxisSize: pw.MainAxisSize.min,
                                               children: [
-                                                if (i > 0) pw.SizedBox(width: 10),
+                                                if (i > 0)
+                                                  pw.SizedBox(width: 10),
                                                 _corrugationCheckbox(
                                                     type, true, boldStyle,
                                                     isSolidBlack: true),
@@ -1424,7 +1462,8 @@ class JobOrderService {
           ),
           pw.Container(
             height: 13,
-            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.5),
+            padding:
+                const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.5),
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
@@ -1503,8 +1542,8 @@ class JobOrderService {
                           child: pw.Container(
                             alignment: pw.Alignment.center,
                             decoration: const pw.BoxDecoration(
-                                border: pw.Border(
-                                    left: pw.BorderSide(width: 1.0))),
+                                border:
+                                    pw.Border(left: pw.BorderSide(width: 1.0))),
                             child: pw.Text(
                               _ar("اسم القائم بالتشغيل مع التوقيع والتاريخ ."),
                               style: boldStyle.copyWith(fontSize: 7.5),
@@ -1521,8 +1560,8 @@ class JobOrderService {
                       decoration: index == rowCount - 1
                           ? null
                           : const pw.BoxDecoration(
-                              border: pw.Border(
-                                  bottom: pw.BorderSide(width: 1.0))),
+                              border:
+                                  pw.Border(bottom: pw.BorderSide(width: 1.0))),
                       child: pw.Row(
                         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                         children: [
@@ -1633,7 +1672,6 @@ class JobOrderService {
   }
 
   // ── Helper Widgets ──────────────────────────────────────────────────────────
-
 
   // ignore: unused_element
   static pw.Widget _buildFlexoTable(
@@ -1860,8 +1898,8 @@ class JobOrderService {
                                         height: 12,
                                         alignment: pw.Alignment.center,
                                         child: pw.Text(_ar("رقم"),
-                                            style: boldStyle.copyWith(
-                                                fontSize: 7),
+                                            style:
+                                                boldStyle.copyWith(fontSize: 7),
                                             textAlign: pw.TextAlign.center),
                                       ),
                                       pw.Container(
@@ -1880,9 +1918,12 @@ class JobOrderService {
                                                       alignment:
                                                           pw.Alignment.center,
                                                       child: pw.Text(_ar("إذن"),
-                                                          style: boldStyle.copyWith(
-                                                              fontSize: 6),
-                                                          textAlign: pw.TextAlign.center),
+                                                          style: boldStyle
+                                                              .copyWith(
+                                                                  fontSize: 6),
+                                                          textAlign: pw
+                                                              .TextAlign
+                                                              .center),
                                                     )),
                                                 pw.Container(
                                                     width: 1,
@@ -1892,10 +1933,14 @@ class JobOrderService {
                                                     child: pw.Container(
                                                       alignment:
                                                           pw.Alignment.center,
-                                                      child: pw.Text(_ar("تصريح"),
-                                                          style: boldStyle.copyWith(
-                                                              fontSize: 6),
-                                                          textAlign: pw.TextAlign.center),
+                                                      child: pw.Text(
+                                                          _ar("تصريح"),
+                                                          style: boldStyle
+                                                              .copyWith(
+                                                                  fontSize: 6),
+                                                          textAlign: pw
+                                                              .TextAlign
+                                                              .center),
                                                     )),
                                               ]))
                                     ]))),
@@ -1926,8 +1971,8 @@ class JobOrderService {
                     child: pw.Row(
                         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                         children: [
-                          _buildDeliveriesEmptyCell(4, true, regularStyle,
-                              _ar(numbersAr[index])),
+                          _buildDeliveriesEmptyCell(
+                              4, true, regularStyle, _ar(numbersAr[index])),
                           _buildDeliveriesEmptyCell(16, true, regularStyle),
                           _buildDeliveriesEmptyCell(8, true, regularStyle),
                           _buildDeliveriesEmptyCell(7, true, regularStyle),
@@ -2009,8 +2054,8 @@ class JobOrderService {
                     child: pw.Row(
                         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                         children: [
-                          _buildDeliveriesEmptyCell(5, true, regularStyle,
-                              _ar(numbersAr[index])),
+                          _buildDeliveriesEmptyCell(
+                              5, true, regularStyle, _ar(numbersAr[index])),
                           _buildDeliveriesEmptyCell(15, true, regularStyle),
                           _buildDeliveriesEmptyCell(40, true, regularStyle),
                           _buildDeliveriesEmptyCell(20, true, regularStyle),
