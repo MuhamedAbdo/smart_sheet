@@ -497,19 +497,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     );
 
-    if (result != null && result != themeProvider.printedFactoryName) {
+    if (result != null) {
       await themeProvider.setPrintedFactoryName(result);
       
       final factoryId = await SupabaseManager.getFactoryId();
       if (factoryId != null) {
         try {
           final client = Supabase.instance.client;
-          await client.from('factories').update({
+          final updatedRows = await client.from('factories').update({
             'print_factory_name': result,
-          }).eq('factory_id', factoryId);
+          }).eq('factory_id', factoryId).select();
+          
+          if (updatedRows.isEmpty) {
+            await client.from('factories').insert({
+              'factory_id': factoryId,
+              'print_factory_name': result,
+            });
+          }
+          
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('تم رفع إسم المصنع بنجاح!'), backgroundColor: Colors.green),
+            );
+          }
           debugPrint('✅ [factories] تم رفع إسم المصنع للطباعة');
         } catch (e) {
           debugPrint('❌ [factories] فشل رفع إسم المصنع للطباعة: $e');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('فشل الرفع للسحابة: $e'), backgroundColor: Colors.red),
+            );
+          }
         }
       }
     }

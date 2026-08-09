@@ -32,7 +32,7 @@ mixin FactorySync on SyncServiceBase {
     try {
       final res = await _supabase
           .from('factories')
-          .select('shift_start_time, shift_end_time')
+          .select('shift_start_time, shift_end_time, print_factory_name, factory_logo_base64')
           .eq('factory_id', factoryId)
           .maybeSingle();
 
@@ -42,7 +42,7 @@ mixin FactorySync on SyncServiceBase {
         return;
       }
 
-      await _applyShiftTimes(res, themeProvider);
+      await _applyFactorySettings(res, themeProvider);
       debugPrint(
           '✅ FactorySync: تم تحميل بيانات الوردية للمصنع $factoryId.');
     } catch (e) {
@@ -210,7 +210,7 @@ mixin FactorySync on SyncServiceBase {
         debugPrint('⚠️ [factories] payload فارغ!');
         return;
       }
-      await _applyShiftTimes(record, themeProvider);
+      await _applyFactorySettings(record, themeProvider);
       debugPrint('🔄 [factories] تم تحديث الوردية من السيرفر.');
     } catch (e) {
       debugPrint('❌ _onFactoryChange: $e');
@@ -273,15 +273,15 @@ mixin FactorySync on SyncServiceBase {
   }
 
   // ==============================================================
-  // Helpers — shift times (factories table)
+  // Helpers — factory settings (factories table)
   // ==============================================================
 
-  /// تطبيق أوقات الوردية على ThemeProvider.
+  /// تطبيق إعدادات المصنع على ThemeProvider.
   ///
-  /// 🔒 Infinite Loop Guard: هذه الدالة تستدعي setShiftStart/End
+  /// 🔒 Infinite Loop Guard: هذه الدالة تستدعي دوال
   /// التي تحدث Hive و notifyListeners فقط، دون أي رفع إلى Supabase.
   /// الرفع حصراً من onTap الأدمن في settings_screen.dart.
-  Future<void> _applyShiftTimes(
+  Future<void> _applyFactorySettings(
       Map<String, dynamic> record, ThemeProvider themeProvider) async {
     final startRaw = record['shift_start_time']?.toString();
     final endRaw = record['shift_end_time']?.toString();
@@ -291,6 +291,18 @@ mixin FactorySync on SyncServiceBase {
 
     if (startTime != null) await themeProvider.setShiftStart(startTime);
     if (endTime != null) await themeProvider.setShiftEnd(endTime);
+
+    if (record.containsKey('print_factory_name')) {
+      final printedFactoryName = record['print_factory_name']?.toString();
+      if (printedFactoryName != null && printedFactoryName.isNotEmpty) {
+        await themeProvider.setPrintedFactoryName(printedFactoryName);
+      }
+    }
+
+    if (record.containsKey('factory_logo_base64')) {
+      final factoryLogoBase64 = record['factory_logo_base64']?.toString();
+      await themeProvider.setFactoryLogoBase64(factoryLogoBase64);
+    }
   }
 
   /// تحويل نص الوقت "HH:MM" أو "HH:MM:SS" (صيغة PostgreSQL TIME) إلى TimeOfDay.
