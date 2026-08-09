@@ -102,6 +102,9 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           .eq('factory_id', factoryId);
 
       if (!mounted) return;
+      
+      setState(() {}); // تحديث الشاشة فوراً
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(newStatus == 'active' ? "تمت استعادة المصنع بنجاح" : "تم إيقاف المصنع مؤقتاً"),
@@ -149,6 +152,9 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           .eq('factory_id', factoryId);
 
       if (!mounted) return;
+      
+      setState(() {}); // تحديث الشاشة فوراً
+      
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("تم حذف المصنع نهائياً بنجاح"),
