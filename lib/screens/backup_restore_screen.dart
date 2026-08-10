@@ -650,18 +650,36 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   }
 
   Widget _buildQRActionSection(bool isAdmin) {
-    if (!_isAuthenticated) return const SizedBox.shrink();
-
     final authService = context.read<AuthService>();
     final currentFactoryId = authService.factoryId;
-    final isLinked = currentFactoryId != null && currentFactoryId.isNotEmpty;
+    final isLinked = authService.isDeviceLinked;
 
-    // 1. الجزء الخاص بالمدير (Admin) - يظهر دائماً خيار التوليد
+    // 1. الشرط الوحيد لظهور واجهة مسح الـ QR وإدخال الكود (للمساعد الجديد/Ghost User)
+    if (!isLinked && !isAdmin) {
+      return ElevatedButton.icon(
+        onPressed: _openQRScanner,
+        icon: const Icon(Icons.qr_code_scanner),
+        label: const Text(
+          'ربط بالمصنع (QR أو كود)',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 56),
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    }
+
+    // 2. الجزء الخاص بالمدير (Admin) - يظهر دائماً خيار التوليد
     if (isAdmin) {
       return Column(
         children: [
           if (isLinked) ...[
-            _buildLinkedStatusBox(currentFactoryId, isAdmin),
+            _buildLinkedStatusBox(currentFactoryId ?? '', isAdmin),
             const SizedBox(height: 16),
           ],
           ElevatedButton.icon(
@@ -685,28 +703,12 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       );
     }
 
-    // 2. الجزء الخاص بالمساعد (Assistant)
+    // 3. الجزء الخاص بالمساعد (Assistant) المرتبط فعلياً
     if (isLinked) {
-      return _buildLinkedStatusBox(currentFactoryId, isAdmin);
+      return _buildLinkedStatusBox(currentFactoryId ?? '', isAdmin);
     }
 
-    // المساعد غير مرتبط -> اظهر خيار القارئ
-    return ElevatedButton.icon(
-      onPressed: _openQRScanner,
-      icon: const Icon(Icons.qr_code_scanner),
-      label: const Text(
-        'ربط بالمصنع (QR أو كود)',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 56),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildLinkedStatusBox(String factoryId, bool isAdmin) {

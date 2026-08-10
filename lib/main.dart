@@ -94,7 +94,11 @@ Future<void> main() async {
 
     // 2. تهيئة قواعد بيانات Hive أولاً (لأنها ضرورية للثيم والإعدادات)
     if (!kIsWeb) {
-      await Hive.initFlutter();
+      if (Platform.isWindows) {
+        await Hive.initFlutter('SmartSheet_Data');
+      } else {
+        await Hive.initFlutter();
+      }
       _registerAdapters();
 
       // ─── محاولة فتح settings مع retry متقدم للتعامل مع lock file ───

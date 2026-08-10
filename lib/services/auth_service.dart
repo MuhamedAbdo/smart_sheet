@@ -25,6 +25,7 @@ class AuthService extends ChangeNotifier {
   }
 
   String? get factoryId => _factoryId;
+  bool get isDeviceLinked => _factoryId != null && _factoryId!.isNotEmpty;
   bool get isAdmin => _state.role?.trim().toLowerCase() == 'admin';
   String? get currentUserEmail => _state.user?.email;
   String? _factoryId;
@@ -296,16 +297,56 @@ class AuthService extends ChangeNotifier {
         // Profile not found (could be due to RLS policies blocking the select)
         debugPrint('🚨 AuthService: لم يتم العثور على ملف المستخدم (RLS Block). المصنع موقوف أو الحساب محذوف!');
         
-        await KillSwitchService.instance.forceLogout(
-          reason: 'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
-          clearProfileFactoryId: false,
-        );
+        final localFactoryId = await storage.read(key: 'factory_id');
         
-        _state = UserState.unauthenticated().copyWith(
-          errorMessage:
-              'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
-        );
-        notifyListeners();
+        if (localFactoryId == null) {
+          debugPrint('ℹ️ AuthService: حساب جديد. السماح بالدخول وتعيين role كـ employee.');
+          _factoryId = null;
+          _state = _state.copyWith(role: 'employee');
+          
+          if (Hive.isBoxOpen('settings')) {
+            Hive.box('settings').put('is_user_logged_in', true);
+          }
+          notifyListeners();
+        } else {
+          await KillSwitchService.instance.forceLogout(
+            reason: 'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
+            clearProfileFactoryId: false,
+          );
+          
+          _state = UserState.unauthenticated().copyWith(
+            errorMessage:
+                'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
+          );
+          notifyListeners();
+        }
+      }
+    } on PostgrestException catch (e) {
+      if (e.code == 'PGRST116') {
+        debugPrint('🚨 AuthService: PostgrestException PGRST116. RLS blocked.');
+        final localFactoryId = await const SafeSecureStorage().read(key: 'factory_id');
+        
+        if (localFactoryId == null) {
+          debugPrint('ℹ️ AuthService: حساب جديد (Caught Exception). السماح بالدخول وتعيين role كـ employee.');
+          _factoryId = null;
+          _state = _state.copyWith(role: 'employee');
+          
+          if (Hive.isBoxOpen('settings')) {
+            Hive.box('settings').put('is_user_logged_in', true);
+          }
+          notifyListeners();
+        } else {
+          await KillSwitchService.instance.forceLogout(
+            reason: 'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
+            clearProfileFactoryId: false,
+          );
+          _state = UserState.unauthenticated().copyWith(
+            errorMessage: 'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
+          );
+          notifyListeners();
+        }
+      } else {
+        debugPrint('Error fetching user data: $e');
       }
     } catch (e) {
       debugPrint('Error fetching user data: $e');

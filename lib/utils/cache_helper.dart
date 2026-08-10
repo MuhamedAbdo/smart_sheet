@@ -52,7 +52,14 @@ class CacheHelper {
     // getApplicationDocumentsDirectory يُرجع Context.getFilesDir() على أندرويد
     // ← نفس المسار الذي كانت تعمل به النسخ السابقة
     final appDir = await getApplicationDocumentsDirectory();
-    final cacheDir = Directory(p.join(appDir.path, 'smart_sheet_cache'));
+    Directory cacheDir;
+    
+    if (Platform.isWindows) {
+      cacheDir = Directory(p.join(appDir.path, 'SmartSheet_Data', 'smart_sheet_cache'));
+    } else {
+      cacheDir = Directory(p.join(appDir.path, 'smart_sheet_cache'));
+    }
+    
     if (!await cacheDir.exists()) await cacheDir.create(recursive: true);
     _cacheDirPath = cacheDir.path;
     return cacheDir;
