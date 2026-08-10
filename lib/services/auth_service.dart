@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:hive/hive.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_state.dart';
 import 'package:flutter/material.dart';
@@ -56,8 +57,9 @@ class AuthService extends ChangeNotifier {
     if (session != null) {
       // Keep existing role if available to avoid flicker before fetch
       _state = UserState.authenticated(session.user, role: _state.role);
-      
-      if (event == AuthChangeEvent.initialSession || event == AuthChangeEvent.signedIn) {
+
+      if (event == AuthChangeEvent.initialSession ||
+          event == AuthChangeEvent.signedIn) {
         _fetchAndStoreUserData(session.user.id);
       } else if (event == AuthChangeEvent.tokenRefreshed) {
         if (Hive.isBoxOpen('settings')) {
@@ -90,10 +92,12 @@ class AuthService extends ChangeNotifier {
         Hive.box('settings').get('is_user_logged_in', defaultValue: false) ==
             true;
 
-    debugPrint('🔍 AuthService._checkInitialSession: session=${session != null}, isLocalLoggedIn=$isLocalLoggedIn');
+    debugPrint(
+        '🔍 AuthService._checkInitialSession: session=${session != null}, isLocalLoggedIn=$isLocalLoggedIn');
 
     if (session != null) {
-      debugPrint('🔍 AuthService: Session exists, calling _fetchAndStoreUserData');
+      debugPrint(
+          '🔍 AuthService: Session exists, calling _fetchAndStoreUserData');
       _state = UserState.authenticated(session.user, role: _state.role);
       if (Hive.isBoxOpen('settings')) {
         Hive.box('settings').put('is_user_logged_in', true);
@@ -101,49 +105,51 @@ class AuthService extends ChangeNotifier {
       _fetchAndStoreUserData(session.user.id);
     } else if (isLocalLoggedIn) {
       final user = _supabaseClient.auth.currentUser;
-      debugPrint('🔍 AuthService: Session is NULL, but isLocalLoggedIn=true. currentUser=${user != null}');
+      debugPrint(
+          '🔍 AuthService: Session is NULL, but isLocalLoggedIn=true. currentUser=${user != null}');
       if (user != null) {
         _state = UserState.authenticated(user, role: _state.role);
         _fetchAndStoreUserData(user.id);
       } else {
-        debugPrint('🚨 AuthService: Both session and user are NULL! The session was revoked or expired. Forcing logout to protect data.');
+        debugPrint(
+            '🚨 AuthService: Both session and user are NULL! The session was revoked or expired. Forcing logout to protect data.');
         if (Hive.isBoxOpen('settings')) {
           Hive.box('settings').put('is_user_logged_in', false);
         }
-        
+
         // مسح البيانات الإجباري
         KillSwitchService.instance.forceLogout(
           clearProfileFactoryId: false,
           reason: 'انتهت الجلسة أو تم إلغاؤها. يرجى تسجيل الدخول مجدداً.',
         );
-        
+
         _state = UserState.unauthenticated().copyWith(
           errorMessage: 'انتهت الجلسة أو تم إلغاؤها. يرجى تسجيل الدخول مجدداً.',
         );
         _clearUserData();
-        
+
         Future.microtask(() {
-          navigatorKey.currentState?.pushNamedAndRemoveUntil(
-            '/auth-screen', (route) => false);
+          navigatorKey.currentState
+              ?.pushNamedAndRemoveUntil('/auth-screen', (route) => false);
         });
       }
     } else {
-      debugPrint('🔍 AuthService: Not logged in locally and no session. Logging out.');
+      debugPrint(
+          '🔍 AuthService: Not logged in locally and no session. Logging out.');
       _state = UserState.unauthenticated();
       _clearUserData();
     }
     notifyListeners();
   }
 
-
-
-  Future<void> _fetchAndStoreUserData(String userId, {bool checkDeviceLink = true}) async {
+  Future<void> _fetchAndStoreUserData(String userId,
+      {bool checkDeviceLink = true}) async {
     try {
       const storage = SafeSecureStorage();
 
       final response = await _supabaseClient
           .from('profiles')
-          .select('factory_id, role')
+          .select('factory_id, role, status')
           .eq('id', userId)
           .maybeSingle();
 
@@ -153,34 +159,68 @@ class AuthService extends ChangeNotifier {
 
         final fetchedFactoryId = response['factory_id']?.toString();
         final userEmail = _supabaseClient.auth.currentUser?.email;
+        final status = response['status']?.toString() ?? 'active';
 
-        // 🚨 1. فحص الحسابات غير المرتبطة بمصنع
-        if (fetchedFactoryId == null && userEmail != 'mohamedabdo9999933@gmail.com' && role != 'super_admin') {
-           debugPrint('🚨 AuthService: User has NO factory_id. Blocking login and wiping data.');
-           await KillSwitchService.instance.forceLogout(
-             reason: 'حسابك غير مرتبط بأي مصنع حالياً. يرجى مراجعة الإدارة.',
-             clearProfileFactoryId: false,
-           );
-           _state = UserState.unauthenticated().copyWith(
-             errorMessage: 'حسابك غير مرتبط بأي مصنع حالياً. يرجى مراجعة الإدارة.',
-           );
-           notifyListeners();
-           return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
+        // 🚨 0. فحص حالة الحساب (إيقاف مؤقت)
+        if (status == 'suspended') {
+          debugPrint(
+              '🚨 AuthService: User status is suspended. Disabling permissions.');
+          PermissionHelper.isSuspended = true;
+          await storage.write(key: 'is_suspended', value: 'true');
+          // لا نطرده، نتركه يدخل التطبيق لكن بلا صلاحيات ولا مزامنة
+        } else {
+          PermissionHelper.isSuspended = false;
+          await storage.write(key: 'is_suspended', value: 'false');
+        }
+
+        // 🚨 0.5. حفظ الإيميل في الـ profiles لتسهيل التعرف على الحساب من قبل الإدارة
+        if (userEmail != null && userEmail.isNotEmpty) {
+          try {
+            await _supabaseClient
+                .from('profiles')
+                .update({'email': userEmail}).eq('id', userId);
+          } catch (e) {
+            debugPrint('⚠️ AuthService: Failed to update email in profile: $e');
+          }
+        }
+
+        final oldFactoryId = await storage.read(key: 'factory_id');
+
+        // 🚨 1. فحص الحسابات التي تم فك ارتباطها (كان لها مصنع وتمت إزالته)
+        if (fetchedFactoryId == null &&
+            oldFactoryId != null &&
+            oldFactoryId.isNotEmpty &&
+            userEmail != 'mohamedabdo9999933@gmail.com' &&
+            role != 'super_admin') {
+          debugPrint('🚨 AuthService: User was unlinked. Wiping data.');
+          await KillSwitchService.instance.forceLogout(
+            reason:
+                'تم فك ارتباط حسابك بالمصنع. يرجى الانتظار حتى يتم ربطك بمصنع جديد.',
+            clearProfileFactoryId: false,
+          );
+          _state = UserState.unauthenticated().copyWith(
+            errorMessage: 'تم فك ارتباط حسابك.',
+          );
+          notifyListeners();
+          return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
         }
 
         // 🚨 2. مسح البيانات إذا تغير المصنع لمنع تسريب بيانات المصنع القديم
-        final oldFactoryId = await storage.read(key: 'factory_id');
-        if (oldFactoryId != null && oldFactoryId != fetchedFactoryId && fetchedFactoryId != null) {
-           debugPrint('🚨 AuthService: Factory ID changed. Wiping old data.');
-           await KillSwitchService.instance.forceLogout(
-             reason: 'تم تغيير المصنع الخاص بك. يرجى إعادة تسجيل الدخول مرة أخرى لتحديث البيانات.',
-             clearProfileFactoryId: false,
-           );
-           _state = UserState.unauthenticated().copyWith(
-             errorMessage: 'تم تغيير المصنع الخاص بك. يرجى إعادة تسجيل الدخول مرة أخرى لتحديث البيانات.',
-           );
-           notifyListeners();
-           return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
+        if (oldFactoryId != null &&
+            oldFactoryId != fetchedFactoryId &&
+            fetchedFactoryId != null) {
+          debugPrint('🚨 AuthService: Factory ID changed. Wiping old data.');
+          await KillSwitchService.instance.forceLogout(
+            reason:
+                'تم تغيير المصنع الخاص بك. يرجى إعادة تسجيل الدخول مرة أخرى لتحديث البيانات.',
+            clearProfileFactoryId: false,
+          );
+          _state = UserState.unauthenticated().copyWith(
+            errorMessage:
+                'تم تغيير المصنع الخاص بك. يرجى إعادة تسجيل الدخول مرة أخرى لتحديث البيانات.',
+          );
+          notifyListeners();
+          return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
         }
 
         // 🚨 3. فحص حالة المصنع (موقوف أم لا) لجميع المستخدمين بما فيهم المدراء
@@ -190,36 +230,43 @@ class AuthService extends ChangeNotifier {
                 .from('factories')
                 .select('status')
                 .eq('factory_id', fetchedFactoryId)
-                .single(); 
+                .single();
 
             if (factoryRecord['status'] == 'suspended') {
-              debugPrint('🚨 AuthService: المصنع موقوف مؤقتاً. سيتم منع الدخول ومسح البيانات.');
+              debugPrint(
+                  '🚨 AuthService: المصنع موقوف مؤقتاً. سيتم منع الدخول ومسح البيانات.');
               await KillSwitchService.instance.forceLogout(
-                reason: 'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
+                reason:
+                    'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
                 clearProfileFactoryId: false,
               );
-              
+
               _state = UserState.unauthenticated().copyWith(
-                errorMessage: 'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
+                errorMessage:
+                    'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
               );
               notifyListeners();
-              return; 
+              return;
             }
           } on PostgrestException catch (e) {
             if (e.code == 'PGRST116') {
-               debugPrint('🚨 AuthService: تم حجب المصنع بواسطة سياسات الأمان (RLS). سيتم منع الدخول ومسح البيانات.');
-               await KillSwitchService.instance.forceLogout(
-                 reason: 'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
-                 clearProfileFactoryId: false,
-               );
-               
-               _state = UserState.unauthenticated().copyWith(
-                 errorMessage: 'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
-               );
-               notifyListeners();
-               return; 
+              debugPrint(
+                  '🚨 AuthService: تم حجب المصنع بواسطة سياسات الأمان (RLS). سيتم منع الدخول ومسح البيانات.');
+              await KillSwitchService.instance.forceLogout(
+                reason:
+                    'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
+                clearProfileFactoryId: false,
+              );
+
+              _state = UserState.unauthenticated().copyWith(
+                errorMessage:
+                    'تم إيقاف هذا المصنع مؤقتاً. يرجى مراجعة الإدارة العليا.',
+              );
+              notifyListeners();
+              return;
             }
-            debugPrint('⚠️ AuthService check factory status PostgrestException: $e');
+            debugPrint(
+                '⚠️ AuthService check factory status PostgrestException: $e');
           } catch (e) {
             debugPrint('⚠️ AuthService check factory status error: $e');
           }
@@ -243,13 +290,14 @@ class AuthService extends ChangeNotifier {
                   await _supabaseClient
                       .from('profiles')
                       .update({'factory_id': null}).eq('id', userId);
-                      
+
                   await KillSwitchService.instance.forceLogout(
                     reason: 'تم فك ارتباطك بهذا المصنع. يرجى مراجعة الإدارة.',
                     clearProfileFactoryId: true,
                   );
                   _state = UserState.unauthenticated().copyWith(
-                    errorMessage: 'تم فك ارتباطك بهذا المصنع. يرجى مراجعة الإدارة.',
+                    errorMessage:
+                        'تم فك ارتباطك بهذا المصنع. يرجى مراجعة الإدارة.',
                   );
                   notifyListeners();
                   return;
@@ -260,7 +308,8 @@ class AuthService extends ChangeNotifier {
             }
           }
         } else {
-          debugPrint('ℹ️ AuthService._fetchAndStoreUserData: تخطي فحص is_device_linked (تحديث دوري)');
+          debugPrint(
+              'ℹ️ AuthService._fetchAndStoreUserData: تخطي فحص is_device_linked (تحديث دوري)');
         }
 
         _factoryId = fetchedFactoryId;
@@ -273,16 +322,17 @@ class AuthService extends ChangeNotifier {
           final cached = await storage.read(key: 'factory_id');
           if (cached != null && cached.isNotEmpty) {
             _factoryId = cached;
-            debugPrint('ℹ️ AuthService: احتفظ بـ factory_id المحلي ($cached) لأن profiles.factory_id = null وتحديث دوري.');
+            debugPrint(
+                'ℹ️ AuthService: احتفظ بـ factory_id المحلي ($cached) لأن profiles.factory_id = null وتحديث دوري.');
           }
         }
 
         _state = _state.copyWith(role: role);
-        
+
         if (Hive.isBoxOpen('settings')) {
           Hive.box('settings').put('is_user_logged_in', true);
         }
-        
+
         notifyListeners();
 
         // تفعيل Real-time channels والمزامنة المبدئية بعد تخزين factory_id
@@ -295,25 +345,28 @@ class AuthService extends ChangeNotifier {
         }
       } else {
         // Profile not found (could be due to RLS policies blocking the select)
-        debugPrint('🚨 AuthService: لم يتم العثور على ملف المستخدم (RLS Block). المصنع موقوف أو الحساب محذوف!');
-        
+        debugPrint(
+            '🚨 AuthService: لم يتم العثور على ملف المستخدم (RLS Block). المصنع موقوف أو الحساب محذوف!');
+
         final localFactoryId = await storage.read(key: 'factory_id');
-        
+
         if (localFactoryId == null) {
-          debugPrint('ℹ️ AuthService: حساب جديد. السماح بالدخول وتعيين role كـ employee.');
+          debugPrint(
+              'ℹ️ AuthService: حساب جديد. السماح بالدخول وتعيين role كـ employee.');
           _factoryId = null;
           _state = _state.copyWith(role: 'employee');
-          
+
           if (Hive.isBoxOpen('settings')) {
             Hive.box('settings').put('is_user_logged_in', true);
           }
           notifyListeners();
         } else {
           await KillSwitchService.instance.forceLogout(
-            reason: 'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
+            reason:
+                'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
             clearProfileFactoryId: false,
           );
-          
+
           _state = UserState.unauthenticated().copyWith(
             errorMessage:
                 'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
@@ -324,24 +377,28 @@ class AuthService extends ChangeNotifier {
     } on PostgrestException catch (e) {
       if (e.code == 'PGRST116') {
         debugPrint('🚨 AuthService: PostgrestException PGRST116. RLS blocked.');
-        final localFactoryId = await const SafeSecureStorage().read(key: 'factory_id');
-        
+        final localFactoryId =
+            await const SafeSecureStorage().read(key: 'factory_id');
+
         if (localFactoryId == null) {
-          debugPrint('ℹ️ AuthService: حساب جديد (Caught Exception). السماح بالدخول وتعيين role كـ employee.');
+          debugPrint(
+              'ℹ️ AuthService: حساب جديد (Caught Exception). السماح بالدخول وتعيين role كـ employee.');
           _factoryId = null;
           _state = _state.copyWith(role: 'employee');
-          
+
           if (Hive.isBoxOpen('settings')) {
             Hive.box('settings').put('is_user_logged_in', true);
           }
           notifyListeners();
         } else {
           await KillSwitchService.instance.forceLogout(
-            reason: 'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
+            reason:
+                'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
             clearProfileFactoryId: false,
           );
           _state = UserState.unauthenticated().copyWith(
-            errorMessage: 'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
+            errorMessage:
+                'تم إيقاف هذا المصنع أو سحب صلاحياتك. يرجى مراجعة الإدارة العليا.',
           );
           notifyListeners();
         }
@@ -373,16 +430,16 @@ class AuthService extends ChangeNotifier {
         email: email,
         password: password,
       );
-      
+
       if (res.session != null) {
         // ننتظر تحميل بيانات المستخدم وحالة المصنع بدلاً من الاعتماد على الخلفية
         await _fetchAndStoreUserData(res.session!.user.id);
-        
+
         if (!isAuthenticated || _state.errorMessage != null) {
-           return _state.errorMessage ?? 'عفواً، لا يمكن تسجيل الدخول.';
+          return _state.errorMessage ?? 'عفواً، لا يمكن تسجيل الدخول.';
         }
       }
-      
+
       _state = _state.copyWith(isLoading: false);
       notifyListeners();
       return null; // نجاح
@@ -413,7 +470,8 @@ class AuthService extends ChangeNotifier {
 
       // ✅ إصلاح: عند التحديث الدوري، لا نمسح factory_id ولا نتحقق من is_device_linked
       // (تحقيق الجهاز يتم فقط عند تسجيل الدخول الأولي)
-      await storage.delete(key: 'user_role'); // فقط الدور يُعاد جلبه، ليس factory_id
+      await storage.delete(
+          key: 'user_role'); // فقط الدور يُعاد جلبه، ليس factory_id
 
       // جلب البيانات من السيرفر بدون فحص is_device_linked (لمنع مسح factory_id بالخطأ)
       await _fetchAndStoreUserData(user.id, checkDeviceLink: false);
@@ -425,7 +483,9 @@ class AuthService extends ChangeNotifier {
       notifyListeners();
 
       if ((oldRole != null && oldRole != newRole) ||
-          (oldFactoryId != null && newFactoryId != null && oldFactoryId != newFactoryId)) {
+          (oldFactoryId != null &&
+              newFactoryId != null &&
+              oldFactoryId != newFactoryId)) {
         // ✅ تغيير حقيقي في المصنع — تسجيل خروج للمزامنة الكاملة
         await signOut();
         return "⚠️ تم اكتشاف تغيير في الصلاحيات أو المصنع.\nتم تسجيل الخروج تلقائياً لضمان سلامة البيانات.";
@@ -586,19 +646,18 @@ class AuthService extends ChangeNotifier {
       if (Hive.isBoxOpen('settings')) {
         await Hive.box('settings').put('is_user_logged_in', false);
       }
-      
+
       // مسح الصناديق المحلية بالكامل عند تسجيل الخروج لحماية البيانات
       await KillSwitchService.instance.forceLogout(
         clearProfileFactoryId: false,
         reason: 'تم تسجيل الخروج بنجاح',
       );
-      
+
       // العودة الإجبارية لشاشة تسجيل الدخول
       Future.microtask(() {
-        navigatorKey.currentState?.pushNamedAndRemoveUntil(
-          '/auth-screen', (route) => false);
+        navigatorKey.currentState
+            ?.pushNamedAndRemoveUntil('/auth-screen', (route) => false);
       });
-      
     } catch (e) {
       _state = UserState.unauthenticated()
           .copyWith(errorMessage: 'فشل تسجيل الخروج: $e');

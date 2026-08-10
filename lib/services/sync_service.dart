@@ -46,6 +46,7 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/services/kill_switch_service.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/globals.dart';
 import 'package:uuid/uuid.dart';
@@ -151,6 +152,12 @@ class SyncService extends SyncServiceBase
       final factoryId = await SupabaseManager.getFactoryId();
       if (factoryId == null) {
         debugPrint('⏳ SyncService: لا يوجد factory_id، ينتظر تسجيل الدخول.');
+        return;
+      }
+
+      if (PermissionHelper.isSuspended) {
+        debugPrint('⏳ SyncService: الحساب موقوف مؤقتاً، إيقاف المزامنة تماماً.');
+        await _tearDownChannels();
         return;
       }
 

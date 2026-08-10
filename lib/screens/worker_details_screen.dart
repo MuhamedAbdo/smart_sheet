@@ -11,10 +11,8 @@ import '../../widgets/worker_action_card.dart';
 import '../../widgets/active_absence_card.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
-import 'package:smart_sheet/globals.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/services/sync_service.dart';
-import 'package:smart_sheet/services/kill_switch_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
@@ -131,21 +129,24 @@ class WorkingDayCalculator {
     TimeOfDay shiftStart,
     TimeOfDay shiftEnd,
   ) {
-    DateTime startUtc = DateTime.utc(fromDate.year, fromDate.month, fromDate.day);
+    DateTime startUtc =
+        DateTime.utc(fromDate.year, fromDate.month, fromDate.day);
     DateTime endUtc = DateTime.utc(toDate.year, toDate.month, toDate.day);
 
     final shiftStartMinutes = shiftStart.hour * 60 + shiftStart.minute;
     final shiftEndMinutes = shiftEnd.hour * 60 + shiftEnd.minute;
-    
-    int shiftDurationMinutes = shiftEndMinutes > shiftStartMinutes 
-        ? shiftEndMinutes - shiftStartMinutes 
+
+    int shiftDurationMinutes = shiftEndMinutes > shiftStartMinutes
+        ? shiftEndMinutes - shiftStartMinutes
         : (shiftEndMinutes + 24 * 60) - shiftStartMinutes;
-        
+
     if (shiftDurationMinutes <= 0) return 0.0; // avoid division by zero
 
     int totalAbsenceMinutes = 0;
     DateTime cursor = startUtc;
-    final box = Hive.isBoxOpen('factory_schedule') ? Hive.box<DaySchedule>('factory_schedule') : null;
+    final box = Hive.isBoxOpen('factory_schedule')
+        ? Hive.box<DaySchedule>('factory_schedule')
+        : null;
 
     while (!cursor.isAfter(endUtc)) {
       final dayName = _weekdayName(cursor.weekday);
@@ -183,7 +184,7 @@ class WorkingDayCalculator {
     }
 
     double totalDays = totalAbsenceMinutes / shiftDurationMinutes;
-    
+
     // التقريب لأقرب ربع يوم (0.25) بناءً على طلب الإدارة لتسهيل الحسابات المالية
     return (totalDays * 4).round() / 4.0;
   }
@@ -226,7 +227,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   void initState() {
     super.initState();
     Worker.autoCloseHourlyActionsGlobal();
-    _worker = (widget.worker.isInBox ? widget.box.get(widget.worker.key) : null) ?? widget.worker;
+    _worker =
+        (widget.worker.isInBox ? widget.box.get(widget.worker.key) : null) ??
+            widget.worker;
     _cleanupActions();
     // تحميل device_id من صندوق الإعدادات لتحديد ملكية الإجراءات
     if (Hive.isBoxOpen('settings')) {
@@ -266,12 +269,14 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       if (res != null && mounted) {
         final isLinked = res['is_device_linked'] as bool? ?? false;
         final deviceId = res['device_id']?.toString();
-        if (_worker.isDeviceLinked != isLinked || _worker.deviceId != deviceId) {
+        if (_worker.isDeviceLinked != isLinked ||
+            _worker.deviceId != deviceId) {
           setState(() {
             _worker.isDeviceLinked = isLinked;
             _worker.deviceId = deviceId;
           });
-          debugPrint('📱 WorkerDetails: حُدِّثت حالة الجهاز → isLinked=$isLinked, deviceId=$deviceId');
+          debugPrint(
+              '📱 WorkerDetails: حُدِّثت حالة الجهاز → isLinked=$isLinked, deviceId=$deviceId');
         }
       }
     } catch (e) {
@@ -292,13 +297,14 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     // ويفقد القديم مفتاحه من الـ keystore → widget.worker.key يصبح null.
     final watchKey = widget.worker.key;
     if (watchKey == null) {
-      debugPrint('⚠️ WorkerDetails: worker key is null, Hive listener skipped.');
+      debugPrint(
+          '⚠️ WorkerDetails: worker key is null, Hive listener skipped.');
       return;
     }
-    _hiveSubscription =
-        widget.box.watch(key: watchKey).listen((event) {
+    _hiveSubscription = widget.box.watch(key: watchKey).listen((event) {
       if (mounted) {
-        final freshWorker = widget.box.get(watchKey); // استخدام المفتاح المُثبَّت
+        final freshWorker =
+            widget.box.get(watchKey); // استخدام المفتاح المُثبَّت
         if (freshWorker != null) {
           setState(() {
             _worker = freshWorker;
@@ -330,7 +336,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     }
   }
 
-
   void _refresh() => setState(() {});
 
   /// تحديد ما إذا كان الجهاز الحالي هو مالك هذا الإجراء.
@@ -338,8 +343,12 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   ///   نفترض التوافق للجهاز الحالي حتى لا نكسر التحكم في الإجراءات السابقة.
   bool _isActionOwner(WorkerAction action) {
     final actionDevice = action.createdByDeviceId;
-    if (actionDevice == null || actionDevice.isEmpty) return true; // backward compat
-    if (_currentDeviceId == null || _currentDeviceId!.isEmpty) return true; // device not identified
+    if (actionDevice == null || actionDevice.isEmpty) {
+      return true; // backward compat
+    }
+    if (_currentDeviceId == null || _currentDeviceId!.isEmpty) {
+      return true; // device not identified
+    }
     return _currentDeviceId == actionDevice;
   }
 
@@ -372,8 +381,10 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       return isSupervisor && sameDept && checkPerm(cw);
     }
 
-    final bool canEditThisWorker = isSuperAdmin || canManageForThisWorker((cw) => cw.canEdit);
-    final bool canDeleteThisWorker = isSuperAdmin || canManageForThisWorker((cw) => cw.canDelete);
+    final bool canEditThisWorker =
+        isSuperAdmin || canManageForThisWorker((cw) => cw.canEdit);
+    final bool canDeleteThisWorker =
+        isSuperAdmin || canManageForThisWorker((cw) => cw.canDelete);
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -481,9 +492,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                         ],
                       ),
                     ),
-                    // الجانب الأيسر (بيانات الجهاز) - للآدمن ومن لديه صلاحية
-                    if (canManageActions)
-                      _buildCompactDeviceLinkStatus(),
                   ],
                 ),
               ),
@@ -560,8 +568,10 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
                       return WorkerActionCard(
                         action: displayedAction,
-                        showEditButton: canManageActions || (canEditThisWorker && isOwner),
-                        showDeleteButton: canManageActions || (canDeleteThisWorker && isOwner),
+                        showEditButton:
+                            canManageActions || (canEditThisWorker && isOwner),
+                        showDeleteButton: canManageActions ||
+                            (canDeleteThisWorker && isOwner),
                         onRefresh: _refresh,
                         onEdit: () async {
                           if (originalIndex != -1) {
@@ -662,15 +672,15 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         builder: (context, _, __) {
           final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
           final Worker? cw = PermissionHelper.currentWorker;
-          final bool canManageActions = isSuperAdmin || (cw?.canEditWorker == true);
+          final bool canManageActions =
+              isSuperAdmin || (cw?.canEditWorker == true);
 
           // شروط المشرف / رئيس القسم:
           // نفس القسم كالعامل المعروض + صلاحية canAdd
           bool canAddForThisWorker() {
             final Worker? cw = PermissionHelper.currentWorker;
             if (cw == null) return false;
-            final bool isSupervisor =
-                cw.job == 'مشرف' || cw.job == 'رئيس قسم';
+            final bool isSupervisor = cw.job == 'مشرف' || cw.job == 'رئيس قسم';
             final bool sameDept = cw.department == _worker.department;
             return isSupervisor && sameDept && cw.canAdd;
           }
@@ -700,37 +710,39 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       padding: const EdgeInsets.only(bottom: 16),
       child: SizedBox(
         height: 190,
-        child: Builder(
-          builder: (context) {
-            final bool isOwner = _isActionOwner(activeAction);
-            final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+        child: Builder(builder: (context) {
+          final bool isOwner = _isActionOwner(activeAction);
+          final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+          final Worker? cw = PermissionHelper.currentWorker;
+          final bool canManageActions =
+              isSuperAdmin || (cw?.canEditWorker == true);
+
+          bool canManageForThisWorker(bool Function(Worker) checkPerm) {
             final Worker? cw = PermissionHelper.currentWorker;
-            final bool canManageActions = isSuperAdmin || (cw?.canEditWorker == true);
-
-            bool canManageForThisWorker(bool Function(Worker) checkPerm) {
-              final Worker? cw = PermissionHelper.currentWorker;
-              if (cw == null) return false;
-              final bool isSupervisor = cw.job == 'مشرف' || cw.job == 'رئيس قسم';
-              final bool sameDept = cw.department == _worker.department;
-              return isSupervisor && sameDept && checkPerm(cw);
-            }
-
-            final bool canEditThisWorker = isSuperAdmin || canManageForThisWorker((cw) => cw.canEdit);
-            final bool canDeleteThisWorker = isSuperAdmin || canManageForThisWorker((cw) => cw.canDelete);
-
-            return ActiveAbsenceCard(
-              worker: _worker,
-              action: activeAction,
-              showEditButton: canManageActions || (canEditThisWorker && isOwner),
-              showDeleteButton: canManageActions || (canDeleteThisWorker && isOwner),
-              onRefresh: _refresh,
-              onEdit: () {
-                final idx = _worker.actions.indexOf(activeAction);
-                _editAction(activeAction, idx);
-              },
-            );
+            if (cw == null) return false;
+            final bool isSupervisor = cw.job == 'مشرف' || cw.job == 'رئيس قسم';
+            final bool sameDept = cw.department == _worker.department;
+            return isSupervisor && sameDept && checkPerm(cw);
           }
-        ),
+
+          final bool canEditThisWorker =
+              isSuperAdmin || canManageForThisWorker((cw) => cw.canEdit);
+          final bool canDeleteThisWorker =
+              isSuperAdmin || canManageForThisWorker((cw) => cw.canDelete);
+
+          return ActiveAbsenceCard(
+            worker: _worker,
+            action: activeAction,
+            showEditButton: canManageActions || (canEditThisWorker && isOwner),
+            showDeleteButton:
+                canManageActions || (canDeleteThisWorker && isOwner),
+            onRefresh: _refresh,
+            onEdit: () {
+              final idx = _worker.actions.indexOf(activeAction);
+              _editAction(activeAction, idx);
+            },
+          );
+        }),
       ),
     );
   }
@@ -777,12 +789,12 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       final shiftEnd = themeProvider.shiftEnd;
 
       // نوع الإجراء يحدد طريقة الحساب
-      final isFullDayAction = actionType.value == 'إجازة' || 
-                              actionType.value == 'غياب' || 
-                              actionType.value == 'أجازة عارضة';
-      
-      final isHourlyAction = actionType.value == 'إذن' || 
-                             actionType.value == 'تأمين صحي';
+      final isFullDayAction = actionType.value == 'إجازة' ||
+          actionType.value == 'غياب' ||
+          actionType.value == 'أجازة عارضة';
+
+      final isHourlyAction =
+          actionType.value == 'إذن' || actionType.value == 'تأمين صحي';
 
       if (isFullDayAction && returnDate.value != null) {
         calculatedDays.value = WorkingDayCalculator.calculateExactAbsenceDays(
@@ -793,11 +805,14 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
           shiftStart,
           shiftEnd,
         );
-      } else if (isHourlyAction && startTime.value != null && endTime.value != null) {
+      } else if (isHourlyAction &&
+          startTime.value != null &&
+          endTime.value != null) {
         calculatedDays.value = WorkingDayCalculator.calculateExactAbsenceDays(
           date.value,
           startTime.value,
-          returnDate.value ?? date.value, // الإذن عادةً نفس اليوم ما لم يحدد خلاف ذلك
+          returnDate.value ??
+              date.value, // الإذن عادةً نفس اليوم ما لم يحدد خلاف ذلك
           endTime.value,
           shiftStart,
           shiftEnd,
@@ -1058,11 +1073,13 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                   // جلب device_id من صندوق الإعدادات لتسجيل ملكية الإجراء
                                   final deviceId = _currentDeviceId ??
                                       (Hive.isBoxOpen('settings')
-                                          ? Hive.box('settings').get('device_id')?.toString()
+                                          ? Hive.box('settings')
+                                              .get('device_id')
+                                              ?.toString()
                                           : null);
-                                  
+
                                   final newActionId = const Uuid().v4();
-                                  
+
                                   final updatedAction = WorkerAction(
                                     id: newActionId,
                                     type: actionType.value,
@@ -1127,9 +1144,11 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                   if (existingAction.isInBox) {
                                     await existingAction.save();
                                   } else {
-                                    final actionBox = Hive.box<WorkerAction>('worker_actions');
+                                    final actionBox = Hive.box<WorkerAction>(
+                                        'worker_actions');
                                     if (existingAction.id != null) {
-                                      await actionBox.put(existingAction.id, existingAction);
+                                      await actionBox.put(
+                                          existingAction.id, existingAction);
                                     }
                                   }
                                   await _worker.save();
@@ -1387,281 +1406,4 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
       }
     }
   }
-
-  // ==============================================================================
-  // Kill Switch UI — للـ Admin فقط
-  // ==============================================================================
-
-  /// شارة حالة ارتباط الجهاز المصغرة
-  Widget _buildCompactDeviceLinkStatus() {
-    final bool isLinked = _worker.isDeviceLinked;
-    final String? deviceId = _worker.deviceId;
-
-    return Wrap(
-      alignment: WrapAlignment.end,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 12,
-      runSpacing: 8,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: isLinked
-                    ? Colors.green.withValues(alpha: 0.1)
-                    : Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: isLinked ? Colors.green.shade300 : Colors.orange.shade300,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isLinked ? Icons.smartphone : Icons.phonelink_erase,
-                    color: isLinked ? Colors.green.shade600 : Colors.orange.shade600,
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    isLinked ? 'مرتبط' : 'غير مرتبط',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                      color: isLinked ? Colors.green.shade700 : Colors.orange.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (deviceId != null && deviceId.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              SizedBox(
-                width: 80,
-                child: Text(
-                  'ID: ${deviceId.length > 10 ? '${deviceId.substring(0, 10)}...' : deviceId}',
-                  style: const TextStyle(fontSize: 9, color: Colors.grey),
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                ),
-              ),
-            ],
-          ],
-        ),
-        SizedBox(
-          height: 28,
-          child: OutlinedButton(
-            onPressed: isLinked ? () => _confirmUnlinkDevice(context) : null,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              side: BorderSide(
-                color: isLinked ? const Color(0xFFD32F2F) : Colors.grey.shade300,
-              ),
-              foregroundColor: isLinked ? const Color(0xFFD32F2F) : Colors.grey,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            child: const Text(
-              'فك الارتباط',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// dialog تأكيد فك الارتباط ثم استدعاء KillSwitchService.
-  Future<void> _confirmUnlinkDevice(BuildContext context) async {
-    final workerId = _worker.id;
-    // حفظ navigator و messenger قبل أي await لتفادي استخدام context عبر async gap
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    if (workerId == null || workerId.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('خطأ: معرف العامل غير متاح'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    // ─── جلب الحالة الفعلية من Supabase سواء بالـ id أو بالـ email ───
-    bool remoteIsLinked = _worker.isDeviceLinked;
-    String? remoteDeviceId = _worker.deviceId;
-    final workerEmail = _worker.email;
-    try {
-      Map<String, dynamic>? res;
-      res = await Supabase.instance.client
-          .from('workers')
-          .select('is_device_linked, device_id')
-          .eq('id', workerId)
-          .maybeSingle();
-      if (res == null && workerEmail != null && workerEmail.isNotEmpty) {
-        res = await Supabase.instance.client
-            .from('workers')
-            .select('is_device_linked, device_id')
-            .eq('email', workerEmail)
-            .maybeSingle();
-      }
-      if (res != null) {
-        remoteIsLinked = res['is_device_linked'] as bool? ?? false;
-        remoteDeviceId = res['device_id']?.toString();
-      }
-    } catch (e) {
-      debugPrint('_confirmUnlinkDevice: فشل جلب الحالة من Supabase: $e');
-    }
-
-    // تحديث الـ UI بالبيانات الحديثة
-    if (mounted) {
-      setState(() {
-        _worker.isDeviceLinked = remoteIsLinked;
-        _worker.deviceId = remoteDeviceId;
-      });
-    }
-
-    if (!remoteIsLinked && (remoteDeviceId == null || remoteDeviceId.isEmpty)) {
-      if (mounted) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('تم فك ارتباط جهاز هذا العامل بالفعل'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (!mounted) return;
-    final confirmed = await showDialog<bool>(
-      context: navigator.context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red),
-            SizedBox(width: 8),
-            Text(
-              'تأكيد فك الارتباط',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'هل أنت متأكد من فك ارتباط جهاز العامل "${_worker.name}"؟',
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.red, size: 16),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'سيتم طرد العامل فوراً من التطبيق ولن يتمكن من الوصول إليه.',
-                      style: TextStyle(fontSize: 12, color: Colors.red),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.link_off, color: Colors.white, size: 16),
-            label: const Text(
-              'فك الارتباط',
-              style: TextStyle(color: Colors.white),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    // تنفيذ فك الارتباط عبر Supabase
-    try {
-      await KillSwitchService.instance.unlinkDevice(workerId, email: _worker.email);
-
-      // تحديث الـ worker محلياً في Hive ليعكس التغيير فوراً في الـ UI
-      _worker.deviceId = null;
-      _worker.isDeviceLinked = false;
-      if (_worker.isInBox) await _worker.save();
-
-      // مزامنة التغيير مع السيرفر
-      SyncService.instance.pushToQueue(
-        'workers',
-        {
-          ..._worker.toJson(),
-          'device_id': null,
-          'is_device_linked': false,
-        },
-        operation: 'upsert',
-      );
-
-      if (!mounted) return;
-      setState(() {});
-
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'تم فك ارتباط جهاز العامل "${_worker.name}" بنجاح',
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green.shade700,
-          duration: const Duration(seconds: 4),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      debugPrint('_confirmUnlinkDevice error: $e');
-      if (!mounted) return;
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text('فشل فك الارتباط: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    }
-  }
 }
-

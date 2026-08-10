@@ -10,6 +10,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 
 /// الأقسام التي لها صلاحيات إنتاجية (تشغيل + تقارير)
 /// أي قسم خارج هذه القائمة يُعامَل على أنه "قسم غير معني بالإنتاج"
@@ -58,6 +59,7 @@ class AuthHelper {
     String targetDepartment,
     String action,
   ) {
+    if (PermissionHelper.isSuspended) return false;
     if (isSuperAdmin) return true;
     final user = currentWorker;
     if (user == null) return false;
@@ -71,6 +73,7 @@ class AuthHelper {
     String targetWorkerDepartment,
     String action,
   ) {
+    if (PermissionHelper.isSuspended) return false;
     if (isSuperAdmin) return true;
     final user = currentWorker;
     if (user == null) return false;

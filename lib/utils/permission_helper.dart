@@ -16,6 +16,9 @@ class PermissionHelper {
   /// البريد الإلكتروني للسوبر أدمن — يملك كل الصلاحيات دائماً
   static const String superAdminEmail = _superAdminEmail;
 
+  /// حالة الإيقاف المؤقت (تُعين من AuthService)
+  static bool isSuspended = false;
+
   /// البريد الإلكتروني للمستخدم المسجل حالياً (null إذا لم يسجل دخول)
   static String? get currentEmail =>
       Supabase.instance.client.auth.currentUser?.email;
@@ -42,34 +45,40 @@ class PermissionHelper {
 
   /// صلاحية الإضافة — true للسوبر أدمن أو للعامل الذي canAdd == true
   static bool get canAdd {
+    if (isSuspended) return false;
     if (isSuperAdmin) return true;
     return currentWorker?.canAdd == true;
   }
 
   /// صلاحية التعديل — true للسوبر أدمن أو للعامل الذي canEdit == true
   static bool get canEdit {
+    if (isSuspended) return false;
     if (isSuperAdmin) return true;
     return currentWorker?.canEdit == true;
   }
 
   /// صلاحية الحذف — true للسوبر أدمن أو للعامل الذي canDelete == true
   static bool get canDelete {
+    if (isSuspended) return false;
     if (isSuperAdmin) return true;
     return currentWorker?.canDelete == true;
   }
 
   /// صلاحيات إدارة العملاء والأصناف
   static bool get canManageClientsAdd {
+    if (isSuspended) return false;
     if (isSuperAdmin) return true;
     return currentWorker?.canManageClientsAdd == true;
   }
 
   static bool get canManageClientsEdit {
+    if (isSuspended) return false;
     if (isSuperAdmin) return true;
     return currentWorker?.canManageClientsEdit == true;
   }
 
   static bool get canManageClientsDelete {
+    if (isSuspended) return false;
     if (isSuperAdmin) return true;
     return currentWorker?.canManageClientsDelete == true;
   }
