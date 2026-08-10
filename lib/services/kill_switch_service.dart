@@ -21,7 +21,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/utils/device_manager.dart';
 import 'package:smart_sheet/services/push_notification_service.dart';
-
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 class KillSwitchService {
   // ─── Singleton ─────────────────────────────────────────────────────────────
   static final KillSwitchService instance = KillSwitchService._internal();
@@ -437,43 +439,24 @@ class KillSwitchService {
       await _storage.delete(key: 'user_role');
       await clearLinkedWorkerId();
 
-      // 1b. مسح جميع صناديق Hive (سجل العمال، العملاء، الإنتاج، الفلكسو، إلخ) حتى لا يحتفظ الهاتف بأي بيانات
-      final hiveBoxesToClear = [
-        'workers',
-        'workers_flexo',
-        'workers_production',
-        'workers_staple',
-        'worker_actions',
-        'finished_products',
-        'flexo_live_sessions',
-        'savedSheetSizes',
-        'flexo_production_reports_box',
-        'flexoArchive',
-        'lineArchive',
-        'crushingArchive',
-        'store_flexo',
-        'maintenance_records_main',
-        'flexo_machines',
-        'factory_schedule',
-        'sync_queue',
-        'die_cutting_forms',
-        'die_cutting_production_reports',
-        'serial_setup_state',
-      ];
-      for (final boxName in hiveBoxesToClear) {
-        try {
-          if (Hive.isBoxOpen(boxName)) {
-            await Hive.box(boxName).close(); // إغلاق الصندوق أولاً لتجنب Type Casting Errors
-          }
-          await Hive.deleteBoxFromDisk(boxName); // مسحه من الذاكرة تماماً
-        } catch (e) {
-          debugPrint('⚠️ KillSwitch delete box $boxName error: $e');
+      // 1b. المسح الشامل لجميع بيانات التطبيق المحلية (ويندوز وأندرويد)
+      try {
+        await Hive.close(); // إغلاق جميع صناديق Hive لتحرير الملفات
+        
+        final appDir = await getApplicationDocumentsDirectory();
+        Directory dataDir;
+        if (Platform.isWindows) {
+          dataDir = Directory(p.join(appDir.path, 'SmartSheet_Data'));
+        } else {
+          dataDir = appDir;
         }
-      }
 
-      // 2. مسح is_user_logged_in من Hive
-      if (Hive.isBoxOpen('settings')) {
-        await Hive.box('settings').put('is_user_logged_in', false);
+        if (dataDir.existsSync()) {
+          dataDir.deleteSync(recursive: true);
+          debugPrint('✅ KillSwitch: تم مسح مجلد البيانات بالكامل بنجاح!');
+        }
+      } catch (e) {
+        debugPrint('⚠️ KillSwitch: فشل مسح مجلد البيانات: $e');
       }
 
       // 3. تسجيل الخروج من Supabase Auth
