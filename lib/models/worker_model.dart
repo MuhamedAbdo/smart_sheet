@@ -107,6 +107,10 @@ class Worker extends HiveObject {
   @HiveField(23, defaultValue: false)
   late bool canDeleteArchive;
 
+  /// صلاحية إضافة حركة عامل
+  @HiveField(24, defaultValue: false)
+  late bool? canAddWorkerAction;
+
   /// Alias for [id] — kept for backward compatibility with SyncService
   String? get syncId => id;
 
@@ -135,6 +139,7 @@ class Worker extends HiveObject {
     this.canAddArchive = false,
     this.canRestoreArchive = false,
     this.canDeleteArchive = false,
+    this.canAddWorkerAction = false,
   }) {
     // Generate valid UUID v4 if not provided or invalid (fixes 22P02 error in Supabase)
     if (id == null || !id!.contains('-')) {
@@ -318,6 +323,7 @@ class Worker extends HiveObject {
       'can_add_archive': canAddArchive,
       'can_restore_archive': canRestoreArchive,
       'can_delete_archive': canDeleteArchive,
+      'can_add_worker_action': canAddWorkerAction,
     };
   }
 
@@ -351,6 +357,7 @@ class Worker extends HiveObject {
       canAddArchive: map['can_add_archive'] ?? map['canAddArchive'] ?? false,
       canRestoreArchive: map['can_restore_archive'] ?? map['canRestoreArchive'] ?? false,
       canDeleteArchive: map['can_delete_archive'] ?? map['canDeleteArchive'] ?? false,
+      canAddWorkerAction: map['can_add_worker_action'] ?? map['canAddWorkerAction'] ?? false,
     );
   }
 }

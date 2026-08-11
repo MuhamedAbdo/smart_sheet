@@ -54,6 +54,7 @@ class _WorkerFormState extends State<WorkerForm> {
   late bool canAddArchive;
   late bool canRestoreArchive;
   late bool canDeleteArchive;
+  late bool canAddWorkerAction;
 
   /// قائمة الوظائف المتاحة بناءً على القسم المختار — تُحدَّث ديناميكياً
   List<String> availableJobs = [];
@@ -201,6 +202,7 @@ class _WorkerFormState extends State<WorkerForm> {
     canAddArchive   = widget.existingWorker?.canAddArchive   ?? false;
     canRestoreArchive = widget.existingWorker?.canRestoreArchive ?? false;
     canDeleteArchive= widget.existingWorker?.canDeleteArchive?? false;
+    canAddWorkerAction = widget.existingWorker?.canAddWorkerAction ?? false;
 
     // تحميل أي أقسام أو وظائف مخصصة محفوظة في SharedPreferences
     _loadCustomDepartmentsAndJobsFromPrefs();
@@ -818,6 +820,7 @@ class _WorkerFormState extends State<WorkerForm> {
           canAddArchive: canAddArchive,
           canRestoreArchive: canRestoreArchive,
           canDeleteArchive: canDeleteArchive,
+          canAddWorkerAction: canAddWorkerAction,
           email: emailVal,
         );
 
@@ -847,6 +850,7 @@ class _WorkerFormState extends State<WorkerForm> {
         w.canAddArchive = canAddArchive;
         w.canRestoreArchive = canRestoreArchive;
         w.canDeleteArchive = canDeleteArchive;
+        w.canAddWorkerAction = canAddWorkerAction;
         w.email = emailVal;
         
         // ✅ الحل الصحيح والآمن للتعامل مع كائنات Hive
@@ -1063,6 +1067,12 @@ class _WorkerFormState extends State<WorkerForm> {
                   value: canDeleteWorker,
                   dense: true,
                   onChanged: (val) => setState(() => canDeleteWorker = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text("إضافة حركة عامل"),
+                  value: canAddWorkerAction,
+                  dense: true,
+                  onChanged: (val) => setState(() => canAddWorkerAction = val ?? false),
                 ),
                 const SizedBox(height: 10),
                 const Divider(),

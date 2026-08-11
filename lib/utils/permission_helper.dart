@@ -82,4 +82,11 @@ class PermissionHelper {
     if (isSuperAdmin) return true;
     return currentWorker?.canManageClientsDelete == true;
   }
+
+  /// صلاحية إضافة حركة عامل
+  static bool get canAddWorkerAction {
+    if (isSuspended) return false;
+    if (isSuperAdmin) return true;
+    return currentWorker?.canAddWorkerAction == true;
+  }
 }

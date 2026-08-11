@@ -915,6 +915,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               textCapitalization:
                   TextCapitalization.characters, // تحويل تلقائي للحروف الكبيرة
               autofocus: true,
+              onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
             ),
           ],
         ),

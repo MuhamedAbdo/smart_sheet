@@ -110,6 +110,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.email)),
                     enabled: !authLoading,
+                    onFieldSubmitted: (_) => _handleAuthAction(),
                     validator: (value) => (value == null || !value.contains('@'))
                         ? 'بريد إلكتروني غير صالح'
                         : null,
@@ -132,6 +133,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.email)),
                     enabled: !authLoading,
+                    onFieldSubmitted: (_) => _handleAuthAction(),
                     validator: (value) => (value == null || !value.contains('@'))
                         ? 'بريد إلكتروني غير صالح'
                         : null,
@@ -153,6 +155,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                     ),
                     enabled: !authLoading,
+                    onFieldSubmitted: (_) => _handleAuthAction(),
                     validator: (value) => (value == null || value.length < 6)
                         ? '6 أحرف على الأقل'
                         : null,
@@ -167,6 +170,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.lock)),
                       enabled: !authLoading,
+                      onFieldSubmitted: (_) => _handleAuthAction(),
                       validator: (value) => value != _passwordController.text
                           ? 'لا يوجد تطابق في كلمة المرور'
                           : null,

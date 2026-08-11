@@ -502,7 +502,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 const Icon(Icons.history, size: 20),
                 const SizedBox(width: 8),
                 const Text(
-                  "📜 السجل الإجرائي",
+                  "📜 سجل الحركات",
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
@@ -512,7 +512,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                   final uniqueCount =
                       rawActions.map((a) => a.id).toSet().length;
                   return Text(
-                    "$uniqueCount إجراء",
+                    "$uniqueCount حركة",
                     style: const TextStyle(color: Colors.grey, fontSize: 12),
                   );
                 }),
@@ -538,7 +538,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
                   if (validActions.isEmpty) {
                     return const Center(
-                        child: Text("لا توجد إجراءات لهذا العامل بعد"));
+                        child: Text("لا توجد حركات لهذا العامل بعد"));
                   }
 
                   // Sort actions by date descending
@@ -583,8 +583,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                         onDelete: () {
                           UIUtils.showDeleteConfirmation(
                             context: context,
-                            title: "حذف الإجراء",
-                            content: "هل أنت متأكد من حذف هذا الإجراء؟",
+                            title: "حذف الحركة",
+                            content: "هل أنت متأكد من حذف هذه الحركة؟",
                             onConfirm: () async {
                               final messenger = ScaffoldMessenger.of(context);
 
@@ -629,7 +629,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                               messenger.clearSnackBars();
                               UIUtils.showUndoSnackBar(
                                 context: context,
-                                message: "تم حذف الإجراء",
+                                message: "تم حذف الحركة",
                                 onUndo: () async {
                                   final actionBox =
                                       Hive.box<WorkerAction>('worker_actions');
@@ -685,7 +685,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             return isSupervisor && sameDept && cw.canAdd;
           }
 
-          final bool showFab = canManageActions || canAddForThisWorker();
+          final bool showFab = PermissionHelper.canAddWorkerAction || canManageActions || canAddForThisWorker();
           if (!showFab) return const SizedBox.shrink();
 
           return FloatingActionButton(

@@ -40,13 +40,14 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       canAddArchive: fields[21] == null ? false : fields[21] as bool,
       canRestoreArchive: fields[22] == null ? false : fields[22] as bool,
       canDeleteArchive: fields[23] == null ? false : fields[23] as bool,
+      canAddWorkerAction: fields[24] == null ? false : fields[24] as bool?,
     ).._actions = (fields[3] as HiveList?)?.castHiveList();
   }
 
   @override
   void write(BinaryWriter writer, Worker obj) {
     writer
-      ..writeByte(24)
+      ..writeByte(25)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -94,7 +95,9 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       ..writeByte(22)
       ..write(obj.canRestoreArchive)
       ..writeByte(23)
-      ..write(obj.canDeleteArchive);
+      ..write(obj.canDeleteArchive)
+      ..writeByte(24)
+      ..write(obj.canAddWorkerAction);
   }
 
   @override
