@@ -686,8 +686,8 @@ class _DieCuttingFormDialogState extends State<_DieCuttingFormDialog> {
     });
     if (item == null) return;
 
-    String foundClientCode = '';
-    if (item['clientName'] != null && Hive.isBoxOpen('savedSheetSizes')) {
+    String foundClientCode = item['clientCode']?.toString().trim() ?? '';
+    if (foundClientCode.isEmpty && item['clientName'] != null && Hive.isBoxOpen('savedSheetSizes')) {
       final box = Hive.box('savedSheetSizes');
       for (var val in box.values) {
         if (val is Map && val['clientName'] == item['clientName'] && val['isClientRecord'] == true) {

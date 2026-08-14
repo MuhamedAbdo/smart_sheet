@@ -14,6 +14,10 @@ analyzer:
   exclude:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
+    # استثناء المكتبات المحلية المُصلَّحة (bidi patch) من التحليل
+    - "packages/**"
+    # ملف اختبار مؤقت للتطوير فقط
+    - "lib/test_pdf_generate.dart"
   errors:
     # HiveList مُعلَّمة بـ @experimental في hive — تحذير لا يؤثر على الأداء
     experimental_member_use: ignore
@@ -25,3 +29,4 @@ linter:
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
+

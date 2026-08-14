@@ -45,21 +45,23 @@ Future<Uint8List?> generateFlexoProductionReportPdfBytes(Map<String, dynamic> pa
         (safeRecords.isNotEmpty ? safeRecords.first['department']?.toString() : null);
 
     if (department == 'crushing' || department == 'die_cutting') {
-      return await compute(_generateCrushingProductionPdfBytes, {
+      final bytes = await compute(_generateCrushingProductionPdfBytes, {
         'records': safeRecords,
         'font': fontBytes,
         'bold': boldFontBytes,
         'title': params['title'] ?? 'تقرير إنتاج قسم التكسير',
       });
+      return bytes.isEmpty ? null : bytes;
     }
 
-    return await compute(_generateConsolidatedProductionPdfBytes, {
+    final bytes = await compute(_generateConsolidatedProductionPdfBytes, {
       'records': safeRecords,
       'font': fontBytes,
       'bold': boldFontBytes,
       'title': params['title'],
       'department': department,
     });
+    return bytes.isEmpty ? null : bytes;
   } catch (e) {
     debugPrint('❌ خطأ في generateFlexoProductionReportPdfBytes: $e');
     return null;
@@ -77,12 +79,13 @@ Future<Uint8List?> generatePrintingReportPdfBytes(Map<String, dynamic> params) a
     final safeRecords = records.map((r) => toSerializableMap(r)).toList();
     safeRecords.sort(_compareRecordsByDateAndEndTime);
 
-    return await compute(_generateConsolidatedPrintingPdfBytes, {
+    final bytes = await compute(_generateConsolidatedPrintingPdfBytes, {
       'records': safeRecords,
       'font': fontBytes,
       'bold': boldFontBytes,
       'title': params['title'],
     });
+    return bytes.isEmpty ? null : bytes;
   } catch (e) {
     debugPrint('❌ خطأ في generatePrintingReportPdfBytes: $e');
     return null;
@@ -328,6 +331,32 @@ String _getDimensionsOnly(Map<String, dynamic> record) {
   }
 }
 
+// تنظيف النص من الحروف التي تُسبب خللاً في مكتبة bidi-2.0.13 عند توليد الـ PDF:
+// 1. علامات الاتجاه (RTL/LTR marks)
+// 2. التشكيل العربي (Non-Spacing Marks) التي تُشغّل خوارزمية _compose وتتسبب في RangeError
+String _cleanForPdf(String text) {
+  return text
+      // علامات الاتجاه
+      .replaceAll('\u200F', '')  // Right-to-Left Mark
+      .replaceAll('\u200E', '')  // Left-to-Right Mark
+      .replaceAll('\u200B', '')  // Zero Width Space
+      .replaceAll('\u200C', '')  // Zero Width Non-Joiner
+      .replaceAll('\u200D', '')  // Zero Width Joiner
+      .replaceAll('\u202A', '')  // Left-to-Right Embedding
+      .replaceAll('\u202B', '')  // Right-to-Left Embedding
+      .replaceAll('\u202C', '')  // Pop Directional Formatting
+      .replaceAll('\u202D', '')  // Left-to-Right Override
+      .replaceAll('\u202E', '')  // Right-to-Left Override
+      .replaceAll('\u2066', '')  // Left-to-Right Isolate
+      .replaceAll('\u2067', '')  // Right-to-Left Isolate
+      .replaceAll('\u2068', '')  // First Strong Isolate
+      .replaceAll('\u2069', '')  // Pop Directional Isolate
+      // التشكيل العربي (Arabic Diacritics / Non-Spacing Marks)
+      // النطاق U+064B - U+065F: التنوين، الفتحة، الضمة، الكسرة، الشدة، السكون إلخ
+      .replaceAllMapped(RegExp(r'[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED\u0670]'), (_) => '');
+}
+
+
 
 
 // بناء الخلايا الأساسية للجدول
@@ -343,7 +372,7 @@ pw.Widget buildTableDataCell(String text, double width, pw.Font font, {bool isRi
         right: const pw.BorderSide(width: 0.5, color: PdfColors.black),
       ),
     ),
-    child: pw.Text(ArabicPDFHelper.fixArabic(text),
+    child: pw.Text(ArabicPDFHelper.fixArabic(_cleanForPdf(text)),
       style: pw.TextStyle(font: font, fontSize: 7.5),
       softWrap: true, textAlign: pw.TextAlign.center),
   );
@@ -485,8 +514,8 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
       ));
     }
     return await pdf.save();
-  } catch (e) {
-    debugPrint('❌ خطأ في _generateConsolidatedProductionPdfBytes: $e');
+  } catch (e, st) {
+    debugPrint('❌ خطأ في _generateConsolidatedProductionPdfBytes: $e\n$st');
     return Uint8List(0);
   }
 }
@@ -499,7 +528,7 @@ pw.Widget _buildFlexCell(String text, pw.Font font) {
     child: pw.Align(
       alignment: pw.Alignment.center,
       child: pw.Text(
-        ArabicPDFHelper.fixArabic(text),
+        ArabicPDFHelper.fixArabic(_cleanForPdf(text)),
         style: pw.TextStyle(font: font, fontSize: 7.5),
         softWrap: true,
         textAlign: pw.TextAlign.center,
@@ -871,8 +900,8 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
       ));
     }
     return await pdf.save();
-  } catch (e) {
-    debugPrint('❌ خطأ في _generateConsolidatedPrintingPdfBytes: $e');
+  } catch (e, st) {
+    debugPrint('❌ خطأ في _generateConsolidatedPrintingPdfBytes: $e\n$st');
     return Uint8List(0);
   }
 }
