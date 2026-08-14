@@ -116,9 +116,9 @@ class _DieCuttingFormsScreenState extends State<DieCuttingFormsScreen> {
                                           Text(
                                               "الصنف: ${form.itemName}${form.itemCode != null ? ' (${form.itemCode})' : ''}"),
                                         Text(
-                                            "المقاس: ${form.length} x ${form.width} x ${form.height}"),
+                                            "المقاس: ${_formatDimensions(form.length, form.width, form.height)}"),
                                         Text(
-                                            "عدد العلب: ${form.numberOfBoxes.toStringAsFixed(0)}"),
+                                            "عدد العلب: ${form.numberOfBoxes % 1 == 0 ? form.numberOfBoxes.toInt() : form.numberOfBoxes}"),
                                       ],
                                     ),
                                   ),
@@ -203,9 +203,9 @@ class _DieCuttingFormsScreenState extends State<DieCuttingFormsScreen> {
             if (form.itemName != null && form.itemName!.isNotEmpty)
               Text(
                   "الصنف: ${form.itemName}${form.itemCode != null ? ' (${form.itemCode})' : ''}"),
-            Text("المقاس: ${form.length} x ${form.width} x ${form.height}"),
-            Text("مقاس الشيت: ${form.sheetLength} x ${form.sheetWidth}"),
-            Text("عدد العلب: ${form.numberOfBoxes.toStringAsFixed(0)}"),
+            Text("المقاس: ${_formatDimensions(form.length, form.width, form.height)}"),
+            Text("مقاس الشيت: ${_formatSheet(form.sheetLength, form.sheetWidth)}"),
+            Text("عدد العلب: ${form.numberOfBoxes % 1 == 0 ? form.numberOfBoxes.toInt() : form.numberOfBoxes}"),
             Text("نوع القالب: ${form.isSheet ? 'شيت' : 'عادي'}"),
             if (form.shelfLocation != null && form.shelfLocation!.isNotEmpty)
               Text("مكان الرف: ${form.shelfLocation}"),
@@ -506,6 +506,23 @@ class _DieCuttingFormsScreenState extends State<DieCuttingFormsScreen> {
       ),
     );
   }
+
+  String _formatDimensions(double l, double w, double h) {
+    final sl = l % 1 == 0 ? l.toInt().toString() : l.toString();
+    final sw = w % 1 == 0 ? w.toInt().toString() : w.toString();
+    final sh = h % 1 == 0 ? h.toInt().toString() : h.toString();
+
+    if (h == 0) {
+      return "$sl \u200F/ $sw";
+    }
+    return "$sl \u200F/ $sw \u200F/ $sh";
+  }
+
+  String _formatSheet(double l, double w) {
+    final sl = l % 1 == 0 ? l.toInt().toString() : l.toString();
+    final sw = w % 1 == 0 ? w.toInt().toString() : w.toString();
+    return "$sl \u200F/ $sw";
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -669,8 +686,19 @@ class _DieCuttingFormDialogState extends State<_DieCuttingFormDialog> {
     });
     if (item == null) return;
 
+    String foundClientCode = '';
+    if (item['clientName'] != null && Hive.isBoxOpen('savedSheetSizes')) {
+      final box = Hive.box('savedSheetSizes');
+      for (var val in box.values) {
+        if (val is Map && val['clientName'] == item['clientName'] && val['isClientRecord'] == true) {
+          foundClientCode = val['productCode']?.toString().trim() ?? '';
+          break;
+        }
+      }
+    }
+
     _customerNameController.text = item['clientName']?.toString() ?? '';
-    _customerCodeController.text = item['productCode']?.toString() ?? '';
+    _customerCodeController.text = foundClientCode;
     _itemNameController.text = item['productName']?.toString() ?? '';
     _itemCodeController.text = item['productCode']?.toString() ?? '';
     _lengthController.text = item['length']?.toString() ?? '';
