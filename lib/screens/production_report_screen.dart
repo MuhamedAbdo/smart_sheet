@@ -959,24 +959,34 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 widget.department != 'crushing' &&
                 record['department'] != 'crushing')
               _buildColorsList(record['colors'] ?? []),
-            if (record['lineWaste'] != null || record['printWaste'] != null || record['waste_quantity'] != null || record['wasteQuantity'] != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    const Text("📉 الهالك: ",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text((widget.department == 'production_line' ||
-                            record['department'] == 'production_line' ||
-                            widget.department == 'crushing' ||
-                            widget.department == 'die_cutting' ||
-                            record['department'] == 'crushing' ||
-                            record['department'] == 'die_cutting')
-                        ? "${record['lineWaste'] ?? record['waste_quantity'] ?? record['wasteQuantity'] ?? 0}"
-                        : "إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
-                  ],
-                ),
-              ),
+            Builder(
+              builder: (context) {
+                final lineWaste = record['lineWaste'] ?? record['line_waste'] ?? record['waste_quantity'] ?? record['wasteQuantity'];
+                final printWaste = record['printWaste'] ?? record['print_waste'];
+                
+                if (lineWaste == null && printWaste == null) return const SizedBox.shrink();
+                
+                final isProdLineOrCrushing = widget.department == 'production_line' ||
+                    record['department'] == 'production_line' ||
+                    widget.department == 'crushing' ||
+                    widget.department == 'die_cutting' ||
+                    record['department'] == 'crushing' ||
+                    record['department'] == 'die_cutting';
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      const Text("📉 الهالك: ",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(isProdLineOrCrushing
+                          ? "${lineWaste ?? 0}"
+                          : "إنتاج: ${lineWaste ?? 0} | طباعة: ${printWaste ?? 0}"),
+                    ],
+                  ),
+                );
+              },
+            ),
             if (mName.isNotEmpty)
               _buildInfoRowWithIcon(Icons.settings, "الماكينة:", mName),
             if (tName.isNotEmpty)
