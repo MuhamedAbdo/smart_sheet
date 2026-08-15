@@ -107,7 +107,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     setState(() {
       _isLoading = true;
       _message =
-          'جاري الرفع المباشر لبيانات العملاء والأصناف والتقارير والأرشيف دفعة واحدة...';
+          'جاري الرفع المباشر ومعالجة التقارير المخفية...';
     });
 
     UIUtils.showInfoSnackBar(
@@ -118,6 +118,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     );
 
     try {
+      // تشغيل دالة معالجة التقارير المخفية تلقائياً قبل الرفع
+      await GhostDeletesFixer.executeFix();
+      
       await SyncService.instance.directPushAllCustomers();
       await SyncService.instance.directPushAllReports();
       if (mounted) {
@@ -364,7 +367,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             const Divider(),
             const SizedBox(height: 24),
 
-            if (isAdmin) ...[
+            if (Supabase.instance.client.auth.currentUser?.email == 'mohamedabdo9999933@gmail.com') ...[
               _buildGhostDeletesFixButton(),
               const SizedBox(height: 24),
               const Divider(),
