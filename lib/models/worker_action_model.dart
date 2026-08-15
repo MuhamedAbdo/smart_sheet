@@ -53,6 +53,9 @@ class WorkerAction extends HiveObject {
   @HiveField(15)
   String? createdByDeviceId;
 
+  @HiveField(16)
+  String? shiftName;
+
   WorkerAction({
     this.id,
     required this.type,
@@ -70,6 +73,7 @@ class WorkerAction extends HiveObject {
     this.workerName,
     this.workerId,
     this.createdByDeviceId,
+    this.shiftName,
   }) {
     // Generate valid UUID v4 if not provided or invalid (fixes 22P02 error in Supabase)
     if (id == null || !id!.contains('-')) {
@@ -161,6 +165,7 @@ class WorkerAction extends HiveObject {
       'worker_name': workerName,
       'worker_id': workerId,
       'created_by_device_id': createdByDeviceId,
+      'shift_name': shiftName,
     };
   }
 
@@ -186,6 +191,7 @@ class WorkerAction extends HiveObject {
       workerName: map['worker_name'],
       workerId: (map['worker_id'] ?? map['workerId'])?.toString(),
       createdByDeviceId: map['created_by_device_id']?.toString(),
+      shiftName: map['shift_name'],
     );
   }
 

@@ -58,6 +58,13 @@ class WorkerActionCard extends StatelessWidget {
             // التعديل المطلوب: الأجازة والغياب والأجازة العارضة
             if (action.type == 'إجازة' || action.type == 'غياب' || action.type == 'أجازة عارضة') ...[
               _buildSectionTitle('🗓️ البيانات', color: colorScheme.primary),
+              if (action.shiftName != null && action.shiftName!.isNotEmpty)
+                _buildInfoRow(
+                  '🏢 الوردية:',
+                  action.shiftName!,
+                  labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: textTheme.bodyMedium?.color,
+                ),
               _buildInfoRow(
                 '📅 تاريخ القيام:',
                 _f(action.date),
@@ -114,6 +121,13 @@ class WorkerActionCard extends StatelessWidget {
                 ),
             ] else if (action.type == 'إذن' || action.type == 'تأمين صحي') ...[
               _buildSectionTitle('⏰ التوقيت', color: colorScheme.primary),
+              if (action.shiftName != null && action.shiftName!.isNotEmpty)
+                _buildInfoRow(
+                  '🏢 الوردية:',
+                  action.shiftName!,
+                  labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  valueColor: textTheme.bodyMedium?.color,
+                ),
               _buildInfoRow(
                 '📅 تاريخ البدأ:',
                 _f(action.date),

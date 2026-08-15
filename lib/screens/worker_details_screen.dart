@@ -115,6 +115,93 @@ class ShiftTimeCalculator {
   static TimeOfDay getDefaultReturnTime(ThemeProvider themeProvider) {
     return themeProvider.shiftStart;
   }
+
+  /// Get shift start time for a specific action, falling back to default if not found
+  static TimeOfDay getShiftStartForAction(String? shiftName, DateTime date, ThemeProvider themeProvider, [TimeOfDay? actionStartTime]) {
+    if (shiftName == null && actionStartTime != null) {
+      shiftName = _guessShiftNameFromTime(actionStartTime, date);
+    }
+    if (shiftName == null || !Hive.isBoxOpen('factory_schedule')) {
+      return themeProvider.shiftStart;
+    }
+    
+    return _parseShiftTime(shiftName, date, true, themeProvider.shiftStart);
+  }
+
+  /// Get shift end time for a specific action, falling back to default if not found
+  static TimeOfDay getShiftEndForAction(String? shiftName, DateTime date, ThemeProvider themeProvider, [TimeOfDay? actionStartTime]) {
+    if (shiftName == null && actionStartTime != null) {
+      shiftName = _guessShiftNameFromTime(actionStartTime, date);
+    }
+    if (shiftName == null || !Hive.isBoxOpen('factory_schedule')) {
+      return themeProvider.shiftEnd;
+    }
+    
+    return _parseShiftTime(shiftName, date, false, themeProvider.shiftEnd);
+  }
+
+  static String? _guessShiftNameFromTime(TimeOfDay time, DateTime date) {
+    if (!Hive.isBoxOpen('factory_schedule')) return null;
+    const map = {
+      1: 'Monday', 2: 'Tuesday', 3: 'Wednesday',
+      4: 'Thursday', 5: 'Friday', 6: 'Saturday', 7: 'Sunday',
+    };
+    final dayName = map[date.weekday] ?? 'Monday';
+    final schedule = Hive.box<DaySchedule>('factory_schedule').get(dayName);
+    if (schedule != null && schedule.shifts != null) {
+      for (var shift in schedule.shifts!) {
+        try {
+          final parts = shift.startTime.split(' ');
+          final timeParts = parts[0].split(':');
+          int hour = int.parse(timeParts[0]);
+          final int minute = int.parse(timeParts[1]);
+          if (parts.length > 1) {
+            final ampm = parts[1].toLowerCase();
+            if (ampm == 'pm' && hour < 12) hour += 12;
+            if (ampm == 'am' && hour == 12) hour = 0;
+          }
+          if (hour == time.hour && (minute - time.minute).abs() <= 30) {
+            return shift.name;
+          }
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
+
+  static TimeOfDay _parseShiftTime(String shiftName, DateTime date, bool isStart, TimeOfDay fallback) {
+    const map = {
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+      7: 'Sunday',
+    };
+    final dayName = map[date.weekday] ?? 'Monday';
+    final schedule = Hive.box<DaySchedule>('factory_schedule').get(dayName);
+    
+    if (schedule != null && schedule.shifts != null) {
+      try {
+        final shift = schedule.shifts!.firstWhere((s) => s.name == shiftName);
+        final timeString = isStart ? shift.startTime : shift.endTime;
+        final parts = timeString.split(' ');
+        final timeParts = parts[0].split(':');
+        int hour = int.parse(timeParts[0]);
+        final int minute = int.parse(timeParts[1]);
+        if (parts.length > 1) {
+          final ampm = parts[1].toLowerCase();
+          if (ampm == 'pm' && hour < 12) hour += 12;
+          if (ampm == 'am' && hour == 12) hour = 0;
+        }
+        return TimeOfDay(hour: hour, minute: minute);
+      } catch (e) {
+        // Fallback
+      }
+    }
+    return fallback;
+  }
 }
 
 // ─── مساعد حساب أيام العمل الفعلية (يتجاهل عطل نهاية الأسبوع) ────────────────
@@ -568,10 +655,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
                       return WorkerActionCard(
                         action: displayedAction,
-                        showEditButton:
-                            canManageActions || (canEditThisWorker && isOwner),
-                        showDeleteButton: canManageActions ||
-                            (canDeleteThisWorker && isOwner),
+                        showEditButton: canManageActions || canEditThisWorker || isOwner,
+                        showDeleteButton:
+                            canManageActions || canDeleteThisWorker || isOwner,
                         onRefresh: _refresh,
                         onEdit: () async {
                           if (originalIndex != -1) {
@@ -685,7 +771,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             return isSupervisor && sameDept && cw.canAdd;
           }
 
-          final bool showFab = PermissionHelper.canAddWorkerAction || canManageActions || canAddForThisWorker();
+          final bool showFab = PermissionHelper.canAddWorkerAction ||
+              canManageActions ||
+              canAddForThisWorker();
           if (!showFab) return const SizedBox.shrink();
 
           return FloatingActionButton(
@@ -733,9 +821,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
           return ActiveAbsenceCard(
             worker: _worker,
             action: activeAction,
-            showEditButton: canManageActions || (canEditThisWorker && isOwner),
+            showEditButton: canManageActions || canEditThisWorker || isOwner,
             showDeleteButton:
-                canManageActions || (canDeleteThisWorker && isOwner),
+                canManageActions || canDeleteThisWorker || isOwner,
             onRefresh: _refresh,
             onEdit: () {
               final idx = _worker.actions.indexOf(activeAction);
@@ -766,13 +854,16 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     final defaultReturnTime =
         ShiftTimeCalculator.getDefaultReturnTime(themeProvider);
 
+    bool userModifiedStartTime = false;
+    bool userModifiedEndTime = false;
+
     // Set default departure time to shift start for new actions
     final startTime = ValueNotifier<TimeOfDay?>(
         existingAction?.startTime ?? defaultDepartureTime);
 
     // Set default return time to shift start when ending a live session (returnDate is set)
-    final endTime = ValueNotifier<TimeOfDay?>(existingAction?.endTime ??
-        (existingAction?.returnDate != null ? defaultReturnTime : null));
+    final endTime =
+        ValueNotifier<TimeOfDay?>(existingAction?.endTime ?? defaultReturnTime);
 
     final rewardType = ValueNotifier<String>(
         existingAction?.amount != null ? 'amount' : 'days');
@@ -783,15 +874,72 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         TextEditingController(text: existingAction?.notes ?? '');
     final returnDate = ValueNotifier<DateTime?>(existingAction?.returnDate);
 
+    final selectedShiftName = ValueNotifier<String?>(existingAction?.shiftName);
+
     void updateCalculatedDays() {
       final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-      final shiftStart = themeProvider.shiftStart;
-      final shiftEnd = themeProvider.shiftEnd;
+      TimeOfDay shiftStart = themeProvider.shiftStart;
+      TimeOfDay shiftEnd = themeProvider.shiftEnd;
 
-      // نوع الإجراء يحدد طريقة الحساب
+      if (Hive.isBoxOpen('factory_schedule')) {
+        const map = {
+          1: 'Monday',
+          2: 'Tuesday',
+          3: 'Wednesday',
+          4: 'Thursday',
+          5: 'Friday',
+          6: 'Saturday',
+          7: 'Sunday',
+        };
+        final dayName = map[date.value.weekday] ?? 'Monday';
+        final schedule = Hive.box<DaySchedule>('factory_schedule').get(dayName);
+        if (schedule != null &&
+            schedule.shifts != null &&
+            schedule.shifts!.isNotEmpty) {
+          final shift = schedule.shifts!.firstWhere(
+            (s) => s.name == selectedShiftName.value,
+            orElse: () => schedule.shifts!.first,
+          );
+
+          TimeOfDay parseTime(String raw) {
+            try {
+              final parts = raw.split(' ');
+              final timeParts = parts[0].split(':');
+              int hour = int.parse(timeParts[0]);
+              final int minute = int.parse(timeParts[1]);
+              if (parts.length > 1) {
+                final ampm = parts[1].toLowerCase();
+                if (ampm == 'pm' && hour < 12) hour += 12;
+                if (ampm == 'am' && hour == 12) hour = 0;
+              }
+              return TimeOfDay(hour: hour, minute: minute);
+            } catch (e) {
+              return const TimeOfDay(hour: 8, minute: 0);
+            }
+          }
+
+          shiftStart = parseTime(shift.startTime);
+          shiftEnd = parseTime(shift.endTime);
+        }
+      }
+
+      // تحديد ما إذا كان الإجراء يوم كامل أو بالساعات
       final isFullDayAction = actionType.value == 'إجازة' ||
           actionType.value == 'غياب' ||
           actionType.value == 'أجازة عارضة';
+
+      // تحديث وقت البداية والنهاية ليكون متوافقاً مع الوردية
+      // في حالة الإجراءات الجديدة أو عند تغيير الوردية للإجراءات الكاملة
+      if (existingAction == null || isFullDayAction) {
+        if (!userModifiedStartTime) {
+          startTime.value = shiftStart;
+        }
+        if (!userModifiedEndTime) {
+          endTime.value = shiftStart; // العودة دائماً في بداية الوردية للإجازات
+        }
+      }
+
+
 
       final isHourlyAction =
           actionType.value == 'إذن' || actionType.value == 'تأمين صحي';
@@ -831,14 +979,12 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Container(
+        builder: (context, setState) => SizedBox(
           height: MediaQuery.of(context).size.height * 0.9,
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
           child: Column(
             children: [
               // Handle
@@ -899,6 +1045,69 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                           actionType.value == 'إذن' ||
                           actionType.value == 'تأمين صحي') ...[
                         const SizedBox(height: 12),
+                        ValueListenableBuilder<DateTime>(
+                          valueListenable: date,
+                          builder: (context, dateVal, _) {
+                            List<String> shiftOptions = [];
+                            if (Hive.isBoxOpen('factory_schedule')) {
+                              const map = {
+                                1: 'Monday',
+                                2: 'Tuesday',
+                                3: 'Wednesday',
+                                4: 'Thursday',
+                                5: 'Friday',
+                                6: 'Saturday',
+                                7: 'Sunday',
+                              };
+                              final dayName = map[dateVal.weekday] ?? 'Monday';
+                              final schedule =
+                                  Hive.box<DaySchedule>('factory_schedule')
+                                      .get(dayName);
+                              if (schedule != null && schedule.shifts != null) {
+                                shiftOptions = schedule.shifts!
+                                    .map((s) => s.name)
+                                    .toList();
+                              }
+                            }
+
+                            if (shiftOptions.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+
+                            if (selectedShiftName.value == null ||
+                                !shiftOptions
+                                    .contains(selectedShiftName.value)) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (selectedShiftName.value !=
+                                    shiftOptions.first) {
+                                  selectedShiftName.value = shiftOptions.first;
+                                  updateCalculatedDays();
+                                }
+                              });
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: DropdownButtonFormField<String>(
+                                initialValue: shiftOptions
+                                        .contains(selectedShiftName.value)
+                                    ? selectedShiftName.value
+                                    : shiftOptions.first,
+                                items: shiftOptions
+                                    .map((s) => DropdownMenuItem(
+                                        value: s, child: Text(s)))
+                                    .toList(),
+                                onChanged: (v) {
+                                  setState(() => selectedShiftName.value = v);
+                                  updateCalculatedDays();
+                                },
+                                decoration: const InputDecoration(
+                                    labelText:
+                                        "الوردية (تحدد عدد ساعات الحركة)"),
+                              ),
+                            );
+                          },
+                        ),
                         // Row 1: Start Date & Time
                         Row(
                           children: [
@@ -914,8 +1123,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                             Expanded(
                                 child: _buildTimeField("⏰ وقت القيام",
                                     startTime, context, setState,
-                                    updateCalculatedDays:
-                                        updateCalculatedDays)),
+                                    updateCalculatedDays: updateCalculatedDays,
+                                    onUserModified: () =>
+                                        userModifiedStartTime = true)),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -932,8 +1142,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                             Expanded(
                                 child: _buildTimeField(
                                     "🕒 وقت العودة", endTime, context, setState,
-                                    updateCalculatedDays:
-                                        updateCalculatedDays)),
+                                    updateCalculatedDays: updateCalculatedDays,
+                                    onUserModified: () =>
+                                        userModifiedEndTime = true)),
                           ],
                         ),
                         if (actionType.value == 'إجازة' ||
@@ -1101,6 +1312,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                     workerName: _worker.name,
                                     workerId: _worker.id,
                                     createdByDeviceId: deviceId,
+                                    shiftName: selectedShiftName.value,
                                   );
 
                                   // Use put with ID instead of add to maintain key consistency
@@ -1138,6 +1350,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                       endTime.value?.minute;
                                   existingAction.amount = amountToSave;
                                   existingAction.bonusDays = bonusDaysToSave;
+                                  existingAction.shiftName =
+                                      selectedShiftName.value;
                                   existingAction.factoryId =
                                       factoryId ?? existingAction.factoryId;
 
@@ -1238,7 +1452,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
   Widget _buildTimeField(String label, ValueNotifier<TimeOfDay?> timeNotifier,
       BuildContext context, StateSetter setState,
-      {VoidCallback? updateCalculatedDays}) {
+      {VoidCallback? updateCalculatedDays, VoidCallback? onUserModified}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1250,6 +1464,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                 initialTime: timeNotifier.value ?? TimeOfDay.now());
             if (picked != null) {
               setState(() => timeNotifier.value = picked);
+              if (onUserModified != null) onUserModified();
               if (updateCalculatedDays != null) updateCalculatedDays();
             }
           },
