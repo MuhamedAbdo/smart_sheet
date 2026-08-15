@@ -100,6 +100,9 @@ class FlexoProductionReport extends HiveObject {
   @HiveField(31)
   final List<String>? crewMembers;
 
+  @HiveField(32)
+  final String? shiftName;
+
   FlexoProductionReport({
     required this.id,
     required this.factoryId,
@@ -133,6 +136,7 @@ class FlexoProductionReport extends HiveObject {
     this.isSheet,
     this.notes,
     this.crewMembers,
+    this.shiftName,
   });
 
   Map<String, dynamic> toJson() {
@@ -169,6 +173,7 @@ class FlexoProductionReport extends HiveObject {
       'is_sheet': isSheet ?? false,
       'notes': notes,
       'crew_members': crewMembers,
+      'shift_name': shiftName,
     };
   }
 
@@ -206,6 +211,7 @@ class FlexoProductionReport extends HiveObject {
       isSheet: map['is_sheet'] == true || map['isSheet'] == true,
       notes: map['notes']?.toString(),
       crewMembers: map['crew_members'] is List ? List<String>.from(map['crew_members']) : null,
+      shiftName: map['shift_name']?.toString() ?? map['shiftName']?.toString(),
     );
   }
 

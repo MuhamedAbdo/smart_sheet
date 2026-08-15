@@ -10,6 +10,36 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 part 'day_schedule.g.dart';
 
+@HiveType(typeId: 26)
+class Shift extends HiveObject {
+  @HiveField(0)
+  String name;
+
+  @HiveField(1)
+  String startTime;
+
+  @HiveField(2)
+  String endTime;
+
+  Shift({
+    required this.name,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'start_time': startTime,
+        'end_time': endTime,
+      };
+
+  factory Shift.fromJson(Map<String, dynamic> map) => Shift(
+        name: map['name'] ?? 'الوردية الأولى',
+        startTime: map['start_time'] ?? '08:00 AM',
+        endTime: map['end_time'] ?? '05:00 PM',
+      );
+}
+
 @HiveType(typeId: 18)
 class DaySchedule extends HiveObject {
   /// اسم اليوم بالإنجليزية (Saturday, Sunday, … Friday)
@@ -20,19 +50,29 @@ class DaySchedule extends HiveObject {
   @HiveField(1)
   bool isWorkingDay;
 
-  /// وقت بداية الوردية لهذا اليوم، مثال: '08:00 AM'
+  /// وقت بداية الوردية (الافتراضية)
   @HiveField(2)
   String shiftStart;
 
-  /// وقت نهاية الوردية لهذا اليوم، مثال: '05:00 PM'
+  /// وقت نهاية الوردية (الافتراضية)
   @HiveField(3)
   String shiftEnd;
+
+  /// قائمة الورديات المتعددة لهذا اليوم (اختياري للحفاظ على التوافقية)
+  @HiveField(4)
+  List<Shift>? shifts;
+
+  /// قائمة أسماء الورديات كحل مبدئي أسهل
+  @HiveField(5)
+  List<String>? shiftNames;
 
   DaySchedule({
     required this.dayName,
     required this.isWorkingDay,
     required this.shiftStart,
     required this.shiftEnd,
+    this.shifts,
+    this.shiftNames,
   });
 
   // ─── أسماء الأيام المرتبة من الأحد إلى السبت ───────────────────────────
@@ -57,7 +97,7 @@ class DaySchedule extends HiveObject {
     'Friday': 'الجمعة',
   };
 
-  /// الإعداد الافتراضي للمصنع (الجمعة عطلة، الخميس وردية أقصر)
+  /// الإعداد الافتراضي للمصنع
   static List<DaySchedule> get defaults => [
         DaySchedule(
             dayName: 'Saturday',
@@ -102,6 +142,8 @@ class DaySchedule extends HiveObject {
         'is_working_day': isWorkingDay,
         'shift_start': shiftStart,
         'shift_end': shiftEnd,
+        'shifts': shifts?.map((s) => s.toJson()).toList(),
+        'shift_names': shiftNames,
       };
 
   factory DaySchedule.fromJson(Map<String, dynamic> map) => DaySchedule(
@@ -109,6 +151,12 @@ class DaySchedule extends HiveObject {
         isWorkingDay: map['is_working_day'] ?? true,
         shiftStart: map['shift_start'] ?? '08:00 AM',
         shiftEnd: map['shift_end'] ?? '05:00 PM',
+        shifts: map['shifts'] != null
+            ? (map['shifts'] as List).map((s) => Shift.fromJson(s)).toList()
+            : null,
+        shiftNames: map['shift_names'] != null
+            ? List<String>.from(map['shift_names'])
+            : null,
       );
 
   /// اسم اليوم العربي
