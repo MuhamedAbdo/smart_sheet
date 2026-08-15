@@ -46,14 +46,19 @@ class FactoryScheduleCard extends StatelessWidget {
   List<Shift> _getMasterShifts(Box settingsBox, Box<DaySchedule> scheduleBox) {
     final raw = settingsBox.get('master_shifts');
     if (raw != null && raw is List) {
-      return raw.map((e) => Shift.fromJson(Map<String, dynamic>.from(e))).toList();
+      return raw
+          .map((e) => Shift.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
     }
     // Fallback: جلب من أول يوم عمل متاح (كإعداد افتراضي مبدئي)
     for (var dayName in DaySchedule.orderedDays) {
       final schedule = scheduleBox.get(dayName);
-      if (schedule != null && schedule.shifts != null && schedule.shifts!.isNotEmpty) {
+      if (schedule != null &&
+          schedule.shifts != null &&
+          schedule.shifts!.isNotEmpty) {
         return schedule.shifts!
-            .map((e) => Shift(name: e.name, startTime: e.startTime, endTime: e.endTime))
+            .map((e) =>
+                Shift(name: e.name, startTime: e.startTime, endTime: e.endTime))
             .toList();
       }
     }
@@ -141,18 +146,11 @@ class FactoryScheduleCard extends StatelessWidget {
                           ),
                           const Spacer(),
                           TextButton.icon(
-                            icon: const Icon(Icons.done_all, size: 16, color: Colors.orange),
-                            label: const Text('فرض على الكل',
-                                style: TextStyle(fontSize: 12, color: Colors.orange)),
-                            onPressed: () => _forceMasterShiftsToAllDays(
-                                context, masterShifts, scheduleBox),
-                          ),
-                          TextButton.icon(
                             icon: const Icon(Icons.add, size: 16),
                             label: const Text('إضافة وردية',
                                 style: TextStyle(fontSize: 12)),
-                            onPressed: () => _showAddMasterShiftDialog(
-                                context, masterShifts, settingsBox, scheduleBox),
+                            onPressed: () => _showAddMasterShiftDialog(context,
+                                masterShifts, settingsBox, scheduleBox),
                           )
                         ],
                       ),
@@ -221,8 +219,8 @@ class FactoryScheduleCard extends StatelessWidget {
                 label: 'الافتراضي (بداية)',
                 value: shift.startTime,
                 enabled: true,
-                onTap: () => _pickTimeForMasterShift(
-                    context, shift, true, currentMasterShifts, settingsBox, scheduleBox),
+                onTap: () => _pickTimeForMasterShift(context, shift, true,
+                    currentMasterShifts, settingsBox, scheduleBox),
               )),
           const SizedBox(width: 6),
           const Text('→', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -233,16 +231,38 @@ class FactoryScheduleCard extends StatelessWidget {
                 label: 'الافتراضي (نهاية)',
                 value: shift.endTime,
                 enabled: true,
-                onTap: () => _pickTimeForMasterShift(
-                    context, shift, false, currentMasterShifts, settingsBox, scheduleBox),
+                onTap: () => _pickTimeForMasterShift(context, shift, false,
+                    currentMasterShifts, settingsBox, scheduleBox),
               )),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.red, size: 18),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            onPressed: () {
-              final newList = List<Shift>.from(currentMasterShifts)..remove(shift);
-              _saveMasterShifts(newList, settingsBox, scheduleBox);
+            onPressed: () async {
+              final bool? confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('تأكيد الحذف', style: TextStyle(fontFamily: 'Cairo')),
+                  content: Text('هل أنت متأكد من حذف الوردية الأساسية "${shift.name}"؟', style: const TextStyle(fontFamily: 'Cairo')),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo')),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      child: const Text('حذف', style: TextStyle(color: Colors.white, fontFamily: 'Cairo')),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                final newList = List<Shift>.from(currentMasterShifts)
+                  ..remove(shift);
+                _saveMasterShifts(newList, settingsBox, scheduleBox);
+              }
             },
           )
         ]));
@@ -268,8 +288,11 @@ class FactoryScheduleCard extends StatelessWidget {
     _saveMasterShifts(currentMasterShifts, settingsBox, scheduleBox);
   }
 
-  Future<void> _showAddMasterShiftDialog(BuildContext context,
-      List<Shift> currentMasterShifts, Box settingsBox, Box<DaySchedule> scheduleBox) async {
+  Future<void> _showAddMasterShiftDialog(
+      BuildContext context,
+      List<Shift> currentMasterShifts,
+      Box settingsBox,
+      Box<DaySchedule> scheduleBox) async {
     final nameCtrl = TextEditingController();
     TimeOfDay start = const TimeOfDay(hour: 8, minute: 0);
     TimeOfDay end = const TimeOfDay(hour: 16, minute: 0);
@@ -327,7 +350,8 @@ class FactoryScheduleCard extends StatelessWidget {
                       // إغلاق النافذة فوراً قبل الحفظ لتجنب أي أخطاء متعلقة بالـ Context
                       Navigator.pop(ctx);
 
-                      final newList = List<Shift>.from(currentMasterShifts)..add(newShift);
+                      final newList = List<Shift>.from(currentMasterShifts)
+                        ..add(newShift);
                       _saveMasterShifts(newList, settingsBox, scheduleBox);
                     },
                     child: const Text('إضافة'),
@@ -337,9 +361,8 @@ class FactoryScheduleCard extends StatelessWidget {
         });
   }
 
-  Future<void> _saveMasterShifts(
-      List<Shift> masterShifts, Box settingsBox, Box<DaySchedule> scheduleBox) async {
-    
+  Future<void> _saveMasterShifts(List<Shift> masterShifts, Box settingsBox,
+      Box<DaySchedule> scheduleBox) async {
     // قراءة الورديات الأساسية القديمة قبل التحديث لمعرفة ما إذا كان اليوم قد تم تعديله يدوياً أم لا
     final oldData = settingsBox.get('master_shifts');
     final oldMasterShifts = <Shift>[];
@@ -359,30 +382,32 @@ class FactoryScheduleCard extends StatelessWidget {
       if (schedule != null) {
         final currentShifts = schedule.shifts ?? [];
         final newShifts = <Shift>[];
-        
+
         for (var ms in masterShifts) {
-          final existingList = currentShifts.where((s) => s.name == ms.name).toList();
+          final existingList =
+              currentShifts.where((s) => s.name == ms.name).toList();
           final existing = existingList.isNotEmpty ? existingList.first : null;
-          
-          final oldMasterList = oldMasterShifts.where((s) => s.name == ms.name).toList();
-          final oldMaster = oldMasterList.isNotEmpty ? oldMasterList.first : null;
+
+          final oldMasterList =
+              oldMasterShifts.where((s) => s.name == ms.name).toList();
+          final oldMaster =
+              oldMasterList.isNotEmpty ? oldMasterList.first : null;
 
           if (existing != null) {
-            // التحقق مما إذا كان المستخدم قد عدل هذا اليوم يدوياً (استثناء) 
+            // التحقق مما إذا كان المستخدم قد عدل هذا اليوم يدوياً (استثناء)
             // إذا كان الوقت في اليوم يطابق وقت الـ Master القديم، فهذا يعني أنه لم يعدله يدوياً
             bool wasUnmodified = true;
             if (oldMaster != null) {
-              if (existing.startTime != oldMaster.startTime || existing.endTime != oldMaster.endTime) {
-                wasUnmodified = false; 
+              if (existing.startTime != oldMaster.startTime ||
+                  existing.endTime != oldMaster.endTime) {
+                wasUnmodified = false;
               }
             }
-            
+
             if (wasUnmodified) {
               // تحديث اليوم بوقت الـ Master الجديد
               newShifts.add(Shift(
-                  name: ms.name,
-                  startTime: ms.startTime,
-                  endTime: ms.endTime));
+                  name: ms.name, startTime: ms.startTime, endTime: ms.endTime));
             } else {
               // الاحتفاظ بالتعديل اليدوي الخاص باليوم
               newShifts.add(Shift(
@@ -393,9 +418,7 @@ class FactoryScheduleCard extends StatelessWidget {
           } else {
             // وردية جديدة تضاف
             newShifts.add(Shift(
-                name: ms.name,
-                startTime: ms.startTime,
-                endTime: ms.endTime));
+                name: ms.name, startTime: ms.startTime, endTime: ms.endTime));
           }
         }
 
@@ -409,7 +432,8 @@ class FactoryScheduleCard extends StatelessWidget {
           schedule.shiftEnd = '04:00 PM';
         }
         await schedule.save();
-        _upsertToSupabase(schedule); // عدم انتظار الرفع للسحاب لعدم تجميد الواجهة
+        _upsertToSupabase(
+            schedule); // عدم انتظار الرفع للسحاب لعدم تجميد الواجهة
       }
     }
   }
@@ -431,9 +455,24 @@ class FactoryScheduleCard extends StatelessWidget {
         'shifts': schedule.shifts?.map((e) => e.toJson()).toList(),
         'shift_names': schedule.shiftNames,
       };
-      await Supabase.instance.client
+      final existing = await Supabase.instance.client
           .from('factory_schedule')
-          .upsert(payload, onConflict: 'day_name');
+          .select('day_name')
+          .eq('factory_id', factoryId)
+          .eq('day_name', schedule.dayName)
+          .maybeSingle();
+
+      if (existing != null) {
+        await Supabase.instance.client
+            .from('factory_schedule')
+            .update(payload)
+            .eq('factory_id', factoryId)
+            .eq('day_name', schedule.dayName);
+      } else {
+        await Supabase.instance.client
+            .from('factory_schedule')
+            .insert(payload);
+      }
       debugPrint(
           '✅ [factory_schedule] تم رفع ${schedule.dayName} إلى Supabase.');
     } catch (e) {
@@ -442,60 +481,6 @@ class FactoryScheduleCard extends StatelessWidget {
   }
 
   // ─── فرض الورديات الأساسية على كل الأيام ──────────────────────────────
-  Future<void> _forceMasterShiftsToAllDays(
-      BuildContext context,
-      List<Shift> masterShifts,
-      Box<DaySchedule> scheduleBox) async {
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('تأكيد'),
-        content: const Text(
-            'هل أنت متأكد من فرض أوقات الورديات الأساسية على جميع أيام الأسبوع؟ سيؤدي هذا إلى مسح أي استثناءات قمت بتخصيصها للأيام يدوياً.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text('تطبيق', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    for (var dayName in DaySchedule.orderedDays) {
-      final schedule = scheduleBox.get(dayName);
-      if (schedule != null) {
-        final newShifts = <Shift>[];
-        for (var ms in masterShifts) {
-          newShifts.add(Shift(
-              name: ms.name, startTime: ms.startTime, endTime: ms.endTime));
-        }
-
-        schedule.shifts = newShifts;
-        schedule.shiftNames = newShifts.map((e) => e.name).toList();
-        if (newShifts.isNotEmpty) {
-          schedule.shiftStart = newShifts.first.startTime;
-          schedule.shiftEnd = newShifts.first.endTime;
-        } else {
-          schedule.shiftStart = '08:00 AM';
-          schedule.shiftEnd = '04:00 PM';
-        }
-        await schedule.save();
-        _upsertToSupabase(schedule);
-      }
-    }
-    
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تطبيق الورديات على جميع الأيام بنجاح.')),
-      );
-    }
-  }
 }
 
 // ─── صف يوم واحد (مع الاستثناءات) ────────────────────────────────────────────
@@ -563,7 +548,8 @@ class _DayRow extends StatelessWidget {
             padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
             child: Column(
               children: currentShifts
-                  .map((shift) => _buildShiftItem(context, shift, currentShifts))
+                  .map(
+                      (shift) => _buildShiftItem(context, shift, currentShifts))
                   .toList(),
             ),
           ),
@@ -600,7 +586,8 @@ class _DayRow extends StatelessWidget {
                 label: 'نهاية',
                 value: shift.endTime,
                 enabled: isAdmin,
-                onTap: () => _pickTimeForShift(context, shift, false, allShifts),
+                onTap: () =>
+                    _pickTimeForShift(context, shift, false, allShifts),
               )),
         ]));
   }
@@ -617,7 +604,7 @@ class _DayRow extends StatelessWidget {
     } else {
       shift.endTime = FactoryScheduleCard._fmtTime(picked);
     }
-    
+
     schedule.shifts = allShifts;
     if (allShifts.isNotEmpty) {
       schedule.shiftStart = allShifts.first.startTime;
