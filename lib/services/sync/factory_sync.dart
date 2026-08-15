@@ -258,6 +258,14 @@ mixin FactorySync on SyncServiceBase {
         existing.isWorkingDay = row['is_working_day'] as bool? ?? true;
         existing.shiftStart = row['shift_start']?.toString() ?? existing.shiftStart;
         existing.shiftEnd   = row['shift_end']?.toString()   ?? existing.shiftEnd;
+        if (row['shifts'] != null) {
+          existing.shifts = (row['shifts'] as List)
+              .map((s) => Shift.fromJson(Map<String, dynamic>.from(s)))
+              .toList();
+        }
+        if (row['shift_names'] != null) {
+          existing.shiftNames = List<String>.from(row['shift_names']);
+        }
         await existing.save();
       } else {
         // صف جديد لم يكن موجوداً محلياً
@@ -266,6 +274,14 @@ mixin FactorySync on SyncServiceBase {
           isWorkingDay: row['is_working_day'] as bool? ?? true,
           shiftStart: row['shift_start']?.toString() ?? '08:00 AM',
           shiftEnd:   row['shift_end']?.toString()   ?? '05:00 PM',
+          shifts: row['shifts'] != null
+              ? (row['shifts'] as List)
+                  .map((s) => Shift.fromJson(Map<String, dynamic>.from(s)))
+                  .toList()
+              : null,
+          shiftNames: row['shift_names'] != null
+              ? List<String>.from(row['shift_names'])
+              : null,
         );
         await box.put(dayName, newDay);
       }

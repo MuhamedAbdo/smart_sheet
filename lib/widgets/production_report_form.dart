@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/utils/worker_utils.dart';
+import 'package:smart_sheet/models/day_schedule.dart';
 
 class ColorField {
   final TextEditingController colorController;
@@ -69,6 +70,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
   // القيمة المختارة من الـ Dropdown
   String? _selectedMachineName;
   String? _selectedTechnicianName;
+  String? _selectedShiftName;
 
   List<ColorField> colors = [];
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -164,6 +166,8 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
     if (_selectedMachineName != null && _selectedMachineName!.isEmpty) _selectedMachineName = null;
     _selectedTechnicianName = data['technicianName']?.toString() ?? data['technician_name']?.toString();
     if (_selectedTechnicianName != null && _selectedTechnicianName!.isEmpty) _selectedTechnicianName = null;
+    _selectedShiftName = data['shiftName']?.toString() ?? data['shift_name']?.toString();
+    if (_selectedShiftName != null && _selectedShiftName!.isEmpty) _selectedShiftName = null;
 
     if (data['crewMembers'] is List) {
       selectedCrewMembers = List<String>.from(data['crewMembers']);
@@ -238,6 +242,8 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
         'department':
             widget.department ?? widget.initialData?['department'] ?? 'flexo',
         'shift': widget.initialData?['shift'],
+        'shiftName': _selectedShiftName,
+        'shift_name': _selectedShiftName,
         'notes': notesController.text.trim(),
         'orderNumber': orderNumberController.text.trim(),
         'formNumber': formNumberController.text.trim(),
@@ -318,8 +324,20 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    _buildTextField(dateController, "📅 التاريخ",
-                        readOnly: true, onTap: _selectDate),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: _buildTextField(dateController, "📅 التاريخ",
+                              readOnly: true, onTap: _selectDate),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 1,
+                          child: _buildShiftDropdown(),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
                     _buildTextField(orderNumberController, "🔢 رقم أمر التشغيل",
                         icon: Icons.numbers,
@@ -803,6 +821,66 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
           onChanged(v);
         }
       },
+    );
+  }
+
+  // ─── نافذة اختيار الوردية ─────────────────────────────────────────────────
+  Widget _buildShiftDropdown() {
+    if (!Hive.isBoxOpen('factory_schedule')) return const SizedBox.shrink();
+    final scheduleBox = Hive.box<DaySchedule>('factory_schedule');
+    
+    DateTime? dt;
+    try {
+      dt = DateTime.parse(dateController.text);
+    } catch (_) {
+      dt = DateTime.now();
+    }
+    
+    String dayName = '';
+    switch (dt.weekday) {
+      case DateTime.monday: dayName = 'Monday'; break;
+      case DateTime.tuesday: dayName = 'Tuesday'; break;
+      case DateTime.wednesday: dayName = 'Wednesday'; break;
+      case DateTime.thursday: dayName = 'Thursday'; break;
+      case DateTime.friday: dayName = 'Friday'; break;
+      case DateTime.saturday: dayName = 'Saturday'; break;
+      case DateTime.sunday: dayName = 'Sunday'; break;
+    }
+    
+    final schedule = scheduleBox.get(dayName);
+    List<String> shiftNames = [];
+    if (schedule != null && schedule.shiftNames != null) {
+      shiftNames = List<String>.from(schedule.shiftNames!);
+    }
+    
+    if (shiftNames.isEmpty) {
+      shiftNames = ['الوردية الأولى']; // Fallback
+    }
+    
+    if (_selectedShiftName != null && !shiftNames.contains(_selectedShiftName)) {
+      shiftNames.add(_selectedShiftName!);
+    }
+
+    return DropdownButtonFormField<String>(
+      key: ValueKey(dateController.text),
+      initialValue: _selectedShiftName ?? (shiftNames.isNotEmpty ? shiftNames.first : null),
+      decoration: const InputDecoration(
+        labelText: 'الوردية',
+        prefixIcon: Icon(Icons.work_history),
+        border: OutlineInputBorder(),
+      ),
+      items: shiftNames.map((String val) {
+        return DropdownMenuItem<String>(
+          value: val,
+          child: Text(val),
+        );
+      }).toList(),
+      onChanged: (String? newValue) {
+        setState(() {
+          _selectedShiftName = newValue;
+        });
+      },
+      validator: (v) => (v == null || v.isEmpty) ? 'مطلوب' : null,
     );
   }
 

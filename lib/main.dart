@@ -265,6 +265,7 @@ void _registerAdapters() {
   }
   if (!Hive.isAdapterRegistered(17)) Hive.registerAdapter(LiveSessionAdapter());
   if (!Hive.isAdapterRegistered(18)) Hive.registerAdapter(DayScheduleAdapter());
+  if (!Hive.isAdapterRegistered(26)) Hive.registerAdapter(ShiftAdapter());
   if (!Hive.isAdapterRegistered(20)) {
     Hive.registerAdapter(DieCuttingFormAdapter());
   }
