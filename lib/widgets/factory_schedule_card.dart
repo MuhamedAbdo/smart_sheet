@@ -114,10 +114,10 @@ class FactoryScheduleCard extends StatelessWidget {
                       await schedule.save();
                       await _upsertToSupabase(schedule);
                     },
-                    onPickStart: () async =>
-                        _pickTime(context, schedule, isStart: true),
-                    onPickEnd: () async =>
-                        _pickTime(context, schedule, isStart: false),
+                    onSave: () async {
+                      await schedule.save();
+                      await _upsertToSupabase(schedule);
+                    },
                   );
                 }),
               ],
@@ -126,24 +126,6 @@ class FactoryScheduleCard extends StatelessWidget {
         );
       },
     );
-  }
-
-  Future<void> _pickTime(BuildContext context, DaySchedule schedule,
-      {required bool isStart}) async {
-    final current =
-        _parseTime(isStart ? schedule.shiftStart : schedule.shiftEnd);
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: current,
-    );
-    if (picked == null) return;
-    if (isStart) {
-      schedule.shiftStart = _fmtTime(picked);
-    } else {
-      schedule.shiftEnd = _fmtTime(picked);
-    }
-    await schedule.save();
-    await _upsertToSupabase(schedule);
   }
 
   // ─── رفع صف يوم واحد إلى Supabase (upsert) ─────────────────────────────
@@ -162,6 +144,8 @@ class FactoryScheduleCard extends StatelessWidget {
         'is_working_day': schedule.isWorkingDay,
         'shift_start': schedule.shiftStart,
         'shift_end': schedule.shiftEnd,
+        'shifts': schedule.shifts?.map((e) => e.toJson()).toList(),
+        'shift_names': schedule.shiftNames,
       };
       await Supabase.instance.client
           .from('factory_schedule')
@@ -179,15 +163,13 @@ class _DayRow extends StatelessWidget {
   final DaySchedule schedule;
   final bool isAdmin;
   final ValueChanged<bool> onToggleWorkDay;
-  final VoidCallback onPickStart;
-  final VoidCallback onPickEnd;
+  final VoidCallback onSave;
 
   const _DayRow({
     required this.schedule,
     required this.isAdmin,
     required this.onToggleWorkDay,
-    required this.onPickStart,
-    required this.onPickEnd,
+    required this.onSave,
   });
 
   @override
@@ -195,13 +177,24 @@ class _DayRow extends StatelessWidget {
     final isOff = !schedule.isWorkingDay;
     final disabledColor = Colors.grey.shade400;
 
+    // تهيئة مؤقتة للوردية الأساسية إذا كانت القائمة فارغة
+    List<Shift> currentShifts = schedule.shifts ?? [];
+    if (currentShifts.isEmpty) {
+      currentShifts = [
+        Shift(
+            name: 'الوردية الأولى',
+            startTime: schedule.shiftStart,
+            endTime: schedule.shiftEnd)
+      ];
+    }
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
             children: [
-              // ── اسم اليوم ─────────────────────────────────────────────
               SizedBox(
                 width: 72,
                 child: Text(
@@ -213,8 +206,6 @@ class _DayRow extends StatelessWidget {
                   ),
                 ),
               ),
-
-              // ── Switch: يوم عمل / عطلة ───────────────────────────────
               Transform.scale(
                 scale: 0.80,
                 child: Switch(
@@ -224,7 +215,6 @@ class _DayRow extends StatelessWidget {
                   inactiveThumbColor: disabledColor,
                 ),
               ),
-
               if (isOff) ...[
                 const SizedBox(width: 8),
                 Text(
@@ -234,36 +224,174 @@ class _DayRow extends StatelessWidget {
                       color: disabledColor,
                       fontStyle: FontStyle.italic),
                 ),
-              ] else ...[
-                // ── وقت البداية ─────────────────────────────────────────
-                Expanded(
-                  child: _TimeChip(
-                    label: 'بداية',
-                    value: schedule.shiftStart,
-                    enabled: isAdmin,
-                    onTap: onPickStart,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Text('→',
-                    style: TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(width: 6),
-                // ── وقت النهاية ─────────────────────────────────────────
-                Expanded(
-                  child: _TimeChip(
-                    label: 'نهاية',
-                    value: schedule.shiftEnd,
-                    enabled: isAdmin,
-                    onTap: onPickEnd,
-                  ),
-                ),
-              ],
+              ] else if (isAdmin) ...[
+                const Spacer(),
+                TextButton.icon(
+                  icon: const Icon(Icons.add, size: 16),
+                  label:
+                      const Text('إضافة وردية', style: TextStyle(fontSize: 12)),
+                  onPressed: () => _showAddShiftDialog(context),
+                )
+              ]
             ],
           ),
         ),
+        if (!isOff)
+          Padding(
+            padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
+            child: Column(
+              children: currentShifts
+                  .map((shift) => _buildShiftItem(context, shift, currentShifts))
+                  .toList(),
+            ),
+          ),
         const Divider(height: 1),
       ],
     );
+  }
+
+  Widget _buildShiftItem(
+      BuildContext context, Shift shift, List<Shift> allShifts) {
+    return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(children: [
+          Expanded(
+              flex: 3,
+              child: Text(shift.name,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 12))),
+          const SizedBox(width: 4),
+          Expanded(
+              flex: 4,
+              child: _TimeChip(
+                label: 'بداية',
+                value: shift.startTime,
+                enabled: isAdmin,
+                onTap: () =>
+                    _pickTimeForShift(context, shift, true, allShifts),
+              )),
+          const SizedBox(width: 6),
+          const Text('→', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(width: 6),
+          Expanded(
+              flex: 4,
+              child: _TimeChip(
+                label: 'نهاية',
+                value: shift.endTime,
+                enabled: isAdmin,
+                onTap: () =>
+                    _pickTimeForShift(context, shift, false, allShifts),
+              )),
+          if (isAdmin)
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () {
+                final newList = List<Shift>.from(allShifts)..remove(shift);
+                _updateShifts(newList);
+              },
+            )
+        ]));
+  }
+
+  Future<void> _pickTimeForShift(BuildContext context, Shift shift,
+      bool isStart, List<Shift> allShifts) async {
+    final current = FactoryScheduleCard._parseTime(
+        isStart ? shift.startTime : shift.endTime);
+    final picked = await showTimePicker(context: context, initialTime: current);
+    if (picked == null) return;
+
+    if (isStart) {
+      shift.startTime = FactoryScheduleCard._fmtTime(picked);
+    } else {
+      shift.endTime = FactoryScheduleCard._fmtTime(picked);
+    }
+    _updateShifts(allShifts);
+  }
+
+  Future<void> _showAddShiftDialog(BuildContext context) async {
+    final nameCtrl = TextEditingController();
+    TimeOfDay start = const TimeOfDay(hour: 8, minute: 0);
+    TimeOfDay end = const TimeOfDay(hour: 16, minute: 0);
+
+    await showDialog(
+        context: context,
+        builder: (ctx) {
+          return StatefulBuilder(builder: (ctx, setState) {
+            return AlertDialog(
+                title: const Text('إضافة وردية جديدة'),
+                content: Column(mainAxisSize: MainAxisSize.min, children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'اسم الوردية (مثال: الصباحية)'),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    Expanded(
+                        child: _TimeChip(
+                            label: 'بداية',
+                            value: FactoryScheduleCard._fmtTime(start),
+                            enabled: true,
+                            onTap: () async {
+                              final p = await showTimePicker(
+                                  context: ctx, initialTime: start);
+                              if (p != null) setState(() => start = p);
+                            })),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: _TimeChip(
+                            label: 'نهاية',
+                            value: FactoryScheduleCard._fmtTime(end),
+                            enabled: true,
+                            onTap: () async {
+                              final p = await showTimePicker(
+                                  context: ctx, initialTime: end);
+                              if (p != null) setState(() => end = p);
+                            }))
+                  ])
+                ]),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('إلغاء')),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (nameCtrl.text.trim().isEmpty) return;
+                      final newShift = Shift(
+                        name: nameCtrl.text.trim(),
+                        startTime: FactoryScheduleCard._fmtTime(start),
+                        endTime: FactoryScheduleCard._fmtTime(end),
+                      );
+
+                      final currentShifts = schedule.shifts ??
+                          [
+                            Shift(
+                                name: 'الوردية الأولى',
+                                startTime: schedule.shiftStart,
+                                endTime: schedule.shiftEnd)
+                          ];
+                      currentShifts.add(newShift);
+
+                      _updateShifts(currentShifts);
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('إضافة'),
+                  )
+                ]);
+          });
+        });
+  }
+
+  void _updateShifts(List<Shift> newShifts) {
+    schedule.shifts = newShifts;
+    schedule.shiftNames = newShifts.map((s) => s.name).toList();
+    if (newShifts.isNotEmpty) {
+      schedule.shiftStart = newShifts.first.startTime;
+      schedule.shiftEnd = newShifts.first.endTime;
+    }
+    onSave();
   }
 }
 
