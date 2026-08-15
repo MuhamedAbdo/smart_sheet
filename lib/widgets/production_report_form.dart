@@ -864,6 +864,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
     return DropdownButtonFormField<String>(
       key: ValueKey(dateController.text),
       initialValue: _selectedShiftName ?? (shiftNames.isNotEmpty ? shiftNames.first : null),
+      isExpanded: true,
       decoration: const InputDecoration(
         labelText: 'الوردية',
         prefixIcon: Icon(Icons.work_history),
@@ -872,7 +873,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
       items: shiftNames.map((String val) {
         return DropdownMenuItem<String>(
           value: val,
-          child: Text(val),
+          child: Text(val, overflow: TextOverflow.ellipsis),
         );
       }).toList(),
       onChanged: (String? newValue) {

@@ -18,6 +18,7 @@ import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/utils/auth_helper.dart';
 import 'package:smart_sheet/screens/production_line/start_production_session_screen.dart';
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/models/day_schedule.dart';
 import 'package:smart_sheet/utils/archive_rbac_logic.dart';
 import 'dart:async';
 import 'package:uuid/uuid.dart';
@@ -497,6 +498,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     }
   }
 
+  String? _selectedShiftFilter;
+
   @override
   Widget build(BuildContext context) {
     if (_isBoxLoading) {
@@ -504,6 +507,31 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     }
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
+
+    // --- Shift Logic ---
+    final filterDate = _selectedDate != null ? (DateTime.tryParse(_selectedDate!) ?? DateTime.now()) : DateTime.now();
+    String dayName = '';
+    switch (filterDate.weekday) {
+      case DateTime.monday: dayName = 'Monday'; break;
+      case DateTime.tuesday: dayName = 'Tuesday'; break;
+      case DateTime.wednesday: dayName = 'Wednesday'; break;
+      case DateTime.thursday: dayName = 'Thursday'; break;
+      case DateTime.friday: dayName = 'Friday'; break;
+      case DateTime.saturday: dayName = 'Saturday'; break;
+      case DateTime.sunday: dayName = 'Sunday'; break;
+    }
+    
+    List<String> availableShifts = ['الوردية الأولى'];
+    if (Hive.isBoxOpen('factory_schedule')) {
+      final scheduleBox = Hive.box<DaySchedule>('factory_schedule');
+      final schedule = scheduleBox.get(dayName);
+      if (schedule != null && schedule.shiftNames != null && schedule.shiftNames!.isNotEmpty) {
+        availableShifts = List<String>.from(schedule.shiftNames!);
+      }
+    }
+    
+    final currentShiftFilter = _selectedShiftFilter ?? availableShifts.first;
+    // -------------------
 
     return Scaffold(
       appBar: AppBar(
@@ -672,7 +700,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               : ValueListenableBuilder(
                   valueListenable: _productionReportBox!.listenable(),
                   builder: (context, Box box, _) {
-                    final allRecords = _filterAndSortRecords(box, _searchQuery, _sortDescending);
+                    final allRecords = _filterAndSortRecords(box, _searchQuery, _sortDescending, currentShiftFilter);
                     final isDark = Theme.of(context).brightness == Brightness.dark;
                     return Container(
                       height: 40,
@@ -726,7 +754,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             builder: (context, liveSessionsBox, _) {
               final isLiveSessionsEmpty = liveSessionsBox.isEmpty;
               final allRecords =
-                  _filterAndSortRecords(box, _searchQuery, _sortDescending);
+                  _filterAndSortRecords(box, _searchQuery, _sortDescending, currentShiftFilter);
               return CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(
@@ -735,6 +763,35 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                             onFinishSession: (session) => _finishSession(session),
                             onCancelSession: (session) =>
                                 _cancelSession(session),
+                          ),
+                        ),
+                        // ─── فلاتر الورديات ───
+                        SliverToBoxAdapter(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: availableShifts.map((shiftName) {
+                                  final isSelected = currentShiftFilter == shiftName;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(left: 8.0),
+                                    child: ChoiceChip(
+                                      label: Text(shiftName),
+                                      selected: isSelected,
+                                      selectedColor: Colors.blueAccent.withValues(alpha: 0.2),
+                                      onSelected: (bool selected) {
+                                        if (selected) {
+                                          setState(() {
+                                            _selectedShiftFilter = shiftName;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
                           ),
                         ),
                         if (allRecords.isEmpty && isLiveSessionsEmpty)
@@ -1074,7 +1131,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
   // ✅ التعديل الأول: ترتيب زمني فقط (الأحدث أولاً أو العكس) دون ترتيب أبجدي
   List<MapEntry<dynamic, Map<String, dynamic>>> _filterAndSortRecords(
-      Box box, String query, bool descending) {
+      Box box, String query, bool descending, String activeShift) {
     final entries = box
         .toMap()
         .entries
@@ -1101,6 +1158,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               'dimensions': val.dimensions,
               'department': widget.department ?? 'die_cutting', 
               'crewMembers': val.crewMembers,
+              'shiftName': val.shiftName,
             };
             if (val.runTimeStart != null) r['startTime'] = "${val.runTimeStart!.hour.toString().padLeft(2, '0')}:${val.runTimeStart!.minute.toString().padLeft(2, '0')}";
             if (val.runTimeEnd != null) r['endTime'] = "${val.runTimeEnd!.hour.toString().padLeft(2, '0')}:${val.runTimeEnd!.minute.toString().padLeft(2, '0')}";
@@ -1120,6 +1178,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               r['endTime'] ??= r['end_time'];
               r['totalDowntime'] ??= r['total_downtime'];
               r['crewMembers'] ??= r['crew_members'];
+              r['shiftName'] ??= r['shift_name'];
             } catch (_) {
               r = {};
             }
@@ -1128,6 +1187,11 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         })
         .where((e) {
           final r = e.value;
+          
+          // --- Shift Filter ---
+          final reportShift = r['shiftName']?.toString() ?? 'الوردية الأولى';
+          if (reportShift != activeShift) return false;
+          
           final dept = r['department']?.toString() ?? 'flexo';
           final targetDept = widget.department ?? 'flexo';
           // Relax department filter if they match the die cutting group
@@ -1274,6 +1338,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   notes: r['notes']?.toString(),
                   dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
                   crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
+                  shiftName: r['shiftName']?.toString() ?? r['shift_name']?.toString(),
                 );
                 await _productionReportBox!.put(syncId, report);
                 SyncService.instance.pushToQueue(tableName, report.toJson());
@@ -1281,6 +1346,11 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 final reportObj = FlexoProductionReport.fromJson(r);
                 await _productionReportBox!.put(syncId, reportObj);
                 SyncService.instance.pushToQueue(tableName, reportObj.toJson());
+              }
+              if (mounted) {
+                setState(() {
+                  _selectedShiftFilter = r['shiftName']?.toString() ?? 'الوردية الأولى';
+                });
               }
               if (c.mounted) Navigator.pop(c);
             }));
@@ -1326,6 +1396,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   notes: r['notes']?.toString(),
                   dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
                   crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
+                  shiftName: r['shiftName']?.toString() ?? r['shift_name']?.toString(),
                 );
                 await _productionReportBox!.put(existingSyncId, report);
                 SyncService.instance.pushToQueue(tableName, report.toJson());
@@ -1333,6 +1404,11 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 final reportObj = FlexoProductionReport.fromJson(r);
                 await _productionReportBox!.put(existingSyncId, reportObj);
                 SyncService.instance.pushToQueue(tableName, reportObj.toJson());
+              }
+              if (mounted) {
+                setState(() {
+                  _selectedShiftFilter = r['shiftName']?.toString() ?? 'الوردية الأولى';
+                });
               }
               if (c.mounted) Navigator.pop(c);
             }));
@@ -1677,6 +1753,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   notes: r['notes']?.toString(),
                   dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
                   crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
+                  shiftName: r['shiftName']?.toString() ?? r['shift_name']?.toString(),
                 );
                 // حفظ محلي بمفتاح ثابت لمنع التكرار
                 await _productionReportBox!.put(syncId, report);
@@ -1710,6 +1787,12 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             );
             debugPrint(
                 '✅ _finishSession: تم حذف الجلسة الجارية بعد نجاح الحفظ (id=$sessionId)');
+
+            if (mounted) {
+              setState(() {
+                _selectedShiftFilter = r['shiftName']?.toString() ?? 'الوردية الأولى';
+              });
+            }
 
             if (c.mounted) Navigator.of(c).pop();
           } catch (saveError) {

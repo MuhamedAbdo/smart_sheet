@@ -976,6 +976,13 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               if (formNumber.isNotEmpty)
                 _buildArchiveInfoRow(
                     Icons.description, "رقم الفورمة:", formNumber),
+              
+              // --- Shift Display ---
+              _buildArchiveInfoRow(
+                  Icons.work_history, "الوردية:", 
+                  report['shiftName']?.toString() ?? report['shift_name']?.toString() ?? 'الوردية الأولى',
+                  valueColor: Colors.deepPurple),
+
               if (startFormatted.isNotEmpty || endFormatted.isNotEmpty)
                 _buildArchiveInfoRow(Icons.schedule, "وقت التشغيل:",
                     "${startFormatted.isNotEmpty ? startFormatted : '--:--'}  ◀  ${endFormatted.isNotEmpty ? endFormatted : '--:--'}"),
