@@ -7,10 +7,67 @@ import 'package:smart_sheet/utils/pdf_export_helper.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
+import 'package:smart_sheet/models/day_schedule.dart';
 
-class FlexoReportDrawer extends StatelessWidget {
+class FlexoReportDrawer extends StatefulWidget {
   final String department;
   const FlexoReportDrawer({super.key, this.department = 'flexo'});
+
+  @override
+  State<FlexoReportDrawer> createState() => _FlexoReportDrawerState();
+}
+
+class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
+  String _selectedShift = 'كل الورديات';
+  List<String> _availableShifts = ['كل الورديات', 'الوردية الأولى'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadShifts();
+  }
+
+  void _loadShifts() async {
+    try {
+      const boxName = 'factory_schedule';
+      final box = Hive.isBoxOpen(boxName) ? Hive.box<DaySchedule>(boxName) : await Hive.openBox<DaySchedule>(boxName);
+      
+      final todayNames = {
+        DateTime.monday: 'Monday',
+        DateTime.tuesday: 'Tuesday',
+        DateTime.wednesday: 'Wednesday',
+        DateTime.thursday: 'Thursday',
+        DateTime.friday: 'Friday',
+        DateTime.saturday: 'Saturday',
+        DateTime.sunday: 'Sunday',
+      };
+      
+      final todayName = todayNames[DateTime.now().weekday] ?? 'Saturday';
+      final schedule = box.get(todayName);
+      
+      List<String> shifts = ['كل الورديات'];
+      
+      if (schedule != null) {
+        if (schedule.shiftNames != null && schedule.shiftNames!.isNotEmpty) {
+          shifts.addAll(schedule.shiftNames!);
+        } else if (schedule.shifts != null && schedule.shifts!.isNotEmpty) {
+          shifts.addAll(schedule.shifts!.map((s) => s.name));
+        } else {
+          shifts.add('الوردية الأولى');
+        }
+      } else {
+         shifts.add('الوردية الأولى');
+      }
+      
+      if (mounted) {
+        setState(() {
+          _availableShifts = shifts.toSet().toList();
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading shifts: $e");
+    }
+  }
 
   String _normalizeString(String input) {
     return input
@@ -25,6 +82,7 @@ class FlexoReportDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final department = widget.department;
     final isProductionLine = department == 'production_line';
     final isCrushing = department == 'crushing';
     final drawerTitle = isProductionLine
@@ -50,6 +108,21 @@ class FlexoReportDrawer extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                labelText: "اختر الوردية",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              initialValue: _availableShifts.contains(_selectedShift) ? _selectedShift : _availableShifts.first,
+              items: _availableShifts.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedShift = val);
+              },
             ),
           ),
           Expanded(
@@ -124,8 +197,16 @@ class FlexoReportDrawer extends StatelessWidget {
   }
 
   Future<void> _handlePdfAction(BuildContext context, String machineName, {required bool isPrinting, required bool isSave}) async {
+    final department = widget.department;
     final bool isDieCutting = (department == 'crushing' || department == 'die_cutting');
     List<Map<String, dynamic>> records = [];
+
+    bool filterByShift(dynamic record) {
+      if (_selectedShift == 'كل الورديات') return true;
+      final shift = record.shiftName?.toString().trim() ?? '';
+      final normalizedShift = (shift.isEmpty || shift == 'null') ? 'الوردية الأولى' : shift;
+      return normalizedShift == _selectedShift;
+    }
 
     if (isDieCutting) {
       const boxName = 'die_cutting_production_reports';
@@ -134,7 +215,7 @@ class FlexoReportDrawer extends StatelessWidget {
           : await Hive.openBox<DieCuttingProductionReport>(boxName);
           
       final newRecords = box.values
-          .where((r) => _normalizeString(r.machineName) == _normalizeString(machineName))
+          .where((r) => _normalizeString(r.machineName) == _normalizeString(machineName) && filterByShift(r))
           .map((e) {
             final json = e.toJson();
             json['department'] = department;
@@ -148,7 +229,7 @@ class FlexoReportDrawer extends StatelessWidget {
           : await Hive.openBox<FlexoProductionReport>(oldBoxName);
           
       final oldRecords = oldBox.values
-          .where((r) => (r.department == 'crushing' || r.department == 'die_cutting') && _normalizeString(r.machineName ?? '') == _normalizeString(machineName))
+          .where((r) => (r.department == 'crushing' || r.department == 'die_cutting') && _normalizeString(r.machineName ?? '') == _normalizeString(machineName) && filterByShift(r))
           .map((e) => e.toJson())
           .toList();
 
@@ -168,7 +249,7 @@ class FlexoReportDrawer extends StatelessWidget {
             } else {
               if (dept == 'crushing' || dept == 'die_cutting' || dept == 'production_line') return false;
             }
-            return _normalizeString(m) == _normalizeString(machineName);
+            return _normalizeString(m) == _normalizeString(machineName) && filterByShift(r);
           })
           .map((e) => e.toJson())
           .toList();
@@ -189,8 +270,8 @@ class FlexoReportDrawer extends StatelessWidget {
 
     if (isSave) {
       final Uint8List? pdfBytes = isPrinting
-          ? await generatePrintingReportPdfBytes({'records': records, 'title': title, 'department': department})
-          : await generateFlexoProductionReportPdfBytes({'records': records, 'title': title, 'department': department});
+          ? await generatePrintingReportPdfBytes({'records': records, 'title': title, 'department': department, 'shiftName': _selectedShift})
+          : await generateFlexoProductionReportPdfBytes({'records': records, 'title': title, 'department': department, 'shiftName': _selectedShift});
       
       if (pdfBytes == null) return;
 
@@ -204,9 +285,9 @@ class FlexoReportDrawer extends StatelessWidget {
     } else {
       if (!context.mounted) return;
       if (isPrinting) {
-        await exportPrintingReportsToPdf(context, records, title: title, department: department);
+        await exportPrintingReportsToPdf(context, records, title: title, department: department, shiftName: _selectedShift);
       } else {
-        await exportFlexoProductionReportsToPdf(context, records, title: title, department: department);
+        await exportFlexoProductionReportsToPdf(context, records, title: title, department: department, shiftName: _selectedShift);
       }
     }
   }

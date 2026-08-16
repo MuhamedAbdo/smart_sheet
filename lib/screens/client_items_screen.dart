@@ -571,7 +571,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         'formNumber': dataFromCard['formNumber']?.toString() ?? '',
         'imagePaths': finalImages,
         'isSheet': dataFromCard['isSheet'] ?? false,
-        'notes': 'مستورد من قسم المقاسات',
+        'notes': '',
       };
     } catch (e) {
       if (context.mounted) Navigator.pop(context);

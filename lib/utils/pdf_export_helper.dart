@@ -50,6 +50,7 @@ Future<Uint8List?> generateFlexoProductionReportPdfBytes(Map<String, dynamic> pa
         'font': fontBytes,
         'bold': boldFontBytes,
         'title': params['title'] ?? 'تقرير إنتاج قسم التكسير',
+        'shiftName': params['shiftName'],
       });
       return bytes.isEmpty ? null : bytes;
     }
@@ -60,6 +61,7 @@ Future<Uint8List?> generateFlexoProductionReportPdfBytes(Map<String, dynamic> pa
       'bold': boldFontBytes,
       'title': params['title'],
       'department': department,
+      'shiftName': params['shiftName'],
     });
     return bytes.isEmpty ? null : bytes;
   } catch (e) {
@@ -84,6 +86,7 @@ Future<Uint8List?> generatePrintingReportPdfBytes(Map<String, dynamic> params) a
       'font': fontBytes,
       'bold': boldFontBytes,
       'title': params['title'],
+      'shiftName': params['shiftName'],
     });
     return bytes.isEmpty ? null : bytes;
   } catch (e) {
@@ -276,16 +279,16 @@ void _showSuccessSnackBar(BuildContext context, String filePath, Uint8List bytes
 // المشاركة/الطباعة (عرض PDF)
 // ---------------------------------
 
-Future<void> exportFlexoProductionReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department}) async {
-  final pdfBytes = await generateFlexoProductionReportPdfBytes({'records': records, 'title': title, 'department': department});
+Future<void> exportFlexoProductionReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department, String? shiftName}) async {
+  final pdfBytes = await generateFlexoProductionReportPdfBytes({'records': records, 'title': title, 'department': department, 'shiftName': shiftName});
   if (pdfBytes != null) {
     String fileName = title != null ? '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}.pdf' : 'تقرير_إنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
   }
 }
 
-Future<void> exportPrintingReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department}) async {
-  final pdfBytes = await generatePrintingReportPdfBytes({'records': records, 'title': title, 'department': department});
+Future<void> exportPrintingReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department, String? shiftName}) async {
+  final pdfBytes = await generatePrintingReportPdfBytes({'records': records, 'title': title, 'department': department, 'shiftName': shiftName});
   if (pdfBytes != null) {
     String fileName = title != null ? '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}.pdf' : 'تقرير_طباعة_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
@@ -430,11 +433,7 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
       final List<dynamic> pageRecords = records.sublist(startIndex, endIndex);
       final List<pw.TableRow> tableRows = [];
 
-      // صف الرأس
-      tableRows.add(_buildProductionHeaderRow(
-        font: arabicBoldFont,
-        isProductionLine: isProductionLine,
-      ));
+      // صف الرأس مخصص الآن خارج pw.Table
 
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
@@ -495,11 +494,18 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
               pw.Text(ArabicPDFHelper.fixArabic(customTitle),
                 style: pw.TextStyle(font: arabicBoldFont, fontSize: 16),
                 textAlign: pw.TextAlign.center),
+              if (params['shiftName'] != null && params['shiftName'].toString().isNotEmpty && params['shiftName'] != 'كل الورديات')
+                pw.Padding(
+                  padding: const pw.EdgeInsets.only(top: 4),
+                  child: pw.Text(ArabicPDFHelper.fixArabic('الوردية: ${params['shiftName']}'),
+                    style: pw.TextStyle(font: arabicFont, fontSize: 12),
+                    textAlign: pw.TextAlign.center),
+                ),
               pw.SizedBox(height: 10),
+              _buildCustomProductionHeader(isProductionLine: isProductionLine, font: arabicBoldFont),
               pw.Table(
                 columnWidths: _productionLineColumnWidths(isProductionLine),
                 border: const pw.TableBorder(
-                  top: pw.BorderSide(width: 0.5),
                   bottom: pw.BorderSide(width: 0.5),
                   left: pw.BorderSide(width: 0.5),
                   right: pw.BorderSide(width: 0.5),
@@ -537,22 +543,7 @@ pw.Widget _buildFlexCell(String text, pw.Font font) {
   );
 }
 
-/// خلية رأس مرنة تُستخدم مع pw.Table
-pw.Widget _buildFlexHeaderCell(String text, pw.Font font, {bool isGroupTitle = false}) {
-  return pw.Container(
-    color: isGroupTitle ? PdfColors.grey200 : PdfColors.grey300,
-    padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 5),
-    child: pw.Align(
-      alignment: pw.Alignment.center,
-      child: pw.Text(
-        ArabicPDFHelper.fixArabic(text),
-        style: pw.TextStyle(font: font, fontSize: 8),
-        softWrap: true,
-        textAlign: pw.TextAlign.center,
-      ),
-    ),
-  );
-}
+
 
 /// يعكس خريطة عروض الأعمدة لتناسب الترتيب من اليمين لليسار.
 /// pw.Table لا يعكس الأعمدة تلقائياً مع Directionality(rtl)،
@@ -562,81 +553,159 @@ Map<int, pw.TableColumnWidth> _reverseColumnWidths(Map<int, pw.TableColumnWidth>
   return { for (final e in widths.entries) (maxKey - e.key): e.value };
 }
 
-// الترتيب الأصلي (LTR index) للأعمدة — يُعكس لاحقاً بـ _reverseColumnWidths للحصول على RTL.
 Map<int, pw.TableColumnWidth> _productionLineColumnWidths(bool isProductionLine) {
   if (isProductionLine) {
-    // 16 عمود (indices 0-15): م | الفني | التاريخ | طاقم التشغيل | إسم العميل | ... | الملاحظات
     return _reverseColumnWidths({
-      0:  const pw.FixedColumnWidth(22),   // م
-      1:  const pw.FlexColumnWidth(2.0),   // الفني
-      2:  const pw.FixedColumnWidth(54),   // التاريخ
-      3:  const pw.FlexColumnWidth(3.5),   // طاقم التشغيل  ← خط الإنتاج فقط
-      4:  const pw.FlexColumnWidth(3.5),   // إسم العميل
-      5:  const pw.FlexColumnWidth(3.5),   // الصنف
-      6:  const pw.FixedColumnWidth(46),   // كود الصنف
-      7:  const pw.FixedColumnWidth(68),   // المقاس
-      8:  const pw.FixedColumnWidth(43),   // أمر التشغيل
-      9:  const pw.FixedColumnWidth(36),   // الإنتاج
-      10: const pw.FixedColumnWidth(36),   // من (التشغيل)
-      11: const pw.FixedColumnWidth(36),   // إلى (التشغيل)
-      12: const pw.FixedColumnWidth(55),   // الهالك
-      13: const pw.FixedColumnWidth(36),   // من (الأعطال)
-      14: const pw.FixedColumnWidth(36),   // إلى (الأعطال)
-      15: const pw.FlexColumnWidth(3.0),   // الملاحظات
+      0:  const pw.FixedColumnWidth(22),   
+      1:  const pw.FlexColumnWidth(20),   
+      2:  const pw.FixedColumnWidth(54),   
+      3:  const pw.FlexColumnWidth(35),   
+      4:  const pw.FlexColumnWidth(35),   
+      5:  const pw.FlexColumnWidth(35),   
+      6:  const pw.FixedColumnWidth(46),   
+      7:  const pw.FixedColumnWidth(68),   
+      8:  const pw.FixedColumnWidth(43),   
+      9:  const pw.FixedColumnWidth(36),   
+      10: const pw.FixedColumnWidth(36),   
+      11: const pw.FixedColumnWidth(36),   
+      12: const pw.FixedColumnWidth(55),   
+      13: const pw.FixedColumnWidth(36),   
+      14: const pw.FixedColumnWidth(36),   
+      15: const pw.FlexColumnWidth(30),   
     });
   } else {
-    // 16 عمود (فلكسو — بدون طاقم التشغيل): indices 0-15
     return _reverseColumnWidths({
-      0:  const pw.FixedColumnWidth(22),   // م
-      1:  const pw.FlexColumnWidth(2.0),   // الفني
-      2:  const pw.FixedColumnWidth(54),   // التاريخ
-      3:  const pw.FlexColumnWidth(3.5),   // إسم العميل
-      4:  const pw.FlexColumnWidth(3.5),   // الصنف
-      5:  const pw.FixedColumnWidth(46),   // كود الصنف
-      6:  const pw.FixedColumnWidth(68),   // المقاس
-      7:  const pw.FixedColumnWidth(43),   // أمر التشغيل
-      8:  const pw.FixedColumnWidth(36),   // الإنتاج
-      9:  const pw.FixedColumnWidth(36),   // من (التشغيل)
-      10: const pw.FixedColumnWidth(36),   // إلى (التشغيل)
-      11: const pw.FixedColumnWidth(30),   // هالك خ
-      12: const pw.FixedColumnWidth(30),   // هالك ط
-      13: const pw.FixedColumnWidth(36),   // من (الأعطال)
-      14: const pw.FixedColumnWidth(36),   // إلى (الأعطال)
-      15: const pw.FlexColumnWidth(3.0),   // الملاحظات
+      0:  const pw.FixedColumnWidth(22),   
+      1:  const pw.FlexColumnWidth(20),   
+      2:  const pw.FixedColumnWidth(54),   
+      3:  const pw.FlexColumnWidth(35),   
+      4:  const pw.FlexColumnWidth(35),   
+      5:  const pw.FixedColumnWidth(46),   
+      6:  const pw.FixedColumnWidth(68),   
+      7:  const pw.FixedColumnWidth(43),   
+      8:  const pw.FixedColumnWidth(36),   
+      9:  const pw.FixedColumnWidth(36),   
+      10: const pw.FixedColumnWidth(36),   
+      11: const pw.FixedColumnWidth(30),   
+      12: const pw.FixedColumnWidth(30),   
+      13: const pw.FixedColumnWidth(36),   
+      14: const pw.FixedColumnWidth(36),   
+      15: const pw.FlexColumnWidth(30),   
     });
   }
 }
 
-// الترتيب المنطقي للأعمدة من اليمين لليسار:
-// م | الفني | التاريخ | طاقم التشغيل | إسم العميل | الصنف | ... | الملاحظات
-// الـ children في TableRow تُعكس (.reversed) لتوافق RTL.
-pw.TableRow _buildProductionHeaderRow({required pw.Font font, required bool isProductionLine}) {
-  final List<pw.Widget> cells = [
-    _buildFlexHeaderCell('م', font),
-    _buildFlexHeaderCell('الفني', font),
-    _buildFlexHeaderCell('التاريخ', font),
-    if (isProductionLine) _buildFlexHeaderCell('طاقم التشغيل', font), // خط الإنتاج فقط
-    _buildFlexHeaderCell('إسم العميل', font),
-    _buildFlexHeaderCell('الصنف', font),
-    _buildFlexHeaderCell('كود الصنف', font),
-    _buildFlexHeaderCell('المقاس', font),
-    _buildFlexHeaderCell('أمر التشغيل', font),
-    _buildFlexHeaderCell('الإنتاج', font),
-    _buildFlexHeaderCell('من', font),
-    _buildFlexHeaderCell('إلى', font),
-    if (isProductionLine)
-      _buildFlexHeaderCell('الهالك', font)
-    else ...[
-      _buildFlexHeaderCell('هالك خ', font),
-      _buildFlexHeaderCell('هالك ط', font),
+pw.Widget _buildSimpleHeaderCell(String text, pw.Font font, {double? fixedWidth, int? flex}) {
+  final widget = pw.Container(
+    width: fixedWidth,
+    height: 35.0,
+    alignment: pw.Alignment.center,
+    decoration: const pw.BoxDecoration(
+      color: PdfColors.grey300,
+      border: pw.Border(
+        top: pw.BorderSide(width: 0.5),
+        bottom: pw.BorderSide(width: 0.5),
+        left: pw.BorderSide(width: 0.5),
+        right: pw.BorderSide(width: 0.5),
+      ),
+    ),
+    child: pw.Text(ArabicPDFHelper.fixArabic(text), style: pw.TextStyle(font: font, fontSize: 8), textAlign: pw.TextAlign.center),
+  );
+  if (flex != null) return pw.Expanded(flex: flex, child: widget);
+  return widget;
+}
+
+pw.Widget _buildSplitHeaderCell(String mainText, String subText1, String subText2, double width1, double width2, pw.Font font) {
+  return pw.Container(
+    width: width1 + width2,
+    height: 35.0,
+    decoration: const pw.BoxDecoration(
+      color: PdfColors.grey300,
+      border: pw.Border(
+        top: pw.BorderSide(width: 0.5),
+        bottom: pw.BorderSide(width: 0.5),
+        left: pw.BorderSide(width: 0.5),
+        right: pw.BorderSide(width: 0.5),
+      ),
+    ),
+    child: pw.Column(
+      children: [
+        pw.Expanded(
+          child: pw.Container(
+            alignment: pw.Alignment.center,
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide(width: 0.5)),
+            ),
+            child: pw.Text(ArabicPDFHelper.fixArabic(mainText), style: pw.TextStyle(font: font, fontSize: 8), textAlign: pw.TextAlign.center),
+          ),
+        ),
+        pw.Expanded(
+          child: pw.Row(
+            children: [
+              pw.Container(
+                width: width1,
+                alignment: pw.Alignment.center,
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(left: pw.BorderSide(width: 0.5)), 
+                ),
+                child: pw.Text(ArabicPDFHelper.fixArabic(subText1), style: pw.TextStyle(font: font, fontSize: 8), textAlign: pw.TextAlign.center),
+              ),
+              pw.Container(
+                width: width2,
+                alignment: pw.Alignment.center,
+                child: pw.Text(ArabicPDFHelper.fixArabic(subText2), style: pw.TextStyle(font: font, fontSize: 8), textAlign: pw.TextAlign.center),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+pw.Widget _buildCustomProductionHeader({required bool isProductionLine, required pw.Font font}) {
+  return pw.Row(
+    children: [
+      _buildSimpleHeaderCell('م', font, fixedWidth: 22),
+      _buildSimpleHeaderCell('الفني', font, flex: 20),
+      _buildSimpleHeaderCell('التاريخ', font, fixedWidth: 54),
+      if (isProductionLine) _buildSimpleHeaderCell('طاقم التشغيل', font, flex: 35),
+      _buildSimpleHeaderCell('إسم العميل', font, flex: 35),
+      _buildSimpleHeaderCell('الصنف', font, flex: 35),
+      _buildSimpleHeaderCell('كود الصنف', font, fixedWidth: 46),
+      _buildSimpleHeaderCell('المقاس', font, fixedWidth: 68),
+      _buildSimpleHeaderCell('أمر التشغيل', font, fixedWidth: 43),
+      _buildSimpleHeaderCell('الإنتاج', font, fixedWidth: 36),
+      _buildSplitHeaderCell('وقت التشغيل', 'من', 'إلى', 36, 36, font),
+      if (isProductionLine)
+        _buildSimpleHeaderCell('الهالك', font, fixedWidth: 55)
+      else 
+        _buildSplitHeaderCell('الهالك', 'خ', 'ط', 30, 30, font),
+      _buildSplitHeaderCell('الأعطال', 'من', 'إلى', 36, 36, font),
+      _buildSimpleHeaderCell('الملاحظات', font, flex: 30),
     ],
-    _buildFlexHeaderCell('من', font),
-    _buildFlexHeaderCell('إلى', font),
-    _buildFlexHeaderCell('الملاحظات', font),
-  ];
-  return pw.TableRow(
-    decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-    children: cells.reversed.toList(),
+  );
+}
+
+pw.Widget _buildCustomCrushingHeader({required pw.Font font}) {
+  return pw.Row(
+    children: [
+      _buildSimpleHeaderCell('م', font, fixedWidth: 22),
+      _buildSimpleHeaderCell('الفني', font, flex: 20),
+      _buildSimpleHeaderCell('التاريخ', font, fixedWidth: 54),
+      _buildSimpleHeaderCell('طاقم التشغيل', font, flex: 35),
+      _buildSimpleHeaderCell('إسم العميل', font, flex: 35),
+      _buildSimpleHeaderCell('الصنف', font, flex: 35),
+      _buildSimpleHeaderCell('كود الصنف', font, fixedWidth: 46),
+      _buildSimpleHeaderCell('رقم الفورمة', font, fixedWidth: 55),
+      _buildSimpleHeaderCell('المقاس', font, fixedWidth: 65),
+      _buildSimpleHeaderCell('أمر التشغيل', font, fixedWidth: 43),
+      _buildSimpleHeaderCell('الإنتاج', font, fixedWidth: 36),
+      _buildSplitHeaderCell('وقت التشغيل', 'من', 'إلى', 36, 36, font),
+      _buildSimpleHeaderCell('الهالك', font, fixedWidth: 36),
+      _buildSplitHeaderCell('الأعطال', 'من', 'إلى', 36, 36, font),
+      _buildSimpleHeaderCell('الملاحظات', font, flex: 30),
+    ],
   );
 }
 
@@ -660,23 +729,23 @@ Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> param
     //          من(تشغيل) | إلى(تشغيل) | الهالك | من(أعطال) | إلى(أعطال) | الملاحظات
     // عروض الأعمدة معكوسة لـ RTL (17 عمود: indices 0-16 بعد العكس)
     final Map<int, pw.TableColumnWidth> crushingColumnWidths = _reverseColumnWidths({
-      0:  const pw.FixedColumnWidth(22),    // م
-      1:  const pw.FlexColumnWidth(2.0),    // الفني
-      2:  const pw.FixedColumnWidth(54),    // التاريخ
-      3:  const pw.FlexColumnWidth(3.5),    // طاقم التشغيل
-      4:  const pw.FlexColumnWidth(3.5),    // إسم العميل
-      5:  const pw.FlexColumnWidth(3.5),    // الصنف
-      6:  const pw.FixedColumnWidth(46),    // كود الصنف
-      7:  const pw.FixedColumnWidth(55),    // رقم الفورمة
-      8:  const pw.FixedColumnWidth(65),    // المقاس
-      9:  const pw.FixedColumnWidth(43),    // أمر التشغيل
-      10: const pw.FixedColumnWidth(36),    // الإنتاج
-      11: const pw.FixedColumnWidth(36),    // من (التشغيل)
-      12: const pw.FixedColumnWidth(36),    // إلى (التشغيل)
-      13: const pw.FixedColumnWidth(36),    // الهالك
-      14: const pw.FixedColumnWidth(36),    // من (الأعطال)
-      15: const pw.FixedColumnWidth(36),    // إلى (الأعطال)
-      16: const pw.FlexColumnWidth(3.0),    // الملاحظات
+      0:  const pw.FixedColumnWidth(22),
+      1:  const pw.FlexColumnWidth(20),
+      2:  const pw.FixedColumnWidth(54),
+      3:  const pw.FlexColumnWidth(35),
+      4:  const pw.FlexColumnWidth(35),
+      5:  const pw.FlexColumnWidth(35),
+      6:  const pw.FixedColumnWidth(46),
+      7:  const pw.FixedColumnWidth(55),
+      8:  const pw.FixedColumnWidth(65),
+      9:  const pw.FixedColumnWidth(43),
+      10: const pw.FixedColumnWidth(36),
+      11: const pw.FixedColumnWidth(36),
+      12: const pw.FixedColumnWidth(36),
+      13: const pw.FixedColumnWidth(36),
+      14: const pw.FixedColumnWidth(36),
+      15: const pw.FixedColumnWidth(36),
+      16: const pw.FlexColumnWidth(30),
     });
 
     for (int page = 0; page < totalPages; page++) {
@@ -688,8 +757,7 @@ Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> param
       final List<dynamic> pageRecords = records.sublist(startIndex, endIndex);
       final List<pw.TableRow> tableRows = [];
 
-      // صف الرأس
-      tableRows.add(_buildCrushingHeaderRow(font: arabicBoldFont));
+      // صف الرأس مخصص الآن خارج pw.Table
 
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
@@ -749,11 +817,18 @@ Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> param
               pw.Text(ArabicPDFHelper.fixArabic(customTitle),
                 style: pw.TextStyle(font: arabicBoldFont, fontSize: 16),
                 textAlign: pw.TextAlign.center),
+              if (params['shiftName'] != null && params['shiftName'].toString().isNotEmpty && params['shiftName'] != 'كل الورديات')
+                pw.Padding(
+                  padding: const pw.EdgeInsets.only(top: 4),
+                  child: pw.Text(ArabicPDFHelper.fixArabic('الوردية: ${params['shiftName']}'),
+                    style: pw.TextStyle(font: arabicFont, fontSize: 12),
+                    textAlign: pw.TextAlign.center),
+                ),
               pw.SizedBox(height: 10),
+              _buildCustomCrushingHeader(font: arabicBoldFont),
               pw.Table(
                 columnWidths: crushingColumnWidths,
                 border: const pw.TableBorder(
-                  top: pw.BorderSide(width: 0.5),
                   bottom: pw.BorderSide(width: 0.5),
                   left: pw.BorderSide(width: 0.5),
                   right: pw.BorderSide(width: 0.5),
@@ -774,31 +849,7 @@ Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> param
   }
 }
 
-pw.TableRow _buildCrushingHeaderRow({required pw.Font font}) {
-  final List<pw.Widget> cells = [
-    _buildFlexHeaderCell('م', font),
-    _buildFlexHeaderCell('الفني', font),
-    _buildFlexHeaderCell('التاريخ', font),
-    _buildFlexHeaderCell('طاقم التشغيل', font),
-    _buildFlexHeaderCell('إسم العميل', font),
-    _buildFlexHeaderCell('الصنف', font),
-    _buildFlexHeaderCell('كود الصنف', font),
-    _buildFlexHeaderCell('رقم الفورمة', font),
-    _buildFlexHeaderCell('المقاس', font),
-    _buildFlexHeaderCell('أمر التشغيل', font),
-    _buildFlexHeaderCell('الإنتاج', font),
-    _buildFlexHeaderCell('من', font),
-    _buildFlexHeaderCell('إلى', font),
-    _buildFlexHeaderCell('الهالك', font),
-    _buildFlexHeaderCell('من', font),
-    _buildFlexHeaderCell('إلى', font),
-    _buildFlexHeaderCell('الملاحظات', font),
-  ];
-  return pw.TableRow(
-    decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-    children: cells.reversed.toList(),
-  );
-}
+
 
 
 // ---------------------------------
@@ -892,6 +943,13 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
           child: pw.Column(children: [
             pw.Text(ArabicPDFHelper.fixArabic(customTitle),
               style: pw.TextStyle(font: arabicBoldFont, fontSize: 16)),
+            if (params['shiftName'] != null && params['shiftName'].toString().isNotEmpty && params['shiftName'] != 'كل الورديات')
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 4),
+                child: pw.Text(ArabicPDFHelper.fixArabic('الوردية: ${params['shiftName']}'),
+                  style: pw.TextStyle(font: arabicFont, fontSize: 12),
+                  textAlign: pw.TextAlign.center),
+              ),
             pw.SizedBox(height: 10),
             _buildPrintingHeader(maxColorsCount: maxColorsCount, flexibleWidth: flexibleColWidth, font: arabicBoldFont),
             pw.Column(children: pageRows),
