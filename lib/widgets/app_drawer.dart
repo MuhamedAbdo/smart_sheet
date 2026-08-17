@@ -16,6 +16,47 @@ class AppDrawer extends StatelessWidget {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
+  /// عرض نافذة تأكيد تسجيل الخروج قبل تنفيذ signOut
+  Future<void> _confirmSignOut(BuildContext context) async {
+    // إغلاق الـ Drawer أولاً
+    Navigator.pop(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'تأكيد',
+          textDirection: TextDirection.rtl,
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'هل أنت متأكد من رغبتك في تسجيل الخروج؟',
+          textDirection: TextDirection.rtl,
+        ),
+        actionsAlignment: MainAxisAlignment.end,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await context.read<AuthService>().signOut();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
@@ -103,10 +144,7 @@ class AppDrawer extends StatelessWidget {
                   ListTile(
                     leading: const Icon(Icons.logout, color: Colors.red),
                     title: const Text('تسجيل الخروج'),
-                    onTap: () async {
-                      Navigator.pop(context);
-                      await context.read<AuthService>().signOut();
-                    },
+                    onTap: () => _confirmSignOut(context),
                   ),
               ],
             ),

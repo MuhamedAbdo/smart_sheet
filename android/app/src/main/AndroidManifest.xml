@@ -77,12 +77,20 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
+            <!-- Deep Link: إعادة تعيين كلمة المرور -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                
-                <data android:scheme="io.supabase.smartsheet" android:host="reset-password" />
+                <data android:scheme="io.supabase.smartsheet" android:host="reset-callback" />
+            </intent-filter>
+
+            <!-- Deep Link: تسجيل الدخول وتفعيل الحساب -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="io.supabase.flutter" android:host="login-callback" />
             </intent-filter>
             </activity>
 

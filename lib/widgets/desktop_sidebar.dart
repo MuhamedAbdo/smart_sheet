@@ -21,6 +21,44 @@ class DesktopSidebar extends StatefulWidget {
 class _DesktopSidebarState extends State<DesktopSidebar> {
   int _selectedIndex = 0;
 
+  /// عرض نافذة تأكيد تسجيل الخروج قبل تنفيذ signOut
+  Future<void> _confirmSignOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'تأكيد',
+          textDirection: TextDirection.rtl,
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'هل أنت متأكد من رغبتك في تسجيل الخروج؟',
+          textDirection: TextDirection.rtl,
+        ),
+        actionsAlignment: MainAxisAlignment.end,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await context.read<AuthService>().signOut();
+    }
+  }
+
   /// استخدام صلاحيات الأرشيف
   bool _canViewArchive(String targetDepartment) {
     if (PermissionHelper.isSuperAdmin) return true;
@@ -195,9 +233,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
             title: 'تسجيل الخروج',
             index: 6,
             color: Colors.red,
-            onTap: () async {
-              await context.read<AuthService>().signOut();
-            },
+            onTap: _confirmSignOut,
           ),
       ],
     );

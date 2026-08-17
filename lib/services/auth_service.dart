@@ -596,11 +596,14 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _supabaseClient.auth.resetPasswordForEmail(email);
+      await _supabaseClient.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'io.supabase.smartsheet://reset-callback/',
+      );
       _state = _state.copyWith(isLoading: false);
       notifyListeners();
 
-      return '✅ تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.\n\nيرجى فتح بريدك والضغط على الرابط لتعيين كلمة مرور جديدة.';
+      return null; // ✅ null = نجاح (الاتفاقية الصحيحة)
     } on AuthException catch (e) {
       _state = _state.copyWith(isLoading: false, errorMessage: e.message);
       notifyListeners();
