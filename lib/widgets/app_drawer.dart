@@ -46,16 +46,18 @@ class AppDrawer extends StatelessWidget {
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
+              // الاحتفاظ بالمتغيرات من السياق قبل إغلاق النافذة لتجنب خطأ Deactivated Widget
+              final authService = ctx.read<AuthService>();
+              final navigator = Navigator.of(ctx);
+
               // إغلاق نافذة التأكيد
-              Navigator.of(ctx).pop();
+              navigator.pop();
               
               // تنفيذ الخروج
-              await context.read<AuthService>().signOut();
+              await authService.signOut();
               
               // التوجيه الإجباري لشاشة الدخول ومسح السجل
-              if (context.mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-              }
+              navigator.pushNamedAndRemoveUntil(AuthScreen.routeName, (route) => false);
             },
             child: const Text('تأكيد'),
           ),

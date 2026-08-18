@@ -118,9 +118,9 @@ class JobOrderService {
   // ── Public API ──────────────────────────────────────────────────────────────
 
   /// يولد وثيقة PDF أصلية (Native) بدون الحاجة إلى HTML
-  static Future<Uint8List> generateNativePdf(JobOrderData data) async {
+  static Future<Uint8List> generateNativePdf(JobOrderData data, {PdfPageFormat format = PdfPageFormat.a4}) async {
     debugPrint(
-        "📄 generateNativePdf: start generating for job ${data.jobNumber}...");
+        "📄 generateNativePdf: start generating for job ${data.jobNumber} with format $format...");
     final doc = pw.Document();
 
     final regularFontData =
@@ -138,24 +138,43 @@ class JobOrderService {
         defaultValue: "العاشر للطباعة والنشر والتغليف\n( كازنبرس )") as String;
     final factoryLogoBase64 = box.get('factoryLogoBase64') as String?;
 
+    // الأبعاد الأصلية للصفحة (A4) ناقص الهوامش (margin: vertical 12, horizontal 16)
+    // وذلك لضمان عمل الـ Widgets التي تعتمد على مساحة محددة (مثل Expanded و Spacer) بشكل صحيح داخل FittedBox.
+    final double originalContentWidth = PdfPageFormat.a4.width - 32;
+    final double originalContentHeight = PdfPageFormat.a4.height - 24;
+
     // الصفحة الأولى: البيانات الأساسية، جدول الأصناف، التضليع، تجهيزات الكرتون، وطباعة الأوفست والفلكسو
     doc.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a4,
+        pageFormat: format,
         margin: const pw.EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         theme: theme,
-        build: (pw.Context ctx) => _buildPage1(
-            data, regularFont, boldFont, printedFactoryName, factoryLogoBase64),
+        build: (pw.Context ctx) => pw.FittedBox(
+          fit: pw.BoxFit.contain,
+          child: pw.SizedBox(
+            width: originalContentWidth,
+            height: originalContentHeight,
+            child: _buildPage1(
+              data, regularFont, boldFont, printedFactoryName, factoryLogoBase64),
+          ),
+        ),
       ),
     );
 
     // الصفحة الثانية: تسليمات منتج تام، بيان مرفقات العميل، وتقرير الإقفال
     doc.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a4,
+        pageFormat: format,
         margin: const pw.EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         theme: theme,
-        build: (pw.Context ctx) => _buildPage2(data, regularFont, boldFont),
+        build: (pw.Context ctx) => pw.FittedBox(
+          fit: pw.BoxFit.contain,
+          child: pw.SizedBox(
+            width: originalContentWidth,
+            height: originalContentHeight,
+            child: _buildPage2(data, regularFont, boldFont),
+          ),
+        ),
       ),
     );
 
@@ -235,7 +254,7 @@ class JobOrderService {
                 ),
                 Expanded(
                   child: PdfPreview(
-                    build: (format) async => await generateNativePdf(data),
+                    build: (format) async => await generateNativePdf(data, format: format),
                     allowPrinting: true,
                     allowSharing: true,
                     canChangePageFormat: false,
@@ -262,7 +281,7 @@ class JobOrderService {
       await Printing.layoutPdf(
         onLayout: (format) async {
           debugPrint("🖨️ layoutPdf onLayout triggered with format: $format");
-          return await generateNativePdf(data);
+          return await generateNativePdf(data, format: format);
         },
         name: 'job_order_${data.jobNumber}',
       );

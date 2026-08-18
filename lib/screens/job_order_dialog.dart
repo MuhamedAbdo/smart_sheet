@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:smart_sheet/services/job_order_service.dart';
+import 'package:smart_sheet/screens/pdf_preview_screen.dart';
 
 /// Dialog إصدار أمر التشغيل — حصرياً لسطح المكتب (Windows)
 class JobOrderDialog extends StatefulWidget {
@@ -265,7 +266,16 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         items: items,
       );
       if (mounted) {
-        await JobOrderService.showPreview(context, data);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PdfPreviewScreen(
+              title: 'معاينة أمر التشغيل',
+              buildPdf: (format) =>
+                  JobOrderService.generateNativePdf(data, format: format),
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) _showSnack('خطأ في إنشاء أمر التشغيل: $e');

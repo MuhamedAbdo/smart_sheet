@@ -993,11 +993,27 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     List<MapEntry<dynamic, dynamic>> allClientRecords,
     String clientCode,
   ) {
-    // تجميع الأصناف فقط (تجاهل السجل الرئيسي للعميل)
-    final items = allClientRecords
-        .where((e) => e.value is Map && e.value['isClientRecord'] != true)
-        .map((e) => Map<String, dynamic>.from(e.value as Map))
-        .toList();
+    // تجميع الأصناف فقط (تجاهل السجل الرئيسي للعميل) مع تصفية المكرر
+    final rawItems = allClientRecords
+        .where((e) => e.value is Map && e.value['isClientRecord'] != true);
+    
+    final Map<String, Map<String, dynamic>> uniqueItemsMap = {};
+    for (var entry in rawItems) {
+      final val = Map<String, dynamic>.from(entry.value as Map);
+      final productCode = val['productCode']?.toString().trim() ?? '';
+      final uniqueId = productCode.isNotEmpty
+          ? productCode
+          : (val['sync_id'] ?? val['id'] ?? entry.key).toString();
+      uniqueItemsMap[uniqueId] = val;
+    }
+    
+    final items = uniqueItemsMap.values.toList();
+    // ترتيب تصاعدي بناءً على كود الصنف (رقمياً)
+    items.sort((a, b) {
+      final codeA = int.tryParse(a['productCode']?.toString() ?? '') ?? 0;
+      final codeB = int.tryParse(b['productCode']?.toString() ?? '') ?? 0;
+      return codeA.compareTo(codeB);
+    });
 
     // استخراج بيانات العميل الأساسية من السجل الرئيسي
     String clientAddress = '';
