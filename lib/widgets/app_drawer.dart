@@ -21,7 +21,7 @@ class AppDrawer extends StatelessWidget {
     // إغلاق الـ Drawer أولاً
     Navigator.pop(context);
 
-    final confirmed = await showDialog<bool>(
+    await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
@@ -37,7 +37,7 @@ class AppDrawer extends StatelessWidget {
         actionsAlignment: MainAxisAlignment.end,
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('إلغاء'),
           ),
           ElevatedButton(
@@ -45,16 +45,23 @@ class AppDrawer extends StatelessWidget {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () async {
+              // إغلاق نافذة التأكيد
+              Navigator.of(ctx).pop();
+              
+              // تنفيذ الخروج
+              await context.read<AuthService>().signOut();
+              
+              // التوجيه الإجباري لشاشة الدخول ومسح السجل
+              if (context.mounted) {
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+              }
+            },
             child: const Text('تأكيد'),
           ),
         ],
       ),
     );
-
-    if (confirmed == true && context.mounted) {
-      await context.read<AuthService>().signOut();
-    }
   }
 
   @override

@@ -23,7 +23,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
 
   /// عرض نافذة تأكيد تسجيل الخروج قبل تنفيذ signOut
   Future<void> _confirmSignOut() async {
-    final confirmed = await showDialog<bool>(
+    await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
@@ -39,7 +39,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
         actionsAlignment: MainAxisAlignment.end,
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('إلغاء'),
           ),
           ElevatedButton(
@@ -47,16 +47,23 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () async {
+              // إغلاق نافذة التأكيد
+              Navigator.of(ctx).pop();
+              
+              // تنفيذ الخروج
+              await context.read<AuthService>().signOut();
+              
+              // التوجيه الإجباري لشاشة الدخول ومسح السجل
+              if (mounted) {
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+              }
+            },
             child: const Text('تأكيد'),
           ),
         ],
       ),
     );
-
-    if (confirmed == true && mounted) {
-      await context.read<AuthService>().signOut();
-    }
   }
 
   /// استخدام صلاحيات الأرشيف
