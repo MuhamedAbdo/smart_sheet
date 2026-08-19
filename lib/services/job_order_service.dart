@@ -877,17 +877,27 @@ class JobOrderService {
       pw.TextStyle boldStyle,
       pw.TextStyle regularStyle,
       PdfColor headerBarColor) {
+    // 3 صفوف فقط: أول 3 أصناف مع صفوف فارغة إن لزم
+    const int maxRows = 3;
+    final List<JobOrderItem> displayItems = [
+      for (int i = 0; i < maxRows; i++)
+        i < data.items.length
+            ? data.items[i]
+            : JobOrderItem(productName: '', productCode: '', quantity: '', itemNotes: ''),
+    ];
+
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.black, width: 1.0),
       columnWidths: {
-        0: const pw.FlexColumnWidth(20),
-        1: const pw.FlexColumnWidth(20),
-        2: const pw.FlexColumnWidth(12),
-        3: const pw.FlexColumnWidth(33),
-        4: const pw.FlexColumnWidth(10),
-        5: const pw.FlexColumnWidth(5),
+        0: const pw.FlexColumnWidth(22), // ملاحظات الصنف — زيادة
+        1: const pw.FlexColumnWidth(18), // الأبعاد — تقليل طفيف
+        2: const pw.FlexColumnWidth(9),  // الكمية — تقليل
+        3: const pw.FlexColumnWidth(36), // بيان الصنف — زيادة
+        4: const pw.FlexColumnWidth(10), // كود — تقليل
+        5: const pw.FlexColumnWidth(5),  // م
       },
       children: [
+        // صف الرأس
         pw.TableRow(
           decoration: pw.BoxDecoration(color: headerBarColor),
           children: [
@@ -899,39 +909,28 @@ class JobOrderService {
             _tableHeaderCell("م", boldStyle),
           ],
         ),
-        for (int i = 0; i < 5; i++)
+        // 3 صفوف البيانات
+        for (int i = 0; i < maxRows; i++)
           pw.TableRow(
             children: [
+              _itemBodyCell(displayItems[i].itemNotes, regularStyle, false, false),
               _itemBodyCell(
-                  i < data.items.length ? data.items[i].itemNotes : "",
-                  regularStyle,
-                  false,
-                  false),
-              _itemBodyCell(
-                  i < data.items.length
-                      ? "${data.items[i].height} × ${data.items[i].width} × ${data.items[i].length}"
-                          .replaceAll(RegExp(r'^[ ×]+|[ ×]+$'), '')
-                      : "",
+                  displayItems[i].productName.isEmpty
+                      ? ""
+                      : "${displayItems[i].height} × ${displayItems[i].width} × ${displayItems[i].length}"
+                          .replaceAll(RegExp(r'^[ ×]+|[ ×]+\$'), ''),
                   boldStyle,
                   true,
                   true),
               _itemBodyCell(
-                  i < data.items.length
-                      ? _formatNumberWithCommas(data.items[i].quantity)
-                      : "",
+                  displayItems[i].quantity.isEmpty
+                      ? ""
+                      : _formatNumberWithCommas(displayItems[i].quantity),
                   boldStyle,
                   true,
                   true),
-              _itemBodyCell(
-                  i < data.items.length ? data.items[i].productName : "",
-                  boldStyle,
-                  false,
-                  false),
-              _itemBodyCell(
-                  i < data.items.length ? data.items[i].productCode : "",
-                  boldStyle,
-                  true,
-                  true),
+              _itemBodyCell(displayItems[i].productName, boldStyle, false, false),
+              _itemBodyCell(displayItems[i].productCode, boldStyle, true, true),
               _itemBodyCell(
                   i < _arabicNumerals.length ? _arabicNumerals[i] : "${i + 1}",
                   boldStyle,
@@ -945,11 +944,11 @@ class JobOrderService {
 
   static pw.Widget _tableHeaderCell(String text, pw.TextStyle boldStyle) {
     return pw.Container(
-      height: 16,
+      height: 20,
       alignment: pw.Alignment.center,
-      padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 2),
+      padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 3),
       child: pw.Text(_ar(text),
-          style: boldStyle.copyWith(color: PdfColors.white, fontSize: 8),
+          style: boldStyle.copyWith(color: PdfColors.white, fontSize: 9),
           textAlign: pw.TextAlign.center),
     );
   }
@@ -957,21 +956,20 @@ class JobOrderService {
   static pw.Widget _itemBodyCell(
       String text, pw.TextStyle style, bool center, bool isLTR) {
     return pw.Container(
-      height: 17,
+      padding: const pw.EdgeInsets.symmetric(vertical: 7, horizontal: 4),
       alignment: center ? pw.Alignment.center : pw.Alignment.centerRight,
-      padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 3),
       child: text.isEmpty
           ? pw.SizedBox()
           : isLTR
               ? pw.Directionality(
                   textDirection: pw.TextDirection.ltr,
                   child: pw.Text(text,
-                      style: style.copyWith(fontSize: 8.5),
+                      style: style.copyWith(fontSize: 10),
                       textAlign:
                           center ? pw.TextAlign.center : pw.TextAlign.right),
                 )
               : pw.Text(_ar(text),
-                  style: style.copyWith(fontSize: 8.5),
+                  style: style.copyWith(fontSize: 10),
                   textAlign: center ? pw.TextAlign.center : pw.TextAlign.right),
     );
   }
