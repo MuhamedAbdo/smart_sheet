@@ -302,38 +302,48 @@ class JobOrderService {
     final double originalContentWidth = PdfPageFormat.a4.width - 32;
     final double originalContentHeight = PdfPageFormat.a4.height - 24;
 
-    // الصفحة الأولى: البيانات الأساسية، جدول الأصناف، التضليع، تجهيزات الكرتون، وطباعة الأوفست والفلكسو
+    // الصفحة الأولى: البيانات الأساسية، بيان الصنف، التضليع، تقرير قسم التضليع
     doc.addPage(
       pw.Page(
         pageFormat: format,
         margin: const pw.EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         theme: theme,
-        build: (pw.Context ctx) => pw.FittedBox(
-          fit: pw.BoxFit.contain,
-          child: pw.SizedBox(
-            width: originalContentWidth,
-            height: originalContentHeight,
-            child: _buildPage1(
-              data, regularFont, boldFont, printedFactoryName, factoryLogoBase64),
-          ),
-        ),
+        build: (pw.Context ctx) {
+          final w = ctx.page.pageFormat.availableWidth;
+          final h = ctx.page.pageFormat.availableHeight;
+          return pw.FittedBox(
+            fit: pw.BoxFit.contain,
+            alignment: pw.Alignment.topCenter,
+            child: pw.SizedBox(
+              width: w,
+              height: h,
+              child: _buildPage1(
+                data, regularFont, boldFont, printedFactoryName, factoryLogoBase64),
+            ),
+          );
+        },
       ),
     );
 
-    // الصفحة الثانية: تسليمات منتج تام، بيان مرفقات العميل، وتقرير الإقفال
+    // الصفحة الثانية: تجهيزات الكرتون، طباعة الفلكسو، طباعة الأوفست، تسليمات، مرفقات، تقرير الإقفال
     doc.addPage(
       pw.Page(
         pageFormat: format,
         margin: const pw.EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         theme: theme,
-        build: (pw.Context ctx) => pw.FittedBox(
-          fit: pw.BoxFit.contain,
-          child: pw.SizedBox(
-            width: originalContentWidth,
-            height: originalContentHeight,
-            child: _buildPage2(data, regularFont, boldFont),
-          ),
-        ),
+        build: (pw.Context ctx) {
+          final w = ctx.page.pageFormat.availableWidth;
+          final h = ctx.page.pageFormat.availableHeight;
+          return pw.FittedBox(
+            fit: pw.BoxFit.contain,
+            alignment: pw.Alignment.topCenter,
+            child: pw.SizedBox(
+              width: w,
+              height: h,
+              child: _buildPage2(data, regularFont, boldFont),
+            ),
+          );
+        },
       ),
     );
 
@@ -459,15 +469,7 @@ class JobOrderService {
         font: boldFont, fontSize: 7.5, fontWeight: pw.FontWeight.bold);
     final titleStyle = pw.TextStyle(
         font: boldFont, fontSize: 12, fontWeight: pw.FontWeight.bold);
-    final barStyle = pw.TextStyle(
-        font: boldFont,
-        fontSize: 8.5,
-        color: PdfColors.white,
-        fontWeight: pw.FontWeight.bold);
-
     final headerBarColor = PdfColor.fromHex('#3b3b3b');
-    final labelBgColor = PdfColor.fromHex('#e9e9e9');
-    final sigBgColor = PdfColor.fromHex('#eeeeee');
     final redColor = PdfColor.fromHex('#b30000');
 
     return pw.Directionality(
@@ -520,19 +522,16 @@ class JobOrderService {
               data, boldStyle, regularStyle, headerBarColor),
           pw.SizedBox(height: 1.5),
 
-          // 5. تقرير قسم التضليع (5 صفوف)
+          // 5. تقرير قسم التضليع (3 صفوف)
           _buildCorrugationReportTable(
               data, boldStyle, regularStyle, headerBarColor),
-          pw.SizedBox(height: 1.5),
+          pw.Spacer(),
 
-          // 6. Carton Preparations (تجهيزات الكرتون)
-          _buildPage1CartonPrep(
-              boldStyle, regularStyle, barStyle, headerBarColor, labelBgColor),
-          pw.SizedBox(height: 1.5),
-
-          // 7. Flexo Printing (طباعة الفلكسو) - في نفس المكان الذي كان يحتله طباعة الأوفست
-          _buildPage1FlexoPrinting(
-              boldStyle, regularStyle, barStyle, headerBarColor, sigBgColor),
+          pw.Align(
+            alignment: pw.Alignment.centerLeft,
+            child: pw.Text(_ar("الصفحة 1 من 2"),
+                style: regularStyle.copyWith(fontSize: 7)),
+          ),
         ],
       ),
     );
@@ -550,33 +549,55 @@ class JobOrderService {
         fontWeight: pw.FontWeight.bold);
 
     final headerBarColor = PdfColor.fromHex('#3b3b3b');
+    final labelBgColor = PdfColor.fromHex('#e9e9e9');
+    final sigBgColor = PdfColor.fromHex('#eeeeee');
 
     return pw.Directionality(
       textDirection: pw.TextDirection.rtl,
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          pw.Spacer(),
-          // 8. Offset Printing (طباعة الأوفست - نُقل للصفحة الثانية)
-          _buildPage1OffsetPrinting(
-              boldStyle, regularStyle, barStyle, headerBarColor),
+          // 6. تجهيزات الكرتون (مُنقل من الصفحة الأولى)
+          pw.Expanded(
+            child: _buildPage1CartonPrep(
+                boldStyle, regularStyle, barStyle, headerBarColor, labelBgColor),
+          ),
           pw.SizedBox(height: 6.0),
 
-          // 9. تسليمات منتج تام (نُقل للصفحة الثانية - 10 خلايا)
-          _buildDeliveriesTable(boldStyle, regularStyle, headerBarColor),
+          // 7. طباعة الفلكسو (مُنقل من الصفحة الأولى)
+          pw.Expanded(
+            child: _buildPage1FlexoPrinting(
+                boldStyle, regularStyle, barStyle, headerBarColor, sigBgColor),
+          ),
           pw.SizedBox(height: 6.0),
 
-          // 10. بيان مرفقات العميل (نُقل للصفحة الثانية - 4 خلايا)
-          _buildAttachmentsTable(boldStyle, regularStyle, headerBarColor),
+          // 8. طباعة الأوفست
+          pw.Expanded(
+            child: _buildPage1OffsetPrinting(
+                boldStyle, regularStyle, barStyle, headerBarColor),
+          ),
           pw.SizedBox(height: 6.0),
 
-          // 11. تقرير الإقفال (نُقل للصفحة الثانية)
-          _buildClosingReport(boldStyle),
-          pw.Spacer(),
+          // 9. تسليمات منتج تام (10 خلايا)
+          pw.Expanded(
+            child: _buildDeliveriesTable(boldStyle, regularStyle, headerBarColor),
+          ),
+          pw.SizedBox(height: 6.0),
+
+          // 10. بيان مرفقات العميل (4 خلايا)
+          pw.Expanded(
+            child: _buildAttachmentsTable(boldStyle, regularStyle, headerBarColor),
+          ),
+          pw.SizedBox(height: 6.0),
+
+          // 11. تقرير الإقفال
+          pw.Expanded(
+            child: _buildClosingReport(boldStyle),
+          ),
 
           pw.Align(
             alignment: pw.Alignment.centerLeft,
-            child: pw.Text(_ar("88% من الحجم الأصلى"),
+            child: pw.Text(_ar("الصفحة 2 من 2"),
                 style: regularStyle.copyWith(fontSize: 7)),
           ),
         ],
