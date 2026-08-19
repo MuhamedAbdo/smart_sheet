@@ -1474,17 +1474,17 @@ class JobOrderService {
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           pw.Container(
-            height: 12,
+            height: 22,
             color: PdfColors.grey400,
-            padding: const pw.EdgeInsets.symmetric(vertical: 0.5),
+            padding: const pw.EdgeInsets.symmetric(vertical: 2),
             alignment: pw.Alignment.center,
             child: isEmptyItem
-                ? pw.SizedBox()
+                ? pw.SizedBox(height: 12)
                 : pw.Text(_ar("${item.productName} - ${item.productCode}"),
-                    style: boldStyle.copyWith(fontSize: 8)),
+                    style: boldStyle.copyWith(fontSize: 10)),
           ),
           pw.Container(
-            height: 13,
+            height: 24,
             decoration: const pw.BoxDecoration(
                 border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
             child: pw.Row(
@@ -1499,7 +1499,7 @@ class JobOrderService {
                     padding: const pw.EdgeInsets.symmetric(horizontal: 4),
                     child: pw.Text(
                         _ar("عرض البكر : ${item.rollWidth.isEmpty ? '______' : item.rollWidth}"),
-                        style: boldStyle.copyWith(fontSize: 8)),
+                        style: boldStyle.copyWith(fontSize: 9)),
                   ),
                 ),
                 pw.Expanded(
@@ -1510,7 +1510,7 @@ class JobOrderService {
                     child: pw.Row(
                       children: [
                         pw.Text(_ar("التضليع : "),
-                            style: boldStyle.copyWith(fontSize: 8)),
+                            style: boldStyle.copyWith(fontSize: 9)),
                         pw.Expanded(
                           child: pw.Row(
                             mainAxisAlignment: isEmptyItem
@@ -1569,7 +1569,7 @@ class JobOrderService {
             ),
           ),
           pw.Container(
-            height: 13,
+            height: 24,
             decoration: const pw.BoxDecoration(
                 border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
             child: pw.Row(
@@ -1584,7 +1584,7 @@ class JobOrderService {
                     padding: const pw.EdgeInsets.symmetric(horizontal: 4),
                     child: pw.Text(
                         _ar("مقاس العلبة : ${item.corrugationBoxSize.isEmpty ? '______' : item.corrugationBoxSize}"),
-                        style: boldStyle.copyWith(fontSize: 8)),
+                        style: boldStyle.copyWith(fontSize: 9)),
                   ),
                 ),
                 pw.Expanded(
@@ -1595,7 +1595,7 @@ class JobOrderService {
                     child: pw.Row(
                       children: [
                         pw.Text(_ar("مقاس الشريحة : "),
-                            style: boldStyle.copyWith(fontSize: 8)),
+                            style: boldStyle.copyWith(fontSize: 9)),
                         pw.Expanded(
                           child: pw.Container(
                             alignment: pw.Alignment.center,
@@ -1610,7 +1610,7 @@ class JobOrderService {
                                           .toList()
                                           .reversed
                                           .join(' / '),
-                                  style: boldStyle.copyWith(fontSize: 8)),
+                                  style: boldStyle.copyWith(fontSize: 9)),
                             ),
                           ),
                         ),
@@ -1622,14 +1622,13 @@ class JobOrderService {
             ),
           ),
           pw.Container(
-            height: 13,
-            padding:
-                const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.5),
+            height: 24,
+            padding: const pw.EdgeInsets.symmetric(horizontal: 4),
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
                 pw.Text(_ar("طبقات الورق : "),
-                    style: boldStyle.copyWith(fontSize: 7.5)),
+                    style: boldStyle.copyWith(fontSize: 8.5)),
                 if (item.paperLayers.isNotEmpty)
                   ...item.paperLayers.asMap().entries.expand((e) {
                     final i = e.key;
@@ -1638,17 +1637,17 @@ class JobOrderService {
                       if (i > 0) ...[
                         pw.SizedBox(width: 6),
                         pw.Text(_ar("/"),
-                            style: boldStyle.copyWith(fontSize: 7.5)),
+                            style: boldStyle.copyWith(fontSize: 8.5)),
                         pw.SizedBox(width: 6),
                       ],
                       pw.Directionality(
                         textDirection: pw.TextDirection.ltr,
                         child: pw.Text("L${i + 1}",
-                            style: boldStyle.copyWith(fontSize: 7.5)),
+                            style: boldStyle.copyWith(fontSize: 8.5)),
                       ),
                       pw.SizedBox(width: 8),
                       pw.Text(_ar(layer),
-                          style: regularStyle.copyWith(fontSize: 7.5)),
+                          style: regularStyle.copyWith(fontSize: 8.5)),
                     ];
                   }),
               ],
@@ -1755,23 +1754,23 @@ class JobOrderService {
         children: [
           pw.Transform.translate(
             offset: const PdfPoint(0, 2.5),
-            child: pw.Text(_ar(label), style: style.copyWith(fontSize: 8)),
+            child: pw.Text(_ar(label), style: style.copyWith(fontSize: 9)),
           ),
           pw.SizedBox(width: 4),
           pw.Container(
-            width: 8,
-            height: 8,
+            width: 10,
+            height: 10,
             decoration: pw.BoxDecoration(
               color: isSolidBlack ? PdfColors.black : null,
               border: pw.Border.all(color: PdfColors.black, width: 1.0),
             ),
             child: isChecked && !isSolidBlack
                 ? pw.CustomPaint(
-                    size: const PdfPoint(8, 8),
+                    size: const PdfPoint(10, 10),
                     painter: (PdfGraphics canvas, PdfPoint size) {
-                      canvas.moveTo(1.5, 4);
-                      canvas.lineTo(3.5, 2);
-                      canvas.lineTo(6.5, 6);
+                      canvas.moveTo(1.5, 5);
+                      canvas.lineTo(4, 2.5);
+                      canvas.lineTo(8, 7.5);
                       canvas.setStrokeColor(PdfColors.black);
                       canvas.setLineWidth(1.2);
                       canvas.strokePath();
