@@ -2052,7 +2052,7 @@ class JobOrderService {
                         _buildDeliveriesHeaderCell(
                             "توقيع المخازن", 12, boldStyle, false),
                       ])),
-              ...List.generate(10, (index) {
+              ...List.generate(7, (index) {
                 final numbersAr = [
                   "١",
                   "٢",

@@ -142,9 +142,9 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
           }
         }
       } else {
-        if (_selectedIndices.length >= 5) {
+        if (_selectedIndices.length >= 3) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('لا يمكن إدخال أكثر من 5 أصناف في أمر التشغيل منعاً للتكدس', style: TextStyle(fontFamily: 'Cairo'))),
+            const SnackBar(content: Text('عفواً، الحد الأقصى لأمر التشغيل الواحد هو 3 أصناف فقط لمقاس A5.', style: TextStyle(fontFamily: 'Cairo'))),
           );
           return;
         }
