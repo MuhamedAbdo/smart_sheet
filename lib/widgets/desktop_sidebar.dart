@@ -23,8 +23,14 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
 
   /// عرض نافذة تأكيد تسجيل الخروج قبل تنفيذ signOut
   Future<void> _confirmSignOut() async {
+    final authService = context.read<AuthService>();
+    final navContext = authService.navigatorKey.currentContext;
+    final navState = authService.navigatorKey.currentState;
+    
+    if (navContext == null) return;
+
     await showDialog(
-      context: context,
+      context: navContext,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: const Text(
@@ -52,11 +58,11 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
               Navigator.of(ctx).pop();
               
               // تنفيذ الخروج
-              await context.read<AuthService>().signOut();
+              await authService.signOut();
               
               // التوجيه الإجباري لشاشة الدخول ومسح السجل
-              if (mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+              if (mounted && navState != null) {
+                navState.pushNamedAndRemoveUntil(AuthScreen.routeName, (route) => false);
               }
             },
             child: const Text('تأكيد'),

@@ -127,6 +127,188 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
     }
   }
 
+  Future<void> _showManualLinkDialog() async {
+    if (!Hive.isBoxOpen('workers')) {
+      UIUtils.showInfoSnackBar(message: 'سجل العمال غير متاح حالياً.', backgroundColor: Colors.red);
+      return;
+    }
+
+    final box = Hive.box<Worker>('workers');
+    final workers = box.values.toList();
+
+    if (workers.isEmpty) {
+      UIUtils.showInfoSnackBar(message: 'لا يوجد عمال مسجلين للربط.', backgroundColor: Colors.red);
+      return;
+    }
+
+    Worker? selectedWorker;
+    final emailController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setStateSB) {
+            return AlertDialog(
+              title: const Text('ربط عامل بالمصنع (عبر حسابه)', textDirection: TextDirection.rtl),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('اختر العامل:', textDirection: TextDirection.rtl),
+                  const SizedBox(height: 8),
+                  DropdownButton<Worker>(
+                    isExpanded: true,
+                    hint: const Text('-- اختر العامل --'),
+                    value: selectedWorker,
+                    items: workers.map((w) {
+                      return DropdownMenuItem<Worker>(
+                        value: w,
+                        child: Text(
+                          w.name,
+                          textDirection: TextDirection.rtl,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setStateSB(() {
+                        selectedWorker = val;
+                        // Auto-populate the email field if the worker already has an email
+                        if (val != null && val.email != null && val.email!.isNotEmpty) {
+                          emailController.text = val.email!;
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('البريد الإلكتروني لحساب العامل:', textDirection: TextDirection.rtl),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(
+                      hintText: 'أدخل الإيميل الخاص بحساب العامل',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    textDirection: TextDirection.ltr,
+                  ),
+                ],
+              ),
+              actionsAlignment: MainAxisAlignment.spaceBetween,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('إلغاء'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final accountEmail = emailController.text.trim();
+                    if (selectedWorker == null) {
+                      UIUtils.showInfoSnackBar(message: 'يرجى اختيار العامل.', backgroundColor: Colors.red);
+                      return;
+                    }
+                    if (accountEmail.isEmpty) {
+                      UIUtils.showInfoSnackBar(message: 'يرجى إدخال البريد الإلكتروني للحساب.', backgroundColor: Colors.red);
+                      return;
+                    }
+                    
+                    Navigator.pop(ctx);
+                    _linkWorkerByEmail(accountEmail, selectedWorker!);
+                  },
+                  child: const Text('تأكيد الربط'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    );
+  }
+
+  Future<void> _linkWorkerByEmail(String accountEmail, Worker worker) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تأكيد الربط'),
+        content: Text('هل أنت متأكد من ربط حساب "$accountEmail"\nبالعامل "${worker.name}" في هذا المصنع؟\nسيتم السماح له بتسجيل الدخول فوراً.', textDirection: TextDirection.rtl),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text('جاري ربط الحساب بالمصنع...', textDirection: TextDirection.rtl),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final currentFactoryId = context.read<AuthService>().factoryId;
+
+      // 1. البحث عن الحساب (profile) في السحابة بالإيميل لتحديث مصنعه
+      final profileRes = await _supabase.from('profiles').select('id').eq('email', accountEmail).maybeSingle();
+      
+      if (profileRes != null) {
+        // الحساب موجود، نربطه بالمصنع ونفعله
+        await _supabase.from('profiles').update({
+          'factory_id': currentFactoryId,
+          'status': 'active'
+        }).eq('id', profileRes['id']);
+      }
+
+      // 2. تحديث إيميل العامل وحالة الربط في Supabase
+      if (worker.id != null && worker.id!.isNotEmpty) {
+        await _supabase.from('workers').update({
+          'email': accountEmail,
+          'is_device_linked': true,
+        }).eq('id', worker.id!);
+      }
+
+      // 3. تحديث محلي في Hive
+      worker.email = accountEmail;
+      worker.isDeviceLinked = true;
+      
+      final box = Hive.box<Worker>('workers');
+      // البحث عن المفتاح الصحيح للتحديث
+      final key = box.keys.firstWhere(
+        (k) => box.get(k)?.id == worker.id || box.get(k)?.name == worker.name, 
+        orElse: () => null
+      );
+      if (key != null) {
+        await box.put(key, worker);
+      }
+
+      if (mounted) Navigator.pop(context); // إغلاق نافذة التحميل
+      UIUtils.showInfoSnackBar(message: 'تم ربط الحساب والعامل بنجاح', backgroundColor: Colors.green);
+      
+      _fetchLinkedAccounts();
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // إغلاق نافذة التحميل
+      debugPrint('Error linking worker by email: $e');
+      UIUtils.showInfoSnackBar(message: 'حدث خطأ أثناء الربط: $e', backgroundColor: Colors.red);
+    }
+  }
+
   Future<void> _managePermissions(String profileId, String role, String? email, String? workerName) async {
     if (email != null && email != 'غير متوفر' && workerName != null) {
       // العامل موجود بالفعل، نقوم بتخطي نافذة الإدخال وفتح بياناته مباشرة
@@ -325,6 +507,12 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showManualLinkDialog,
+        icon: const Icon(Icons.link, color: Colors.white),
+        label: const Text('ربط حساب بعامل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.purple,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _profiles.isEmpty
@@ -375,8 +563,8 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                             ),
                           ],
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
+                        trailing: Wrap(
+                          spacing: 0,
                           children: [
                             IconButton(
                               tooltip: 'إدارة الصلاحيات',
