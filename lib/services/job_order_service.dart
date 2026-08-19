@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/arabic_pdf_helper.dart';
 
 // ─── Data Models ────────────────────────────────────────────────────────────
@@ -56,6 +57,44 @@ class JobOrderItem {
 
   bool get hasCorrugation =>
       corrugationTypes.isNotEmpty || customCorrugation.isNotEmpty;
+
+  Map<String, dynamic> toJson() => {
+    'productName': productName,
+    'productCode': productCode,
+    'length': length,
+    'width': width,
+    'height': height,
+    'quantity': quantity,
+    'itemNotes': itemNotes,
+    'review': review,
+    'corrugationTypes': corrugationTypes,
+    'customCorrugation': customCorrugation,
+    'corrugationSamples': corrugationSamples,
+    'corrugationBoxSize': corrugationBoxSize,
+    'corrugationSheetSize': corrugationSheetSize,
+    'corrugationSheetCount': corrugationSheetCount,
+    'rollWidth': rollWidth,
+    'paperLayers': paperLayers,
+  };
+
+  factory JobOrderItem.fromJson(Map<String, dynamic> json) => JobOrderItem(
+    productName: json['productName'] ?? '',
+    productCode: json['productCode'] ?? '',
+    length: json['length'] ?? '',
+    width: json['width'] ?? '',
+    height: json['height'] ?? '',
+    quantity: json['quantity'] ?? '',
+    itemNotes: json['itemNotes'] ?? '',
+    review: json['review'] ?? '',
+    corrugationTypes: List<String>.from(json['corrugationTypes'] ?? []),
+    customCorrugation: json['customCorrugation'] ?? '',
+    corrugationSamples: json['corrugationSamples'] ?? '',
+    corrugationBoxSize: json['corrugationBoxSize'] ?? '',
+    corrugationSheetSize: json['corrugationSheetSize'] ?? '',
+    corrugationSheetCount: json['corrugationSheetCount'] ?? '',
+    rollWidth: json['rollWidth'] ?? '',
+    paperLayers: List<String>.from(json['paperLayers'] ?? []),
+  );
 }
 
 /// بيانات أمر التشغيل الكامل
@@ -73,6 +112,7 @@ class JobOrderData {
   final String phone;
   final String receivedDate;
   final String generalNotes;
+  final String creatorEmail;
   final List<JobOrderItem> items;
 
   const JobOrderData({
@@ -89,8 +129,48 @@ class JobOrderData {
     this.phone = '',
     this.receivedDate = '',
     this.generalNotes = '',
+    this.creatorEmail = '',
     this.items = const [],
   });
+
+  Map<String, dynamic> toJson() => {
+    'orderNumber': orderNumber,
+    'jobNumber': jobNumber,
+    'orderDate': orderDate,
+    'createdBy': createdBy,
+    'customerName': customerName,
+    'clientCode': clientCode,
+    'address': address,
+    'startDate': startDate,
+    'supervisor': supervisor,
+    'deliveryDate': deliveryDate,
+    'phone': phone,
+    'receivedDate': receivedDate,
+    'generalNotes': generalNotes,
+    'creatorEmail': creatorEmail,
+    'items': items.map((i) => i.toJson()).toList(),
+    'savedAt': DateTime.now().toIso8601String(),
+  };
+
+  factory JobOrderData.fromJson(Map<String, dynamic> json) => JobOrderData(
+    orderNumber: json['orderNumber'] ?? '',
+    jobNumber: json['jobNumber'] ?? '',
+    orderDate: json['orderDate'] ?? '',
+    createdBy: json['createdBy'] ?? '',
+    customerName: json['customerName'] ?? '',
+    clientCode: json['clientCode'] ?? '',
+    address: json['address'] ?? '',
+    startDate: json['startDate'] ?? '',
+    supervisor: json['supervisor'] ?? '',
+    deliveryDate: json['deliveryDate'] ?? '',
+    phone: json['phone'] ?? '',
+    receivedDate: json['receivedDate'] ?? '',
+    generalNotes: json['generalNotes'] ?? '',
+    creatorEmail: json['creatorEmail'] ?? '',
+    items: (json['items'] as List<dynamic>? ?? [])
+        .map((i) => JobOrderItem.fromJson(Map<String, dynamic>.from(i)))
+        .toList(),
+  );
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -116,6 +196,85 @@ class JobOrderService {
   static String _today() => DateTime.now().toString().split(' ')[0];
 
   // ── Public API ──────────────────────────────────────────────────────────────
+
+  /// يحفظ أمر التشغيل مع مزامنته مع Supabase
+  static Future<void> saveOrder(JobOrderData data) async {
+    final jsonData = data.toJson();
+    final supabase = Supabase.instance.client;
+    final key = 'order_${DateTime.now().millisecondsSinceEpoch}';
+    
+    // 1. محاولة الرفع إلى Supabase
+    try {
+      await supabase.from('issued_job_orders').insert({
+        'id': key,
+        'order_number': data.orderNumber,
+        'job_number': data.jobNumber,
+        'client_name': data.customerName, // Fix: client_name instead of customer_name
+        'order_data': jsonData, // حفظ كامل البيانات بصيغة JSON
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      debugPrint('Job order synced to Supabase successfully.');
+    } catch (e) {
+      debugPrint('Failed to sync job order to Supabase: $e');
+      throw Exception('فشل في مزامنة البيانات مع السيرفر: $e');
+    }
+
+    // 2. الحفظ المحلي في Hive بعد نجاح المزامنة
+    final box = await Hive.openBox('issued_job_orders');
+    final jsonString = jsonEncode(jsonData);
+    await box.put(key, jsonString);
+  }
+
+  /// يجلب كل أوامر التشغيل من السيرفر (إن أمكن) ثم من Hive
+  static Future<List<MapEntry<dynamic, JobOrderData>>> getSavedOrders() async {
+    final box = await Hive.openBox('issued_job_orders');
+    final supabase = Supabase.instance.client;
+
+    try {
+      final List<dynamic> response = await supabase
+          .from('issued_job_orders')
+          .select('id, order_data')
+          .order('created_at', ascending: false);
+
+      await box.clear(); // مسح الـ Cache القديم
+      for (var row in response) {
+        final map = row as Map<String, dynamic>;
+        final id = map['id'] as String;
+        final orderData = map['order_data'];
+        await box.put(id, jsonEncode(orderData));
+      }
+      debugPrint('Fetched ${response.length} issued job orders from Supabase.');
+    } catch (e) {
+      debugPrint('Failed to fetch issued job orders from Supabase (using local cache): $e');
+    }
+
+    final entries = box.keys.map((k) {
+      try {
+        final raw = jsonDecode(box.get(k) as String) as Map<String, dynamic>;
+        return MapEntry(k, JobOrderData.fromJson(raw));
+      } catch (_) {
+        return null;
+      }
+    }).whereType<MapEntry<dynamic, JobOrderData>>().toList();
+
+    // ترتيب من الأحدث للأقدم بناءً على مفتاح الـ timestamp
+    entries.sort((a, b) => b.key.toString().compareTo(a.key.toString()));
+    return entries;
+  }
+
+  /// يحذف أمر تشغيل واحد
+  static Future<void> deleteOrder(dynamic key) async {
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase.from('issued_job_orders').delete().eq('id', key);
+    } catch (e) {
+      debugPrint('Failed to delete from Supabase: $e');
+      throw Exception('فشل الحذف من السيرفر: $e');
+    }
+    
+    final box = await Hive.openBox('issued_job_orders');
+    await box.delete(key);
+  }
 
   /// يولد وثيقة PDF أصلية (Native) بدون الحاجة إلى HTML
   static Future<Uint8List> generateNativePdf(JobOrderData data, {PdfPageFormat format = PdfPageFormat.a4}) async {

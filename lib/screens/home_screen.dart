@@ -12,6 +12,7 @@ import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/screens/staple_department_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/screens/linked_accounts_screen.dart';
+import 'package:smart_sheet/screens/issued_work_orders_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
@@ -198,6 +199,19 @@ class HomeScreen extends StatelessWidget {
                                   departmentBoxName: 'workers',
                                   departmentTitle: 'طاقم المصنع الموحد',
                                 ),
+                              ),
+                            );
+                          },
+                        ),
+                        HomeButton(
+                          icon: Icons.assignment,
+                          label: 'أوامر التشغيل الصادرة',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const IssuedWorkOrdersScreen(),
                               ),
                             );
                           },

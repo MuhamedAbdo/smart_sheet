@@ -10,6 +10,7 @@ import 'package:smart_sheet/screens/super_admin_screen.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/utils/archive_rbac_logic.dart';
+import 'package:smart_sheet/screens/issued_work_orders_screen.dart';
 
 class DesktopSidebar extends StatefulWidget {
   const DesktopSidebar({super.key});
@@ -201,6 +202,18 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                       )));
             },
           ),
+        _buildNavItem(
+          icon: Icons.assignment,
+          title: 'أوامر التشغيل الصادرة',
+          index: 8,
+          onTap: () {
+            setState(() => _selectedIndex = 8);
+            final nav = context.read<AuthService>().navigatorKey.currentState;
+            nav?.popUntil((route) => route.isFirst);
+            nav?.push(MaterialPageRoute(
+                builder: (_) => const IssuedWorkOrdersScreen()));
+          },
+        ),
         const Divider(),
         _buildNavItem(
           icon: Icons.settings_outlined,

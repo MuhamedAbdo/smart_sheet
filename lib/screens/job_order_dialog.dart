@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/services/job_order_service.dart';
 import 'package:smart_sheet/screens/pdf_preview_screen.dart';
 
@@ -249,6 +251,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
 
     setState(() => _isGenerating = true);
     try {
+      final auth = Provider.of<AuthService>(context, listen: false);
       final data = JobOrderData(
         orderNumber: _orderNumberCtrl.text,
         jobNumber: _jobNumberCtrl.text,
@@ -263,6 +266,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         phone: widget.clientPhone,
         receivedDate: _receivedDateCtrl.text,
         generalNotes: _generalNotesCtrl.text,
+        creatorEmail: auth.currentUserEmail ?? '',
         items: items,
       );
       if (mounted) {
@@ -271,6 +275,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
           MaterialPageRoute(
             builder: (_) => PdfPreviewScreen(
               title: 'معاينة أمر التشغيل',
+              jobOrderData: data,
               buildPdf: (format) =>
                   JobOrderService.generateNativePdf(data, format: format),
             ),
