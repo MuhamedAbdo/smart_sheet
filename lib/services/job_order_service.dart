@@ -297,31 +297,27 @@ class JobOrderService {
         defaultValue: "العاشر للطباعة والنشر والتغليف\n( كازنبرس )") as String;
     final factoryLogoBase64 = box.get('factoryLogoBase64') as String?;
 
-    // الأبعاد الأصلية للصفحة (A4) ناقص الهوامش (margin: vertical 12, horizontal 16)
-    // وذلك لضمان عمل الـ Widgets التي تعتمد على مساحة محددة (مثل Expanded و Spacer) بشكل صحيح داخل FittedBox.
-    final double originalContentWidth = PdfPageFormat.a4.width - 32;
-    final double originalContentHeight = PdfPageFormat.a4.height - 24;
+    // لوحة الرسم الثابتة: نرسم دائماً على أساس A4 ناقص الهوامش.
+    // FittedBox ستقوم بتصغير/تكبير هذه اللوحة لتناسب أي مقاس (A5, A3, Legal...) بدون قص أو أخطاء رياضية.
+    const double canvasWidth  = 595.28 - 32; // A4 width - horizontal margins (16*2)
+    const double canvasHeight = 841.89 - 24; // A4 height - vertical margins (12*2)
 
-    // الصفحة الأولى: البيانات الأساسية، بيان الصنف، التضليع، تقرير قسم التضليع
+    // الصفحة الأولى: الترويسة، بيان الصنف، التضليع، تقرير قسم التضليع
     doc.addPage(
       pw.Page(
         pageFormat: format,
         margin: const pw.EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         theme: theme,
-        build: (pw.Context ctx) {
-          final w = ctx.page.pageFormat.availableWidth;
-          final h = ctx.page.pageFormat.availableHeight;
-          return pw.FittedBox(
-            fit: pw.BoxFit.contain,
-            alignment: pw.Alignment.topCenter,
-            child: pw.SizedBox(
-              width: w,
-              height: h,
-              child: _buildPage1(
-                data, regularFont, boldFont, printedFactoryName, factoryLogoBase64),
-            ),
-          );
-        },
+        build: (pw.Context ctx) => pw.FittedBox(
+          fit: pw.BoxFit.contain,
+          alignment: pw.Alignment.topCenter,
+          child: pw.SizedBox(
+            width: canvasWidth,
+            height: canvasHeight,
+            child: _buildPage1(
+              data, regularFont, boldFont, printedFactoryName, factoryLogoBase64),
+          ),
+        ),
       ),
     );
 
@@ -331,19 +327,15 @@ class JobOrderService {
         pageFormat: format,
         margin: const pw.EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         theme: theme,
-        build: (pw.Context ctx) {
-          final w = ctx.page.pageFormat.availableWidth;
-          final h = ctx.page.pageFormat.availableHeight;
-          return pw.FittedBox(
-            fit: pw.BoxFit.contain,
-            alignment: pw.Alignment.topCenter,
-            child: pw.SizedBox(
-              width: w,
-              height: h,
-              child: _buildPage2(data, regularFont, boldFont),
-            ),
-          );
-        },
+        build: (pw.Context ctx) => pw.FittedBox(
+          fit: pw.BoxFit.contain,
+          alignment: pw.Alignment.topCenter,
+          child: pw.SizedBox(
+            width: canvasWidth,
+            height: canvasHeight,
+            child: _buildPage2(data, regularFont, boldFont),
+          ),
+        ),
       ),
     );
 
