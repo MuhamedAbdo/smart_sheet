@@ -531,12 +531,12 @@ class JobOrderService {
 
   static pw.Widget _buildPage2(
       JobOrderData data, pw.Font regularFont, pw.Font boldFont) {
-    final regularStyle = pw.TextStyle(font: regularFont, fontSize: 7.5);
+    final regularStyle = pw.TextStyle(font: regularFont, fontSize: 9);
     final boldStyle = pw.TextStyle(
-        font: boldFont, fontSize: 7.5, fontWeight: pw.FontWeight.bold);
+        font: boldFont, fontSize: 9, fontWeight: pw.FontWeight.bold);
     final barStyle = pw.TextStyle(
         font: boldFont,
-        fontSize: 8.5,
+        fontSize: 10,
         color: PdfColors.white,
         fontWeight: pw.FontWeight.bold);
 
@@ -550,42 +550,32 @@ class JobOrderService {
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           // 6. تجهيزات الكرتون (مُنقل من الصفحة الأولى)
-          pw.Expanded(
-            child: _buildPage1CartonPrep(
-                boldStyle, regularStyle, barStyle, headerBarColor, labelBgColor),
-          ),
-          pw.SizedBox(height: 6.0),
+          _buildPage1CartonPrep(
+              boldStyle, regularStyle, barStyle, headerBarColor, labelBgColor),
+          pw.SizedBox(height: 15.0),
 
           // 7. طباعة الفلكسو (مُنقل من الصفحة الأولى)
-          pw.Expanded(
-            child: _buildPage1FlexoPrinting(
-                boldStyle, regularStyle, barStyle, headerBarColor, sigBgColor),
-          ),
-          pw.SizedBox(height: 6.0),
+          _buildPage1FlexoPrinting(
+              boldStyle, regularStyle, barStyle, headerBarColor, sigBgColor),
+          pw.SizedBox(height: 15.0),
 
           // 8. طباعة الأوفست
-          pw.Expanded(
-            child: _buildPage1OffsetPrinting(
-                boldStyle, regularStyle, barStyle, headerBarColor),
-          ),
-          pw.SizedBox(height: 6.0),
+          _buildPage1OffsetPrinting(
+              boldStyle, regularStyle, barStyle, headerBarColor),
+          pw.SizedBox(height: 15.0),
 
           // 9. تسليمات منتج تام (10 خلايا)
-          pw.Expanded(
-            child: _buildDeliveriesTable(boldStyle, regularStyle, headerBarColor),
-          ),
-          pw.SizedBox(height: 6.0),
+          _buildDeliveriesTable(boldStyle, regularStyle, headerBarColor),
+          pw.SizedBox(height: 15.0),
 
           // 10. بيان مرفقات العميل (4 خلايا)
-          pw.Expanded(
-            child: _buildAttachmentsTable(boldStyle, regularStyle, headerBarColor),
-          ),
-          pw.SizedBox(height: 6.0),
+          _buildAttachmentsTable(boldStyle, regularStyle, headerBarColor),
+          pw.SizedBox(height: 15.0),
 
           // 11. تقرير الإقفال
-          pw.Expanded(
-            child: _buildClosingReport(boldStyle),
-          ),
+          _buildClosingReport(boldStyle),
+
+          pw.Spacer(),
 
           pw.Align(
             alignment: pw.Alignment.centerLeft,
@@ -606,7 +596,7 @@ class JobOrderService {
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           pw.Container(
-            height: 16,
+            height: 24,
             decoration: const pw.BoxDecoration(
                 border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
             child: pw.Row(
@@ -635,7 +625,7 @@ class JobOrderService {
             ),
           ),
           pw.Container(
-            height: 24,
+            height: 36,
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
@@ -1051,7 +1041,7 @@ class JobOrderService {
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Container(
-                height: 16,
+                height: 24,
                 color: headerBarColor,
                 alignment: pw.Alignment.center,
                 child: pw.Text(_ar("تجهيزات الكرتون"), style: barStyle),
@@ -1064,9 +1054,9 @@ class JobOrderService {
                   boldStyle,
                   regularStyle,
                   labelBgColor,
-                  height: 18),
+                  height: 26),
               pw.Container(
-                height: 16,
+                height: 24,
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                   children: [
@@ -1078,7 +1068,7 @@ class JobOrderService {
                 ),
               ),
               pw.Container(
-                height: 16,
+                height: 24,
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                   children: [
@@ -1098,7 +1088,7 @@ class JobOrderService {
                 ),
               ),
               pw.Container(
-                height: 17,
+                height: 24,
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                   children: [
@@ -1109,9 +1099,9 @@ class JobOrderService {
                   ],
                 ),
               ),
-              _prepRow("ملاحظات", pw.Container(height: 11), boldStyle,
+              _prepRow("ملاحظات", pw.Container(height: 18), boldStyle,
                   regularStyle, labelBgColor,
-                  isLast: true, height: 18),
+                  isLast: true, height: 26),
             ],
           ),
         ),
@@ -1189,13 +1179,13 @@ class JobOrderService {
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           pw.Container(
-            height: 16,
+            height: 24,
             color: headerBarColor,
             alignment: pw.Alignment.center,
             child: pw.Text(_ar("طباعة الأوفست"), style: barStyle),
           ),
           pw.Container(
-            height: 34,
+            height: 48,
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
@@ -1218,7 +1208,7 @@ class JobOrderService {
                       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                       children: [
                         pw.Container(
-                          height: 18,
+                          height: 24,
                           alignment: pw.Alignment.center,
                           decoration: const pw.BoxDecoration(
                               border:
@@ -1246,14 +1236,14 @@ class JobOrderService {
       PdfColor headerBarColor,
       PdfColor sigBgColor) {
     return pw.Container(
-      height: 64,
+      height: 90,
       decoration: pw.BoxDecoration(
           border: pw.Border.all(color: PdfColors.black, width: 1.0)),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           pw.Container(
-            height: 16,
+            height: 24,
             color: headerBarColor,
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -1288,7 +1278,7 @@ class JobOrderService {
                     crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                     children: [
                       pw.Container(
-                        height: 16,
+                        height: 24,
                         padding: const pw.EdgeInsets.symmetric(
                             horizontal: 6, vertical: 1),
                         alignment: pw.Alignment.centerRight,
@@ -1300,7 +1290,7 @@ class JobOrderService {
                             style: regularStyle.copyWith(fontSize: 8)),
                       ),
                       pw.Container(
-                        height: 16,
+                        height: 24,
                         padding: const pw.EdgeInsets.symmetric(
                             horizontal: 6, vertical: 1),
                         alignment: pw.Alignment.centerRight,
@@ -1977,7 +1967,7 @@ class JobOrderService {
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Container(
-                height: 16,
+                height: 24,
                 color: headerColor,
                 alignment: pw.Alignment.center,
                 child: pw.Text(_ar("تسليمات منتج تام"),
@@ -1985,7 +1975,7 @@ class JobOrderService {
                         color: PdfColors.white, fontSize: 8)),
               ),
               pw.Container(
-                  height: 24,
+                  height: 36,
                   decoration: const pw.BoxDecoration(
                       border: pw.Border(top: pw.BorderSide(width: 1.0))),
                   child: pw.Row(
@@ -2006,7 +1996,7 @@ class JobOrderService {
                                         pw.CrossAxisAlignment.stretch,
                                     children: [
                                       pw.Container(
-                                        height: 12,
+                                        height: 18,
                                         alignment: pw.Alignment.center,
                                         child: pw.Text(_ar("رقم"),
                                             style:
@@ -2014,7 +2004,7 @@ class JobOrderService {
                                             textAlign: pw.TextAlign.center),
                                       ),
                                       pw.Container(
-                                          height: 12,
+                                          height: 18,
                                           decoration: const pw.BoxDecoration(
                                               border: pw.Border(
                                                   top: pw.BorderSide(
@@ -2076,7 +2066,7 @@ class JobOrderService {
                   "١٠"
                 ];
                 return pw.Container(
-                    height: 16,
+                    height: 24,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(top: pw.BorderSide(width: 1.0))),
                     child: pw.Row(
@@ -2143,7 +2133,7 @@ class JobOrderService {
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Container(
-                  height: 16,
+                  height: 24,
                   color: headerColor,
                   child: pw.Row(
                       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -2159,7 +2149,7 @@ class JobOrderService {
                       ])),
               ...List.generate(4, (index) {
                 return pw.Container(
-                    height: 16,
+                    height: 24,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(top: pw.BorderSide(width: 1.0))),
                     child: pw.Row(
