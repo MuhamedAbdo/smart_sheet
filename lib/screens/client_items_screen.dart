@@ -200,34 +200,6 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
               : Text(widget.clientName),
           centerTitle: !isSearching,
           actions: [
-            // ── زر إصدار أمر التشغيل — حصري لسطح المكتب ──────────────────
-            if ((!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) ||
-                (kIsWeb && MediaQuery.of(context).size.width > 900))
-              Padding(
-                padding: const EdgeInsets.only(left: 4, right: 8),
-                child: ElevatedButton.icon(
-                  onPressed: () => _openJobOrderDialog(
-                    context,
-                    allClientRecords,
-                    clientCode,
-                  ),
-                  icon: const Icon(Icons.print_outlined, size: 17),
-                  label: const Text(
-                    'إصدار أمر تشغيل',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1a3a6e),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 0,
-                  ),
-                ),
-              ),
             // ── زر البحث ──────────────────────────────────────────────────
             IconButton(
               icon: Icon(isSearching ? Icons.close : Icons.search),
@@ -987,63 +959,6 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     );
   }
 
-  /// يفتح dialog إصدار أمر التشغيل (حصري لسطح المكتب)
-  void _openJobOrderDialog(
-    BuildContext context,
-    List<MapEntry<dynamic, dynamic>> allClientRecords,
-    String clientCode,
-  ) {
-    // تجميع الأصناف فقط (تجاهل السجل الرئيسي للعميل) مع تصفية المكرر
-    final rawItems = allClientRecords
-        .where((e) => e.value is Map && e.value['isClientRecord'] != true);
-    
-    final Map<String, Map<String, dynamic>> uniqueItemsMap = {};
-    for (var entry in rawItems) {
-      final val = Map<String, dynamic>.from(entry.value as Map);
-      final productCode = val['productCode']?.toString().trim() ?? '';
-      final uniqueId = productCode.isNotEmpty
-          ? productCode
-          : (val['sync_id'] ?? val['id'] ?? entry.key).toString();
-      uniqueItemsMap[uniqueId] = val;
-    }
-    
-    final items = uniqueItemsMap.values.toList();
-    // ترتيب تصاعدي بناءً على كود الصنف (رقمياً)
-    items.sort((a, b) {
-      final codeA = int.tryParse(a['productCode']?.toString() ?? '') ?? 0;
-      final codeB = int.tryParse(b['productCode']?.toString() ?? '') ?? 0;
-      return codeA.compareTo(codeB);
-    });
 
-    // استخراج بيانات العميل الأساسية من السجل الرئيسي
-    String clientAddress = '';
-    String clientSupervisor = '';
-    String clientPhone = '';
-
-    try {
-      final clientRecord = allClientRecords.firstWhere(
-        (e) => e.value is Map && e.value['isClientRecord'] == true,
-      );
-      final data = clientRecord.value as Map;
-      clientAddress = data['address']?.toString() ?? '';
-      clientSupervisor = data['supervisor']?.toString() ?? '';
-      clientPhone = data['phone']?.toString() ?? '';
-    } catch (_) {
-      // no client record found
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => JobOrderDialog(
-        clientName: widget.clientName,
-        clientCode: clientCode,
-        clientAddress: clientAddress,
-        clientSupervisor: clientSupervisor,
-        clientPhone: clientPhone,
-        clientItems: items,
-      ),
-    );
-  }
 }
 
