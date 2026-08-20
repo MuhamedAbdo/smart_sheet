@@ -117,7 +117,11 @@ flutter:
         - asset: assets/fonts/Amiri-Regular.ttf
         - asset: assets/fonts/Amiri-Bold.ttf
           weight: 700
-
+    - family: TraditionalArabic
+      fonts:
+        - asset: assets/fonts/traditional_arabic.ttf
+          weight: 700
 dependency_overrides:
   bidi:
-    path: packages/bidi
+    path: packages/bidi
+    

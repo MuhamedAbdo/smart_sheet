@@ -285,9 +285,11 @@ class JobOrderService {
     final regularFontData =
         await rootBundle.load('assets/fonts/Amiri-Regular.ttf');
     final boldFontData = await rootBundle.load('assets/fonts/Amiri-Bold.ttf');
+    final classicFontData = await rootBundle.load('assets/fonts/traditional_arabic.ttf');
 
     final regularFont = pw.Font.ttf(regularFontData);
     final boldFont = pw.Font.ttf(boldFontData);
+    final classicFont = pw.Font.ttf(classicFontData);
 
     final theme = pw.ThemeData.withFont(base: regularFont, bold: boldFont);
 
@@ -315,7 +317,7 @@ class JobOrderService {
             width: canvasWidth,
             height: canvasHeight,
             child: _buildPage1(
-              data, regularFont, boldFont, printedFactoryName, factoryLogoBase64),
+              data, regularFont, boldFont, classicFont, printedFactoryName, factoryLogoBase64),
           ),
         ),
       ),
@@ -455,10 +457,12 @@ class JobOrderService {
   // ── Layout Builders ─────────────────────────────────────────────────────────
 
   static pw.Widget _buildPage1(JobOrderData data, pw.Font regularFont,
-      pw.Font boldFont, String printedFactoryName, String? logoBase64) {
+      pw.Font boldFont, pw.Font classicFont, String printedFactoryName, String? logoBase64) {
     final regularStyle = pw.TextStyle(font: regularFont, fontSize: 7.5);
     final boldStyle = pw.TextStyle(
         font: boldFont, fontSize: 7.5, fontWeight: pw.FontWeight.bold);
+    final classicStyle = pw.TextStyle(
+        font: classicFont, fontSize: 18, fontWeight: pw.FontWeight.bold);
     final titleStyle = pw.TextStyle(
         font: boldFont, fontSize: 12, fontWeight: pw.FontWeight.bold);
     final headerBarColor = PdfColor.fromHex('#3b3b3b');
@@ -479,7 +483,7 @@ class JobOrderService {
 
           // 1. Header (Company + Order Box)
           _buildPage1Header(
-              data, boldStyle, regularStyle, printedFactoryName, logoBase64),
+              data, boldStyle, regularStyle, classicStyle, printedFactoryName, logoBase64),
 
           // Title
           pw.Container(
@@ -652,6 +656,7 @@ class JobOrderService {
       JobOrderData data,
       pw.TextStyle boldStyle,
       pw.TextStyle regularStyle,
+      pw.TextStyle classicStyle,
       String printedFactoryName,
       String? logoBase64) {
     final lines = printedFactoryName.split('\n');
@@ -666,8 +671,11 @@ class JobOrderService {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: lines
-                .map((line) => pw.Text(_ar(line.trim()),
-                    style: boldStyle.copyWith(fontSize: 12.5)))
+                .map((line) => pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Text(_ar(line.trim()), style: classicStyle),
+                    ))
                 .toList(),
           ),
         ),
@@ -903,7 +911,7 @@ class JobOrderService {
         for (int i = 0; i < maxRows; i++)
           pw.TableRow(
             children: [
-              _itemBodyCell(displayItems[i].itemNotes, regularStyle, false, false),
+              _itemBodyCell(displayItems[i].itemNotes, boldStyle, false, false),
               _itemBodyCell(
                   displayItems[i].productName.isEmpty
                       ? ""
@@ -934,11 +942,11 @@ class JobOrderService {
 
   static pw.Widget _tableHeaderCell(String text, pw.TextStyle boldStyle) {
     return pw.Container(
-      height: 20,
+      height: 25,
       alignment: pw.Alignment.center,
       padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 3),
       child: pw.Text(_ar(text),
-          style: boldStyle.copyWith(color: PdfColors.white, fontSize: 9),
+          style: boldStyle.copyWith(color: PdfColors.white, fontSize: 12),
           textAlign: pw.TextAlign.center),
     );
   }
@@ -954,12 +962,12 @@ class JobOrderService {
               ? pw.Directionality(
                   textDirection: pw.TextDirection.ltr,
                   child: pw.Text(text,
-                      style: style.copyWith(fontSize: 10),
+                      style: style.copyWith(fontSize: 13),
                       textAlign:
                           center ? pw.TextAlign.center : pw.TextAlign.right),
                 )
               : pw.Text(_ar(text),
-                  style: style.copyWith(fontSize: 10),
+                  style: style.copyWith(fontSize: 13),
                   textAlign: center ? pw.TextAlign.center : pw.TextAlign.right),
     );
   }
@@ -2191,19 +2199,5 @@ class JobOrderService {
     );
   }
 
-  static pw.Widget _dottedLine({double? width}) {
-    return pw.Container(
-      width: width,
-      height: 1,
-      margin: const pw.EdgeInsets.symmetric(vertical: 2),
-      decoration: const pw.BoxDecoration(
-        border: pw.Border(
-          bottom: pw.BorderSide(
-              color: PdfColors.grey600,
-              width: 0.8,
-              style: pw.BorderStyle.dotted),
-        ),
-      ),
-    );
-  }
+
 }
