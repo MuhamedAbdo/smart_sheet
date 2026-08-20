@@ -1681,7 +1681,7 @@ class JobOrderService {
               textAlign: pw.TextAlign.center,
             ),
           ),
-          // صف الرأس: رقم الدفعة | اسم القائم بالتشغيل مع التوقيع والتاريخ
+          // صف ترويسة الأعمدة الجديدة
           pw.Container(
             height: 16,
             decoration: const pw.BoxDecoration(
@@ -1699,19 +1699,52 @@ class JobOrderService {
                           color: PdfColors.grey700, fontSize: 8)),
                 ),
                 pw.Expanded(
+                  flex: 2,
                   child: pw.Container(
                     alignment: pw.Alignment.center,
-                    child: pw.Text(
-                      _ar("اسم القائم بالتشغيل مع التوقيع والتاريخ ."),
-                      style: boldStyle.copyWith(fontSize: 8.5),
-                      textAlign: pw.TextAlign.center,
-                    ),
+                    decoration: const pw.BoxDecoration(
+                        border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                    child: pw.Text(_ar("التاريخ"), style: boldStyle.copyWith(fontSize: 8.5)),
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 2,
+                  child: pw.Container(
+                    alignment: pw.Alignment.center,
+                    decoration: const pw.BoxDecoration(
+                        border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                    child: pw.Text(_ar("العدد"), style: boldStyle.copyWith(fontSize: 8.5)),
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 2,
+                  child: pw.Container(
+                    alignment: pw.Alignment.center,
+                    decoration: const pw.BoxDecoration(
+                        border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                    child: pw.Text(_ar("الهالك"), style: boldStyle.copyWith(fontSize: 8.5)),
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 3,
+                  child: pw.Container(
+                    alignment: pw.Alignment.center,
+                    decoration: const pw.BoxDecoration(
+                        border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                    child: pw.Text(_ar("المقاس"), style: boldStyle.copyWith(fontSize: 8.5)),
+                  ),
+                ),
+                pw.Expanded(
+                  flex: 3,
+                  child: pw.Container(
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(_ar("التوقيع"), style: boldStyle.copyWith(fontSize: 8.5)),
                   ),
                 ),
               ],
             ),
           ),
-          // 5 صفوف فارغة
+          // 5 صفوف فارغة للبيانات
           ...List.generate(rowCount, (index) {
             return pw.Container(
               height: 20, // أكبر من السابق (16) لتحسين المقروئية
@@ -1731,7 +1764,38 @@ class JobOrderService {
                     child: pw.Text(_ar(numbersAr[index]),
                         style: boldStyle.copyWith(fontSize: 9)),
                   ),
-                  pw.Expanded(child: pw.Container()),
+                  pw.Expanded(
+                    flex: 2,
+                    child: pw.Container(
+                      decoration: const pw.BoxDecoration(
+                          border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                    ),
+                  ),
+                  pw.Expanded(
+                    flex: 2,
+                    child: pw.Container(
+                      decoration: const pw.BoxDecoration(
+                          border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                    ),
+                  ),
+                  pw.Expanded(
+                    flex: 2,
+                    child: pw.Container(
+                      decoration: const pw.BoxDecoration(
+                          border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                    ),
+                  ),
+                  pw.Expanded(
+                    flex: 3,
+                    child: pw.Container(
+                      decoration: const pw.BoxDecoration(
+                          border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                    ),
+                  ),
+                  pw.Expanded(
+                    flex: 3,
+                    child: pw.Container(),
+                  ),
                 ],
               ),
             );
