@@ -10,7 +10,7 @@ class SelectClientDialog extends StatefulWidget {
 }
 
 class _SelectClientDialogState extends State<SelectClientDialog> {
-  List<String> _clients = [];
+  List<Map<String, dynamic>> _clients = [];
   bool _isLoading = true;
 
   @override
@@ -21,17 +21,57 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
 
   Future<void> _loadClients() async {
     final box = await Hive.openBox('savedSheetSizes');
-    final Set<String> uniqueClients = {};
+    final Map<String, List<Map>> clientRecords = {};
+    
+    // تجميع السجلات حسب اسم العميل
     for (var val in box.values) {
       if (val is Map) {
         final cName = val['clientName']?.toString().trim() ?? '';
         if (cName.isNotEmpty) {
-          uniqueClients.add(cName);
+          if (!clientRecords.containsKey(cName)) {
+            clientRecords[cName] = [];
+          }
+          clientRecords[cName]!.add(val);
         }
       }
     }
+
+    final List<Map<String, dynamic>> clientsData = [];
+    
+    for (var entry in clientRecords.entries) {
+      final cName = entry.key;
+      final records = entry.value;
+      
+      // استخراج الأصناف فقط (تجاهل سجل العميل الرئيسي)
+      final rawItems = records.where((e) => e['isClientRecord'] != true);
+      
+      // تصفية الأصناف المكررة
+      final Set<String> uniqueProductCodes = {};
+      int itemCount = 0;
+      
+      for (var item in rawItems) {
+        final productCode = item['productCode']?.toString().trim() ?? '';
+        final uniqueId = productCode.isNotEmpty
+            ? productCode
+            : (item['sync_id'] ?? item['id'] ?? item.hashCode).toString();
+            
+        if (!uniqueProductCodes.contains(uniqueId)) {
+          uniqueProductCodes.add(uniqueId);
+          itemCount++;
+        }
+      }
+      
+      clientsData.add({
+        'name': cName,
+        'itemCount': itemCount,
+      });
+    }
+
+    // ترتيب العملاء أبجدياً
+    clientsData.sort((a, b) => a['name'].toString().compareTo(b['name'].toString()));
+
     setState(() {
-      _clients = uniqueClients.toList()..sort();
+      _clients = clientsData;
       _isLoading = false;
     });
   }
@@ -99,32 +139,113 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('اختر عميلاً', textDirection: TextDirection.rtl),
-      content: SizedBox(
-        width: double.maxFinite,
-        height: 400,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _clients.isEmpty
-                ? const Center(child: Text('لا يوجد عملاء مسجلين', textDirection: TextDirection.rtl))
-                : ListView.builder(
-                    itemCount: _clients.length,
-                    itemBuilder: (ctx, i) {
-                      return ListTile(
-                        leading: const Icon(Icons.person, color: Color(0xFF1a3a6e)),
-                        title: Text(_clients[i], textDirection: TextDirection.rtl),
-                        onTap: () => _onClientSelected(_clients[i]),
-                      );
-                    },
-                  ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('إلغاء'),
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        title: const Text('اختر عميلاً', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _clients.isEmpty
+                  ? const Center(child: Text('لا يوجد عملاء مسجلين'))
+                  : Column(
+                      children: [
+                        // شريط إجمالي العملاء
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1a3a6e),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.people, color: Colors.white),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${_clients.length} عميل مسجل',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // قائمة العملاء
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: _clients.length,
+                            itemBuilder: (ctx, i) {
+                              final client = _clients[i];
+                              return Card(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                                margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () => _onClientSelected(client['name']),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
+                                    child: Row(
+                                      children: [
+                                        const CircleAvatar(
+                                          backgroundColor: Color(0xFF1a3a6e),
+                                          child: Icon(Icons.person, color: Colors.white),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                client['name'],
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '${client['itemCount']} صنف مسجل',
+                                                style: const TextStyle(
+                                                  color: Colors.grey,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const Icon(
+                                          Icons.arrow_back_ios,
+                                          size: 16,
+                                          color: Colors.grey,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
         ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('إلغاء'),
+          ),
+        ],
+      ),
     );
   }
 }
