@@ -55,6 +55,7 @@ class _WorkerFormState extends State<WorkerForm> {
   late bool canRestoreArchive;
   late bool canDeleteArchive;
   late bool canAddWorkerAction;
+  late bool canIssueJobOrders;
 
   /// قائمة الوظائف المتاحة بناءً على القسم المختار — تُحدَّث ديناميكياً
   List<String> availableJobs = [];
@@ -203,6 +204,7 @@ class _WorkerFormState extends State<WorkerForm> {
     canRestoreArchive = widget.existingWorker?.canRestoreArchive ?? false;
     canDeleteArchive= widget.existingWorker?.canDeleteArchive?? false;
     canAddWorkerAction = widget.existingWorker?.canAddWorkerAction ?? false;
+    canIssueJobOrders = widget.existingWorker?.canIssueJobOrders ?? false;
 
     // تحميل أي أقسام أو وظائف مخصصة محفوظة في SharedPreferences
     _loadCustomDepartmentsAndJobsFromPrefs();
@@ -821,6 +823,7 @@ class _WorkerFormState extends State<WorkerForm> {
           canRestoreArchive: canRestoreArchive,
           canDeleteArchive: canDeleteArchive,
           canAddWorkerAction: canAddWorkerAction,
+          canIssueJobOrders: canIssueJobOrders,
           email: emailVal,
         );
 
@@ -851,6 +854,7 @@ class _WorkerFormState extends State<WorkerForm> {
         w.canRestoreArchive = canRestoreArchive;
         w.canDeleteArchive = canDeleteArchive;
         w.canAddWorkerAction = canAddWorkerAction;
+        w.canIssueJobOrders = canIssueJobOrders;
         w.email = emailVal;
         
         // ✅ الحل الصحيح والآمن للتعامل مع كائنات Hive
@@ -989,123 +993,135 @@ class _WorkerFormState extends State<WorkerForm> {
               if (showPermissions && widget.defaultDepartment == null) ...[
                 const SizedBox(height: 15),
                 const Divider(),
-                const Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("🔒 صلاحيات الإنتاج:", style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                CheckboxListTile(
-                  title: const Text("إضافة تقارير"),
-                  value: canAdd,
+                ExpansionTile(
+                  title: const Text("🏭 صلاحيات الإنتاج", style: TextStyle(fontWeight: FontWeight.bold)),
+                  collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                  shape: const RoundedRectangleBorder(side: BorderSide.none),
                   dense: true,
-                  onChanged: (val) => setState(() => canAdd = val ?? false),
+                  children: [
+                    CheckboxListTile(
+                      title: const Text("إضافة تقارير"),
+                      value: canAdd,
+                      dense: true,
+                      onChanged: (val) => setState(() => canAdd = val ?? false),
+                    ),
+                    CheckboxListTile(
+                      title: const Text("تعديل تقارير"),
+                      value: canEdit,
+                      dense: true,
+                      onChanged: (val) => setState(() => canEdit = val ?? false),
+                    ),
+                    CheckboxListTile(
+                      title: const Text("حذف تقارير"),
+                      value: canDelete,
+                      dense: true,
+                      onChanged: (val) => setState(() => canDelete = val ?? false),
+                    ),
+                  ],
                 ),
-                CheckboxListTile(
-                  title: const Text("تعديل تقارير"),
-                  value: canEdit,
+                ExpansionTile(
+                  title: const Text("📦 صلاحيات العملاء والأصناف", style: TextStyle(fontWeight: FontWeight.bold)),
+                  collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                  shape: const RoundedRectangleBorder(side: BorderSide.none),
                   dense: true,
-                  onChanged: (val) => setState(() => canEdit = val ?? false),
+                  children: [
+                    CheckboxListTile(
+                      title: const Text("إضافة عملاء وأصناف"),
+                      value: canManageClientsAdd,
+                      dense: true,
+                      onChanged: (val) => setState(() => canManageClientsAdd = val ?? false),
+                    ),
+                    CheckboxListTile(
+                      title: const Text("تعديل عملاء وأصناف"),
+                      value: canManageClientsEdit,
+                      dense: true,
+                      onChanged: (val) => setState(() => canManageClientsEdit = val ?? false),
+                    ),
+                    CheckboxListTile(
+                      title: const Text("حذف عملاء وأصناف"),
+                      value: canManageClientsDelete,
+                      dense: true,
+                      onChanged: (val) => setState(() => canManageClientsDelete = val ?? false),
+                    ),
+                  ],
                 ),
-                CheckboxListTile(
-                  title: const Text("حذف تقارير"),
-                  value: canDelete,
+                ExpansionTile(
+                  title: const Text("📄 صلاحيات أوامر التشغيل", style: TextStyle(fontWeight: FontWeight.bold)),
+                  collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                  shape: const RoundedRectangleBorder(side: BorderSide.none),
                   dense: true,
-                  onChanged: (val) => setState(() => canDelete = val ?? false),
+                  children: [
+                    CheckboxListTile(
+                      title: const Text("إصدار أوامر التشغيل"),
+                      value: canIssueJobOrders,
+                      dense: true,
+                      onChanged: (val) => setState(() => canIssueJobOrders = val ?? false),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                const Divider(),
-                const Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("🔒 صلاحيات العملاء والأصناف:", style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                CheckboxListTile(
-                  title: const Text("إضافة عملاء وأصناف"),
-                  value: canManageClientsAdd,
+                ExpansionTile(
+                  title: const Text("👥 صلاحيات شؤون العاملين", style: TextStyle(fontWeight: FontWeight.bold)),
+                  collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                  shape: const RoundedRectangleBorder(side: BorderSide.none),
                   dense: true,
-                  onChanged: (val) => setState(() => canManageClientsAdd = val ?? false),
+                  children: [
+                    CheckboxListTile(
+                      title: const Text("إضافة عامل"),
+                      value: canAddWorker,
+                      dense: true,
+                      onChanged: (val) => setState(() => canAddWorker = val ?? false),
+                    ),
+                    CheckboxListTile(
+                      title: const Text("تعديل عامل"),
+                      value: canEditWorker,
+                      dense: true,
+                      onChanged: (val) => setState(() => canEditWorker = val ?? false),
+                    ),
+                    CheckboxListTile(
+                      title: const Text("حذف عامل"),
+                      value: canDeleteWorker,
+                      dense: true,
+                      onChanged: (val) => setState(() => canDeleteWorker = val ?? false),
+                    ),
+                    CheckboxListTile(
+                      title: const Text("إضافة حركة عامل"),
+                      value: canAddWorkerAction,
+                      dense: true,
+                      onChanged: (val) => setState(() => canAddWorkerAction = val ?? false),
+                    ),
+                  ],
                 ),
-                CheckboxListTile(
-                  title: const Text("تعديل عملاء وأصناف"),
-                  value: canManageClientsEdit,
+                ExpansionTile(
+                  title: const Text("🗄️ صلاحيات الأرشيف", style: TextStyle(fontWeight: FontWeight.bold)),
+                  collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                  shape: const RoundedRectangleBorder(side: BorderSide.none),
                   dense: true,
-                  onChanged: (val) => setState(() => canManageClientsEdit = val ?? false),
-                ),
-                CheckboxListTile(
-                  title: const Text("حذف عملاء وأصناف"),
-                  value: canManageClientsDelete,
-                  dense: true,
-                  onChanged: (val) => setState(() => canManageClientsDelete = val ?? false),
-                ),
-                const SizedBox(height: 10),
-                const Divider(),
-                const Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("🔒 صلاحيات شؤون العاملين:", style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                CheckboxListTile(
-                  title: const Text("إضافة عامل"),
-                  value: canAddWorker,
-                  dense: true,
-                  onChanged: (val) => setState(() => canAddWorker = val ?? false),
-                ),
-                CheckboxListTile(
-                  title: const Text("تعديل عامل"),
-                  value: canEditWorker,
-                  dense: true,
-                  onChanged: (val) => setState(() => canEditWorker = val ?? false),
-                ),
-                CheckboxListTile(
-                  title: const Text("حذف عامل"),
-                  value: canDeleteWorker,
-                  dense: true,
-                  onChanged: (val) => setState(() => canDeleteWorker = val ?? false),
-                ),
-                CheckboxListTile(
-                  title: const Text("إضافة حركة عامل"),
-                  value: canAddWorkerAction,
-                  dense: true,
-                  onChanged: (val) => setState(() => canAddWorkerAction = val ?? false),
-                ),
-                const SizedBox(height: 10),
-                const Divider(),
-                const Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text("🔒 صلاحيات الأرشيف:", style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                CheckboxListTile(
-                  title: const Text("قراءة الأرشيف (جميع الأقسام)"),
-                  value: canReadArchive,
-                  dense: true,
-                  onChanged: (val) => setState(() => canReadArchive = val ?? false),
-                ),
-                CheckboxListTile(
-                  title: const Text("إضافة للأرشيف (نفس القسم فقط)"),
-                  value: canAddArchive,
-                  dense: true,
-                  onChanged: (val) => setState(() => canAddArchive = val ?? false),
-                ),
-                CheckboxListTile(
-                  title: const Text("استعادة الأرشيف (نفس القسم فقط)"),
-                  value: canRestoreArchive,
-                  dense: true,
-                  onChanged: (val) => setState(() => canRestoreArchive = val ?? false),
-                ),
-                CheckboxListTile(
-                  title: const Text("حذف من الأرشيف (نفس القسم فقط)"),
-                  value: canDeleteArchive,
-                  dense: true,
-                  onChanged: (val) => setState(() => canDeleteArchive = val ?? false),
+                  children: [
+                    CheckboxListTile(
+                      title: const Text("قراءة الأرشيف (جميع الأقسام)"),
+                      value: canReadArchive,
+                      dense: true,
+                      onChanged: (val) => setState(() => canReadArchive = val ?? false),
+                    ),
+                    CheckboxListTile(
+                      title: const Text("إضافة للأرشيف (نفس القسم فقط)"),
+                      value: canAddArchive,
+                      dense: true,
+                      onChanged: (val) => setState(() => canAddArchive = val ?? false),
+                    ),
+                    CheckboxListTile(
+                      title: const Text("استعادة الأرشيف (نفس القسم فقط)"),
+                      value: canRestoreArchive,
+                      dense: true,
+                      onChanged: (val) => setState(() => canRestoreArchive = val ?? false),
+                    ),
+                    CheckboxListTile(
+                      title: const Text("حذف من الأرشيف (نفس القسم فقط)"),
+                      value: canDeleteArchive,
+                      dense: true,
+                      onChanged: (val) => setState(() => canDeleteArchive = val ?? false),
+                    ),
+                  ],
                 ),
               ],
             ],

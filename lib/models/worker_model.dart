@@ -111,6 +111,10 @@ class Worker extends HiveObject {
   @HiveField(24, defaultValue: false)
   late bool? canAddWorkerAction;
 
+  /// صلاحية إصدار أوامر التشغيل
+  @HiveField(25, defaultValue: false)
+  late bool canIssueJobOrders;
+
   /// Alias for [id] — kept for backward compatibility with SyncService
   String? get syncId => id;
 
@@ -140,6 +144,7 @@ class Worker extends HiveObject {
     this.canRestoreArchive = false,
     this.canDeleteArchive = false,
     this.canAddWorkerAction = false,
+    this.canIssueJobOrders = false,
   }) {
     // Generate valid UUID v4 if not provided or invalid (fixes 22P02 error in Supabase)
     if (id == null || !id!.contains('-')) {
@@ -324,6 +329,7 @@ class Worker extends HiveObject {
       'can_restore_archive': canRestoreArchive,
       'can_delete_archive': canDeleteArchive,
       'can_add_worker_action': canAddWorkerAction,
+      'can_issue_job_orders': canIssueJobOrders,
     };
   }
 
@@ -358,6 +364,69 @@ class Worker extends HiveObject {
       canRestoreArchive: map['can_restore_archive'] ?? map['canRestoreArchive'] ?? false,
       canDeleteArchive: map['can_delete_archive'] ?? map['canDeleteArchive'] ?? false,
       canAddWorkerAction: map['can_add_worker_action'] ?? map['canAddWorkerAction'] ?? false,
+      canIssueJobOrders: map['can_issue_job_orders'] ?? map['canIssueJobOrders'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() => toJson();
+
+  factory Worker.fromMap(Map<String, dynamic> map) => Worker.fromJson(map);
+
+  Worker copyWith({
+    String? id,
+    String? name,
+    String? phone,
+    String? job,
+    List<WorkerAction>? actions,
+    bool? hasMedicalInsurance,
+    String? factoryId,
+    String? department,
+    bool? canAdd,
+    bool? canEdit,
+    bool? canDelete,
+    String? email,
+    bool? canManageClientsAdd,
+    bool? canManageClientsEdit,
+    bool? canManageClientsDelete,
+    String? deviceId,
+    bool? isDeviceLinked,
+    bool? canAddWorker,
+    bool? canEditWorker,
+    bool? canDeleteWorker,
+    bool? canReadArchive,
+    bool? canAddArchive,
+    bool? canRestoreArchive,
+    bool? canDeleteArchive,
+    bool? canAddWorkerAction,
+    bool? canIssueJobOrders,
+  }) {
+    return Worker(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      job: job ?? this.job,
+      actions: actions ?? this.actions.toList(),
+      hasMedicalInsurance: hasMedicalInsurance ?? this.hasMedicalInsurance,
+      factoryId: factoryId ?? this.factoryId,
+      department: department ?? this.department,
+      canAdd: canAdd ?? this.canAdd,
+      canEdit: canEdit ?? this.canEdit,
+      canDelete: canDelete ?? this.canDelete,
+      email: email ?? this.email,
+      canManageClientsAdd: canManageClientsAdd ?? this.canManageClientsAdd,
+      canManageClientsEdit: canManageClientsEdit ?? this.canManageClientsEdit,
+      canManageClientsDelete: canManageClientsDelete ?? this.canManageClientsDelete,
+      deviceId: deviceId ?? this.deviceId,
+      isDeviceLinked: isDeviceLinked ?? this.isDeviceLinked,
+      canAddWorker: canAddWorker ?? this.canAddWorker,
+      canEditWorker: canEditWorker ?? this.canEditWorker,
+      canDeleteWorker: canDeleteWorker ?? this.canDeleteWorker,
+      canReadArchive: canReadArchive ?? this.canReadArchive,
+      canAddArchive: canAddArchive ?? this.canAddArchive,
+      canRestoreArchive: canRestoreArchive ?? this.canRestoreArchive,
+      canDeleteArchive: canDeleteArchive ?? this.canDeleteArchive,
+      canAddWorkerAction: canAddWorkerAction ?? this.canAddWorkerAction,
+      canIssueJobOrders: canIssueJobOrders ?? this.canIssueJobOrders,
     );
   }
 }

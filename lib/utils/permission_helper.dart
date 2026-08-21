@@ -89,4 +89,11 @@ class PermissionHelper {
     if (isSuperAdmin) return true;
     return currentWorker?.canAddWorkerAction == true;
   }
+
+  /// صلاحية إصدار أوامر التشغيل
+  static bool get canIssueJobOrders {
+    if (isSuspended) return false;
+    if (isSuperAdmin) return true;
+    return currentWorker?.canIssueJobOrders == true;
+  }
 }

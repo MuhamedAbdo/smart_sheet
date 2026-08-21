@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:provider/provider.dart';
@@ -7,12 +8,15 @@ import 'package:smart_sheet/services/job_order_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/screens/manual_job_order_dialog.dart';
 import 'package:smart_sheet/screens/select_client_dialog.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/models/worker_model.dart';
+
 class IssuedWorkOrdersScreen extends StatefulWidget {
   const IssuedWorkOrdersScreen({super.key});
 
   @override
-  State<IssuedWorkOrdersScreen> createState() =>
-      _IssuedWorkOrdersScreenState();
+  State<IssuedWorkOrdersScreen> createState() => _IssuedWorkOrdersScreenState();
 }
 
 class _IssuedWorkOrdersScreenState extends State<IssuedWorkOrdersScreen> {
@@ -147,10 +151,12 @@ class _IssuedWorkOrdersScreenState extends State<IssuedWorkOrdersScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text('إصدار أمر تشغيل جديد',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 24),
                 ListTile(
-                  leading: const Icon(Icons.edit_document, color: Color(0xFF1a3a6e)),
+                  leading:
+                      const Icon(Icons.edit_document, color: Color(0xFF1a3a6e)),
                   title: const Text('طلب حر (عميل جديد / لمرة واحدة)'),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -244,7 +250,8 @@ class _IssuedWorkOrdersScreenState extends State<IssuedWorkOrdersScreen> {
                           children: [
                             Icon(Icons.assignment_outlined,
                                 size: 72,
-                                color: colorScheme.onSurface.withValues(alpha: 0.3)),
+                                color: colorScheme.onSurface
+                                    .withValues(alpha: 0.3)),
                             const SizedBox(height: 16),
                             Text(
                               _searchCtrl.text.isEmpty
@@ -254,7 +261,8 @@ class _IssuedWorkOrdersScreenState extends State<IssuedWorkOrdersScreen> {
                               textDirection: TextDirection.rtl,
                               style: TextStyle(
                                 fontSize: 15,
-                                color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                color: colorScheme.onSurface
+                                    .withValues(alpha: 0.5),
                               ),
                             ),
                           ],
@@ -276,14 +284,33 @@ class _IssuedWorkOrdersScreenState extends State<IssuedWorkOrdersScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _showNewJobOrderOptions(context);
+      floatingActionButton: Consumer<AuthService>(
+        builder: (context, auth, _) {
+          return ValueListenableBuilder<dynamic>(
+            valueListenable: (Hive.isBoxOpen('workers')
+                    ? Hive.box<Worker>('workers').listenable()
+                    : ValueNotifier<Box<Worker>?>(null))
+                as ValueListenable<dynamic>,
+            builder: (context, box, child) {
+              final isDesktop = MediaQuery.of(context).size.width > 600;
+              final canIssue = PermissionHelper.canIssueJobOrders;
+
+              if (isDesktop && canIssue) {
+                return FloatingActionButton.extended(
+                  onPressed: () {
+                    _showNewJobOrderOptions(context);
+                  },
+                  label: const Text('إصدار أمر تشغيل',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.add),
+                  backgroundColor: const Color(0xFF1a3a6e),
+                  foregroundColor: Colors.white,
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          );
         },
-        label: const Text('إصدار أمر تشغيل', style: TextStyle(fontWeight: FontWeight.bold)),
-        icon: const Icon(Icons.add),
-        backgroundColor: const Color(0xFF1a3a6e),
-        foregroundColor: Colors.white,
       ),
     );
   }
@@ -307,9 +334,10 @@ class _OrderCard extends StatelessWidget {
     final theme = Theme.of(context);
     final hasOrderNum = data.orderNumber.isNotEmpty;
     final hasJobNum = data.jobNumber.isNotEmpty;
-    
+
     final auth = Provider.of<AuthService>(context, listen: false);
-    final canDelete = auth.isAdmin || auth.currentUserEmail == data.creatorEmail;
+    final canDelete =
+        auth.isAdmin || auth.currentUserEmail == data.creatorEmail;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
