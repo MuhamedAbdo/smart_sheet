@@ -763,30 +763,38 @@ class JobOrderService {
                     alignment: pw.Alignment.centerRight,
                     padding: const pw.EdgeInsets.symmetric(
                         horizontal: 5, vertical: 3.5),
-                    child: pw.Text(
-                        _ar("العميل : ${data.customerName.isEmpty ? '..........................................................................' : data.customerName}"),
-                        style: boldStyle.copyWith(fontSize: 8.5)))),
-            pw.Container(width: 1, height: 17, color: PdfColors.black),
+                    child: pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Text(
+                          _ar("العميل : ${data.customerName.isEmpty ? '..........................................................................' : data.customerName}"),
+                          style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                    ))),
+            pw.Container(width: 1, height: 22, color: PdfColors.black),
             pw.Expanded(
                 flex: 30,
                 child: pw.Container(
                     alignment: pw.Alignment.centerRight,
                     padding: const pw.EdgeInsets.symmetric(
                         horizontal: 5, vertical: 3.5),
-                    child: pw.Row(
+                    child: pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.start,
                         children: [
                           pw.Text(_ar("كود العميل : "),
-                              style: boldStyle.copyWith(fontSize: 8.5)),
+                              style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
                           pw.Directionality(
                             textDirection: pw.TextDirection.ltr,
                             child: pw.Text(
                                 data.clientCode.isEmpty
                                     ? '..........................'
                                     : data.clientCode,
-                                style: boldStyle.copyWith(fontSize: 8.5)),
+                                style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
                           ),
-                        ]))),
+                        ]),
+                    ))),
           ]),
           pw.Container(height: 1, color: PdfColors.black),
           // Row 2
@@ -797,53 +805,65 @@ class JobOrderService {
                     alignment: pw.Alignment.centerRight,
                     padding: const pw.EdgeInsets.symmetric(
                         horizontal: 5, vertical: 3.5),
-                    child: pw.Row(children: [
-                      pw.Text(_ar("تاريخ بدء التشغيل : "),
-                          style: regularStyle.copyWith(fontSize: 8.5)),
-                      pw.Directionality(
-                          textDirection: pw.TextDirection.ltr,
-                          child: pw.Text(
-                              data.startDate.isEmpty
-                                  ? '.......................'
-                                  : data.startDate,
-                              style: boldStyle.copyWith(fontSize: 8.5))),
-                    ]))),
-            pw.Container(width: 1, height: 17, color: PdfColors.black),
+                    child: pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Row(children: [
+                        pw.Text(_ar("تاريخ بدء التشغيل : "),
+                            style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                        pw.Directionality(
+                            textDirection: pw.TextDirection.ltr,
+                            child: pw.Text(
+                                data.startDate.isEmpty
+                                    ? '.......................'
+                                    : data.startDate,
+                                style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold))),
+                      ]),
+                    ))),
+            pw.Container(width: 1, height: 22, color: PdfColors.black),
             pw.Expanded(
                 flex: 34,
                 child: pw.Container(
                     alignment: pw.Alignment.centerRight,
                     padding: const pw.EdgeInsets.symmetric(
                         horizontal: 5, vertical: 3.5),
-                    child: pw.Row(children: [
-                      pw.Text(_ar("ميعاد التسليم : "),
-                          style: regularStyle.copyWith(fontSize: 8.5)),
-                      pw.Directionality(
-                          textDirection: pw.TextDirection.ltr,
-                          child: pw.Text(
-                              data.deliveryDate.isEmpty
-                                  ? '.......................'
-                                  : data.deliveryDate,
-                              style: boldStyle.copyWith(fontSize: 8.5))),
-                    ]))),
-            pw.Container(width: 1, height: 17, color: PdfColors.black),
+                    child: pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Row(children: [
+                        pw.Text(_ar("ميعاد التسليم : "),
+                            style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                        pw.Directionality(
+                            textDirection: pw.TextDirection.ltr,
+                            child: pw.Text(
+                                data.deliveryDate.isEmpty
+                                    ? '.......................'
+                                    : data.deliveryDate,
+                                style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold))),
+                      ]),
+                    ))),
+            pw.Container(width: 1, height: 22, color: PdfColors.black),
             pw.Expanded(
                 flex: 33,
                 child: pw.Container(
                     alignment: pw.Alignment.centerRight,
                     padding: const pw.EdgeInsets.symmetric(
                         horizontal: 5, vertical: 3.5),
-                    child: pw.Row(children: [
-                      pw.Text(_ar("تاريخ الانتهاء : "),
-                          style: regularStyle.copyWith(fontSize: 8.5)),
-                      pw.Directionality(
-                          textDirection: pw.TextDirection.ltr,
-                          child: pw.Text(
-                              data.receivedDate.isEmpty
-                                  ? '.......................'
-                                  : data.receivedDate,
-                              style: boldStyle.copyWith(fontSize: 8.5))),
-                    ]))),
+                    child: pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Row(children: [
+                        pw.Text(_ar("تاريخ الانتهاء : "),
+                            style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                        pw.Directionality(
+                            textDirection: pw.TextDirection.ltr,
+                            child: pw.Text(
+                                data.receivedDate.isEmpty
+                                    ? '.......................'
+                                    : data.receivedDate,
+                                style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold))),
+                      ]),
+                    ))),
           ]),
         ],
       ),
@@ -1370,12 +1390,12 @@ class JobOrderService {
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Container(
-                height: 16,
+                height: 20,
                 color: headerColor,
                 alignment: pw.Alignment.center,
                 child: pw.Text(_ar("التضليع"),
                     style: boldStyle.copyWith(
-                        color: PdfColors.white, fontSize: 9)),
+                        color: PdfColors.white, fontSize: 12, fontWeight: pw.FontWeight.bold)),
               ),
               ...List.generate(totalSlots, (idx) {
                 return _buildSingleCorrugationItemBlock(
@@ -1478,8 +1498,12 @@ class JobOrderService {
             alignment: pw.Alignment.center,
             child: isEmptyItem
                 ? pw.SizedBox(height: 12)
-                : pw.Text(_ar("${item.productName} - ${item.productCode}"),
-                    style: boldStyle.copyWith(fontSize: 10)),
+                : pw.FittedBox(
+                    fit: pw.BoxFit.scaleDown,
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(_ar("${item.productName} - ${item.productCode}"),
+                        style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                  ),
           ),
           pw.Container(
             height: 24,
@@ -1495,9 +1519,13 @@ class JobOrderService {
                         border: pw.Border(left: pw.BorderSide(width: 1.0))),
                     alignment: pw.Alignment.centerRight,
                     padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                    child: pw.Text(
-                        _ar("عرض البكر : ${item.rollWidth.isEmpty ? '______' : item.rollWidth}"),
-                        style: boldStyle.copyWith(fontSize: 9)),
+                    child: pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Text(
+                          _ar("عرض البكر : ${item.rollWidth.isEmpty ? '______' : item.rollWidth}"),
+                          style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                    ),
                   ),
                 ),
                 pw.Expanded(
@@ -1505,12 +1533,16 @@ class JobOrderService {
                   child: pw.Container(
                     alignment: pw.Alignment.centerRight,
                     padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                    child: pw.Row(
-                      children: [
-                        pw.Text(_ar("التضليع : "),
-                            style: boldStyle.copyWith(fontSize: 9)),
-                        pw.Expanded(
-                          child: pw.Row(
+                    child: pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Row(
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          pw.Text(_ar("التضليع : "),
+                              style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                          pw.Row(
+                            mainAxisSize: pw.MainAxisSize.min,
                             mainAxisAlignment: isEmptyItem
                                 ? pw.MainAxisAlignment.end
                                 : pw.MainAxisAlignment.center,
@@ -1558,8 +1590,8 @@ class JobOrderService {
                                                 isSolidBlack: true)
                                           ])),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1580,9 +1612,13 @@ class JobOrderService {
                         border: pw.Border(left: pw.BorderSide(width: 1.0))),
                     alignment: pw.Alignment.centerRight,
                     padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                    child: pw.Text(
-                        _ar("مقاس العلبة : ${item.corrugationBoxSize.isEmpty ? '______' : item.corrugationBoxSize}"),
-                        style: boldStyle.copyWith(fontSize: 9)),
+                    child: pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Text(
+                          _ar("مقاس العلبة : ${item.corrugationBoxSize.isEmpty ? '______' : item.corrugationBoxSize}"),
+                          style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                    ),
                   ),
                 ),
                 pw.Expanded(
@@ -1590,29 +1626,29 @@ class JobOrderService {
                   child: pw.Container(
                     alignment: pw.Alignment.centerRight,
                     padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                    child: pw.Row(
-                      children: [
-                        pw.Text(_ar("مقاس الشريحة : "),
-                            style: boldStyle.copyWith(fontSize: 9)),
-                        pw.Expanded(
-                          child: pw.Container(
-                            alignment: pw.Alignment.center,
-                            child: pw.Directionality(
-                              textDirection: pw.TextDirection.ltr,
-                              child: pw.Text(
-                                  item.corrugationSheetSize.isEmpty
-                                      ? '  /  '
-                                      : item.corrugationSheetSize
-                                          .split('/')
-                                          .map((e) => e.trim())
-                                          .toList()
-                                          .reversed
-                                          .join(' / '),
-                                  style: boldStyle.copyWith(fontSize: 9)),
-                            ),
+                    child: pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Row(
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          pw.Text(_ar("مقاس الشريحة : "),
+                              style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                          pw.Directionality(
+                            textDirection: pw.TextDirection.ltr,
+                            child: pw.Text(
+                                item.corrugationSheetSize.isEmpty
+                                    ? '  /  '
+                                    : item.corrugationSheetSize
+                                        .split('/')
+                                        .map((e) => e.trim())
+                                        .toList()
+                                        .reversed
+                                        .join(' / '),
+                                style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1620,35 +1656,45 @@ class JobOrderService {
             ),
           ),
           pw.Container(
-            height: 24,
+            height: 26,
             padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-            child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              children: [
-                pw.Text(_ar("طبقات الورق : "),
-                    style: boldStyle.copyWith(fontSize: 8.5)),
-                if (item.paperLayers.isNotEmpty)
-                  ...item.paperLayers.asMap().entries.expand((e) {
-                    final i = e.key;
-                    final layer = e.value;
-                    return [
-                      if (i > 0) ...[
-                        pw.SizedBox(width: 6),
-                        pw.Text(_ar("/"),
-                            style: boldStyle.copyWith(fontSize: 8.5)),
-                        pw.SizedBox(width: 6),
-                      ],
-                      pw.Directionality(
-                        textDirection: pw.TextDirection.ltr,
-                        child: pw.Text("L${i + 1}",
-                            style: boldStyle.copyWith(fontSize: 8.5)),
-                      ),
-                      pw.SizedBox(width: 8),
-                      pw.Text(_ar(layer),
-                          style: regularStyle.copyWith(fontSize: 8.5)),
-                    ];
-                  }),
-              ],
+            child: pw.FittedBox(
+              fit: pw.BoxFit.scaleDown,
+              alignment: pw.Alignment.centerRight,
+              child: pw.Row(
+                mainAxisSize: pw.MainAxisSize.min,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Text(_ar("طبقات الورق : "),
+                      style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                  pw.Row(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    children: [
+                      if (item.paperLayers.isNotEmpty)
+                        ...item.paperLayers.asMap().entries.expand((e) {
+                          final i = e.key;
+                          final layer = e.value;
+                          return [
+                            if (i > 0) ...[
+                              pw.SizedBox(width: 6),
+                              pw.Text(_ar("/"),
+                                  style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                              pw.SizedBox(width: 6),
+                            ],
+                            pw.Directionality(
+                              textDirection: pw.TextDirection.ltr,
+                              child: pw.Text("L${i + 1}",
+                                  style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                            ),
+                            pw.SizedBox(width: 8),
+                            pw.Text(_ar(layer),
+                                style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                          ];
+                        }),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -1816,23 +1862,23 @@ class JobOrderService {
         children: [
           pw.Transform.translate(
             offset: const PdfPoint(0, 2.5),
-            child: pw.Text(_ar(label), style: style.copyWith(fontSize: 9)),
+            child: pw.Text(_ar(label), style: style.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(width: 4),
           pw.Container(
-            width: 10,
-            height: 10,
+            width: 12,
+            height: 12,
             decoration: pw.BoxDecoration(
               color: isSolidBlack ? PdfColors.black : null,
               border: pw.Border.all(color: PdfColors.black, width: 1.0),
             ),
             child: isChecked && !isSolidBlack
                 ? pw.CustomPaint(
-                    size: const PdfPoint(10, 10),
+                    size: const PdfPoint(12, 12),
                     painter: (PdfGraphics canvas, PdfPoint size) {
-                      canvas.moveTo(1.5, 5);
-                      canvas.lineTo(4, 2.5);
-                      canvas.lineTo(8, 7.5);
+                      canvas.moveTo(2, 6);
+                      canvas.lineTo(5, 3);
+                      canvas.lineTo(10, 9);
                       canvas.setStrokeColor(PdfColors.black);
                       canvas.setLineWidth(1.2);
                       canvas.strokePath();
