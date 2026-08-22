@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/services/job_order_service.dart';
 import 'package:smart_sheet/screens/pdf_preview_screen.dart';
+import 'package:smart_sheet/services/sync_service.dart';
+import 'package:uuid/uuid.dart';
 
 /// Dialog إصدار أمر التشغيل — حصرياً لسطح المكتب (Windows)
 class ManualJobOrderDialog extends StatefulWidget {
@@ -41,8 +44,8 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
   final Map<int, List<String>> _itemSelectedCorrugations = {};
   final Map<int, TextEditingController> _itemCustomCorrugationCtrl = {};
   final Map<int, TextEditingController> _itemSamplesCtrl = {};
-  final Map<int, TextEditingController> _itemBoxSizeCtrl = {};
-  final Map<int, TextEditingController> _itemSheetSizeCtrl = {};
+  final Map<int, TextEditingController> _itemSheetLenCtrl = {};  // طول الشريحة
+  final Map<int, TextEditingController> _itemSheetWidCtrl = {};  // عرض الشريحة
   final Map<int, TextEditingController> _itemSheetCountCtrl = {};
 
   // عرض البكر وطبقات الورق
@@ -53,6 +56,7 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
   final List<int> _selectedIndices = [];
 
   bool _isGenerating = false;
+  bool _saveToDatabase = false;
 
   void _addItem() {
     if (_selectedIndices.length >= 3) {
@@ -72,8 +76,8 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
       _itemSelectedCorrugations[idx] = [];
       _itemCustomCorrugationCtrl[idx] = TextEditingController();
       _itemSamplesCtrl[idx] = TextEditingController();
-      _itemBoxSizeCtrl[idx] = TextEditingController();
-      _itemSheetSizeCtrl[idx] = TextEditingController();
+      _itemSheetLenCtrl[idx] = TextEditingController();
+      _itemSheetWidCtrl[idx] = TextEditingController();
       _itemSheetCountCtrl[idx] = TextEditingController();
       _itemRollWidthCtrl[idx] = TextEditingController();
       _itemPaperLayerCtrls[idx] = [];
@@ -119,10 +123,10 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
     for (final c in _itemSamplesCtrl.values) {
       c.dispose();
     }
-    for (final c in _itemBoxSizeCtrl.values) {
+    for (final c in _itemSheetLenCtrl.values) {
       c.dispose();
     }
-    for (final c in _itemSheetSizeCtrl.values) {
+    for (final c in _itemSheetWidCtrl.values) {
       c.dispose();
     }
     for (final c in _itemSheetCountCtrl.values) {
@@ -181,6 +185,160 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
 
 
 
+  // ── Save to Hive ──────────────────────────────────────────────────────────────
+  /// يحفظ بيانات العميل وأصنافه في Hive كعميل دائم
+  Future<void> _saveClientToHive() async {
+    final clientName = _clientNameCtrl.text.trim();
+    final clientCode = _clientCodeCtrl.text.trim();
+
+    if (clientName.isEmpty) {
+      _showSnack('⚠️ لا يمكن الحفظ: اسم العميل فارغ.');
+      return;
+    }
+
+    final box = await Hive.openBox('savedSheetSizes');
+    const uuid = Uuid();
+    final now = DateTime.now().toIso8601String();
+
+    // ① تسجيل سجل العميل الرئيسي (isClientRecord: true)
+    // نتحقق أولاً هل يوجد عميل بنفس الاسم لتفادي التكرار
+    bool clientExists = false;
+    for (var i = 0; i < box.length; i++) {
+      final record = box.getAt(i);
+      if (record is Map) {
+        final existingName = (record['clientName'] ?? '').toString().trim().toLowerCase();
+        final isClientRec = record['isClientRecord'] == true;
+        if (isClientRec && existingName == clientName.toLowerCase()) {
+          clientExists = true;
+          break;
+        }
+      }
+    }
+
+    if (!clientExists) {
+      final clientRecord = <String, dynamic>{
+        'sync_id': uuid.v4(),
+        'clientName': clientName,
+        'productName': '',
+        'productCode': clientCode,
+        'isClientRecord': true,
+        'processType': 'تفصيل',
+        'length': '',
+        'width': '',
+        'height': '',
+        'imagePaths': <String>[],
+        'date': now,
+        'isSheet': false,
+        'factoryId': '',
+        // إعدادات تفصيل افتراضية
+        'isOverFlap': false,
+        'isFlap': true,
+        'isOneFlap': false,
+        'isTwoFlap': true,
+        'addTwoMm': false,
+        'isFullSize': false,
+        'isQuarterSize': false,
+        'isQuarterWidth': false,
+        'sheetLengthResult': '',
+        'sheetWidthResult': '',
+        'productionWidth1': '',
+        'productionHeight': '',
+        'productionWidth2': '',
+      };
+      await box.add(clientRecord);
+      // دفع سجل العميل للمزامنة السحابية فوراً
+      SyncService.instance.pushToQueue('customers', _buildCustomerSyncPayload(clientRecord));
+    }
+
+    // ② تسجيل كل صنف من الأصناف المُدخلة
+    for (final idx in _selectedIndices) {
+      final productName = _itemNameCtrl[idx]?.text.trim() ?? '';
+      final productCode = _itemCodeCtrl[idx]?.text.trim() ?? '';
+      final length = _itemDimLCtrl[idx]?.text.trim() ?? '';
+      final width = _itemDimWCtrl[idx]?.text.trim() ?? '';
+      final height = _itemDimHCtrl[idx]?.text.trim() ?? '';
+
+      if (productName.isEmpty) continue; // تجاهل الأصناف الفارغة
+
+      final itemRecord = <String, dynamic>{
+        'sync_id': uuid.v4(),
+        'clientName': clientName,
+        'productName': productName,
+        'productCode': productCode.isNotEmpty ? productCode : clientCode,
+        'isClientRecord': false,
+        'processType': 'تفصيل',
+        'length': length,
+        'width': width,
+        'height': height,
+        'imagePaths': <String>[],
+        'date': now,
+        'isSheet': false,
+        'factoryId': '',
+        // إعدادات تفصيل افتراضية
+        'isOverFlap': false,
+        'isFlap': true,
+        'isOneFlap': false,
+        'isTwoFlap': true,
+        'addTwoMm': false,
+        'isFullSize': false,
+        'isQuarterSize': false,
+        'isQuarterWidth': false,
+        'sheetLengthResult': '',
+        'sheetWidthResult': '',
+        'productionWidth1': '',
+        'productionHeight': '',
+        'productionWidth2': '',
+      };
+      await box.add(itemRecord);
+      // دفع سجل الصنف للمزامنة السحابية فوراً
+      SyncService.instance.pushToQueue('customers', _buildCustomerSyncPayload(itemRecord));
+    }
+
+    _showSnack('✅ تم حفظ العميل والأصناف في سجل العملاء بنجاح.');
+  }
+
+  /// تحويل سجل Hive إلى تنسيق جدول customers في Supabase
+  Map<String, dynamic> _buildCustomerSyncPayload(Map<String, dynamic> r) {
+    return {
+      'sync_id': r['sync_id'],
+      'client_name': r['clientName'],
+      'product_name': r['productName'],
+      'product_code': r['productCode'],
+      'process_type': r['processType'],
+      'length': r['length'],
+      'width': r['width'],
+      'height': r['height'],
+      'is_sheet': r['isSheet'],
+      'date': r['date'],
+      'is_client_record': r['isClientRecord'],
+      'image_paths': r['imagePaths'] ?? [],
+      'form_number': null,
+      'number_of_boxes': null,
+      'sheet_details': {
+        'isOverFlap': r['isOverFlap'],
+        'isFlap': r['isFlap'],
+        'isOneFlap': r['isOneFlap'],
+        'isTwoFlap': r['isTwoFlap'],
+        'addTwoMm': r['addTwoMm'],
+        'isFullSize': r['isFullSize'],
+        'isQuarterSize': r['isQuarterSize'],
+        'isQuarterWidth': r['isQuarterWidth'],
+        'sheetLengthResult': r['sheetLengthResult'],
+        'sheetWidthResult': r['sheetWidthResult'],
+        'productionWidth1': r['productionWidth1'],
+        'productionHeight': r['productionHeight'],
+        'productionWidth2': r['productionWidth2'],
+        'sheetLengthManual': null,
+        'sheetWidthManual': null,
+        'cuttingType': null,
+        'formNumber': null,
+        'form_number': null,
+        'numberOfBoxes': null,
+        'number_of_boxes': null,
+      },
+    };
+  }
+
   // ── PDF Generation ───────────────────────────────────────────────────────────
   Future<void> _generate() async {
     if (_selectedIndices.isEmpty) {
@@ -193,11 +351,12 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
       final l = _itemDimLCtrl[idx]?.text ?? '';
       final w = _itemDimWCtrl[idx]?.text ?? '';
       final h = _itemDimHCtrl[idx]?.text ?? '';
-      
-      String boxSize = _itemBoxSizeCtrl[idx]?.text ?? '';
-      if (boxSize.isEmpty) {
-        boxSize = [l, w, h].where((x) => x.isNotEmpty).join(' / ');
-      }
+      final boxSize = [l, w, h].where((x) => x.isNotEmpty).join(' / ');
+
+      // مقاس الشريحة من الخانتين المنفصلتين
+      final sheetLen = _itemSheetLenCtrl[idx]?.text.trim() ?? '';
+      final sheetWid = _itemSheetWidCtrl[idx]?.text.trim() ?? '';
+      final sheetSize = [sheetLen, sheetWid].where((x) => x.isNotEmpty).join(' / ');
 
       return JobOrderItem(
         productName: _itemNameCtrl[idx]?.text ?? '',
@@ -211,7 +370,7 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
         customCorrugation: _itemCustomCorrugationCtrl[idx]?.text ?? '',
         corrugationSamples: _itemSamplesCtrl[idx]?.text ?? '',
         corrugationBoxSize: boxSize,
-        corrugationSheetSize: _itemSheetSizeCtrl[idx]?.text ?? '',
+        corrugationSheetSize: sheetSize,
         corrugationSheetCount: _itemSheetCountCtrl[idx]?.text ?? '',
         rollWidth: _itemRollWidthCtrl[idx]?.text ?? '',
         paperLayers: (_itemPaperLayerCtrls[idx] ?? [])
@@ -221,9 +380,15 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
       );
     }).toList();
 
+    // نقرأ auth قبل أي await لتجنب استخدام BuildContext بعد فجوة async
+    final auth = Provider.of<AuthService>(context, listen: false);
+
     setState(() => _isGenerating = true);
     try {
-      final auth = Provider.of<AuthService>(context, listen: false);
+      // حفظ في Hive إذا طلب المستخدم ذلك
+      if (_saveToDatabase) {
+        await _saveClientToHive();
+      }
       final data = JobOrderData(
         orderNumber: _orderNumberCtrl.text,
         jobNumber: _jobNumberCtrl.text,
@@ -549,6 +714,54 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
             hint: 'أكتب الملاحظات والتعليمات العامة هنا...',
             maxLines: 3,
           ),
+          const SizedBox(height: 16),
+
+          // ── خيار الحفظ في قاعدة البيانات ──────────────────────────────
+          Material(
+            color: _saveToDatabase
+                ? const Color(0xFF1a3a6e).withValues(alpha: 0.08)
+                : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(
+                color: _saveToDatabase
+                    ? const Color(0xFF1a3a6e).withValues(alpha: 0.4)
+                    : (isDark ? Colors.white12 : Colors.grey.shade200),
+                width: 1.5,
+              ),
+            ),
+            child: CheckboxListTile(
+              value: _saveToDatabase,
+              onChanged: (v) => setState(() => _saveToDatabase = v ?? false),
+              activeColor: const Color(0xFF1a3a6e),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              title: Text(
+                'حفظ العميل والأصناف في سجل العملاء',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: _saveToDatabase
+                      ? const Color(0xFF1a3a6e)
+                      : (isDark ? Colors.white70 : Colors.grey.shade700),
+                ),
+              ),
+              subtitle: Text(
+                'تحويل العميل والأصناف إلى عميل دائم في النظام',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: isDark ? Colors.white38 : Colors.grey.shade500,
+                ),
+              ),
+              secondary: Icon(
+                Icons.person_add_alt_1_outlined,
+                color: _saveToDatabase
+                    ? const Color(0xFF1a3a6e)
+                    : (isDark ? Colors.white38 : Colors.grey.shade400),
+                size: 22,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -811,24 +1024,26 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
                               ),
                               const SizedBox(height: 8),
                               
-                              // --- Box Size & Sheet Size Row
+                              // --- Sheet Size Row (two separate fields)
                               Row(
                                 children: [
                                   Expanded(
                                     child: _miniField(
-                                      'مقاس العلبة (طول / عرض / إرتفاع)',
-                                      _itemBoxSizeCtrl[idx]!,
+                                      'طول الشريحة',
+                                      _itemSheetLenCtrl[idx]!,
                                       isDark,
-                                      hint: 'مثال: 80 / 36 / 48',
+                                      keyboard: const TextInputType.numberWithOptions(decimal: true),
+                                      hint: 'مثال: 80',
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: _miniField(
-                                      'مقاس الشريحة (طول / عرض)',
-                                      _itemSheetSizeCtrl[idx]!,
+                                      'عرض الشريحة',
+                                      _itemSheetWidCtrl[idx]!,
                                       isDark,
-                                      hint: 'مثال: 80 / 36',
+                                      keyboard: const TextInputType.numberWithOptions(decimal: true),
+                                      hint: 'مثال: 36',
                                     ),
                                   ),
                                 ],
