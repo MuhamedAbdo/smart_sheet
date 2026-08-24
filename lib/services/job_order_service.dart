@@ -939,8 +939,7 @@ class JobOrderService {
                           .replaceAll(RegExp(r'^[ /]+|[ /]+\$'), ''),
                   boldStyle,
                   true,
-                  true,
-                  scaleDown: true),
+                  true),
               _itemBodyCell(
                   displayItems[i].quantity.isEmpty
                       ? ""
@@ -974,7 +973,7 @@ class JobOrderService {
 
   static pw.Widget _itemBodyCell(
       String text, pw.TextStyle style, bool center, bool isLTR,
-      {bool scaleDown = false}) {
+      {bool scaleDown = true}) {
     pw.Widget textWidget = isLTR
         ? pw.Directionality(
             textDirection: pw.TextDirection.ltr,
