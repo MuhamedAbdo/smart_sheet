@@ -1422,31 +1422,7 @@ class JobOrderService {
         ),
         pw.SizedBox(height: 2),
 
-        // صف توقيع فني التضليع
-        pw.Container(
-          height: 22,
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.black, width: 1.0),
-          ),
-          child: pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              // عنوان التوقيع
-              pw.Container(
-                width: 140,
-                alignment: pw.Alignment.center,
-                color: PdfColors.grey200,
-                child: pw.Text(_ar("توقيع فني التضليع والتاريخ"),
-                    style: boldStyle.copyWith(fontSize: 8)),
-              ),
-              // مساحة فارغة للتوقيع
-              pw.Expanded(child: pw.Container()),
-            ],
-          ),
-        ),
-        pw.SizedBox(height: 2),
-
-        // صف الملاحظات والتعليمات العامة
+        // صف توقيع فني التضليع والملاحظات مدمج
         pw.Container(
           height: 28,
           decoration: pw.BoxDecoration(
@@ -1455,23 +1431,59 @@ class JobOrderService {
           child: pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
-              // عنوان
-              pw.Container(
-                width: 140,
-                alignment: pw.Alignment.center,
-                color: PdfColors.grey200,
-                child: pw.Text(_ar("ملاحظات وتعليمات عامة"),
-                    style: boldStyle.copyWith(fontSize: 8)),
-              ),
-              // قيمة الملاحظات
+              // الخلية الأولى والثانية (يمين) - تتماشى مع عرض البكر
               pw.Expanded(
+                flex: 36,
                 child: pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  alignment: pw.Alignment.centerRight,
-                  child: data.generalNotes.trim().isNotEmpty
-                      ? pw.Text(_ar(data.generalNotes),
-                          style: regularStyle.copyWith(fontSize: 8))
-                      : pw.SizedBox(),
+                  decoration: const pw.BoxDecoration(
+                      border: pw.Border(left: pw.BorderSide(width: 1.0))),
+                  child: pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                    children: [
+                      pw.Container(
+                        width: 90,
+                        alignment: pw.Alignment.center,
+                        decoration: const pw.BoxDecoration(
+                          color: PdfColors.grey200,
+                          border: pw.Border(left: pw.BorderSide(width: 1.0)),
+                        ),
+                        child: pw.Text(_ar("توقيع فني التضليع والتاريخ"),
+                            style: boldStyle.copyWith(fontSize: 8),
+                            textAlign: pw.TextAlign.center),
+                      ),
+                      pw.Expanded(child: pw.Container()),
+                    ],
+                  ),
+                ),
+              ),
+              // الخلية الثالثة والرابعة (يسار) - تتماشى مع التضليع
+              pw.Expanded(
+                flex: 64,
+                child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    pw.Container(
+                      width: 90,
+                      alignment: pw.Alignment.center,
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.grey200,
+                        border: pw.Border(left: pw.BorderSide(width: 1.0)),
+                      ),
+                      child: pw.Text(_ar("ملاحظات وتعليمات عامة"),
+                          style: boldStyle.copyWith(fontSize: 8),
+                          textAlign: pw.TextAlign.center),
+                    ),
+                    pw.Expanded(
+                      child: pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        alignment: pw.Alignment.centerRight,
+                        child: data.generalNotes.trim().isNotEmpty
+                            ? pw.Text(_ar(data.generalNotes),
+                                style: regularStyle.copyWith(fontSize: 8))
+                            : pw.SizedBox(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
