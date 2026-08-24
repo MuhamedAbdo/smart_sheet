@@ -920,7 +920,7 @@ class JobOrderService {
           decoration: pw.BoxDecoration(color: headerBarColor),
           children: [
             _tableHeaderCell("ملاحظات الصنف", boldStyle),
-            _tableHeaderCell("الابعاد ( ط × ع × ا )", boldStyle),
+            _tableHeaderCell("الابعاد ( ط / ع / ا )", boldStyle),
             _tableHeaderCell("الكمية", boldStyle),
             _tableHeaderCell("بيان الصنف", boldStyle),
             _tableHeaderCell("كود", boldStyle),
@@ -935,11 +935,12 @@ class JobOrderService {
               _itemBodyCell(
                   displayItems[i].productName.isEmpty
                       ? ""
-                      : "${displayItems[i].height} × ${displayItems[i].width} × ${displayItems[i].length}"
-                          .replaceAll(RegExp(r'^[ ×]+|[ ×]+\$'), ''),
+                      : "${displayItems[i].height} / ${displayItems[i].width} / ${displayItems[i].length}"
+                          .replaceAll(RegExp(r'^[ /]+|[ /]+\$'), ''),
                   boldStyle,
                   true,
-                  true),
+                  true,
+                  scaleDown: true),
               _itemBodyCell(
                   displayItems[i].quantity.isEmpty
                       ? ""
@@ -972,23 +973,32 @@ class JobOrderService {
   }
 
   static pw.Widget _itemBodyCell(
-      String text, pw.TextStyle style, bool center, bool isLTR) {
+      String text, pw.TextStyle style, bool center, bool isLTR,
+      {bool scaleDown = false}) {
+    pw.Widget textWidget = isLTR
+        ? pw.Directionality(
+            textDirection: pw.TextDirection.ltr,
+            child: pw.Text(text,
+                style: style.copyWith(fontSize: 13),
+                textAlign: center ? pw.TextAlign.center : pw.TextAlign.right,
+                maxLines: scaleDown ? 1 : null),
+          )
+        : pw.Text(_ar(text),
+            style: style.copyWith(fontSize: 13),
+            textAlign: center ? pw.TextAlign.center : pw.TextAlign.right,
+            maxLines: scaleDown ? 1 : null);
+
+    if (scaleDown) {
+      textWidget = pw.FittedBox(
+        fit: pw.BoxFit.scaleDown,
+        child: textWidget,
+      );
+    }
+
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(vertical: 7, horizontal: 4),
       alignment: center ? pw.Alignment.center : pw.Alignment.centerRight,
-      child: text.isEmpty
-          ? pw.SizedBox()
-          : isLTR
-              ? pw.Directionality(
-                  textDirection: pw.TextDirection.ltr,
-                  child: pw.Text(text,
-                      style: style.copyWith(fontSize: 13),
-                      textAlign:
-                          center ? pw.TextAlign.center : pw.TextAlign.right),
-                )
-              : pw.Text(_ar(text),
-                  style: style.copyWith(fontSize: 13),
-                  textAlign: center ? pw.TextAlign.center : pw.TextAlign.right),
+      child: text.isEmpty ? pw.SizedBox() : textWidget,
     );
   }
 
