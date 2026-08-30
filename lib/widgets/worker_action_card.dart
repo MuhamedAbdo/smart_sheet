@@ -78,28 +78,10 @@ class WorkerActionCard extends StatelessWidget {
                   labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                   valueColor: textTheme.bodyMedium?.color,
                 ),
-              if (action.type == 'إجازة' || action.type == 'غياب' || action.type == 'أجازة عارضة')
-                _buildInfoRow(
-                  '🔙 تاريخ العودة:',
-                  action.returnDate != null ? _f(action.returnDate!) : (action.type == 'إجازة' ? 'قيد الإجازة' : 'قيد الغياب'),
-                  labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: action.returnDate != null
-                      ? textTheme.bodyMedium?.color
-                      : Colors.orange,
-                ),
-              if (action.endTime != null)
-                _buildInfoRow(
-                  '🕒 وقت العودة:',
-                  action.endTime!.format(context),
-                  labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: textTheme.bodyMedium?.color,
-                ),
-              _buildInfoRow(
-                '🔢 عدد الأيام:',
-                action.days != null ? "${action.days!.toStringAsFixed(1)} يوم" : 'قيد التنفيذ',
-                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                valueColor: textTheme.bodyMedium?.color,
-              ),
+              if (action.type == 'إجازة' ||
+                  action.type == 'غياب' ||
+                  action.type == 'أجازة عارضة')
+                ..._buildLeaveSection(context),
             ]
             else if (action.type == 'مكافئة' || action.type == 'جزاء') ...[
               _buildSectionTitle('💰 القيمة', color: colorScheme.primary),
@@ -290,6 +272,73 @@ class WorkerActionCard extends StatelessWidget {
   }
 
   // الدوال المساعدة كما هي
+
+  /// بناء حقول الإجازة/الغياب مع دعم الإجازات المجدَّلة (مستقبلية)
+  List<Widget> _buildLeaveSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final isScheduled = action.isScheduled;
+
+    String returnDateText;
+    Color returnDateColor;
+    if (action.returnDate != null) {
+      returnDateText = _f(action.returnDate!);
+      returnDateColor = textTheme.bodyMedium?.color ?? Colors.black;
+    } else if (isScheduled) {
+      returnDateText = 'مجدولة ⏳';
+      returnDateColor = Colors.blue;
+    } else {
+      returnDateText = action.type == 'إجازة' ? 'قيد الإجازة' : 'قيد الغياب';
+      returnDateColor = Colors.orange;
+    }
+
+    String daysText;
+    Color daysColor;
+    if (isScheduled) {
+      if (action.expectedReturnDate != null) {
+        final diff = action.expectedReturnDate!.difference(action.date).inDays;
+        daysText = diff > 0 ? '$diff يوم (متوقعة)' : 'أقل من يوم (متوقعة)';
+      } else {
+        daysText = 'لم تبدأ بعد';
+      }
+      daysColor = Colors.blue.shade600;
+    } else {
+      daysText = action.days != null
+          ? "${action.days!.toStringAsFixed(1)} يوم"
+          : 'قيد التنفيذ';
+      daysColor = textTheme.bodyMedium?.color ?? Colors.black;
+    }
+
+    return [
+      _buildInfoRow(
+        '🔙 تاريخ العودة:',
+        returnDateText,
+        labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+        valueColor: returnDateColor,
+      ),
+      if (action.endTime != null)
+        _buildInfoRow(
+          '🕒 وقت العودة:',
+          action.endTime!.format(context),
+          labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+          valueColor: textTheme.bodyMedium?.color,
+        ),
+      _buildInfoRow(
+        '🔢 عدد الأيام:',
+        daysText,
+        labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+        valueColor: daysColor,
+      ),
+      if (action.expectedReturnDate != null && !isScheduled)
+        _buildInfoRow(
+          '📅 عودة متوقعة:',
+          _f(action.expectedReturnDate!),
+          labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+          valueColor: textTheme.bodyMedium?.color,
+        ),
+    ];
+  }
+
   IconData _getIcon() {
     switch (action.type) {
       case 'إجازة':

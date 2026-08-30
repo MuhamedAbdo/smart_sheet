@@ -788,8 +788,10 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
 
   Widget _buildActiveAbsenceSection() {
     final activeAction = _worker.activeAction;
+    // Skip scheduled (future) leaves — they should NOT show the card yet
     // Skip old actions (more than 30 days ago) to keep the view clean
     if (activeAction == null ||
+        activeAction.isScheduled ||
         DateTime.now().difference(activeAction.date).inDays > 30) {
       return const SizedBox.shrink();
     }
@@ -847,6 +849,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
     final date =
         ValueNotifier<DateTime>(existingAction?.date ?? DateTime.now());
     final calculatedDays = ValueNotifier<double>(existingAction?.days ?? 1.0);
+    final expectedReturnDate =
+        ValueNotifier<DateTime?>(existingAction?.expectedReturnDate);
 
     // Default time initialization based on factory shift
     final defaultDepartureTime =
@@ -1181,6 +1185,15 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                               ],
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          // حقل تاريخ العودة المتوقع (اختياري)
+                          _buildDateField(
+                            "📅 تاريخ العودة المتوقع",
+                            expectedReturnDate,
+                            context,
+                            setState,
+                            isOptional: true,
+                          ),
                         ],
                       ] else if (actionType.value == 'مكافئة' ||
                           actionType.value == 'جزاء') ...[
@@ -1301,6 +1314,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                         : 0,
                                     date: date.value,
                                     returnDate: returnDate.value,
+                                    expectedReturnDate: expectedReturnDate.value,
                                     notes: notesController.text,
                                     startTimeHour: startTime.value?.hour,
                                     startTimeMinute: startTime.value?.minute,
@@ -1339,6 +1353,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                       : 0;
                                   existingAction.date = date.value;
                                   existingAction.returnDate = returnDate.value;
+                                  existingAction.expectedReturnDate =
+                                      expectedReturnDate.value;
                                   existingAction.notes = notesController.text;
                                   existingAction.startTimeHour =
                                       startTime.value?.hour;
@@ -1499,37 +1515,103 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
   }
 
   Widget _buildWorkerStatusChip() {
-    final activeAction = _worker.activeAction;
-    final isPresent = activeAction == null;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
+    // تحقق من وجود إجازة مجدَّلة للمستقبل
+    WorkerAction? scheduledAction;
+    try {
+      scheduledAction = _worker.actions.cast<WorkerAction?>().firstWhere(
+            (a) => a != null && a.isScheduled,
+            orElse: () => null,
+          );
+    } catch (_) {
+      scheduledAction = null;
+    }
+
+    final activeAction = _worker.activeAction;
+
+    // متواجد حالياً بإجازة نشطة
+    if (activeAction != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.orange.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.timer, size: 14, color: Colors.orange.shade700),
+            const SizedBox(width: 4),
+            Text(
+              activeAction.isTimeBased ? "خارج العمل (${activeAction.type})" : "في ${activeAction.type}",
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.orange.shade800,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // متواجد لكن هناك إجازة مجدَّلة قادمة
+    if (scheduledAction != null) {
+      final startDay = DateTime(
+        scheduledAction.date.year,
+        scheduledAction.date.month,
+        scheduledAction.date.day,
+      );
+      final daysUntil = startDay.difference(today).inDays;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.event, size: 14, color: Colors.blue.shade700),
+            const SizedBox(width: 4),
+            Text(
+              daysUntil == 1
+                  ? "متواجد (إجازة غداً)"
+                  : "متواجد (إجازة بعد $daysUntil يوم)",
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.blue.shade700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // متواجد بشكل طبيعي
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: isPresent ? Colors.green.shade50 : Colors.orange.shade50,
+        color: Colors.green.shade50,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isPresent ? Colors.green.shade200 : Colors.orange.shade200,
-        ),
+        border: Border.all(color: Colors.green.shade200),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isPresent ? Icons.check_circle : Icons.timer,
-            size: 14,
-            color: isPresent ? Colors.green : Colors.orange,
-          ),
+          Icon(Icons.check_circle, size: 14, color: Colors.green.shade600),
           const SizedBox(width: 4),
           Text(
-            isPresent
-                ? "متواجد"
-                : (activeAction.isTimeBased
-                    ? "خارج العمل (${activeAction.type})"
-                    : "في ${activeAction.type}"),
+            "متواجد",
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: isPresent ? Colors.green.shade700 : Colors.orange.shade800,
+              color: Colors.green.shade700,
             ),
           ),
         ],

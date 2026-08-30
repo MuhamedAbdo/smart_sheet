@@ -34,13 +34,14 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
       workerId: fields[14] as String?,
       createdByDeviceId: fields[15] as String?,
       shiftName: fields[16] as String?,
+      expectedReturnDate: fields[17] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, WorkerAction obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(18)
       ..writeByte(0)
       ..write(obj.type)
       ..writeByte(12)
@@ -74,7 +75,9 @@ class WorkerActionAdapter extends TypeAdapter<WorkerAction> {
       ..writeByte(15)
       ..write(obj.createdByDeviceId)
       ..writeByte(16)
-      ..write(obj.shiftName);
+      ..write(obj.shiftName)
+      ..writeByte(17)
+      ..write(obj.expectedReturnDate);
   }
 
   @override

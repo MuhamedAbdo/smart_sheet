@@ -56,6 +56,11 @@ class WorkerAction extends HiveObject {
   @HiveField(16)
   String? shiftName;
 
+  /// تاريخ العودة المتوقع (اختياري) — يُحدَّد مسبقاً عند إنشاء الإجازة
+  /// يُستخدم للتنبيه البصري عند التأخر عن العودة
+  @HiveField(17)
+  DateTime? expectedReturnDate;
+
   WorkerAction({
     this.id,
     required this.type,
@@ -74,6 +79,7 @@ class WorkerAction extends HiveObject {
     this.workerId,
     this.createdByDeviceId,
     this.shiftName,
+    this.expectedReturnDate,
   }) {
     // Generate valid UUID v4 if not provided or invalid (fixes 22P02 error in Supabase)
     if (id == null || !id!.contains('-')) {
@@ -94,16 +100,38 @@ class WorkerAction extends HiveObject {
     return buffer.toString();
   }
 
-  /// Returns true if this action is considered an ongoing/live session
-  /// (i.e. a leave/absence/permission/insurance action without a registered return date).
+  /// Returns true if this action is an **ongoing** live session right now.
+  /// An action is active only when:
+  ///   1. It is a live-type action (leave / absence / permission / insurance)
+  ///   2. No returnDate has been registered yet
+  ///   3. The startDate (date) is today or in the past — i.e. the worker has
+  ///      already departed. A *future* startDate means the leave is scheduled
+  ///      but hasn't started yet, so the worker is still present.
   bool get isActive {
     const liveTypes = ['إجازة', 'أجازة عارضة', 'غياب', 'إذن', 'تأمين صحي'];
-    final isTypeActive = liveTypes.contains(type) && returnDate == null;
-    if (!isTypeActive) return false;
+    if (!liveTypes.contains(type) || returnDate != null) return false;
 
-    // Consider actions older than 30 days as inactive (Presence)
-    final diff = DateTime.now().difference(date).inDays;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final startDay = DateTime(date.year, date.month, date.day);
+
+    // Scheduled leave (future startDate) → worker is still present
+    if (startDay.isAfter(today)) return false;
+
+    // Consider actions older than 30 days as inactive (Presence assumed)
+    final diff = today.difference(startDay).inDays;
     return diff <= 30;
+  }
+
+  /// Returns true when the leave is scheduled for a future date
+  /// (startDate > today) and no returnDate has been set yet.
+  bool get isScheduled {
+    const liveTypes = ['إجازة', 'أجازة عارضة', 'غياب'];
+    if (!liveTypes.contains(type) || returnDate != null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final startDay = DateTime(date.year, date.month, date.day);
+    return startDay.isAfter(today);
   }
 
   /// Returns true if this action type is time-based (permission/insurance)
@@ -155,6 +183,7 @@ class WorkerAction extends HiveObject {
       'date': date.toIso8601String(),
       'notes': notes,
       'return_date': returnDate?.toIso8601String(),
+      'expected_return_date': expectedReturnDate?.toIso8601String(),
       'start_time_hour': startTimeHour,
       'start_time_minute': startTimeMinute,
       'end_time_hour': endTimeHour,
@@ -178,6 +207,9 @@ class WorkerAction extends HiveObject {
       notes: map['notes'],
       returnDate: map['return_date'] != null
           ? DateTime.tryParse(map['return_date'])
+          : null,
+      expectedReturnDate: map['expected_return_date'] != null
+          ? DateTime.tryParse(map['expected_return_date'])
           : null,
       startTimeHour: map['start_time_hour'],
       startTimeMinute: map['start_time_minute'],
