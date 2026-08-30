@@ -504,15 +504,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
   String? _selectedShiftFilter;
 
-  @override
-  Widget build(BuildContext context) {
-    if (_isBoxLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
-
-    // --- Shift Logic ---
+  List<String> _getAvailableShifts() {
     final filterDate = _selectedDate != null ? (DateTime.tryParse(_selectedDate!) ?? DateTime.now()) : DateTime.now();
     String dayName = '';
     switch (filterDate.weekday) {
@@ -533,9 +525,39 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         availableShifts = List<String>.from(schedule.shiftNames!);
       }
     }
+    return availableShifts;
+  }
+
+  String _getCurrentShiftFilter() {
+    return _selectedShiftFilter ?? _getAvailableShifts().first;
+  }
+
+  void _selectAll() {
+    if (_productionReportBox == null) return;
     
+    final currentShiftFilter = _getCurrentShiftFilter();
+    final filteredRecords = _filterAndSortRecords(_productionReportBox!, _searchQuery, _sortDescending, currentShiftFilter);
+    final currentFilteredKeys = filteredRecords.map((e) => e.key).toSet();
+    
+    setState(() {
+      if (_selectedReportKeys.containsAll(currentFilteredKeys) && currentFilteredKeys.isNotEmpty) {
+        _selectedReportKeys.removeAll(currentFilteredKeys);
+      } else {
+        _selectedReportKeys.addAll(currentFilteredKeys);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isBoxLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color appBarIconColor = isDark ? Colors.white : Colors.black87;
+
+    final availableShifts = _getAvailableShifts();
     final currentShiftFilter = _selectedShiftFilter ?? availableShifts.first;
-    // -------------------
 
     return Scaffold(
       appBar: AppBar(
@@ -594,6 +616,11 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         actions: [
           // ─── أزرار وضع التحديد المتعدد ─────────────────────────────────────
           if (_isSelectionMode) ...[
+            IconButton(
+              icon: const Icon(Icons.select_all),
+              tooltip: 'تحديد الكل',
+              onPressed: _selectAll,
+            ),
             IconButton(
               icon: const Icon(Icons.calculate_outlined),
               tooltip: 'إجماليات المحدد',

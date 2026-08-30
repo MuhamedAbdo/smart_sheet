@@ -29,6 +29,21 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
   final Set<dynamic> _selectedArchiveKeys = {};
   bool get _isSelectionMode => _selectedArchiveKeys.isNotEmpty;
 
+  void _selectAll() {
+    if (_archiveBox == null) return;
+    
+    final filteredEntries = _getFilteredEntries(_archiveBox!);
+    final currentFilteredKeys = filteredEntries.map((e) => e.key).toSet();
+    
+    setState(() {
+      if (_selectedArchiveKeys.containsAll(currentFilteredKeys) && currentFilteredKeys.isNotEmpty) {
+        _selectedArchiveKeys.removeAll(currentFilteredKeys);
+      } else {
+        _selectedArchiveKeys.addAll(currentFilteredKeys);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -459,6 +474,11 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               actions: [
                 // ─── أزرار وضع التحديد ───
                 if (_isSelectionMode) ...[
+                  IconButton(
+                    icon: const Icon(Icons.select_all),
+                    tooltip: 'تحديد الكل',
+                    onPressed: _selectAll,
+                  ),
                   IconButton(
                     icon: const Icon(Icons.calculate_outlined),
                     tooltip: 'إجماليات المحدد',
