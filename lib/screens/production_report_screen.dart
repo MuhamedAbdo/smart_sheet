@@ -59,6 +59,10 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
   // ─── حارس منع الضغطة المزدوجة على زر إنهاء الجلسة ───
   bool _isFinishingSession = false;
 
+  // ─── التحديد المتعدد ───────────────────────────────────────────────────────
+  final Set<dynamic> _selectedReportKeys = {};
+  bool get _isSelectionMode => _selectedReportKeys.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -536,48 +540,79 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     return Scaffold(
       appBar: AppBar(
         iconTheme: IconThemeData(color: appBarIconColor),
-        automaticallyImplyLeading: true,
-        leading: Navigator.canPop(context)
+        automaticallyImplyLeading: !_isSelectionMode,
+        leading: _isSelectionMode
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+                tooltip: 'إلغاء التحديد',
+                onPressed: () => setState(() => _selectedReportKeys.clear()),
               )
-            : null,
-        title: _isSearching
-            ? Container(
-                height: 40,
-                decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white10
-                        : Colors.black.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(10)),
-                child: TextField(
-                  controller: _searchController,
-                  autofocus: true,
-                  style:
-                      TextStyle(color: isDark ? Colors.white : Colors.black87),
-                  decoration: InputDecoration(
-                    hintText: 'بحث...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: IconButton(
-                        icon: const Icon(Icons.close, size: 20),
-                        onPressed: () => setState(() {
-                              _isSearching = false;
-                              _searchQuery = '';
-                              _searchController.clear();
-                            })),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                ),
+            : Navigator.canPop(context)
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.pop(context),
+                  )
+                : null,
+        title: _isSelectionMode
+            ? Text(
+                'تم تحديد ${_selectedReportKeys.length}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               )
-            : Text(widget.department == 'production_line'
-                ? "تقرير إنتاج خط الإنتاج 🏭"
-                : "تقرير الإنتاج"),
-        centerTitle: !_isSearching,
+            : _isSearching
+                ? Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white10
+                            : Colors.black.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(10)),
+                    child: TextField(
+                      controller: _searchController,
+                      autofocus: true,
+                      style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87),
+                      decoration: InputDecoration(
+                        hintText: 'بحث...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        suffixIcon: IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            onPressed: () => setState(() {
+                                  _isSearching = false;
+                                  _searchQuery = '';
+                                  _searchController.clear();
+                                })),
+                        border: InputBorder.none,
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  )
+                : Text(widget.department == 'production_line'
+                    ? 'تقرير إنتاج خط الإنتاج 🏭'
+                    : 'تقرير الإنتاج'),
+        centerTitle: !_isSearching && !_isSelectionMode,
         actions: [
+          // ─── أزرار وضع التحديد المتعدد ─────────────────────────────────────
+          if (_isSelectionMode) ...[
+            IconButton(
+              icon: const Icon(Icons.calculate_outlined),
+              tooltip: 'إجماليات المحدد',
+              onPressed: _showAggregationDialog,
+            ),
+            Builder(builder: (context) {
+              final canDelete = PermissionHelper.isSuperAdmin ||
+                  AuthHelper.currentUserCanManageProduction(
+                      widget.department ?? 'flexo', 'canDelete');
+              if (!canDelete) return const SizedBox.shrink();
+              return IconButton(
+                icon: Icon(Icons.delete_sweep, color: Colors.red.shade400),
+                tooltip: 'حذف المحدد',
+                onPressed: _deleteSelectedReports,
+              );
+            }),
+          ],
           // ─── ربط القائمة بـ Hive لتحديث الصلاحيات فورياً ───
-          if (_workersBox != null)
+          if (!_isSelectionMode && _workersBox != null)
             ValueListenableBuilder<Box<Worker>>(
               valueListenable: _workersBox!.listenable(),
               builder: (context, _, __) {
@@ -661,8 +696,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   ],
                 );
               },
-            )
-          else
+            ),
+          if (!_isSelectionMode && _workersBox == null)
             // حالة fallback قبل تحميل صندوق العمال
             PopupMenuButton<String>(
               icon: Icon(Icons.more_vert, color: appBarIconColor),
@@ -913,10 +948,37 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
       }
     }
 
-    return Card(
+    final bool isSelected = _selectedReportKeys.contains(key);
+
+    return GestureDetector(
+      onLongPress: () {
+        // الضغط الطويل دائماً يُدخل وضع التحديد ويحدد هذه البطاقة
+        setState(() {
+          _selectedReportKeys.add(key);
+        });
+      },
+      onTap: _isSelectionMode
+          ? () {
+              // في وضع التحديد: Tap يُبدّل حالة التحديد
+              setState(() {
+                if (_selectedReportKeys.contains(key)) {
+                  _selectedReportKeys.remove(key);
+                } else {
+                  _selectedReportKeys.add(key);
+                }
+              });
+            }
+          : null,
+      child: Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: isSelected ? 2 : 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+        side: isSelected
+            ? BorderSide(color: Colors.blue.shade400, width: 2)
+            : BorderSide.none,
+      ),
+      color: isSelected ? Colors.blue.withValues(alpha: 0.08) : null,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -928,7 +990,10 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 Text("📅 ${((record['date'] ?? '').toString().split('T')[0].split(' ')[0])}",
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, color: Colors.blue)),
-                const Icon(Icons.receipt_long, color: Colors.grey, size: 18),
+                if (isSelected)
+                  const Icon(Icons.check_circle, color: Colors.blue, size: 20)
+                else
+                  const Icon(Icons.receipt_long, color: Colors.grey, size: 18),
               ],
             ),
             const Divider(),
@@ -1126,6 +1191,185 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
           ],
         ),
       ),
+    ));
+  }
+
+  // ─── حساب إجماليات التقارير المحددة ────────────────────────────────────────
+  void _showAggregationDialog() {
+    if (_productionReportBox == null || _selectedReportKeys.isEmpty) return;
+
+    final bool isFlexo = widget.department != 'production_line' &&
+        widget.department != 'crushing' &&
+        widget.department != 'die_cutting';
+
+    double totalQty = 0;
+    double totalWaste = 0;
+    int count = 0;
+
+    for (final key in _selectedReportKeys) {
+      final val = _productionReportBox!.get(key);
+      if (val == null) continue;
+      count++;
+      Map<String, dynamic> r;
+      if (val is DieCuttingProductionReport) {
+        r = {'quantity': val.productionQuantity, 'lineWaste': val.wasteQuantity};
+      } else if (val is FlexoProductionReport) {
+        r = val.toJson();
+      } else if (val is Map) {
+        r = Map<String, dynamic>.from(val);
+      } else {
+        try { r = (val as dynamic).toJson(); } catch (_) { continue; }
+      }
+
+      final qty = (r['quantity'] ?? r['production_quantity'] ?? r['productionQuantity']);
+      totalQty += (qty is num ? qty.toDouble() : double.tryParse(qty?.toString() ?? '0') ?? 0);
+
+      final lineWaste = (r['lineWaste'] ?? r['line_waste'] ?? r['waste_quantity'] ?? r['wasteQuantity']);
+      final lineWasteVal = lineWaste is num ? lineWaste.toDouble() : double.tryParse(lineWaste?.toString() ?? '0') ?? 0;
+
+      if (isFlexo) {
+        final printWaste = (r['printWaste'] ?? r['print_waste']);
+        final printWasteVal = printWaste is num ? printWaste.toDouble() : double.tryParse(printWaste?.toString() ?? '0') ?? 0;
+        totalWaste += lineWasteVal + printWasteVal;
+      } else {
+        totalWaste += lineWasteVal;
+      }
+    }
+
+    final qtyDisplay = totalQty == totalQty.truncateToDouble()
+        ? totalQty.toInt().toString()
+        : totalQty.toStringAsFixed(1);
+    final wasteDisplay = totalWaste == totalWaste.truncateToDouble()
+        ? totalWaste.toInt().toString()
+        : totalWaste.toStringAsFixed(1);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.calculate_outlined, color: Colors.blueAccent, size: 26),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'إجماليات ($count تقرير محدد)',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Divider(),
+            _buildAggregationRow(
+              icon: Icons.inventory_2_outlined,
+              label: 'إجمالي الكمية',
+              value: qtyDisplay,
+              color: Colors.green.shade700,
+            ),
+            const SizedBox(height: 10),
+            _buildAggregationRow(
+              icon: Icons.trending_down,
+              label: isFlexo ? 'إجمالي الهالك (إنتاج + طباعة)' : 'إجمالي الهالك',
+              value: wasteDisplay,
+              color: Colors.orange.shade700,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAggregationRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontFamily: 'Cairo',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── حذف التقارير المحددة جماعياً ───────────────────────────────────────────
+  void _deleteSelectedReports() {
+    if (_productionReportBox == null || _selectedReportKeys.isEmpty) return;
+    final count = _selectedReportKeys.length;
+    UIUtils.showDeleteConfirmation(
+      context: context,
+      title: 'تأكيد الحذف الجماعي',
+      content: 'هل تريد حذف $count تقرير محدد نهائياً؟',
+      confirmLabel: 'حذف ($count)',
+      confirmColor: Colors.red,
+      onConfirm: () async {
+        final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting')
+            ? 'die_cutting_production_reports'
+            : (widget.department == 'production_line')
+                ? 'line_production_reports'
+                : 'flexo_production_reports';
+
+        for (final key in _selectedReportKeys) {
+          final val = _productionReportBox!.get(key);
+          String? syncId;
+          if (val is DieCuttingProductionReport) {
+            syncId = val.id;
+          } else if (val is FlexoProductionReport) {
+            syncId = val.id;
+          } else if (val is Map) {
+            syncId = val['sync_id']?.toString() ?? val['id']?.toString();
+          } else {
+            try { syncId = (val as dynamic).toJson()['sync_id']?.toString(); } catch (_) {}
+          }
+          await _productionReportBox!.delete(key);
+          if (syncId != null) {
+            SyncService.instance.pushToQueue(
+              tableName,
+              {'sync_id': syncId, 'id': syncId},
+              operation: 'delete',
+            );
+          }
+        }
+        if (mounted) {
+          setState(() => _selectedReportKeys.clear());
+          UIUtils.showInfoSnackBar(
+            message: 'تم حذف $count تقرير بنجاح',
+            backgroundColor: Colors.green,
+            icon: Icons.check_circle_outline,
+          );
+        }
+      },
     );
   }
 

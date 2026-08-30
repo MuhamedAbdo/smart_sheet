@@ -25,6 +25,10 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
   String _searchQuery = "";
   String? _selectedDate;
 
+  // ─── التحديد المتعدد ───────────────────────────────────────────────────
+  final Set<dynamic> _selectedArchiveKeys = {};
+  bool get _isSelectionMode => _selectedArchiveKeys.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -400,49 +404,76 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
           return Scaffold(
             appBar: AppBar(
               iconTheme: IconThemeData(color: appBarIconColor),
-              leading: Navigator.canPop(context)
+              leading: _isSelectionMode
                   ? IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                      tooltip: 'إلغاء التحديد',
+                      onPressed: () => setState(() => _selectedArchiveKeys.clear()),
                     )
-                  : null,
-              title: _isSearching
-                  ? Container(
-                      height: 40,
-                      decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white10
-                              : Colors.black.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(10)),
-                      child: TextField(
-                        autofocus: true,
-                        style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black87),
-                        onChanged: (v) => setState(() => _searchQuery = v),
-                        decoration: InputDecoration(
-                          hintText: 'بحث باسم العميل...',
-                          prefixIcon: const Icon(Icons.search, size: 20),
-                          suffixIcon: IconButton(
-                              icon: const Icon(Icons.close, size: 20),
-                              onPressed: () => setState(() {
-                                    _isSearching = false;
-                                    _searchQuery = '';
-                                    _selectedDate = null;
-                                  })),
-                          border: InputBorder.none,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                      ),
+                  : Navigator.canPop(context)
+                      ? IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () => Navigator.pop(context),
+                        )
+                      : null,
+              title: _isSelectionMode
+                  ? Text(
+                      'تم تحديد ${_selectedArchiveKeys.length}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     )
-                  : Text(widget.department == 'production_line'
-                      ? "أرشيف خط الإنتاج"
-                      : widget.department == 'crushing'
-                          ? "أرشيف تقارير التكسير"
-                          : "أرشيف تقارير الفلكسو"),
-              centerTitle: !_isSearching,
+                  : _isSearching
+                      ? Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white10
+                                  : Colors.black.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(10)),
+                          child: TextField(
+                            autofocus: true,
+                            style: TextStyle(
+                                color: isDark ? Colors.white : Colors.black87),
+                            onChanged: (v) => setState(() => _searchQuery = v),
+                            decoration: InputDecoration(
+                              hintText: 'بحث باسم العميل...',
+                              prefixIcon: const Icon(Icons.search, size: 20),
+                              suffixIcon: IconButton(
+                                  icon: const Icon(Icons.close, size: 20),
+                                  onPressed: () => setState(() {
+                                        _isSearching = false;
+                                        _searchQuery = '';
+                                        _selectedDate = null;
+                                      })),
+                              border: InputBorder.none,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                          ),
+                        )
+                      : Text(widget.department == 'production_line'
+                          ? 'أرشيف خط الإنتاج'
+                          : widget.department == 'crushing'
+                              ? 'أرشيف تقارير التكسير'
+                              : 'أرشيف تقارير الفلكسو'),
+              centerTitle: !_isSearching && !_isSelectionMode,
               actions: [
-
+                // ─── أزرار وضع التحديد ───
+                if (_isSelectionMode) ...[
+                  IconButton(
+                    icon: const Icon(Icons.calculate_outlined),
+                    tooltip: 'إجماليات المحدد',
+                    onPressed: _showAggregationDialog,
+                  ),
+                  if (PermissionHelper.isSuperAdmin ||
+                      (PermissionHelper.currentWorker?.canDeleteArchive ?? false))
+                    IconButton(
+                      icon: Icon(Icons.delete_sweep, color: Colors.red.shade400),
+                      tooltip: 'حذف المحدد',
+                      onPressed: _deleteSelectedEntries,
+                    ),
+                ],
+                // ─── القائمة العادية ───
+                if (!_isSelectionMode)
                 // ✅ تم نقل مسح الكل إلى القائمة المنسدلة
                 PopupMenuButton<String>(
                   icon: Icon(Icons.more_vert, color: appBarIconColor),
@@ -819,9 +850,23 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: InkWell(
         borderRadius: BorderRadius.circular(15),
-        onLongPress: () => _deleteEntry(key),
-        onTap: () {
-          Navigator.push(
+        onLongPress: () {
+          // الضغط الطويل دائماً يُدخل وضع التحديد — لا حذف مباشر
+          setState(() => _selectedArchiveKeys.add(key));
+        },
+        onTap: _isSelectionMode
+            ? () {
+                // في وضع التحديد: Tap يُبدّل حالة التحديد
+                setState(() {
+                  if (_selectedArchiveKeys.contains(key)) {
+                    _selectedArchiveKeys.remove(key);
+                  } else {
+                    _selectedArchiveKeys.add(key);
+                  }
+                });
+              }
+            : () {
+            Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => ArchiveDetailScreen(
@@ -831,9 +876,19 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                 },
               ),
             ),
-          );
-        },
-        child: Padding(
+          );},
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            color: _selectedArchiveKeys.contains(key)
+                ? Colors.blue.withValues(alpha: 0.08)
+                : Colors.transparent,
+            border: _selectedArchiveKeys.contains(key)
+                ? Border.all(color: Colors.blue.shade400, width: 2)
+                : null,
+          ),
+          child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -908,7 +963,16 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(child: clientText),
-                            actionButtons,
+                            if (_isSelectionMode)
+                              Icon(
+                                _selectedArchiveKeys.contains(key)
+                                    ? Icons.check_circle
+                                    : Icons.radio_button_unchecked,
+                                color: Colors.blue,
+                                size: 22,
+                              )
+                            else
+                              actionButtons,
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -926,7 +990,16 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                         children: [
                           dateText,
                           const SizedBox(width: 8),
-                          actionButtons,
+                          if (_isSelectionMode)
+                            Icon(
+                              _selectedArchiveKeys.contains(key)
+                                  ? Icons.check_circle
+                                  : Icons.radio_button_unchecked,
+                              color: Colors.blue,
+                              size: 22,
+                            )
+                          else
+                            actionButtons,
                         ],
                       ),
                     ],
@@ -1102,7 +1175,197 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
             ],
           ),
         ),
+        ),  // AnimatedContainer
       ),
+    );
+  }
+
+  // ─── حساب إجماليات سجلات الأرشيف المحددة ──────────────────────────────────
+  void _showAggregationDialog() {
+    if (_archiveBox == null || _selectedArchiveKeys.isEmpty) return;
+
+    final bool isFlexo = widget.department != 'production_line' &&
+        widget.department != 'crushing' &&
+        widget.department != 'die_cutting';
+
+    double totalQty = 0;
+    double totalWaste = 0;
+    int count = 0;
+
+    for (final key in _selectedArchiveKeys) {
+      final val = _archiveBox!.get(key);
+      if (val == null) continue;
+
+      Map<String, dynamic> report;
+      if (val is Map) {
+        final inner = val['data'] ?? val;
+        report = Map<String, dynamic>.from(inner);
+      } else {
+        continue;
+      }
+      count++;
+
+      final qty = report['quantity'] ??
+          report['production_quantity'] ??
+          report['productionQuantity'] ??
+          0;
+      totalQty += (qty is num ? qty.toDouble() : double.tryParse(qty.toString()) ?? 0);
+
+      final lineWaste = report['lineWaste'] ??
+          report['line_waste'] ??
+          report['waste_quantity'] ??
+          report['wasteQuantity'] ??
+          0;
+      final lineWasteVal = lineWaste is num
+          ? lineWaste.toDouble()
+          : double.tryParse(lineWaste.toString()) ?? 0;
+
+      if (isFlexo) {
+        final printWaste = report['printWaste'] ?? report['print_waste'] ?? 0;
+        final printWasteVal = printWaste is num
+            ? printWaste.toDouble()
+            : double.tryParse(printWaste.toString()) ?? 0;
+        totalWaste += lineWasteVal + printWasteVal;
+      } else {
+        totalWaste += lineWasteVal;
+      }
+    }
+
+    final qtyDisplay = totalQty == totalQty.truncateToDouble()
+        ? totalQty.toInt().toString()
+        : totalQty.toStringAsFixed(1);
+    final wasteDisplay = totalWaste == totalWaste.truncateToDouble()
+        ? totalWaste.toInt().toString()
+        : totalWaste.toStringAsFixed(1);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.calculate_outlined,
+                color: Colors.blueAccent, size: 26),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'إجماليات ($count سجل محدد)',
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Divider(),
+            _buildAggregationRow(
+              icon: Icons.inventory_2_outlined,
+              label: 'إجمالي الكمية',
+              value: qtyDisplay,
+              color: Colors.green.shade700,
+            ),
+            const SizedBox(height: 10),
+            _buildAggregationRow(
+              icon: Icons.trending_down,
+              label: isFlexo
+                  ? 'إجمالي الهالك (إنتاج + طباعة)'
+                  : 'إجمالي الهالك',
+              value: wasteDisplay,
+              color: Colors.orange.shade700,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAggregationRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w600)),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontFamily: 'Cairo',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── حذف سجلات الأرشيف المحددة جماعياً ──────────────────────────────────
+  void _deleteSelectedEntries() {
+    if (_archiveBox == null || _selectedArchiveKeys.isEmpty) return;
+    final count = _selectedArchiveKeys.length;
+    UIUtils.showDeleteConfirmation(
+      context: context,
+      title: 'تأكيد حذف الأرشيف',
+      content: 'هل تريد حذف $count سجل مؤرشف نهائياً؟',
+      confirmLabel: 'حذف ($count)',
+      confirmColor: Colors.red,
+      onConfirm: () async {
+        final targetTable = widget.department == 'production_line'
+            ? 'line_archived_reports'
+            : (widget.department == 'crushing' ||
+                    widget.department == 'die_cutting')
+                ? 'die_cutting_archived_reports'
+                : 'flexo_archived_reports';
+
+        for (final key in _selectedArchiveKeys) {
+          final val = _archiveBox!.get(key);
+          if (val is Map) {
+            final report = val['data'] ?? val;
+            final syncId =
+                report['sync_id']?.toString() ?? report['id']?.toString();
+            if (syncId != null) {
+              SyncService.instance.pushToQueue(
+                targetTable,
+                {'id': syncId, 'sync_id': syncId},
+                operation: 'delete',
+              );
+            }
+          }
+          await _archiveBox!.delete(key);
+        }
+        if (mounted) {
+          setState(() => _selectedArchiveKeys.clear());
+          UIUtils.showInfoSnackBar(
+            message: 'تم حذف $count سجل من الأرشيف بنجاح',
+            backgroundColor: Colors.green,
+            icon: Icons.check_circle_outline,
+          );
+        }
+      },
     );
   }
 }

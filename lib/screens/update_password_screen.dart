@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../screens/auth_screen.dart';
 import '../services/auth_service.dart';
 import '../utils/ui_utils.dart';
+
 
 class UpdatePasswordScreen extends StatefulWidget {
   static const routeName = '/update-password';
@@ -39,9 +41,13 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
       _showSnackBar(error, Colors.red);
     } else {
       _showSnackBar('✅ تم تحديث كلمة المرور بنجاح', Colors.green);
-      // التوجه إلى الشاشة الرئيسية بعد التحديث الناجح
+      // انتظار لحظة قصيرة لإتاحة ظهور رسالة النجاح قبل الانتقال
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (!mounted) return;
+      // تنظيف مكدس التوجيه كاملاً والانتقال لشاشة تسجيل الدخول
+      // حتى لا يتمكن المستخدم من العودة لشاشة تحديث كلمة المرور بزر الرجوع
       Navigator.of(context).pushNamedAndRemoveUntil(
-        '/home',
+        AuthScreen.routeName,
         (route) => false,
       );
     }
