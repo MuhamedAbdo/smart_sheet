@@ -1400,6 +1400,40 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     );
   }
 
+  DateTime _getExactReportDateTime(Map<String, dynamic> report) {
+    final dateStr = report['date']?.toString() ?? '2000-01-01';
+    final date = DateTime.tryParse(dateStr.split('T')[0].split(' ')[0]) ?? DateTime(2000);
+
+    String timeStr = report['endTime']?.toString() ?? '';
+    if (timeStr.isEmpty || timeStr == '--:--') {
+      timeStr = report['startTime']?.toString() ?? '';
+    }
+
+    if (timeStr.isEmpty || timeStr == '--:--') {
+      return DateTime(date.year, date.month, date.day);
+    }
+
+    timeStr = timeStr.trim().toLowerCase();
+    bool isAm = timeStr.contains('ص') || timeStr.contains('am');
+    bool isPm = timeStr.contains('م') || timeStr.contains('pm');
+
+    timeStr = timeStr.replaceAll(RegExp(r'[صمامp]'), '').trim();
+
+    final parts = timeStr.split(':');
+    if (parts.isEmpty) return DateTime(date.year, date.month, date.day);
+    
+    int hours = int.tryParse(parts[0].trim()) ?? 0;
+    int minutes = parts.length > 1 ? (int.tryParse(parts[1].trim()) ?? 0) : 0;
+
+    if (isAm) {
+      if (hours == 12) hours = 0;
+    } else if (isPm) {
+      if (hours < 12) hours += 12;
+    }
+
+    return DateTime(date.year, date.month, date.day, hours, minutes);
+  }
+
   // ✅ التعديل الأول: ترتيب زمني فقط (الأحدث أولاً أو العكس) دون ترتيب أبجدي
   List<MapEntry<dynamic, Map<String, dynamic>>> _filterAndSortRecords(
       Box box, String query, bool descending, String activeShift) {
@@ -1478,21 +1512,9 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         .toList();
 
     entries.sort((a, b) {
-      final dateAStr = a.value['date']?.toString() ?? '2000-01-01';
-      final dateBStr = b.value['date']?.toString() ?? '2000-01-01';
-      final dateA = DateTime.tryParse(dateAStr) ?? DateTime(2000);
-      final dateB = DateTime.tryParse(dateBStr) ?? DateTime(2000);
-
-      // الفرز الأساسي: التاريخ (الأحدث أولاً أو العكس حسب اختيار المستخدم)
-      final int dateCompare =
-          descending ? dateB.compareTo(dateA) : dateA.compareTo(dateB);
-      if (dateCompare != 0) return dateCompare;
-
-      // الفرز الثانوي: وقت الانتهاء (endTime) داخل نفس اليوم — الأحدث أولاً دائماً
-      // endTime مخزّن كـ "HH:mm" — المقارنة النصية تعمل بشكل صحيح لهذا الفورمات
-      final endTimeA = a.value['endTime']?.toString() ?? '';
-      final endTimeB = b.value['endTime']?.toString() ?? '';
-      return endTimeB.compareTo(endTimeA);
+      DateTime timeA = _getExactReportDateTime(a.value);
+      DateTime timeB = _getExactReportDateTime(b.value);
+      return descending ? timeB.compareTo(timeA) : timeA.compareTo(timeB);
     });
 
     // إضافة فلترة التاريخ في النهاية إذا كان مختاراً
