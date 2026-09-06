@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 class SuperAdminScreen extends StatefulWidget {
   const SuperAdminScreen({super.key});
@@ -31,7 +32,11 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
 
       try {
         debugPrint('🔥 جاري إضافة المصنع في قاعدة البيانات...');
+        
+        final newFactoryId = 'FAC-${const Uuid().v4().substring(0, 8).toUpperCase()}';
+        
         await Supabase.instance.client.from('factories').insert({
+          'factory_id': newFactoryId,
           'name': _factoryNameController.text.trim(),
           'manager_email': _adminEmailController.text.trim(),
           'status': 'active',

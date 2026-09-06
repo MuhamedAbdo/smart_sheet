@@ -144,6 +144,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
             _normalizeString((record['clientName'] ?? '').toString());
         final existingCode =
             _normalizeString((record['productCode'] ?? '').toString());
+        
+        // سجل العميل الأساسي يستخدم حقل productCode لتخزين كود العميل، لذا يجب تجاهله عند البحث عن تكرار كود الصنف
+        final isClientRecord = record['isClientRecord'] == true;
+        if (isClientRecord) continue;
 
         // نتخطى السجل الحالي إذا كنا في وضع التعديل لمنع التصادم مع النفس
         if (widget.existingDataKey != null && key == widget.existingDataKey) {
@@ -158,10 +162,16 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     return null;
   }
 
-  Future<void> _saveSheetSize(
-      {dynamic duplicateKey, bool shouldDeleteOriginal = true}) async {
-    // حساب المقاسات أوتوماتيكياً قبل الحفظ لتجنب نسيان المستخدم الضغط على "احسب"
-    _calculateSheet();
+  Future<void> _saveSheetSize({
+    dynamic duplicateKey,
+    bool shouldDeleteOriginal = false,
+  }) async {
+    if (_isProcessing) return; // منع الضغط المزدوج
+    setState(() => _isProcessing = true);
+
+    try {
+      // حساب المقاسات أوتوماتيكياً قبل الحفظ لتجنب نسيان المستخدم الضغط على "احسب"
+      _calculateSheet();
 
     final clientName = clientNameController.text.trim();
     final productCode = productCodeController.text.trim();
@@ -433,6 +443,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
             builder: (_) => ClientItemsScreen(clientName: clientName),
           ),
         );
+      }
+    }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
       }
     }
   }
@@ -717,7 +732,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                     : "إضافة صنف"),
         centerTitle: true,
         actions: [
-          if (_isUploading)
+          if (_isUploading || _isProcessing)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: SizedBox(
@@ -728,7 +743,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
           else
           IconButton(
               icon: const Icon(Icons.check_circle),
-              onPressed: _isUploading ? null : () => _saveSheetSize())
+              onPressed: _saveSheetSize)
         ],
       ),
       resizeToAvoidBottomInset: false, // منع الفراغ الأبيض عند ظهور الكيبورد

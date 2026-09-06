@@ -23,10 +23,16 @@ class PermissionHelper {
   static String? get currentEmail =>
       Supabase.instance.client.auth.currentUser?.email;
 
-  /// هل المستخدم الحالي هو السوبر أدمن؟
+  /// هل المستخدم الحالي هو السوبر أدمن أو مدير المصنع؟ (يُعامل مدير المصنع كسوبر أدمن داخل نطاق المصنع)
   static bool get isSuperAdmin =>
-      currentEmail?.toLowerCase().trim() ==
-      _superAdminEmail.toLowerCase().trim();
+      (currentEmail?.toLowerCase().trim() ==
+      _superAdminEmail.toLowerCase().trim()) || isFactoryAdmin;
+
+  /// هل المستخدم الحالي هو مدير للمصنع (Factory Admin)؟
+  static bool get isFactoryAdmin {
+    if (!Hive.isBoxOpen('settings')) return false;
+    return Hive.box('settings').get('user_role') == 'admin';
+  }
 
   /// جلب سجل Worker المقابل للمستخدم الحالي من Hive (null إذا لم يوجد)
   static Worker? get currentWorker {
@@ -43,57 +49,57 @@ class PermissionHelper {
     }
   }
 
-  /// صلاحية الإضافة — true للسوبر أدمن أو للعامل الذي canAdd == true
+  /// صلاحية الإضافة — true للسوبر أدمن أو مدير المصنع أو للعامل الذي canAdd == true
   static bool get canAdd {
     if (isSuspended) return false;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isFactoryAdmin) return true;
     return currentWorker?.canAdd == true;
   }
 
-  /// صلاحية التعديل — true للسوبر أدمن أو للعامل الذي canEdit == true
+  /// صلاحية التعديل — true للسوبر أدمن أو مدير المصنع أو للعامل الذي canEdit == true
   static bool get canEdit {
     if (isSuspended) return false;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isFactoryAdmin) return true;
     return currentWorker?.canEdit == true;
   }
 
-  /// صلاحية الحذف — true للسوبر أدمن أو للعامل الذي canDelete == true
+  /// صلاحية الحذف — true للسوبر أدمن أو مدير المصنع أو للعامل الذي canDelete == true
   static bool get canDelete {
     if (isSuspended) return false;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isFactoryAdmin) return true;
     return currentWorker?.canDelete == true;
   }
 
   /// صلاحيات إدارة العملاء والأصناف
   static bool get canManageClientsAdd {
     if (isSuspended) return false;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isFactoryAdmin) return true;
     return currentWorker?.canManageClientsAdd == true;
   }
 
   static bool get canManageClientsEdit {
     if (isSuspended) return false;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isFactoryAdmin) return true;
     return currentWorker?.canManageClientsEdit == true;
   }
 
   static bool get canManageClientsDelete {
     if (isSuspended) return false;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isFactoryAdmin) return true;
     return currentWorker?.canManageClientsDelete == true;
   }
 
   /// صلاحية إضافة حركة عامل
   static bool get canAddWorkerAction {
     if (isSuspended) return false;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isFactoryAdmin) return true;
     return currentWorker?.canAddWorkerAction == true;
   }
 
   /// صلاحية إصدار أوامر التشغيل
   static bool get canIssueJobOrders {
     if (isSuspended) return false;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isFactoryAdmin) return true;
     return currentWorker?.canIssueJobOrders == true;
   }
 }

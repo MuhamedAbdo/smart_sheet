@@ -28,10 +28,10 @@ class AuthHelper {
   /// البريد الإلكتروني للسوبر أدمن — يملك كل الصلاحيات دائماً
   static const String _superAdminEmail = 'mohamedabdo9999933@gmail.com';
 
-  /// هل المستخدم الحالي هو السوبر أدمن؟
+  /// هل المستخدم الحالي هو السوبر أدمن أو مدير المصنع؟
   static bool get isSuperAdmin =>
-      _currentEmail?.toLowerCase().trim() ==
-      _superAdminEmail.toLowerCase().trim();
+      (_currentEmail?.toLowerCase().trim() ==
+      _superAdminEmail.toLowerCase().trim()) || PermissionHelper.isFactoryAdmin;
 
   /// سجل Worker المقابل للمستخدم الحالي (null إذا لم يُسجّل دخول أو لم يُعثر عليه)
   static Worker? get currentWorker {
@@ -60,7 +60,7 @@ class AuthHelper {
     String action,
   ) {
     if (PermissionHelper.isSuspended) return false;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || PermissionHelper.isFactoryAdmin) return true;
     final user = currentWorker;
     if (user == null) return false;
     return canManageProduction(user, targetDepartment, action);
@@ -74,7 +74,7 @@ class AuthHelper {
     String action,
   ) {
     if (PermissionHelper.isSuspended) return false;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || PermissionHelper.isFactoryAdmin) return true;
     final user = currentWorker;
     if (user == null) return false;
     return canManageWorkers(user, targetWorkerDepartment, action);

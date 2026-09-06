@@ -187,6 +187,9 @@ class AuthService extends ChangeNotifier {
       if (response != null) {
         final role = response['role']?.toString() ?? 'employee';
         await storage.write(key: 'user_role', value: role);
+        if (Hive.isBoxOpen('settings')) {
+          Hive.box('settings').put('user_role', role);
+        }
 
         final fetchedFactoryId = response['factory_id']?.toString();
         final userEmail = _supabaseClient.auth.currentUser?.email;
