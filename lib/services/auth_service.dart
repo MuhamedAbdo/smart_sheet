@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:google_sign_in/google_sign_in.dart' as g_sign_in;
 import 'package:hive/hive.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -146,6 +149,34 @@ class AuthService extends ChangeNotifier {
       {bool checkDeviceLink = true}) async {
     try {
       const storage = SafeSecureStorage();
+      final currentUserEmail = _supabaseClient.auth.currentUser?.email;
+
+      // 🚨 0. فحص ما إذا كان المستخدم الحالي هو مدير لأحد المصانع عبر بريده الإلكتروني
+      if (currentUserEmail != null && currentUserEmail.isNotEmpty) {
+        try {
+          final managerFactory = await _supabaseClient
+              .from('factories')
+              .select('factory_id')
+              .eq('manager_email', currentUserEmail)
+              .maybeSingle();
+
+          if (managerFactory != null) {
+            final mfId = managerFactory['factory_id'].toString();
+
+            // إنشاء أو تحديث الملف الشخصي ليكون مديراً لهذا المصنع
+            await _supabaseClient.from('profiles').upsert({
+              'id': userId,
+              'email': currentUserEmail,
+              'factory_id': mfId,
+              'role': 'admin',
+              'status': 'active'
+            });
+            debugPrint('✅ AuthService: User is a factory manager! Assigned admin role for factory $mfId.');
+          }
+        } catch (e) {
+          debugPrint('⚠️ AuthService: Error checking/assigning manager role: $e');
+        }
+      }
 
       final response = await _supabaseClient
           .from('profiles')
@@ -455,6 +486,76 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// 🌐 تسجيل الدخول عبر Google (Android & Windows)
+  Future<String?> signInWithGoogle({required String webClientId}) async {
+    _state = _state.copyWith(isLoading: true, errorMessage: null);
+    notifyListeners();
+
+    try {
+      if (!kIsWeb && Platform.isAndroid) {
+        await _signInWithGoogleAndroid(webClientId: webClientId);
+      } else if (!kIsWeb && Platform.isWindows) {
+        await _signInWithGoogleWindows();
+      } else {
+        // افتراضي للأنظمة الأخرى
+        await _signInWithGoogleWindows();
+      }
+      
+      // في حالة الـ Android، إذا نجحنا ستكون الـ session موجودة هنا
+      // أما في الويندوز (PKCE)، ستتغير الحالة لاحقاً عبر onAuthStateChange
+      _state = _state.copyWith(isLoading: false);
+      notifyListeners();
+      return null;
+    } on AuthException catch (e) {
+      _state = _state.copyWith(isLoading: false, errorMessage: e.message);
+      notifyListeners();
+      return e.message;
+    } catch (e) {
+      _state = _state.copyWith(
+          isLoading: false, errorMessage: 'حدث خطأ غير متوقع: $e');
+      notifyListeners();
+      return 'حدث خطأ غير متوقع: $e';
+    }
+  }
+
+  Future<void> _signInWithGoogleAndroid({required String webClientId}) async {
+    final g_sign_in.GoogleSignIn googleSignIn = g_sign_in.GoogleSignIn(
+      serverClientId: webClientId,
+    );
+
+    final googleUser = await googleSignIn.signIn();
+    if (googleUser == null) {
+      throw const AuthException('تم إلغاء تسجيل الدخول');
+    }
+
+    final googleAuth = await googleUser.authentication;
+    final accessToken = googleAuth.accessToken;
+    final idToken = googleAuth.idToken;
+
+    if (accessToken == null || idToken == null) {
+      throw const AuthException('لم يتم العثور على Access Token أو ID Token.');
+    }
+
+    final res = await _supabaseClient.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+      accessToken: accessToken,
+    );
+
+    if (res.session != null) {
+      await _fetchAndStoreUserData(res.session!.user.id);
+    }
+  }
+
+  Future<void> _signInWithGoogleWindows() async {
+    // فتح متصفح الويندوز الافتراضي للتسجيل
+    await _supabaseClient.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: 'smartsheet://login-callback/', 
+      authScreenLaunchMode: LaunchMode.externalApplication,
+    );
+  }
+
   /// تحديث البيانات من السيرفر (مسح التخزين المؤقت)
   Future<String?> refreshUserData() async {
     final user = _supabaseClient.auth.currentUser;
@@ -646,6 +747,12 @@ class AuthService extends ChangeNotifier {
     _state = _state.copyWith(isLoading: true, errorMessage: null);
     notifyListeners();
     try {
+      if (!kIsWeb && Platform.isAndroid) {
+        try {
+          await g_sign_in.GoogleSignIn().signOut();
+        } catch (_) {}
+      }
+
       if (Hive.isBoxOpen('settings')) {
         await Hive.box('settings').put('is_user_logged_in', false);
       }

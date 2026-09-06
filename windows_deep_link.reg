@@ -1,0 +1,12 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Classes\smartsheet]
+@="URL:smartsheet Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\smartsheet\shell]
+
+[HKEY_CURRENT_USER\Software\Classes\smartsheet\shell\open]
+
+[HKEY_CURRENT_USER\Software\Classes\smartsheet\shell\open\command]
+@="\"D:\\projects\\smart_sheet\\build\\windows\\x64\\runner\\Debug\\smart_sheet.exe\" \"%1\""

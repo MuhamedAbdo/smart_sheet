@@ -30,53 +30,26 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
       });
 
       try {
-        debugPrint('🔥 جاري إرسال الطلب إلى الدالة السحابية...');
-        await Supabase.instance.client.functions.invoke(
-          'create_factory_admin',
-          body: {
-            'factoryName': _factoryNameController.text.trim(),
-            'adminEmail': _adminEmailController.text.trim(),
-            'adminPassword': _adminPasswordController.text,
-          },
-        );
+        debugPrint('🔥 جاري إضافة المصنع في قاعدة البيانات...');
+        await Supabase.instance.client.from('factories').insert({
+          'name': _factoryNameController.text.trim(),
+          'manager_email': _adminEmailController.text.trim(),
+          'status': 'active',
+        });
 
-        debugPrint('✅ تم تنفيذ الطلب بنجاح!');
+        debugPrint('✅ تم إنشاء المصنع بنجاح!');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("تم إنشاء المصنع وحساب المدير بنجاح"),
+            content: Text("تم إنشاء المصنع بنجاح. يمكن للمدير الآن تسجيل الدخول بحساب Google."),
             backgroundColor: Colors.green,
           ),
         );
 
         _factoryNameController.clear();
         _adminEmailController.clear();
-        _adminPasswordController.clear();
-      } on FunctionException catch (e) {
-        debugPrint('❌ FunctionException Caught!');
-        debugPrint('تفاصيل الخطأ (Details): ${e.details}');
-        debugPrint('حالة الرد (Reason): ${e.reasonPhrase}');
-
-        if (!mounted) return;
-        
-        String errorMessage = 'حدث خطأ غير متوقع';
-        if (e.details is Map && (e.details as Map).containsKey('error')) {
-          errorMessage = (e.details as Map)['error'].toString();
-        } else if (e.details != null) {
-          errorMessage = e.details.toString();
-        } else if (e.reasonPhrase != null) {
-          errorMessage = e.reasonPhrase!;
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("فشل: $errorMessage"),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
       } catch (e) {
-        debugPrint('❌ General Error Caught: $e');
+        debugPrint('❌ Error creating factory: $e');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -233,25 +206,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _adminPasswordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: "كلمة المرور المؤقتة",
-                        prefixIcon: Icon(Icons.lock),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'الرجاء إدخال كلمة المرور';
-                        }
-                        if (value.length < 6) {
-                          return 'كلمة المرور يجب أن لا تقل عن 6 أحرف';
-                        }
-                        return null;
-                      },
-                    ),
+
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
@@ -272,7 +227,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                                 ),
                               )
                             : const Text(
-                                "إنشاء المصنع وحساب المدير",
+                                "إنشاء المصنع",
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold),

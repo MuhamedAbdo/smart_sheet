@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/arabic_pdf_helper.dart';
+import 'supabase_manager.dart';
 
 // ─── Data Models ────────────────────────────────────────────────────────────
 
@@ -202,11 +203,14 @@ class JobOrderService {
     final jsonData = data.toJson();
     final supabase = Supabase.instance.client;
     final key = 'order_${DateTime.now().millisecondsSinceEpoch}';
-    
+    final factoryId = await SupabaseManager.getFactoryId();
+    if (factoryId == null) throw Exception('المصنع غير محدد');
+
     // 1. محاولة الرفع إلى Supabase
     try {
       await supabase.from('issued_job_orders').insert({
         'id': key,
+        'factory_id': factoryId,
         'order_number': data.orderNumber,
         'job_number': data.jobNumber,
         'client_name': data.customerName, // Fix: client_name instead of customer_name
@@ -229,12 +233,15 @@ class JobOrderService {
   static Future<List<MapEntry<dynamic, JobOrderData>>> getSavedOrders() async {
     final box = await Hive.openBox('issued_job_orders');
     final supabase = Supabase.instance.client;
+    final factoryId = await SupabaseManager.getFactoryId();
 
-    try {
-      final List<dynamic> response = await supabase
-          .from('issued_job_orders')
-          .select('id, order_data')
-          .order('created_at', ascending: false);
+    if (factoryId != null) {
+      try {
+        final List<dynamic> response = await supabase
+            .from('issued_job_orders')
+            .select('id, order_data')
+            .eq('factory_id', factoryId)
+            .order('created_at', ascending: false);
 
       await box.clear(); // مسح الـ Cache القديم
       for (var row in response) {
@@ -244,8 +251,9 @@ class JobOrderService {
         await box.put(id, jsonEncode(orderData));
       }
       debugPrint('Fetched ${response.length} issued job orders from Supabase.');
-    } catch (e) {
-      debugPrint('Failed to fetch issued job orders from Supabase (using local cache): $e');
+      } catch (e) {
+        debugPrint('Failed to fetch issued job orders from Supabase (using local cache): $e');
+      }
     }
 
     final entries = box.keys.map((k) {

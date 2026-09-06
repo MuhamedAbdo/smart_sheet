@@ -27,7 +27,17 @@ import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
-
+import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/models/worker_action_model.dart';
+import 'package:smart_sheet/models/flexo_production_report.dart';
+import 'package:smart_sheet/models/die_cutting_production_report.dart';
+import 'package:smart_sheet/models/maintenance_record_model.dart';
+import 'package:smart_sheet/models/store_entry_model.dart';
+import 'package:smart_sheet/models/live_session.dart';
+import 'package:smart_sheet/models/flexo_machine.dart';
+import 'package:smart_sheet/models/die_cutting_form.dart';
+import 'package:smart_sheet/models/finished_product_model.dart';
+import 'package:smart_sheet/models/day_schedule.dart';
 class KillSwitchService {
   // ─── Singleton ─────────────────────────────────────────────────────────────
   static final KillSwitchService instance = KillSwitchService._internal();
@@ -526,19 +536,53 @@ class KillSwitchService {
 
       // 1b. المسح الشامل لجميع بيانات التطبيق المحلية بطريقة آمنة
       try {
-        // بدلاً من deleteFromDisk الذي يغلق الصناديق ويفسد واجهة المستخدم، نقوم بتفريغها فقط
-        final boxNames = [
-          'settings', 'worker_actions', 'workers', 'workers_flexo', 'workers_production', 'workers_staple',
-          'finished_products', 'flexo_live_sessions', 'flexo_machines', 'factory_schedule', 'sync_queue',
-          'die_cutting_forms', 'die_cutting_production_reports', 'savedSheetSizes', 'flexo_production_reports_box',
-          'maintenance_records_main', 'store_flexo', 'maintenance_flexo_v2', 'crushingarchive', 'flexoarchive', 'lineararchive'
-        ];
-        
-        for (final name in boxNames) {
-          if (Hive.isBoxOpen(name)) {
-            await Hive.box(name).clear();
+        // بدلاً من deleteFromDisk الذي يغلق الصناديق ويفسد واجهة المستخدم، نقوم بتفريغها فقط مع تحديد نوع الصندوق الأصلي
+        Future<void> clearBoxSafely<T>(String name) async {
+          try {
+            if (Hive.isBoxOpen(name)) {
+              if (T == dynamic) {
+                await Hive.box(name).clear();
+              } else {
+                await Hive.box<T>(name).clear();
+              }
+            } else {
+              // إذا كان الصندوق غير مفتوح، يمكننا حذفه من القرص بأمان تام لأنه لن يؤثر على واجهة المستخدم
+              await Hive.deleteBoxFromDisk(name);
+            }
+          } catch (e) {
+            debugPrint('⚠️ فشل تفريغ صندوق $name: $e');
           }
         }
+
+        // تفريغ الصناديق التي تم فتحها بدون نوع محدد (dynamic)
+        await clearBoxSafely('settings');
+        await clearBoxSafely('sync_queue');
+        await clearBoxSafely('savedSheetSizes');
+        await clearBoxSafely('serial_setup_state');
+        await clearBoxSafely('issued_job_orders');
+        await clearBoxSafely('crushingArchive');
+        await clearBoxSafely('flexoArchive');
+        await clearBoxSafely('lineArchive');
+        await clearBoxSafely('crushingarchive');
+        await clearBoxSafely('flexoarchive');
+        await clearBoxSafely('lineararchive');
+
+        // تفريغ الصناديق ذات الأنواع المحددة
+        await clearBoxSafely<WorkerAction>('worker_actions');
+        await clearBoxSafely<Worker>('workers');
+        await clearBoxSafely<Worker>('workers_flexo');
+        await clearBoxSafely<Worker>('workers_production');
+        await clearBoxSafely<Worker>('workers_staple');
+        await clearBoxSafely<FinishedProduct>('finished_products');
+        await clearBoxSafely<LiveSession>('flexo_live_sessions');
+        await clearBoxSafely<FlexoMachine>('flexo_machines');
+        await clearBoxSafely<DieCuttingForm>('die_cutting_forms');
+        await clearBoxSafely<DieCuttingProductionReport>('die_cutting_production_reports');
+        await clearBoxSafely<FlexoProductionReport>('flexo_production_reports_box');
+        await clearBoxSafely<MaintenanceRecord>('maintenance_records_main');
+        await clearBoxSafely<MaintenanceRecord>('maintenance_flexo_v2');
+        await clearBoxSafely<StoreEntry>('store_flexo');
+        await clearBoxSafely<DaySchedule>('factory_schedule');
         
         // مسح الصور من الكاش كإجراء إضافي (مجلد smart_sheet_cache)
         final appDir = await getApplicationDocumentsDirectory();

@@ -72,6 +72,28 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final error = await authService.signInWithGoogle(
+      webClientId: '796371999925-g50g04ggemls59llp3eja5g2qfui7t6a.apps.googleusercontent.com',
+    );
+
+    if (!mounted) return;
+
+    if (error != null) {
+      _showSnackBar(error, Colors.red);
+    } else {
+      // في حالة الويندوز (PKCE) قد يتأخر تسجيل الدخول حتى عودة المستخدم من المتصفح
+      // لكن يمكننا عرض رسالة توجيهية أو النجاح المبدئي
+      _showSnackBar('جاري تسجيل الدخول...', Colors.green);
+      
+      // في الأندرويد، الدخول يتم فوراً، لذلك يمكن التوجيه
+      if (authService.state.user != null) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      }
+    }
+  }
+
   void _showSnackBar(String message, Color color) {
     UIUtils.showInfoSnackBar(
       message: message,
@@ -195,7 +217,23 @@ class _AuthScreenState extends State<AuthScreen> {
                           : _isSignIn ? 'تسجيل الدخول' : 'إنشاء حساب',
                           style: const TextStyle(fontSize: 18)),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
+                if (!_isResetPassword) ...[
+                  OutlinedButton.icon(
+                    onPressed: authLoading ? null : _handleGoogleSignIn,
+                    icon: const Icon(Icons.g_mobiledata, size: 32, color: Colors.red),
+                    label: const Text(
+                      'المتابعة باستخدام Google',
+                      style: TextStyle(fontSize: 18, color: Colors.red),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: Colors.red),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8))),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 if (!_isResetPassword) ...[
                   TextButton(
                     onPressed: authLoading

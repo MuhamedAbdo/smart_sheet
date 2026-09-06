@@ -101,27 +101,27 @@ Future<void> main() async {
       }
       _registerAdapters();
 
-      // ─── محاولة فتح settings مع retry متقدم للتعامل مع lock file ───
-      // يحدث عند التثبيت فوق نسخة قديمة بدون إغلاق التطبيق أولاً
-      await _openSettingsBoxWithLockRecovery();
+      // ─── محاولة فتح صناديق Hive مع تفادي مشاكل Lock file المعلقة ───
+      await _openBoxWithLockRecovery('settings');
+      
       // ✅ تأكد من أن كل جهاز يملك UUID ثابتاً منذ أول تشغيل
       // ضروري لنظام ملكية الإجراءات (isOwner check في action cards)
       await DeviceManager.getDeviceId();
 
       // فتح صناديق العلاقات الأساسية
-      await Hive.openBox<WorkerAction>('worker_actions');
+      await _openBoxWithLockRecovery<WorkerAction>('worker_actions');
       await Future.wait([
-        Hive.openBox<Worker>('workers'),
-        Hive.openBox<Worker>('workers_flexo'),
-        Hive.openBox<Worker>('workers_production'),
-        Hive.openBox<Worker>('workers_staple'),
-        Hive.openBox<FinishedProduct>('finished_products'),
-        Hive.openBox<LiveSession>('flexo_live_sessions'),
-        Hive.openBox<FlexoMachine>('flexo_machines'),
-        Hive.openBox<DaySchedule>('factory_schedule'), // جدول أيام الوردية
-        Hive.openBox('sync_queue'), // قائمة انتظار المزامنة
-        Hive.openBox<DieCuttingForm>('die_cutting_forms'), // قوالب التكسير
-        Hive.openBox<DieCuttingProductionReport>('die_cutting_production_reports'),
+        _openBoxWithLockRecovery<Worker>('workers'),
+        _openBoxWithLockRecovery<Worker>('workers_flexo'),
+        _openBoxWithLockRecovery<Worker>('workers_production'),
+        _openBoxWithLockRecovery<Worker>('workers_staple'),
+        _openBoxWithLockRecovery<FinishedProduct>('finished_products'),
+        _openBoxWithLockRecovery<LiveSession>('flexo_live_sessions'),
+        _openBoxWithLockRecovery<FlexoMachine>('flexo_machines'),
+        _openBoxWithLockRecovery<DaySchedule>('factory_schedule'), // جدول أيام الوردية
+        _openBoxWithLockRecovery('sync_queue'), // قائمة انتظار المزامنة
+        _openBoxWithLockRecovery<DieCuttingForm>('die_cutting_forms'), // قوالب التكسير
+        _openBoxWithLockRecovery<DieCuttingProductionReport>('die_cutting_production_reports'),
       ]);
       _openBackgroundBoxes();
       
@@ -286,10 +286,14 @@ void _initDefaultSchedule() {
   }
 }
 
-void _openBackgroundBoxes() {
-  Hive.openBox<StoreEntry>('store_flexo');
-  Hive.openBox<MaintenanceRecord>('maintenance_records_main');
-  Hive.openBox<FlexoProductionReport>('flexo_production_reports_box');
+void _openBackgroundBoxes() async {
+  try {
+    await _openBoxWithLockRecovery<StoreEntry>('store_flexo');
+    await _openBoxWithLockRecovery<MaintenanceRecord>('maintenance_records_main');
+    await _openBoxWithLockRecovery<FlexoProductionReport>('flexo_production_reports_box');
+  } catch (e) {
+    debugPrint("⚠️ Failed to open some background typed boxes: $e");
+  }
 
   final otherBoxes = [
     'savedSheetSizes',
@@ -299,57 +303,70 @@ void _openBackgroundBoxes() {
     'serial_setup_state',
   ];
   for (var box in otherBoxes) {
-    Hive.openBox(box).then(
-      (_) => {}, // Success case - do nothing
-      onError: (e) => debugPrint("⚠️ Failed to open $box: $e"),
-    );
+    _openBoxWithLockRecovery(box).catchError((e) {
+      debugPrint("⚠️ Failed to open $box: $e");
+      return Hive.box(box);
+    });
   }
 }
 
 // ─── تحصين Hive Lock — 3 محاولات مع حذف Lock File آمن على جميع الأنظمة ───────────
 //
-// السبب: عند التثبيت فوق نسخة قديمة، يبقى ملف settings.lock
-// محجوزاً من العملية السابقة. إذا فشلت المحاولة الأولى والثانية، نحاول
-// حذف الـ lock file بأمان ثم إعادة الفتح.
+// السبب: عند انهيار التطبيق أو التحديث فوق نسخة قديمة، تبقى ملفات الـ lock
+// محجوزة. هذا يسبب PathAccessException في ويندوز خاصةً.
 //
-Future<void> _openSettingsBoxWithLockRecovery() async {
-  // المحاولة الأولى — المسار الطبيعي السريع
+Future<Box<E>> _openBoxWithLockRecovery<E>(String boxName) async {
   try {
-    await Hive.openBox('settings');
-    debugPrint('✅ settings box: فُتح بنجاح (المحاولة 1)');
-    return;
+    return await Hive.openBox<E>(boxName);
   } catch (e1) {
-    debugPrint('⚠️ settings.lock محجوز (محاولة 1): $e1');
+    debugPrint('⚠️ $boxName.lock محجوز (محاولة 1): $e1');
   }
 
-  // المحاولة الثانية — انتظار 1.5 ثانية ثم إعادة المحاولة
-  await Future.delayed(const Duration(milliseconds: 1500));
+  await Future.delayed(const Duration(milliseconds: 500));
   try {
-    await Hive.openBox('settings');
-    debugPrint('✅ settings box: فُتح بنجاح (المحاولة 2)');
-    return;
+    return await Hive.openBox<E>(boxName);
   } catch (e2) {
-    debugPrint('⚠️ settings.lock لا يزال محجوزاً (محاولة 2): $e2');
+    debugPrint('⚠️ $boxName.lock لا يزال محجوزاً (محاولة 2): $e2');
   }
 
   // المحاولة الثالثة — حذف lock file بأمان (على جميع الأنظمة Windows & Android)
   if (!kIsWeb) {
     try {
-      final hiveDir = await getApplicationDocumentsDirectory();
-      final lockFile = File('${hiveDir.path}/settings.lock');
+      final appDir = await getApplicationDocumentsDirectory();
+      // الانتباه لمسار التهيئة في ويندوز
+      final String hivePath = Platform.isWindows
+          ? '${appDir.path}\\SmartSheet_Data'
+          : appDir.path;
+      final lockFile = File('$hivePath${Platform.pathSeparator}$boxName.lock');
       if (lockFile.existsSync()) {
+        if (Platform.isWindows) {
+          try {
+            // إنهاء أي نسخ سابقة معلقة من التطبيق (Ghost Processes) التي تحتكر الملف
+            final currentPid = pid;
+            Process.runSync('powershell', [
+              '-Command',
+              'Get-Process smart_sheet -ErrorAction SilentlyContinue | Where-Object { \$_.Id -ne $currentPid } | Stop-Process -Force'
+            ]);
+            // الانتظار قليلاً حتى يقوم النظام بتحرير الملف فعلياً بعد قتل العملية
+            await Future.delayed(const Duration(milliseconds: 500));
+          } catch (procErr) {
+            debugPrint('⚠️ [HiveLock] تعذر إنهاء العمليات المعلقة: $procErr');
+          }
+        }
+        
         lockFile.deleteSync();
-        debugPrint('🔓 [HiveLock] تم حذف settings.lock المتعلق بأمان.');
+        debugPrint('🔓 [HiveLock] تم حذف $boxName.lock المتعلق بأمان للتعافي.');
       }
     } catch (deleteError) {
-      debugPrint('⚠️ [HiveLock] تعذّر حذف lock file: $deleteError');
+      debugPrint('⚠️ [HiveLock] تعذّر حذف lock file الخاص بـ $boxName: $deleteError');
     }
   }
 
-  await Future.delayed(const Duration(milliseconds: 500));
-  // المحاولة الأخيرة — إذا فشلت، تُرفع الاستثناء للـ catch الخارجي
-  await Hive.openBox('settings');
-  debugPrint('✅ settings box: فُتح بنجاح (المحاولة 3 بعد حذف اللوك)');
+  await Future.delayed(const Duration(milliseconds: 200));
+  // المحاولة الأخيرة — إذا فشلت، تُرفع الاستثناء
+  final box = await Hive.openBox<E>(boxName);
+  debugPrint('✅ $boxName box: فُتح بنجاح (المحاولة 3 بعد فك القفل)');
+  return box;
 }
 
 Future<void> _initializeNotifications() async {
