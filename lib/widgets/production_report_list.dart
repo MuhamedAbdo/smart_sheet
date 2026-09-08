@@ -140,8 +140,22 @@ class FlexoProductionReportList extends StatelessWidget {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () =>
-                                exportReportToPdf(context, record, []),
+                            onPressed: () {
+                              if (record['status']?.toString() == 'pending') {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      '⚠️ لا يمكن تصدير تقرير قيد المراجعة. يجب اعتماده أولاً.',
+                                      style: TextStyle(fontFamily: 'Cairo'),
+                                    ),
+                                    backgroundColor: Colors.orange,
+                                    duration: Duration(seconds: 3),
+                                  ),
+                                );
+                                return;
+                              }
+                              exportReportToPdf(context, record, []);
+                            },
                             icon: const Icon(Icons.picture_as_pdf,
                                 size: 18, color: Colors.green),
                             label: const Text('تصدير PDF',
@@ -237,17 +251,31 @@ class FlexoProductionReportList extends StatelessWidget {
       if (originalRecord is FlexoProductionReport) {
         final updated = originalRecord.copyWith(status: 'approved');
         box.put(key, updated);
-        SyncService.instance.pushToQueue('flexo_production_reports', updated.toJson());
+        // إرسال snake_case فقط لتجنب خطأ الأعمدة
+        SyncService.instance.pushToQueue('flexo_production_reports', {
+          'id': updated.id,
+          'sync_id': updated.id,
+          'status': 'approved',
+        });
       } else if (originalRecord is DieCuttingProductionReport) {
         final updated = originalRecord.copyWith(status: 'approved');
         box.put(key, updated);
-        SyncService.instance.pushToQueue('die_cutting_production_reports', updated.toJson());
+        SyncService.instance.pushToQueue('die_cutting_production_reports', {
+          'id': updated.id,
+          'sync_id': updated.id,
+          'status': 'approved',
+        });
       } else if (originalRecord is Map) {
         originalRecord['status'] = 'approved';
         box.put(key, originalRecord);
-        // We'd need to know the table name here, but since FlexoProductionReportList is generic enough...
-        // Fallback to updating directly in DB through generic sync if possible, or assume flexo if map
-        SyncService.instance.pushToQueue('flexo_production_reports', Map<String, dynamic>.from(originalRecord));
+        final syncId = originalRecord['sync_id']?.toString() ?? originalRecord['id']?.toString();
+        if (syncId != null) {
+          SyncService.instance.pushToQueue('flexo_production_reports', {
+            'id': syncId,
+            'sync_id': syncId,
+            'status': 'approved',
+          });
+        }
       }
     }
   }

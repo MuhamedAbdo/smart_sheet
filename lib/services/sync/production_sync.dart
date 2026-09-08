@@ -136,6 +136,12 @@ mixin ProductionSync on SyncServiceBase {
           if (currentLayers.isEmpty && existingLayers.isNotEmpty) {
             updatedData['paper_layers'] = existingLayers;
           }
+
+          // ✅ حماية حالة التقرير: إذا كان السيرفر لا يُعيد 'status' أو يُعيد قيمة خاطئة،
+          // نحتفظ بالحالة المحلية (pending/approved) لتفادي الكتابة فوقها
+          if (!r.containsKey('status') || r['status'] == null) {
+            updatedData['status'] = existing.status;
+          }
         }
 
         await box.put(syncId, FlexoProductionReport.fromJson(updatedData));

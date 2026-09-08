@@ -401,7 +401,74 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
       return;
     }
 
-    // السيناريو الثالث (مختلط)
+    // ─── فحص التقارير قيد المراجعة (Pending Guard) ────────────────────────────
+    final List<Map<String, dynamic>> pendingReports = newReports
+        .where((r) => (r['status']?.toString() ?? 'approved') == 'pending')
+        .toList();
+    final List<Map<String, dynamic>> approvedReports = newReports
+        .where((r) => (r['status']?.toString() ?? 'approved') != 'pending')
+        .toList();
+
+    if (pendingReports.isNotEmpty) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (BuildContext dialogCtx) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Icon(Icons.pending_actions, color: Colors.orange.shade700, size: 26),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'تحذير: تقارير قيد المراجعة',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'يوجد ${pendingReports.length} تقرير قيد المراجعة في هذه الوردية.\n'
+              'لا يمكن أرشفة مسودات غير معتمدة.\n\n'
+              'هل تريد مراجعة التقارير واعتمادها أولاً، أم أرشفة المعتمد فقط (${approvedReports.length} تقرير)؟',
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+            actions: [
+              TextButton.icon(
+                icon: const Icon(Icons.rate_review_outlined, color: Colors.blueGrey),
+                label: const Text('مراجعة التقارير', style: TextStyle(color: Colors.blueGrey)),
+                onPressed: () => Navigator.pop(dialogCtx),
+              ),
+              if (approvedReports.isNotEmpty)
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 18),
+                  label: const Text('أرشفة المعتمد فقط', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+                  onPressed: () {
+                    Navigator.pop(dialogCtx);
+                    if (duplicateReports.isNotEmpty) {
+                      _executeArchiveTransfer(archiveBox, approvedReports);
+                    } else {
+                      _executeArchiveTransfer(archiveBox, approvedReports);
+                    }
+                  },
+                )
+              else
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+                  onPressed: null,
+                  child: const Text('لا توجد تقارير معتمدة', style: TextStyle(color: Colors.white)),
+                ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // السيناريو الثالث (مختلط - بعد تجاوز فحص الـ pending)
     if (duplicateReports.isNotEmpty) {
       showDialog(
         context: context,
@@ -1732,6 +1799,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   ? 'die_cutting_production_reports' 
                   : (widget.department == 'production_line' ? 'line_production_reports' : 'flexo_production_reports');
 
+              final String reportStatus = r['status']?.toString() ?? 'approved';
+
               if (tableName == 'die_cutting_production_reports') {
                 final report = DieCuttingProductionReport(
                   id: syncId,
@@ -1753,13 +1822,19 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
                   crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
                   shiftName: r['shiftName']?.toString() ?? r['shift_name']?.toString(),
+                  status: reportStatus, // ✅ تمرير الحالة الصحيحة
                 );
                 await _productionReportBox!.put(syncId, report);
-                SyncService.instance.pushToQueue(tableName, report.toJson());
+                // إرسال snake_case فقط لتجنب خطأ الأعمدة في Supabase
+                final jsonData = report.toJson();
+                jsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+                SyncService.instance.pushToQueue(tableName, jsonData);
               } else {
                 final reportObj = FlexoProductionReport.fromJson(r);
                 await _productionReportBox!.put(syncId, reportObj);
-                SyncService.instance.pushToQueue(tableName, reportObj.toJson());
+                final jsonData = reportObj.toJson();
+                jsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+                SyncService.instance.pushToQueue(tableName, jsonData);
               }
               if (mounted) {
                 setState(() {
@@ -1809,6 +1884,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   ? 'die_cutting_production_reports' 
                   : (widget.department == 'production_line' ? 'line_production_reports' : 'flexo_production_reports');
 
+              final String editedStatus = r['status']?.toString() ?? 'approved';
+
               if (tableName == 'die_cutting_production_reports') {
                 final report = DieCuttingProductionReport(
                   id: existingSyncId,
@@ -1830,13 +1907,18 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
                   crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
                   shiftName: r['shiftName']?.toString() ?? r['shift_name']?.toString(),
+                  status: editedStatus, // ✅ تمرير الحالة الصحيحة
                 );
                 await _productionReportBox!.put(existingSyncId, report);
-                SyncService.instance.pushToQueue(tableName, report.toJson());
+                final editJsonData = report.toJson();
+                editJsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+                SyncService.instance.pushToQueue(tableName, editJsonData);
               } else {
                 final reportObj = FlexoProductionReport.fromJson(r);
                 await _productionReportBox!.put(existingSyncId, reportObj);
-                SyncService.instance.pushToQueue(tableName, reportObj.toJson());
+                final editJsonData = reportObj.toJson();
+                editJsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+                SyncService.instance.pushToQueue(tableName, editJsonData);
               }
               if (mounted) {
                 setState(() {
@@ -2184,6 +2266,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 ? 'die_cutting_production_reports' 
                 : ((session.department == 'production_line' || widget.department == 'production_line') ? 'line_production_reports' : 'flexo_production_reports');
 
+            final String sessionStatus = r['status']?.toString() ?? 'approved';
+
             if (tableName == 'die_cutting_production_reports') {
                 final report = DieCuttingProductionReport(
                   id: syncId,
@@ -2205,15 +2289,20 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
                   crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
                   shiftName: r['shiftName']?.toString() ?? r['shift_name']?.toString(),
+                  status: sessionStatus, // ✅ تمرير الحالة الصحيحة
                 );
                 // حفظ محلي بمفتاح ثابت لمنع التكرار
                 await _productionReportBox!.put(syncId, report);
-                SyncService.instance.pushToQueue(tableName, report.toJson());
+                final sessionJsonData = report.toJson();
+                sessionJsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+                SyncService.instance.pushToQueue(tableName, sessionJsonData);
             } else {
                 final reportObj = FlexoProductionReport.fromJson(r);
                 // حفظ محلي بمفتاح ثابت لمنع التكرار
                 await _productionReportBox!.put(syncId, reportObj);
-                SyncService.instance.pushToQueue(tableName, reportObj.toJson());
+                final sessionJsonData = reportObj.toJson();
+                sessionJsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+                SyncService.instance.pushToQueue(tableName, sessionJsonData);
             }
 
             debugPrint(

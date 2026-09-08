@@ -260,6 +260,34 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
       return;
     }
 
+    // ─── فلترة التقارير المعتمدة فقط للـ PDF ──────────────────────────────────
+    final int totalBeforeFilter = records.length;
+    records = records
+        .where((r) => (r['status']?.toString() ?? 'approved') == 'approved')
+        .toList();
+    final int excludedCount = totalBeforeFilter - records.length;
+
+    if (records.isEmpty) {
+      UIUtils.showInfoSnackBar(
+        message: "لا توجد تقارير معتمدة لهذه الماكينة. جميع التقارير قيد المراجعة.",
+        backgroundColor: Colors.orange,
+        icon: Icons.pending_actions,
+      );
+      return;
+    }
+
+    // إشعار المستخدم بالتقارير المستثناة
+    if (excludedCount > 0 && context.mounted) {
+      UIUtils.showInfoSnackBar(
+        message: "تم استثناء $excludedCount تقرير قيد المراجعة من ملف الـ PDF لضمان دقة البيانات.",
+        backgroundColor: Colors.orange.shade700,
+        icon: Icons.info_outline,
+      );
+      // انتظر لحظة لكي يرى المستخدم الـ SnackBar قبل فتح الـ PDF
+      await Future.delayed(const Duration(milliseconds: 1200));
+    }
+    // ──────────────────────────────────────────────────────────────────────────
+
     final title = isPrinting
         ? "تقرير طباعة ماكينة: $machineName"
         : (department == 'crushing'
