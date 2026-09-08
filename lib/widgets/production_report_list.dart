@@ -1,8 +1,12 @@
-﻿// lib/widgets/production_report_list.dart
+// lib/widgets/production_report_list.dart
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/pdf_export_helper.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/models/flexo_production_report.dart';
+import 'package:smart_sheet/models/die_cutting_production_report.dart';
 
 class FlexoProductionReportList extends StatelessWidget {
   final Box box;
@@ -68,6 +72,18 @@ class FlexoProductionReportList extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (record['status'] == 'pending')
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'قيد المراجعة',
+                              style: TextStyle(color: Colors.deepOrange, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -132,6 +148,17 @@ class FlexoProductionReportList extends StatelessWidget {
                                 style: TextStyle(color: Colors.green)),
                           ),
                         ),
+                        if (record['status'] == 'pending' && PermissionHelper.canApproveReports)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                _approveReport(key, record);
+                              },
+                              icon: const Icon(Icons.check_circle, size: 18, color: Colors.orange),
+                              label: const Text('اعتماد', style: TextStyle(color: Colors.orange)),
+                            ),
+                          ),
                         IconButton(
                           onPressed: () =>
                               onEdit(key, _convertValuesToString(record)),
@@ -201,6 +228,28 @@ class FlexoProductionReportList extends StatelessWidget {
   Map<String, dynamic> _convertValuesToString(Map<String, dynamic> data) {
     return data
         .map((k, v) => MapEntry(k, v is Map || v is List ? v : v.toString()));
+  }
+
+  void _approveReport(dynamic key, Map<String, dynamic> record) {
+    // الحصول على السجل الأصلي من Hive لتحديثه
+    final originalRecord = box.get(key);
+    if (originalRecord != null) {
+      if (originalRecord is FlexoProductionReport) {
+        final updated = originalRecord.copyWith(status: 'approved');
+        box.put(key, updated);
+        SyncService.instance.pushToQueue('flexo_production_reports', updated.toJson());
+      } else if (originalRecord is DieCuttingProductionReport) {
+        final updated = originalRecord.copyWith(status: 'approved');
+        box.put(key, updated);
+        SyncService.instance.pushToQueue('die_cutting_production_reports', updated.toJson());
+      } else if (originalRecord is Map) {
+        originalRecord['status'] = 'approved';
+        box.put(key, originalRecord);
+        // We'd need to know the table name here, but since FlexoProductionReportList is generic enough...
+        // Fallback to updating directly in DB through generic sync if possible, or assume flexo if map
+        SyncService.instance.pushToQueue('flexo_production_reports', Map<String, dynamic>.from(originalRecord));
+      }
+    }
   }
 }
 

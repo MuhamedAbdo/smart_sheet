@@ -102,4 +102,11 @@ class PermissionHelper {
     if (isSuperAdmin || isFactoryAdmin) return true;
     return currentWorker?.canIssueJobOrders == true;
   }
+
+  /// صلاحية الاعتماد (تحويل الحالة إلى approved)
+  static bool get canApproveReports {
+    if (isSuspended) return false;
+    if (isSuperAdmin || isFactoryAdmin) return true;
+    return currentWorker?.canEdit == true && currentWorker?.canDelete == true;
+  }
 }

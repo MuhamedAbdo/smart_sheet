@@ -13,6 +13,7 @@ class SessionCard extends StatefulWidget {
   final VoidCallback onFinish;
   final VoidCallback onCancel; // ✅ إضافة دالة الإلغاء
   final Function(bool) onToggleDowntime;
+  final bool hasConflict; // ✅ إضافة تحديد التعارض
 
   const SessionCard({
     super.key,
@@ -20,6 +21,7 @@ class SessionCard extends StatefulWidget {
     required this.onFinish,
     required this.onCancel, // ✅ تمرير الدالة للمُنشئ
     required this.onToggleDowntime,
+    this.hasConflict = false, // الافتراضي false
   });
 
   @override
@@ -103,6 +105,11 @@ class _SessionCardState extends State<SessionCard> {
   Widget build(BuildContext context) {
     final bool isPaused = !widget.session.isRunning;
     final bool isOwner = _checkIsOwner;
+    
+    // ✅ حساب لون الإطار بناءً على التعارض
+    final Color borderColor = widget.hasConflict 
+        ? Colors.red 
+        : (isPaused ? Colors.orange : Colors.green);
 
     return Card(
       elevation: 4,
@@ -110,10 +117,11 @@ class _SessionCardState extends State<SessionCard> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
         side: BorderSide(
-          color: isPaused ? Colors.orange : Colors.green,
-          width: 2,
+          color: borderColor,
+          width: widget.hasConflict ? 3 : 2, // زيادة السُمك في حالة التعارض
         ),
       ),
+      color: widget.hasConflict ? Colors.red.shade50 : null, // خلفية حمراء خفيفة
       child: Container(
         width: 300,
         padding: const EdgeInsets.all(12),
@@ -122,6 +130,29 @@ class _SessionCardState extends State<SessionCard> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (widget.hasConflict) // ✅ رسالة التعارض
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(6),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.red, size: 18),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'تعارض: الماكينة قيد التشغيل في جلسة أخرى',
+                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 11),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

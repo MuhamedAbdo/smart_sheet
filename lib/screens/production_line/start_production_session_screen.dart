@@ -119,6 +119,23 @@ class _StartProductionSessionScreenState
     setState(() => _isLoading = true);
 
     try {
+      // ✅ التحقق من عدم وجود جلسة قيد التشغيل لنفس الماكينة
+      final liveBoxCheck = Hive.isBoxOpen('flexo_live_sessions')
+          ? Hive.box<LiveSession>('flexo_live_sessions')
+          : await Hive.openBox<LiveSession>('flexo_live_sessions');
+      
+      final isAlreadyRunning = liveBoxCheck.values.any((s) => 
+        s.machineName == _selectedMachine && s.isRunning
+      );
+
+      if (isAlreadyRunning) {
+        UIUtils.showInfoSnackBar(
+          message: 'لا يمكن البدء: الماكينة قيد التشغيل حالياً في جلسة أخرى',
+          backgroundColor: Colors.red,
+        );
+        return;
+      }
+
       final sessionId = const Uuid().v4();
       final fId = await SupabaseManager.getFactoryId();
       final deviceId = await DeviceManager.getDeviceId();

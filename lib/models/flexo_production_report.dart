@@ -103,6 +103,9 @@ class FlexoProductionReport extends HiveObject {
   @HiveField(32)
   final String? shiftName;
 
+  @HiveField(33, defaultValue: 'approved')
+  final String status;
+
   FlexoProductionReport({
     required this.id,
     required this.factoryId,
@@ -137,7 +140,82 @@ class FlexoProductionReport extends HiveObject {
     this.notes,
     this.crewMembers,
     this.shiftName,
+    this.status = 'approved',
   });
+
+  FlexoProductionReport copyWith({
+    String? id,
+    String? factoryId,
+    String? date,
+    String? syncId,
+    String? createdBy,
+    String? department,
+    String? clientName,
+    String? productName,
+    String? productCode,
+    String? orderNumber,
+    String? formNumber,
+    String? machineName,
+    String? technicianName,
+    String? startTime,
+    String? endTime,
+    int? quantity,
+    int? lineWaste,
+    int? printWaste,
+    double? weight,
+    int? totalDowntime,
+    List<dynamic>? downtimeIntervals,
+    int? elapsedTime,
+    int? netTime,
+    double? averageSpeed,
+    List<dynamic>? colors,
+    Map<String, dynamic>? dimensions,
+    List<dynamic>? paperLayers,
+    double? rollWidth,
+    List<dynamic>? imagePaths,
+    bool? isSheet,
+    String? notes,
+    List<String>? crewMembers,
+    String? shiftName,
+    String? status,
+  }) {
+    return FlexoProductionReport(
+      id: id ?? this.id,
+      factoryId: factoryId ?? this.factoryId,
+      date: date ?? this.date,
+      syncId: syncId ?? this.syncId,
+      createdBy: createdBy ?? this.createdBy,
+      department: department ?? this.department,
+      clientName: clientName ?? this.clientName,
+      productName: productName ?? this.productName,
+      productCode: productCode ?? this.productCode,
+      orderNumber: orderNumber ?? this.orderNumber,
+      formNumber: formNumber ?? this.formNumber,
+      machineName: machineName ?? this.machineName,
+      technicianName: technicianName ?? this.technicianName,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      quantity: quantity ?? this.quantity,
+      lineWaste: lineWaste ?? this.lineWaste,
+      printWaste: printWaste ?? this.printWaste,
+      weight: weight ?? this.weight,
+      totalDowntime: totalDowntime ?? this.totalDowntime,
+      downtimeIntervals: downtimeIntervals ?? this.downtimeIntervals,
+      elapsedTime: elapsedTime ?? this.elapsedTime,
+      netTime: netTime ?? this.netTime,
+      averageSpeed: averageSpeed ?? this.averageSpeed,
+      colors: colors ?? this.colors,
+      dimensions: dimensions ?? this.dimensions,
+      paperLayers: paperLayers ?? this.paperLayers,
+      rollWidth: rollWidth ?? this.rollWidth,
+      imagePaths: imagePaths ?? this.imagePaths,
+      isSheet: isSheet ?? this.isSheet,
+      notes: notes ?? this.notes,
+      crewMembers: crewMembers ?? this.crewMembers,
+      shiftName: shiftName ?? this.shiftName,
+      status: status ?? this.status,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -174,6 +252,7 @@ class FlexoProductionReport extends HiveObject {
       'notes': notes,
       'crew_members': crewMembers,
       'shift_name': shiftName,
+      'status': status,
     };
   }
 
@@ -212,6 +291,7 @@ class FlexoProductionReport extends HiveObject {
       notes: map['notes']?.toString(),
       crewMembers: map['crew_members'] is List ? List<String>.from(map['crew_members']) : null,
       shiftName: map['shift_name']?.toString() ?? map['shiftName']?.toString(),
+      status: map['status']?.toString() ?? 'approved',
     );
   }
 

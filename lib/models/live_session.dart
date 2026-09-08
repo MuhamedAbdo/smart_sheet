@@ -72,6 +72,9 @@ class LiveSession extends HiveObject {
   @HiveField(21)
   final List<String>? crewMembers;
 
+  @HiveField(22, defaultValue: 'pending')
+  final String status;
+
   LiveSession({
     required this.id,
     required this.machineName,
@@ -95,8 +98,61 @@ class LiveSession extends HiveObject {
     this.paperLayers,
     this.formNumber,
     this.crewMembers,
+    this.status = 'pending',
   })  : startTime = startTime.toUtc(),
         lastStateChange = lastStateChange.toUtc();
+
+  LiveSession copyWith({
+    String? id,
+    String? machineName,
+    String? clientName,
+    String? productName,
+    String? productCode,
+    String? orderNumber,
+    String? technicianName,
+    DateTime? startTime,
+    List<DowntimeInterval>? downtimeIntervals,
+    bool? isRunning,
+    DateTime? lastStateChange,
+    Map<String, dynamic>? dimensions,
+    bool? isSheet,
+    List<String>? imagePaths,
+    String? factoryId,
+    String? createdByDeviceId,
+    String? technicianId,
+    String? department,
+    String? shift,
+    List<String>? paperLayers,
+    String? formNumber,
+    List<String>? crewMembers,
+    String? status,
+  }) {
+    return LiveSession(
+      id: id ?? this.id,
+      machineName: machineName ?? this.machineName,
+      clientName: clientName ?? this.clientName,
+      productName: productName ?? this.productName,
+      productCode: productCode ?? this.productCode,
+      orderNumber: orderNumber ?? this.orderNumber,
+      technicianName: technicianName ?? this.technicianName,
+      startTime: startTime ?? this.startTime,
+      downtimeIntervals: downtimeIntervals ?? this.downtimeIntervals,
+      isRunning: isRunning ?? this.isRunning,
+      lastStateChange: lastStateChange ?? this.lastStateChange,
+      dimensions: dimensions ?? this.dimensions,
+      isSheet: isSheet ?? this.isSheet,
+      imagePaths: imagePaths ?? this.imagePaths,
+      factoryId: factoryId ?? this.factoryId,
+      createdByDeviceId: createdByDeviceId ?? this.createdByDeviceId,
+      technicianId: technicianId ?? this.technicianId,
+      department: department ?? this.department,
+      shift: shift ?? this.shift,
+      paperLayers: paperLayers ?? this.paperLayers,
+      formNumber: formNumber ?? this.formNumber,
+      crewMembers: crewMembers ?? this.crewMembers,
+      status: status ?? this.status,
+    );
+  }
 
   @override
   Future<void> save() {
@@ -150,6 +206,7 @@ class LiveSession extends HiveObject {
       'paper_layers': paperLayers,
       'form_number': formNumber,
       'crew_members': crewMembers,
+      'status': status,
     };
   }
 
@@ -195,6 +252,7 @@ class LiveSession extends HiveObject {
       paperLayers: rawLayers != null ? List<String>.from(rawLayers) : null,
       formNumber: json['formNumber']?.toString() ?? json['form_number']?.toString(),
       crewMembers: json['crew_members'] != null ? List<String>.from(json['crew_members']) : null,
+      status: json['status']?.toString() ?? 'pending',
     );
   }
 }

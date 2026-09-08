@@ -64,6 +64,9 @@ class DieCuttingProductionReport extends HiveObject {
   @HiveField(19)
   final String? shiftName;
 
+  @HiveField(20, defaultValue: 'approved')
+  final String status;
+
   DieCuttingProductionReport({
     required this.id,
     required this.machineName,
@@ -85,7 +88,56 @@ class DieCuttingProductionReport extends HiveObject {
     this.dimensions,
     this.crewMembers,
     this.shiftName,
+    this.status = 'approved',
   });
+
+  DieCuttingProductionReport copyWith({
+    String? id,
+    String? machineName,
+    String? technicianName,
+    DateTime? reportDate,
+    String? customerName,
+    String? itemName,
+    String? itemCode,
+    String? formNumber,
+    String? workOrder,
+    DateTime? runTimeStart,
+    DateTime? runTimeEnd,
+    DateTime? downtimeStart,
+    DateTime? downtimeEnd,
+    double? productionQuantity,
+    double? wasteQuantity,
+    String? notes,
+    String? factoryId,
+    Map<String, dynamic>? dimensions,
+    List<String>? crewMembers,
+    String? shiftName,
+    String? status,
+  }) {
+    return DieCuttingProductionReport(
+      id: id ?? this.id,
+      machineName: machineName ?? this.machineName,
+      technicianName: technicianName ?? this.technicianName,
+      reportDate: reportDate ?? this.reportDate,
+      customerName: customerName ?? this.customerName,
+      itemName: itemName ?? this.itemName,
+      itemCode: itemCode ?? this.itemCode,
+      formNumber: formNumber ?? this.formNumber,
+      workOrder: workOrder ?? this.workOrder,
+      runTimeStart: runTimeStart ?? this.runTimeStart,
+      runTimeEnd: runTimeEnd ?? this.runTimeEnd,
+      downtimeStart: downtimeStart ?? this.downtimeStart,
+      downtimeEnd: downtimeEnd ?? this.downtimeEnd,
+      productionQuantity: productionQuantity ?? this.productionQuantity,
+      wasteQuantity: wasteQuantity ?? this.wasteQuantity,
+      notes: notes ?? this.notes,
+      factoryId: factoryId ?? this.factoryId,
+      dimensions: dimensions ?? this.dimensions,
+      crewMembers: crewMembers ?? this.crewMembers,
+      shiftName: shiftName ?? this.shiftName,
+      status: status ?? this.status,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -110,6 +162,7 @@ class DieCuttingProductionReport extends HiveObject {
       'dimensions': dimensions,
       'crew_members': crewMembers,
       'shift_name': shiftName,
+      'status': status,
     };
   }
 
@@ -145,6 +198,7 @@ class DieCuttingProductionReport extends HiveObject {
       dimensions: map['dimensions'] is Map ? Map<String, dynamic>.from(map['dimensions']) : null,
       crewMembers: map['crew_members'] is List ? List<String>.from(map['crew_members']) : null,
       shiftName: map['shift_name']?.toString() ?? map['shiftName']?.toString(),
+      status: map['status']?.toString() ?? 'approved',
     );
   }
 }

@@ -85,11 +85,15 @@ class ActiveSessionsDashboard extends StatelessWidget {
                   itemCount: sessions.length,
                   itemBuilder: (context, index) {
                     final session = sessions[index];
+                    // ✅ التحقق من وجود تعارض (أكثر من جلسة نشطة لنفس الماكينة)
+                    final hasConflict = sessions.where((s) => s.machineName == session.machineName).length > 1;
+
                     return SessionCard(
                       session: session,
                       onFinish: () => onFinishSession(session),
                       onCancel: () => onCancelSession(session), // ✅ تمرير الدالة للبطاقة
                       onToggleDowntime: (shouldResume) => _toggleDowntime(session, shouldResume),
+                      hasConflict: hasConflict, // ✅ تمرير حالة التعارض
                     );
                   },
                 ),

@@ -20,6 +20,7 @@ import 'package:smart_sheet/screens/production_line/start_production_session_scr
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
 import 'package:smart_sheet/utils/archive_rbac_logic.dart';
+import 'package:smart_sheet/utils/time_overlap_validator.dart';
 import 'dart:async';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -123,6 +124,73 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _approveReport(dynamic key, dynamic record) async {
+    if (_productionReportBox == null) return;
+    try {
+      // ─── 1. تحديث السجل محلياً في Hive ───
+      // نحاول الحصول على النموذج الحالي من الصندوق
+      final existing = _productionReportBox!.get(key);
+      
+      if (existing is FlexoProductionReport) {
+        final updated = existing.copyWith(status: 'approved');
+        await _productionReportBox!.put(key, updated);
+        
+        // ─── 2. إرسال تحديث الحالة فقط (snake_case) إلى Supabase ───
+        final String tableName = (updated.department == 'production_line')
+            ? 'line_production_reports'
+            : 'flexo_production_reports';
+        SyncService.instance.pushToQueue(tableName, {
+          'id': updated.id,
+          'sync_id': updated.id,
+          'status': 'approved',
+          'factory_id': updated.toJson()['factory_id'],
+        });
+      } else if (existing is DieCuttingProductionReport) {
+        final updated = existing.copyWith(status: 'approved');
+        await _productionReportBox!.put(key, updated);
+        SyncService.instance.pushToQueue('die_cutting_production_reports', {
+          'id': updated.id,
+          'sync_id': updated.id,
+          'status': 'approved',
+          'factory_id': updated.toJson()['factory_id'],
+        });
+      } else {
+        // ─── Fallback لـ Map ───
+        final updatedRecord = Map<dynamic, dynamic>.from(record is Map ? record : (record as dynamic).toJson());
+        updatedRecord['status'] = 'approved';
+        await _productionReportBox!.put(key, updatedRecord);
+
+        final syncId = (updatedRecord['sync_id'] ?? updatedRecord['id'])?.toString();
+        if (syncId != null) {
+          final dept = updatedRecord['department']?.toString() ?? widget.department ?? 'flexo';
+          final String tableName = (dept == 'crushing' || dept == 'die_cutting')
+              ? 'die_cutting_production_reports'
+              : (dept == 'production_line' ? 'line_production_reports' : 'flexo_production_reports');
+          // إرسال snake_case فقط
+          SyncService.instance.pushToQueue(tableName, {
+            'id': syncId,
+            'sync_id': syncId,
+            'status': 'approved',
+          });
+        }
+      }
+
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "✅ تم اعتماد التقرير بنجاح",
+          backgroundColor: Colors.green,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "حدث خطأ أثناء الاعتماد: $e",
+          backgroundColor: Colors.red,
+        );
+      }
+    }
   }
 
   void _deleteSingleReport(dynamic key, dynamic record) {
@@ -1014,9 +1082,34 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("📅 ${((record['date'] ?? '').toString().split('T')[0].split(' ')[0])}",
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, color: Colors.blue)),
+                Row(
+                  children: [
+                    Text("📅 ${((record['date'] ?? '').toString().split('T')[0].split(' ')[0])}",
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, color: Colors.blue)),
+                    const SizedBox(width: 8),
+                    if (record['status'] == 'pending')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.shade300),
+                        ),
+                        child: Text('قيد المراجعة', style: TextStyle(fontSize: 10, color: Colors.orange.shade800, fontWeight: FontWeight.bold)),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.green.shade300),
+                        ),
+                        child: Text('معتمد', style: TextStyle(fontSize: 10, color: Colors.green.shade800, fontWeight: FontWeight.bold)),
+                      ),
+                  ],
+                ),
                 if (isSelected)
                   const Icon(Icons.check_circle, color: Colors.blue, size: 20)
                 else
@@ -1195,10 +1288,20 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                       reportDept, 'canEdit');
                   final canDelete = AuthHelper.currentUserCanManageProduction(
                       reportDept, 'canDelete');
-                  if (!canEdit && !canDelete) return const SizedBox.shrink();
+                  
+                  final bool canApprove = (PermissionHelper.isSuperAdmin || PermissionHelper.isFactoryAdmin) || (canEdit && canDelete);
+                  
+                  if (!canEdit && !canDelete && !canApprove) return const SizedBox.shrink();
+                  
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
+                      if (record['status'] == 'pending' && canApprove)
+                        IconButton(
+                          onPressed: () => _approveReport(key, record),
+                          icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                          tooltip: "اعتماد",
+                        ),
                       if (canEdit)
                         IconButton(
                           onPressed: () => _editReport(key, record),
@@ -1410,7 +1513,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     }
 
     if (timeStr.isEmpty || timeStr == '--:--') {
-      return DateTime(date.year, date.month, date.day);
+      return DateTime(date.year, date.month, date.day, 23, 59, 59);
     }
 
     timeStr = timeStr.trim().toLowerCase();
@@ -1420,7 +1523,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     timeStr = timeStr.replaceAll(RegExp(r'[صمامp]'), '').trim();
 
     final parts = timeStr.split(':');
-    if (parts.isEmpty) return DateTime(date.year, date.month, date.day);
+    if (parts.isEmpty) return DateTime(date.year, date.month, date.day, 23, 59, 59);
     
     int hours = int.tryParse(parts[0].trim()) ?? 0;
     int minutes = parts.length > 1 ? (int.tryParse(parts[1].trim()) ?? 0) : 0;
@@ -1607,6 +1710,24 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               r['sync_id'] = syncId;
               r['id'] = syncId; // لحماية التوافق مع الكود القديم
 
+              r['status'] = PermissionHelper.canApproveReports ? 'approved' : 'pending';
+
+              if (TimeOverlapValidator.hasOverlap(
+                box: _productionReportBox!,
+                machineName: r['machineName']?.toString() ?? '',
+                dateStr: r['date']?.toString() ?? '',
+                startTimeStr: r['startTime']?.toString() ?? '',
+                endTimeStr: r['endTime']?.toString() ?? '',
+              )) {
+                if (mounted) {
+                  UIUtils.showInfoSnackBar(
+                    message: "يوجد تداخل زمني مع تقرير معتمد آخر على هذه الماكينة. يرجى مراجعة الأوقات.",
+                    backgroundColor: Colors.redAccent,
+                  );
+                }
+                return;
+              }
+
               final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
                   ? 'die_cutting_production_reports' 
                   : (widget.department == 'production_line' ? 'line_production_reports' : 'flexo_production_reports');
@@ -1664,6 +1785,25 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   const Uuid().v4();
               r['sync_id'] = existingSyncId;
               r['id'] = existingSyncId;
+
+              r['status'] = PermissionHelper.canApproveReports ? 'approved' : 'pending';
+
+              if (TimeOverlapValidator.hasOverlap(
+                box: _productionReportBox!,
+                machineName: r['machineName']?.toString() ?? '',
+                dateStr: r['date']?.toString() ?? '',
+                startTimeStr: r['startTime']?.toString() ?? '',
+                endTimeStr: r['endTime']?.toString() ?? '',
+                excludeId: existingSyncId,
+              )) {
+                if (mounted) {
+                  UIUtils.showInfoSnackBar(
+                    message: "يوجد تداخل زمني مع تقرير معتمد آخر على هذه الماكينة. يرجى مراجعة الأوقات.",
+                    backgroundColor: Colors.redAccent,
+                  );
+                }
+                return;
+              }
 
               final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
                   ? 'die_cutting_production_reports' 
@@ -2021,6 +2161,24 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             final syncId = const Uuid().v4();
             r['sync_id'] = syncId;
             r['id'] = syncId;
+
+            r['status'] = PermissionHelper.canApproveReports ? 'approved' : 'pending';
+
+            if (TimeOverlapValidator.hasOverlap(
+              box: _productionReportBox!,
+              machineName: r['machineName']?.toString() ?? '',
+              dateStr: r['date']?.toString() ?? '',
+              startTimeStr: r['startTime']?.toString() ?? '',
+              endTimeStr: r['endTime']?.toString() ?? '',
+            )) {
+              if (mounted) {
+                UIUtils.showInfoSnackBar(
+                  message: "يوجد تداخل زمني مع تقرير معتمد آخر على هذه الماكينة. يرجى مراجعة الأوقات.",
+                  backgroundColor: Colors.redAccent,
+                );
+              }
+              return;
+            }
 
             final String tableName = (session.department == 'crushing' || session.department == 'die_cutting' || widget.department == 'crushing' || widget.department == 'die_cutting') 
                 ? 'die_cutting_production_reports' 

@@ -39,13 +39,14 @@ class LiveSessionAdapter extends TypeAdapter<LiveSession> {
       paperLayers: (fields[19] as List?)?.cast<String>(),
       formNumber: fields[20] as String?,
       crewMembers: (fields[21] as List?)?.cast<String>(),
+      status: fields[22] == null ? 'pending' : fields[22] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, LiveSession obj) {
     writer
-      ..writeByte(22)
+      ..writeByte(23)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -89,7 +90,9 @@ class LiveSessionAdapter extends TypeAdapter<LiveSession> {
       ..writeByte(20)
       ..write(obj.formNumber)
       ..writeByte(21)
-      ..write(obj.crewMembers);
+      ..write(obj.crewMembers)
+      ..writeByte(22)
+      ..write(obj.status);
   }
 
   @override

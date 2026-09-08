@@ -51,13 +51,14 @@ class FlexoProductionReportAdapter extends TypeAdapter<FlexoProductionReport> {
       notes: fields[30] as String?,
       crewMembers: (fields[31] as List?)?.cast<String>(),
       shiftName: fields[32] as String?,
+      status: fields[33] == null ? 'approved' : fields[33] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, FlexoProductionReport obj) {
     writer
-      ..writeByte(33)
+      ..writeByte(34)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -123,7 +124,9 @@ class FlexoProductionReportAdapter extends TypeAdapter<FlexoProductionReport> {
       ..writeByte(31)
       ..write(obj.crewMembers)
       ..writeByte(32)
-      ..write(obj.shiftName);
+      ..write(obj.shiftName)
+      ..writeByte(33)
+      ..write(obj.status);
   }
 
   @override
