@@ -16,6 +16,7 @@ import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/widgets/theme_toggle_button.dart';
 import 'package:smart_sheet/widgets/factory_schedule_card.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 
 class SettingsScreen extends StatefulWidget {
   static const String routeName = '/settings';
@@ -184,12 +185,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
-            if (isSuperAdmin) ...[
+            if (isSuperAdmin || PermissionHelper.isFactoryAdmin) ...[
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.vpn_key, color: Colors.orange),
                 title: const Text("توليد كود دخول للأجهزة"),
-                subtitle: const Text("إنشاء كود بوابة دخول جديد بصلاحية 10 دقائق"),
+                subtitle: const Text("إنشاء كود بوابة دخول جديد بصلاحية ساعة كاملة"),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () => _generateInvitationCode(context),
               ),
@@ -239,7 +240,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'تم إنشاء الكود بنجاح. هذا الكود صالح للاستخدام مرة واحدة وتنتهي صلاحيته بعد 10 دقائق.',
+                  'تم إنشاء الكود بنجاح. هذا الكود صالح للاستخدام مرة واحدة ولمدة ساعة كاملة.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 14),
                 ),
