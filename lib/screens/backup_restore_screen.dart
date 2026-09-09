@@ -19,7 +19,6 @@ import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/pairing_service.dart';
-import 'package:smart_sheet/services/ghost_deletes_fixer.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -107,7 +106,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     setState(() {
       _isLoading = true;
       _message =
-          'جاري الرفع المباشر ومعالجة التقارير المخفية...';
+          'جاري رفع البيانات المباشر إلى السيرفر...';
     });
 
     UIUtils.showInfoSnackBar(
@@ -118,9 +117,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     );
 
     try {
-      // تشغيل دالة معالجة التقارير المخفية تلقائياً قبل الرفع
-      await GhostDeletesFixer.executeFix();
-      
       await SyncService.instance.directPushAllCustomers();
       await SyncService.instance.directPushAllReports();
       if (mounted) {
@@ -367,13 +363,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             const Divider(),
             const SizedBox(height: 24),
 
-            if (Supabase.instance.client.auth.currentUser?.email == 'mohamedabdo9999933@gmail.com') ...[
-              _buildGhostDeletesFixButton(),
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 24),
-            ],
-
             // Local Backup Buttons
             const Text("النسخ المحلي",
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -553,7 +542,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             )
           : const Icon(Icons.sync_alt),
       label: Text(
-        _isLoading ? 'جاري المزامنة...' : 'مزامنة سحابية إجبارية (Push)',
+        _isLoading ? 'جاري رفع البيانات...' : 'تحديث البيانات (أونلاين)',
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
       style: ElevatedButton.styleFrom(
@@ -578,37 +567,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       style: ElevatedButton.styleFrom(
         minimumSize: const Size(double.infinity, 56),
         backgroundColor: _hasBackup ? Colors.orange : Colors.grey,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGhostDeletesFixButton() {
-    return ElevatedButton.icon(
-      onPressed: _isLoading
-          ? null
-          : () async {
-              setState(() => _isLoading = true);
-              setState(() => _message = 'جاري سحب التقارير ومعالجة المشكلة...');
-              try {
-                final res = await GhostDeletesFixer.executeFix();
-                setState(() => _message = res);
-              } catch (e) {
-                setState(() => _message = '❌ خطأ: $e');
-              }
-              setState(() => _isLoading = false);
-            },
-      icon: const Icon(Icons.healing),
-      label: const Text(
-        'معالجة مشكلة التقارير المخفية (Ghost Deletes)',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 56),
-        backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),

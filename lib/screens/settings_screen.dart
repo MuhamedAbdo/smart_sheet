@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math';
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -156,6 +158,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildDataCard(BuildContext context) {
+    final userEmail = Supabase.instance.client.auth.currentUser?.email;
+    final isSuperAdmin = userEmail == 'mohamedabdo9999933@gmail.com';
+
     return Card(
       elevation: 2,
       child: Padding(
@@ -179,10 +184,126 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
+            if (isSuperAdmin) ...[
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.vpn_key, color: Colors.orange),
+                title: const Text("توليد كود دخول للأجهزة"),
+                subtitle: const Text("إنشاء كود بوابة دخول جديد بصلاحية 10 دقائق"),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () => _generateInvitationCode(context),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _generateInvitationCode(BuildContext context) async {
+    // Generate 6 character alphanumeric code
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random();
+    final String generatedCode = String.fromCharCodes(
+      Iterable.generate(6, (_) => chars.codeUnitAt(random.nextInt(chars.length))),
+    );
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await Supabase.instance.client.rpc(
+        'create_invitation',
+        params: {'new_code': generatedCode},
+      );
+      
+      // Close loading dialog
+      if (context.mounted) Navigator.pop(context);
+
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.vpn_key, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('كود الدخول الجديد'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'تم إنشاء الكود بنجاح. هذا الكود صالح للاستخدام مرة واحدة وتنتهي صلاحيته بعد 10 دقائق.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withAlpha(50),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.withAlpha(100)),
+                  ),
+                  child: Text(
+                    generatedCode,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إغلاق', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: generatedCode));
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(
+                        content: Text('تم نسخ الكود بنجاح'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('نسخ الكود'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (context.mounted) Navigator.pop(context);
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل إنشاء الكود: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildFactorySettingsCard(

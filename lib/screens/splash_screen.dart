@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
+import 'package:hive/hive.dart';
 import 'package:smart_sheet/widgets/auth_gate.dart';
+import 'package:smart_sheet/screens/gatekeeper_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -23,11 +25,16 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     try {
+      // Check Gatekeeper status
+      final isUnlocked = Hive.box('settings').get('is_device_unlocked', defaultValue: false);
+      final Widget targetScreen = isUnlocked ? const AuthGate() : const GatekeeperScreen();
+
       // انتقال سلس (Fade Transition) للواجهة الرئيسية
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const AuthGate(),
+          settings: RouteSettings(name: isUnlocked ? '/auth_gate' : GatekeeperScreen.routeName),
+          pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(
               opacity: animation,

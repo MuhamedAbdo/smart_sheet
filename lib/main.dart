@@ -24,6 +24,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:local_notifier/local_notifier.dart';
 import 'package:smart_sheet/widgets/desktop_title_bar.dart';
 import 'package:smart_sheet/widgets/desktop_sidebar.dart';
+import 'package:smart_sheet/screens/gatekeeper_screen.dart';
 import 'package:smart_sheet/screens/auth_screen.dart';
 import 'package:smart_sheet/screens/forgot_password_screen.dart';
 import 'package:smart_sheet/screens/update_password_screen.dart';
@@ -638,7 +639,8 @@ class _SmartSheetAppState extends State<SmartSheetApp>
                         valueListenable: currentRouteNotifier,
                         builder: (context, routeName, child) {
                           if (routeName == '/' ||
-                              routeName == AuthScreen.routeName) {
+                              routeName == AuthScreen.routeName ||
+                              routeName == GatekeeperScreen.routeName) {
                             return const SizedBox.shrink();
                           }
                           return const DesktopSidebar();
