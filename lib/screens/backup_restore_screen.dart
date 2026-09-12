@@ -105,8 +105,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     setState(() {
       _isLoading = true;
-      _message =
-          'جاري رفع البيانات المباشر إلى السيرفر...';
+      _message = 'جاري رفع البيانات المباشر إلى السيرفر...';
     });
 
     UIUtils.showInfoSnackBar(
@@ -184,6 +183,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         return;
       }
 
+      final Map<dynamic, dynamic> currentSettings =
+          Hive.box('settings').toMap();
       final restorePath = '$factoryId.zip';
       final result = await _backupService.downloadAndRestore(restorePath);
 
@@ -194,11 +195,32 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         });
 
         if (result == 'SUCCESS_RESTORE') {
-          UIUtils.showInfoSnackBar(
-            message: "تمت الاستعادة بنجاح",
-            backgroundColor: Colors.green,
-            icon: Icons.cloud_done_outlined,
+          // Re-initialize Hive and write Gatekeeper status back
+          if (Platform.isWindows) {
+            await Hive.initFlutter('SmartSheet_Data');
+          } else {
+            await Hive.initFlutter();
+          }
+          final settingsBox = await Hive.openBox('settings');
+          await settingsBox.putAll(currentSettings);
+
+          if (!mounted) return;
+
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => const AlertDialog(
+              title: Text('نجاح'),
+              content: Text(
+                  'تمت استعادة البيانات بنجاح. سيتم إعادة تهيئة التطبيق لتطبيق التغييرات.'),
+            ),
           );
+
+          await Future.delayed(const Duration(seconds: 2));
+
+          if (mounted) {
+            await _backupService.restartApp();
+          }
         }
       }
     }
@@ -251,6 +273,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         _message = 'جاري استعادة البيانات...';
       });
 
+      final Map<dynamic, dynamic> currentSettings =
+          Hive.box('settings').toMap();
       final result = await _backupService.restoreBackup();
 
       if (mounted) {
@@ -259,11 +283,32 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           _message = result;
         });
         if (result == 'SUCCESS_RESTORE') {
-          UIUtils.showInfoSnackBar(
-            message: "تمت الاستعادة بنجاح، سيتم إعادة تشغيل التطبيق",
-            backgroundColor: Colors.green,
-            icon: Icons.check_circle,
+          // Re-initialize Hive and write Gatekeeper status back
+          if (Platform.isWindows) {
+            await Hive.initFlutter('SmartSheet_Data');
+          } else {
+            await Hive.initFlutter();
+          }
+          final settingsBox = await Hive.openBox('settings');
+          await settingsBox.putAll(currentSettings);
+
+          if (!mounted) return;
+
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => const AlertDialog(
+              title: Text('نجاح'),
+              content: Text(
+                  'تمت استعادة البيانات بنجاح. سيتم إعادة تهيئة التطبيق لتطبيق التغييرات.'),
+            ),
           );
+
+          await Future.delayed(const Duration(seconds: 2));
+
+          if (mounted) {
+            await _backupService.restartApp();
+          }
         }
       }
     }
@@ -763,7 +808,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         if (Hive.isBoxOpen('workers_flexo')) {
           await Hive.box<Worker>('workers_flexo').clear();
         }
-        if (Hive.isBoxOpen('flexo_production_reports_box')) await Hive.box<FlexoProductionReport>('flexo_production_reports_box').clear();
+        if (Hive.isBoxOpen('flexo_production_reports_box')) {
+          await Hive.box<FlexoProductionReport>('flexo_production_reports_box')
+              .clear();
+        }
         if (Hive.isBoxOpen('sync_queue')) await Hive.box('sync_queue').clear();
         debugPrint('🧹 تم تفريغ جميع قواعد البيانات المحلية بنجاح.');
       } catch (e) {
@@ -1191,5 +1239,3 @@ class _PairingCodeDialogState extends State<_PairingCodeDialog> {
     );
   }
 }
-
-

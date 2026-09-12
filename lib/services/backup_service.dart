@@ -34,6 +34,7 @@ class BackupService {
   // قناة الاتصال لإعادة تشغيل التطبيق
   static const _platform = MethodChannel('com.smart_sheet/app_control');
 
+
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
@@ -93,9 +94,6 @@ class BackupService {
       );
       if (result != null && result.files.single.path != null) {
         final res = await _restoreFromZipPath(result.files.single.path!);
-        if (res == 'SUCCESS_RESTORE') {
-          await _restartApp();
-        }
         return res;
       }
       return null;
@@ -214,9 +212,6 @@ class BackupService {
       if (await File(tempZipPath).exists()) await File(tempZipPath).delete();
       if (Platform.isAndroid) await _stopService();
 
-      if (result == 'SUCCESS_RESTORE') {
-        await _restartApp();
-      }
       return result;
     } catch (e) {
       if (Platform.isAndroid) await _stopService();
@@ -226,7 +221,7 @@ class BackupService {
 
   // --- وظائف المساعدة والعمليات الداخلية ---
 
-  Future<void> _restartApp() async {
+  Future<void> restartApp() async {
     try {
       await Future.delayed(const Duration(milliseconds: 500));
       if (Platform.isWindows) {
@@ -238,6 +233,11 @@ class BackupService {
       }
     } catch (e) {
       debugPrint("Restart failed: $e");
+      if (Platform.isAndroid) {
+        SystemNavigator.pop();
+        await Future.delayed(const Duration(milliseconds: 500));
+        exit(0);
+      }
     }
   }
 

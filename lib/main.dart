@@ -5,7 +5,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/globals.dart';
-import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/utils/route_observer.dart';
 import 'package:smart_sheet/utils/cache_helper.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';

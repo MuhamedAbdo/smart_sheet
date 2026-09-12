@@ -76,10 +76,23 @@ class ActiveAbsenceCard extends StatelessWidget {
     final double borderWidth = isOverdue ? 2.0 : 1.0;
 
     // حساب المدة المعروضة
-    final double elapsed = elapsedWorkingDays;
-    final String durationText = isTimeBased
-        ? "قيد التنفيذ"
-        : (elapsed == 0 ? "اليوم" : "${elapsed % 1 == 0 ? elapsed.toInt() : elapsed} يوم");
+    String durationText;
+    final now = DateTime.now();
+    if (isTimeBased) {
+      DateTime startDateTime = action.date;
+      if (action.startTime != null) {
+        startDateTime = DateTime(
+          action.date.year,
+          action.date.month,
+          action.date.day,
+          action.startTime!.hour,
+          action.startTime!.minute,
+        );
+      }
+      durationText = now.difference(startDateTime).inHours.toString();
+    } else {
+      durationText = now.difference(action.date).inDays.toString();
+    }
 
     return Card(
       elevation: isOverdue ? 8 : 6,
@@ -162,7 +175,9 @@ class ActiveAbsenceCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        action.type,
+                        action.shiftName != null && action.shiftName!.isNotEmpty 
+                            ? "${action.type} | ${action.shiftName}" 
+                            : action.type,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -215,8 +230,7 @@ class ActiveAbsenceCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                if (action.shiftName != null && action.shiftName!.isNotEmpty)
-                  _buildInfoColumn("الوردية", action.shiftName!),
+
                 _buildInfoColumn(
                     isTimeBased ? "وقت الخروج" : "بدأ في",
                     isTimeBased
@@ -283,27 +297,39 @@ class ActiveAbsenceCard extends StatelessWidget {
   }
 
   Widget _buildInfoColumn(String label, String value, {Color? valueColor}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: Colors.grey),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            color: valueColor,
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: valueColor,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   String _formatDate(DateTime date) {
-    return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+    return "${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
   void _showSyncWarning(BuildContext context) {
