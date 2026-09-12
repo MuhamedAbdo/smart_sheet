@@ -185,7 +185,7 @@ class AuthService extends ChangeNotifier {
           .maybeSingle();
 
       if (response != null) {
-        final role = response['role']?.toString() ?? 'employee';
+        final role = response['role']?.toString().trim().toLowerCase() ?? 'employee';
         await storage.write(key: 'user_role', value: role);
         if (Hive.isBoxOpen('settings')) {
           Hive.box('settings').put('user_role', role);

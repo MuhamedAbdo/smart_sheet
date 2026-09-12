@@ -31,7 +31,8 @@ class PermissionHelper {
   /// هل المستخدم الحالي هو مدير للمصنع (Factory Admin)؟
   static bool get isFactoryAdmin {
     if (!Hive.isBoxOpen('settings')) return false;
-    return Hive.box('settings').get('user_role') == 'admin';
+    final role = Hive.box('settings').get('user_role')?.toString().trim().toLowerCase();
+    return role == 'admin' || role == 'owner';
   }
 
   /// جلب سجل Worker المقابل للمستخدم الحالي من Hive (null إذا لم يوجد)

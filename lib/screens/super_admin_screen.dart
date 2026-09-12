@@ -259,7 +259,27 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('خطأ: ${snapshot.error}'));
+          final errorStr = snapshot.error.toString();
+          if (errorStr.contains('SocketException') || 
+              errorStr.contains('Failed host lookup') || 
+              errorStr.contains('RealtimeSubscribeException') ||
+              errorStr.contains('ClientException') ||
+              errorStr.contains('timeout')) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.wifi_off, size: 64, color: Colors.grey.shade400),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'لا يوجد اتصال بالإنترنت. يرجى التحقق من الشبكة.',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
+          }
+          return Center(child: Text('حدث خطأ: ${snapshot.error}'));
         }
 
         final allFactories = snapshot.data ?? [];
@@ -309,7 +329,27 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('خطأ: ${snapshot.error}'));
+          final errorStr = snapshot.error.toString();
+          if (errorStr.contains('SocketException') || 
+              errorStr.contains('Failed host lookup') || 
+              errorStr.contains('RealtimeSubscribeException') ||
+              errorStr.contains('ClientException') ||
+              errorStr.contains('timeout')) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.wifi_off, size: 64, color: Colors.grey.shade400),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'لا يوجد اتصال بالإنترنت. يرجى التحقق من الشبكة.',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
+          }
+          return Center(child: Text('حدث خطأ: ${snapshot.error}'));
         }
 
         final allFactories = snapshot.data ?? [];

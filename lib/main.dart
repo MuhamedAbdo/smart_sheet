@@ -156,7 +156,7 @@ Future<void> main() async {
     try {
       await Supabase.initialize(
         url: supabaseUrl.trim(),
-        anonKey: supabaseAnonKey.trim(),
+        publishableKey: supabaseAnonKey.trim(),
         authOptions:
             const FlutterAuthClientOptions(authFlowType: AuthFlowType.pkce),
       ).timeout(const Duration(seconds: 5));
