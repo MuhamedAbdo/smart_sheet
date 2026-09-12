@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/globals.dart';
+import 'package:smart_sheet/screens/splash_screen.dart';
 import 'package:smart_sheet/utils/route_observer.dart';
 import 'package:smart_sheet/utils/cache_helper.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
@@ -103,7 +104,7 @@ Future<void> main() async {
 
       // ─── محاولة فتح صناديق Hive مع تفادي مشاكل Lock file المعلقة ───
       await _openBoxWithLockRecovery('settings');
-      
+
       // ✅ تأكد من أن كل جهاز يملك UUID ثابتاً منذ أول تشغيل
       // ضروري لنظام ملكية الإجراءات (isOwner check في action cards)
       await DeviceManager.getDeviceId();
@@ -118,17 +119,20 @@ Future<void> main() async {
         _openBoxWithLockRecovery<FinishedProduct>('finished_products'),
         _openBoxWithLockRecovery<LiveSession>('flexo_live_sessions'),
         _openBoxWithLockRecovery<FlexoMachine>('flexo_machines'),
-        _openBoxWithLockRecovery<DaySchedule>('factory_schedule'), // جدول أيام الوردية
+        _openBoxWithLockRecovery<DaySchedule>(
+            'factory_schedule'), // جدول أيام الوردية
         _openBoxWithLockRecovery('sync_queue'), // قائمة انتظار المزامنة
-        _openBoxWithLockRecovery<DieCuttingForm>('die_cutting_forms'), // قوالب التكسير
-        _openBoxWithLockRecovery<DieCuttingProductionReport>('die_cutting_production_reports'),
+        _openBoxWithLockRecovery<DieCuttingForm>(
+            'die_cutting_forms'), // قوالب التكسير
+        _openBoxWithLockRecovery<DieCuttingProductionReport>(
+            'die_cutting_production_reports'),
       ]);
       _openBackgroundBoxes();
-      
+
       // ✅ التنظيف الفوري: طبقة التوافق (Migration/Normalization Layer)
       // نضمن تحويل أي مفاتيح قديمة في الأرشيف وقائمة الانتظار لـ snake_case مباشرة
       await DataNormalizationHelper.normalizeUntypedBoxes();
-      
+
       // تهيئة القيم الافتراضية لجدول أيام الوردية إذا كان فارغاً
       _initDefaultSchedule();
 
@@ -289,8 +293,10 @@ void _initDefaultSchedule() {
 void _openBackgroundBoxes() async {
   try {
     await _openBoxWithLockRecovery<StoreEntry>('store_flexo');
-    await _openBoxWithLockRecovery<MaintenanceRecord>('maintenance_records_main');
-    await _openBoxWithLockRecovery<FlexoProductionReport>('flexo_production_reports_box');
+    await _openBoxWithLockRecovery<MaintenanceRecord>(
+        'maintenance_records_main');
+    await _openBoxWithLockRecovery<FlexoProductionReport>(
+        'flexo_production_reports_box');
   } catch (e) {
     debugPrint("⚠️ Failed to open some background typed boxes: $e");
   }
@@ -334,9 +340,8 @@ Future<Box<E>> _openBoxWithLockRecovery<E>(String boxName) async {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       // الانتباه لمسار التهيئة في ويندوز
-      final String hivePath = Platform.isWindows
-          ? '${appDir.path}\\SmartSheet_Data'
-          : appDir.path;
+      final String hivePath =
+          Platform.isWindows ? '${appDir.path}\\SmartSheet_Data' : appDir.path;
       final lockFile = File('$hivePath${Platform.pathSeparator}$boxName.lock');
       if (lockFile.existsSync()) {
         if (Platform.isWindows) {
@@ -353,12 +358,13 @@ Future<Box<E>> _openBoxWithLockRecovery<E>(String boxName) async {
             debugPrint('⚠️ [HiveLock] تعذر إنهاء العمليات المعلقة: $procErr');
           }
         }
-        
+
         lockFile.deleteSync();
         debugPrint('🔓 [HiveLock] تم حذف $boxName.lock المتعلق بأمان للتعافي.');
       }
     } catch (deleteError) {
-      debugPrint('⚠️ [HiveLock] تعذّر حذف lock file الخاص بـ $boxName: $deleteError');
+      debugPrint(
+          '⚠️ [HiveLock] تعذّر حذف lock file الخاص بـ $boxName: $deleteError');
     }
   }
 
@@ -509,9 +515,12 @@ class _SmartSheetAppState extends State<SmartSheetApp>
       if (loggedOut) return;
 
       // 2. جلب معرّف العامل المحفوظ محلياً (إذا لم يكن آدمن) وبدء قناة الاستماع
-      final workerId = userRole == 'admin' ? null : await KillSwitchService.instance.getLinkedWorkerId();
-      
-      debugPrint('🔒 KillSwitch: تفعيل المستمع (Factory: $factoryId, Worker: $workerId)');
+      final workerId = userRole == 'admin'
+          ? null
+          : await KillSwitchService.instance.getLinkedWorkerId();
+
+      debugPrint(
+          '🔒 KillSwitch: تفعيل المستمع (Factory: $factoryId, Worker: $workerId)');
       await KillSwitchService.instance.startListening(
         factoryId: factoryId,
         workerId: workerId,
@@ -548,7 +557,8 @@ class _SmartSheetAppState extends State<SmartSheetApp>
               Expanded(
                 child: Text(
                   message,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
                   textDirection: TextDirection.rtl,
                 ),
               ),
@@ -574,7 +584,8 @@ class _SmartSheetAppState extends State<SmartSheetApp>
       // الموبايل (Android/iOS): 3 ثوانٍ فقط، لأن التطبيق قد يعود من الخلفية ويحتاج تحديث سريع.
       // الديسكتوب (Windows/Mac/Linux): 5 دقائق (300 ثانية)، لأن مجرد النقر على النافذة (Gain Focus)
       // يطلق حدث resumed، مما يؤدي إلى إعادة تهيئة المزامنة بشكل مستمر ومزعج إذا لم نضع مسافة زمنية طويلة.
-      final int debounceSeconds = (Platform.isAndroid || Platform.isIOS) ? 3 : 300;
+      final int debounceSeconds =
+          (Platform.isAndroid || Platform.isIOS) ? 3 : 300;
 
       // تجاهل أي استدعاء ثانٍ في غضون المدة المحددة
       if (_lastResumeTime != null &&
@@ -748,4 +759,3 @@ class _InitErrorApp extends StatelessWidget {
     );
   }
 }
-
