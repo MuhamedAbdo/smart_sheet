@@ -16,7 +16,11 @@ class WorkerForm extends StatefulWidget {
   final Box<Worker> box;
   final String? defaultDepartment;
 
-  const WorkerForm({super.key, this.existingWorker, required this.box, this.defaultDepartment});
+  const WorkerForm(
+      {super.key,
+      this.existingWorker,
+      required this.box,
+      this.defaultDepartment});
 
   @override
   State<WorkerForm> createState() => _WorkerFormState();
@@ -26,8 +30,10 @@ class WorkerForm extends StatefulWidget {
     final effectiveBox = box ?? Hive.box<Worker>('workers');
     showDialog(
       context: context,
-      builder: (context) =>
-          WorkerForm(existingWorker: existingWorker, box: effectiveBox, defaultDepartment: defaultDepartment),
+      builder: (context) => WorkerForm(
+          existingWorker: existingWorker,
+          box: effectiveBox,
+          defaultDepartment: defaultDepartment),
     );
   }
 }
@@ -35,7 +41,9 @@ class WorkerForm extends StatefulWidget {
 class _WorkerFormState extends State<WorkerForm> {
   late TextEditingController nameController;
   late TextEditingController phoneController;
+  late TextEditingController secondaryPhoneController;
   late TextEditingController emailController;
+  String whatsappPhonePreference = 'primary';
 
   /// الوظيفة المختارة حالياً (nullable لتجنّب assertion عند تغيير القسم)
   String? selectedJob;
@@ -64,7 +72,6 @@ class _WorkerFormState extends State<WorkerForm> {
   List<String> _allDepartmentCodes = [];
   List<String> _allDepartmentLabels = [];
 
-
   // ✅ تعريف المشغل الخاص بالمكتبة الموجودة في pubspec.yaml
   final FlutterNativeContactPicker _contactPicker =
       FlutterNativeContactPicker();
@@ -74,18 +81,34 @@ class _WorkerFormState extends State<WorkerForm> {
   // القيمة = قائمة الوظائف التابعة لذلك القسم
   static const Map<String, List<String>> departmentJobsMap = {
     'قسم الفلكسو': [
-      'رئيس القسم', 'مشرف', 'فني', 'مساعد', 'عامل',
+      'رئيس القسم',
+      'مشرف',
+      'فني',
+      'مساعد',
+      'عامل',
     ],
     'قسم خط الإنتاج': [
-      'رئيس القسم', 'مشرف', 'فني', 'مساعد', 'عامل',
+      'رئيس القسم',
+      'مشرف',
+      'فني',
+      'مساعد',
+      'عامل',
     ],
     // التكسير (die_cutting)
     'قسم التكسير': [
-      'رئيس القسم', 'مشرف', 'فني', 'مساعد', 'عامل',
+      'رئيس القسم',
+      'مشرف',
+      'فني',
+      'مساعد',
+      'عامل',
     ],
     // الدبوس والتعبئة (staples)
     'قسم الدبوس والتعبئة': [
-      'رئيس القسم', 'مشرف', 'فني', 'مساعد', 'عامل',
+      'رئيس القسم',
+      'مشرف',
+      'فني',
+      'مساعد',
+      'عامل',
     ],
 
     'الإدارة العامة وإدارة الإنتاج': [
@@ -138,25 +161,23 @@ class _WorkerFormState extends State<WorkerForm> {
     ],
   };
 
-
   /// ─── أقسام المصنع (key = كود Hive، value = المسمى الرسمي) ─────────────────
   // يجب أن يتطابق مع worker_card.dart (_getDepartmentArabicName) و workers_screen.dart
   static const Map<String, String> departmentOptions = {
-    'flexo':             'قسم الفلكسو',
-    'production_line':   'قسم خط الإنتاج',
-    'die_cutting':       'قسم التكسير',          // workers_crushing → die_cutting
-    'staples':           'قسم الدبوس والتعبئة',  // workers_staple → staples (مستقل)
-    'general_mgmt':      'الإدارة العامة وإدارة الإنتاج',
+    'flexo': 'قسم الفلكسو',
+    'production_line': 'قسم خط الإنتاج',
+    'die_cutting': 'قسم التكسير', // workers_crushing → die_cutting
+    'staples': 'قسم الدبوس والتعبئة', // workers_staple → staples (مستقل)
+    'general_mgmt': 'الإدارة العامة وإدارة الإنتاج',
     'technical_support': 'قسم الدعم الفني والتجهيزات',
-    'quality_control':   'قسم مراقبة الجودة',
-    'accounting':        'قسم الحسابات والمالية',
-    'stores':            'قسم المخازن واللوجستيات',
-    'sales':             'قسم المبيعات والتعاقدات',
-    'secretariat':       'قسم السكرتارية والمكتب الأمامي',
-    'maintenance':       'قسم الصيانة',
-    'hr':                'قسم الموارد البشرية (HR)',
+    'quality_control': 'قسم مراقبة الجودة',
+    'accounting': 'قسم الحسابات والمالية',
+    'stores': 'قسم المخازن واللوجستيات',
+    'sales': 'قسم المبيعات والتعاقدات',
+    'secretariat': 'قسم السكرتارية والمكتب الأمامي',
+    'maintenance': 'قسم الصيانة',
+    'hr': 'قسم الموارد البشرية (HR)',
   };
-
 
   @override
   void initState() {
@@ -165,8 +186,20 @@ class _WorkerFormState extends State<WorkerForm> {
         TextEditingController(text: widget.existingWorker?.name ?? '');
     phoneController =
         TextEditingController(text: widget.existingWorker?.phone ?? '');
+    secondaryPhoneController = TextEditingController(
+        text: widget.existingWorker?.secondaryPhone ?? '');
     emailController =
         TextEditingController(text: widget.existingWorker?.email ?? '');
+
+    if (widget.existingWorker?.whatsappPhone != null &&
+        widget.existingWorker?.whatsappPhone ==
+            widget.existingWorker?.secondaryPhone &&
+        widget.existingWorker?.secondaryPhone != null &&
+        widget.existingWorker?.secondaryPhone!.isNotEmpty == true) {
+      whatsappPhonePreference = 'secondary';
+    } else {
+      whatsappPhonePreference = 'primary';
+    }
 
     // بناء قوائم الأقسام الديناميكية (Static + Hive)
     _buildDynamicDepartmentLists();
@@ -184,25 +217,27 @@ class _WorkerFormState extends State<WorkerForm> {
       final label = departmentOptions[initialDept] ?? initialDept;
       _allDepartmentLabels.add(label);
     }
-    
+
     selectedDepartment = initialDept;
 
     // ملء availableJobs بناءً على القسم الأولي
-    _updateJobsForDepartment(selectedDepartment, existingJob: widget.existingWorker?.job);
+    _updateJobsForDepartment(selectedDepartment,
+        existingJob: widget.existingWorker?.job);
 
-    canAdd    = widget.existingWorker?.canAdd    ?? false;
-    canEdit   = widget.existingWorker?.canEdit   ?? false;
+    canAdd = widget.existingWorker?.canAdd ?? false;
+    canEdit = widget.existingWorker?.canEdit ?? false;
     canDelete = widget.existingWorker?.canDelete ?? false;
-    canManageClientsAdd    = widget.existingWorker?.canManageClientsAdd    ?? false;
-    canManageClientsEdit   = widget.existingWorker?.canManageClientsEdit   ?? false;
-    canManageClientsDelete = widget.existingWorker?.canManageClientsDelete ?? false;
-    canAddWorker    = widget.existingWorker?.canAddWorker    ?? false;
-    canEditWorker   = widget.existingWorker?.canEditWorker   ?? false;
+    canManageClientsAdd = widget.existingWorker?.canManageClientsAdd ?? false;
+    canManageClientsEdit = widget.existingWorker?.canManageClientsEdit ?? false;
+    canManageClientsDelete =
+        widget.existingWorker?.canManageClientsDelete ?? false;
+    canAddWorker = widget.existingWorker?.canAddWorker ?? false;
+    canEditWorker = widget.existingWorker?.canEditWorker ?? false;
     canDeleteWorker = widget.existingWorker?.canDeleteWorker ?? false;
-    canReadArchive  = widget.existingWorker?.canReadArchive  ?? false;
-    canAddArchive   = widget.existingWorker?.canAddArchive   ?? false;
+    canReadArchive = widget.existingWorker?.canReadArchive ?? false;
+    canAddArchive = widget.existingWorker?.canAddArchive ?? false;
     canRestoreArchive = widget.existingWorker?.canRestoreArchive ?? false;
-    canDeleteArchive= widget.existingWorker?.canDeleteArchive?? false;
+    canDeleteArchive = widget.existingWorker?.canDeleteArchive ?? false;
     canAddWorkerAction = widget.existingWorker?.canAddWorkerAction ?? false;
     canIssueJobOrders = widget.existingWorker?.canIssueJobOrders ?? false;
 
@@ -426,16 +461,19 @@ class _WorkerFormState extends State<WorkerForm> {
   Future<bool> _attemptDeleteCustomDepartment(String deptCode) async {
     if (departmentOptions.containsKey(deptCode)) return false;
 
-    final workersBox = Hive.isBoxOpen('workers') ? Hive.box<Worker>('workers') : widget.box;
+    final workersBox =
+        Hive.isBoxOpen('workers') ? Hive.box<Worker>('workers') : widget.box;
     final isUsed = workersBox.values.any((w) {
       final wDept = w.department.trim();
       return wDept == deptCode.trim() ||
-          (departmentOptions[wDept] ?? wDept) == (departmentOptions[deptCode] ?? deptCode.trim());
+          (departmentOptions[wDept] ?? wDept) ==
+              (departmentOptions[deptCode] ?? deptCode.trim());
     });
 
     if (isUsed) {
       UIUtils.showInfoSnackBar(
-        message: "لا يمكن حذف هذا القسم/الوظيفة لوجود عمال مسجلين عليه حالياً. قم بنقل العمال أولاً.",
+        message:
+            "لا يمكن حذف هذا القسم/الوظيفة لوجود عمال مسجلين عليه حالياً. قم بنقل العمال أولاً.",
         backgroundColor: Colors.redAccent,
         icon: Icons.warning_amber_rounded,
       );
@@ -461,7 +499,9 @@ class _WorkerFormState extends State<WorkerForm> {
         }
       }
       if (selectedDepartment == deptCode) {
-        selectedDepartment = _allDepartmentCodes.isNotEmpty ? _allDepartmentCodes.first : 'flexo';
+        selectedDepartment = _allDepartmentCodes.isNotEmpty
+            ? _allDepartmentCodes.first
+            : 'flexo';
         _updateJobsForDepartment(selectedDepartment);
       }
     });
@@ -475,23 +515,27 @@ class _WorkerFormState extends State<WorkerForm> {
   }
 
   Future<bool> _attemptDeleteCustomJob(String jobName) async {
-    final deptLabel = departmentOptions[selectedDepartment] ?? selectedDepartment;
+    final deptLabel =
+        departmentOptions[selectedDepartment] ?? selectedDepartment;
     final hardcodedJobs = departmentJobsMap[deptLabel] ?? [];
     if (hardcodedJobs.contains(jobName)) return false;
 
-    final workersBox = Hive.isBoxOpen('workers') ? Hive.box<Worker>('workers') : widget.box;
+    final workersBox =
+        Hive.isBoxOpen('workers') ? Hive.box<Worker>('workers') : widget.box;
     final isUsed = workersBox.values.any((w) {
       final wDept = w.department.trim();
       final wJob = w.job.trim();
       final isSameDept = wDept == selectedDepartment.trim() ||
           (departmentOptions[wDept] ?? wDept) ==
-              (departmentOptions[selectedDepartment] ?? selectedDepartment.trim());
+              (departmentOptions[selectedDepartment] ??
+                  selectedDepartment.trim());
       return isSameDept && wJob == jobName.trim();
     });
 
     if (isUsed) {
       UIUtils.showInfoSnackBar(
-        message: "لا يمكن حذف هذا القسم/الوظيفة لوجود عمال مسجلين عليه حالياً. قم بنقل العمال أولاً.",
+        message:
+            "لا يمكن حذف هذا القسم/الوظيفة لوجود عمال مسجلين عليه حالياً. قم بنقل العمال أولاً.",
         backgroundColor: Colors.redAccent,
         icon: Icons.warning_amber_rounded,
       );
@@ -548,7 +592,8 @@ class _WorkerFormState extends State<WorkerForm> {
                         const SizedBox(width: 8),
                         const Text(
                           'اختر القسم',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const Spacer(),
                         IconButton(
@@ -568,17 +613,23 @@ class _WorkerFormState extends State<WorkerForm> {
                               ? _allDepartmentLabels[idx]
                               : code;
                           final isSelected = code == selectedDepartment;
-                          final isHardcoded = departmentOptions.containsKey(code);
+                          final isHardcoded =
+                              departmentOptions.containsKey(code);
 
                           return ListTile(
                             leading: Icon(
-                              isHardcoded ? Icons.business : Icons.business_outlined,
-                              color: isSelected ? Colors.blue : Colors.grey[700],
+                              isHardcoded
+                                  ? Icons.business
+                                  : Icons.business_outlined,
+                              color:
+                                  isSelected ? Colors.blue : Colors.grey[700],
                             ),
                             title: Text(
                               label,
                               style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                                 color: isSelected ? Colors.blue : null,
                               ),
                             ),
@@ -587,17 +638,21 @@ class _WorkerFormState extends State<WorkerForm> {
                               children: [
                                 if (!isHardcoded)
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: Colors.red, size: 22),
                                     tooltip: 'حذف القسم اليدوي',
                                     onPressed: () async {
-                                      final success = await _attemptDeleteCustomDepartment(code);
+                                      final success =
+                                          await _attemptDeleteCustomDepartment(
+                                              code);
                                       if (success) {
                                         setSheetState(() {});
                                       }
                                     },
                                   ),
                                 if (isSelected)
-                                  const Icon(Icons.check_circle, color: Colors.blue, size: 20),
+                                  const Icon(Icons.check_circle,
+                                      color: Colors.blue, size: 20),
                               ],
                             ),
                             onTap: () {
@@ -613,10 +668,12 @@ class _WorkerFormState extends State<WorkerForm> {
                     ),
                     const Divider(),
                     ListTile(
-                      leading: const Icon(Icons.add_circle_outline, color: Colors.blue),
+                      leading: const Icon(Icons.add_circle_outline,
+                          color: Colors.blue),
                       title: const Text(
                         '➕ إضافة قسم جديد...',
-                        style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: Colors.blue, fontWeight: FontWeight.bold),
                       ),
                       onTap: () async {
                         Navigator.pop(sheetContext);
@@ -643,7 +700,8 @@ class _WorkerFormState extends State<WorkerForm> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            final deptLabel = departmentOptions[selectedDepartment] ?? selectedDepartment;
+            final deptLabel =
+                departmentOptions[selectedDepartment] ?? selectedDepartment;
             final hardcodedJobs = departmentJobsMap[deptLabel] ?? [];
 
             return SafeArea(
@@ -661,7 +719,8 @@ class _WorkerFormState extends State<WorkerForm> {
                         const SizedBox(width: 8),
                         const Text(
                           'اختر الوظيفة',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const Spacer(),
                         IconButton(
@@ -683,12 +742,15 @@ class _WorkerFormState extends State<WorkerForm> {
                           return ListTile(
                             leading: Icon(
                               isHardcoded ? Icons.work : Icons.work_outline,
-                              color: isSelected ? Colors.green : Colors.grey[700],
+                              color:
+                                  isSelected ? Colors.green : Colors.grey[700],
                             ),
                             title: Text(
                               job,
                               style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                                 color: isSelected ? Colors.green : null,
                               ),
                             ),
@@ -697,17 +759,20 @@ class _WorkerFormState extends State<WorkerForm> {
                               children: [
                                 if (!isHardcoded)
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: Colors.red, size: 22),
                                     tooltip: 'حذف الوظيفة اليدوية',
                                     onPressed: () async {
-                                      final success = await _attemptDeleteCustomJob(job);
+                                      final success =
+                                          await _attemptDeleteCustomJob(job);
                                       if (success) {
                                         setSheetState(() {});
                                       }
                                     },
                                   ),
                                 if (isSelected)
-                                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                  const Icon(Icons.check_circle,
+                                      color: Colors.green, size: 20),
                               ],
                             ),
                             onTap: () {
@@ -720,10 +785,12 @@ class _WorkerFormState extends State<WorkerForm> {
                     ),
                     const Divider(),
                     ListTile(
-                      leading: const Icon(Icons.add_circle_outline, color: Colors.green),
+                      leading: const Icon(Icons.add_circle_outline,
+                          color: Colors.green),
                       title: const Text(
                         '➕ إضافة وظيفة جديدة...',
-                        style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: Colors.green, fontWeight: FontWeight.bold),
                       ),
                       onTap: () async {
                         Navigator.pop(sheetContext);
@@ -739,8 +806,6 @@ class _WorkerFormState extends State<WorkerForm> {
       },
     );
   }
-
-
 
   // ✅ الدالة المعدلة لتتوافق مع flutter_native_contact_picker
   Future<void> _pickContact() async {
@@ -777,10 +842,28 @@ class _WorkerFormState extends State<WorkerForm> {
     }
   }
 
+  Future<void> _pickSecondaryContact() async {
+    try {
+      final Contact? contact = await _contactPicker.selectContact();
+      if (contact != null &&
+          contact.phoneNumbers != null &&
+          contact.phoneNumbers!.isNotEmpty) {
+        setState(() {
+          String rawNumber = contact.phoneNumbers!.first;
+          String cleanNumber = rawNumber.replaceAll(RegExp(r'[^0-9+]'), '');
+          secondaryPhoneController.text = cleanNumber;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error picking contact: $e");
+    }
+  }
+
   @override
   void dispose() {
     nameController.dispose();
     phoneController.dispose();
+    secondaryPhoneController.dispose();
     emailController.dispose();
     super.dispose();
   }
@@ -792,19 +875,27 @@ class _WorkerFormState extends State<WorkerForm> {
       // جلب factory_id من التخزين الآمن
       const storage = SafeSecureStorage();
       final factoryId = await storage.read(key: 'factory_id');
-      
-      final emailVal = emailController.text.trim().isEmpty 
-          ? null 
+
+      final emailVal = emailController.text.trim().isEmpty
+          ? null
           : emailController.text.trim();
 
       // الوظيفة المُختارة نهائياً (selectedJob مضمون غير null بعد initState)
       final finalJob = selectedJob ?? availableJobs.firstOrNull ?? 'عامل';
 
       if (widget.existingWorker == null) {
+        final whatsappPhoneVal = whatsappPhonePreference == 'primary'
+            ? phoneController.text.trim()
+            : secondaryPhoneController.text.trim();
+
         // إضافة عامل جديد — UUID يُولّد تلقائياً في الـ constructor
         final worker = Worker(
           name: nameController.text.trim(),
           phone: phoneController.text.trim(),
+          secondaryPhone: secondaryPhoneController.text.trim().isEmpty
+              ? null
+              : secondaryPhoneController.text.trim(),
+          whatsappPhone: whatsappPhoneVal.isEmpty ? null : whatsappPhoneVal,
           job: finalJob,
           actions: [],
           factoryId: factoryId,
@@ -829,14 +920,22 @@ class _WorkerFormState extends State<WorkerForm> {
 
         // FIX: box.put(syncId) بدلاً من box.add() — مفتاح ثابت يمنع التكرار
         await widget.box.put(worker.syncId!, worker);
-        debugPrint('✅ [WorkerForm] أُضيف العامل: ${worker.name} (key=${worker.syncId})');
+        debugPrint(
+            '✅ [WorkerForm] أُضيف العامل: ${worker.name} (key=${worker.syncId})');
 
         // رفع للسحاب عبر Queue (يتضمن sync_id تلقائياً من toJson)
         SyncService.instance.pushToQueue('workers', worker.toJson());
       } else {
         final w = widget.existingWorker!;
+        final whatsappPhoneVal = whatsappPhonePreference == 'primary'
+            ? phoneController.text.trim()
+            : secondaryPhoneController.text.trim();
         w.name = nameController.text.trim();
         w.phone = phoneController.text.trim();
+        w.secondaryPhone = secondaryPhoneController.text.trim().isEmpty
+            ? null
+            : secondaryPhoneController.text.trim();
+        w.whatsappPhone = whatsappPhoneVal.isEmpty ? null : whatsappPhoneVal;
         w.job = finalJob;
         w.factoryId ??= factoryId;
         w.department = selectedDepartment;
@@ -856,16 +955,16 @@ class _WorkerFormState extends State<WorkerForm> {
         w.canAddWorkerAction = canAddWorkerAction;
         w.canIssueJobOrders = canIssueJobOrders;
         w.email = emailVal;
-        
+
         // ✅ الحل الصحيح والآمن للتعامل مع كائنات Hive
         if (w.isInBox) {
           await w.save(); // يقوم بتحديث نفسه بمفتاحه الأصلي دون تعارض
         } else {
           // مفتاح احتياطي في حال كان الكائن غير مرتبط بصندوق
-          final keyToUse = w.key ?? w.syncId!; 
+          final keyToUse = w.key ?? w.syncId!;
           await widget.box.put(keyToUse, w);
         }
-        
+
         // ✅ إصلاح: لا نُرسل device_id و is_device_linked من جهاز الأدمن
         // لأن الأدمن لا يملك هذه البيانات محلياً — إرسالها بـ null يمسح ربط جهاز العامل!
         // نستخدم نسخة منقّحة من toJson() تحذف هذين الحقلين عند التعديل فقط.
@@ -874,14 +973,14 @@ class _WorkerFormState extends State<WorkerForm> {
           ..remove('is_device_linked');
         SyncService.instance.pushToQueue('workers', editPayload);
       }
-      
+
       if (mounted) Navigator.pop(context); // الإغلاق فقط عند النجاح
-      
     } catch (e) {
       debugPrint("Error saving worker: $e");
       if (mounted) {
         UIUtils.showInfoSnackBar(
-          message: "عفواً، حدث خطأ أثناء الحفظ. (السبب: ${e.toString().split('\n').first})",
+          message:
+              "عفواً، حدث خطأ أثناء الحفظ. (السبب: ${e.toString().split('\n').first})",
           backgroundColor: Colors.redAccent,
           icon: Icons.error_outline,
         );
@@ -897,15 +996,16 @@ class _WorkerFormState extends State<WorkerForm> {
     final authService = Provider.of<AuthService>(context, listen: false);
     bool isCurrentUserManager = authService.isAdmin;
 
-    final bool isSuperAdmin = currentUserEmail == 'mohamedabdo9999933@gmail.com';
-    
+    final bool isSuperAdmin =
+        currentUserEmail == 'mohamedabdo9999933@gmail.com';
+
     if (!isCurrentUserManager) {
-      final workersBox = Hive.isBoxOpen('workers') 
-          ? Hive.box<Worker>('workers') 
-          : null;
+      final workersBox =
+          Hive.isBoxOpen('workers') ? Hive.box<Worker>('workers') : null;
       if (workersBox != null && currentUserEmail != null) {
         for (final worker in workersBox.values) {
-          if (worker.email?.trim().toLowerCase() == currentUserEmail.trim().toLowerCase()) {
+          if (worker.email?.trim().toLowerCase() ==
+              currentUserEmail.trim().toLowerCase()) {
             if (worker.canAdd && worker.canEdit && worker.canDelete) {
               isCurrentUserManager = true;
             }
@@ -922,7 +1022,8 @@ class _WorkerFormState extends State<WorkerForm> {
           widget.existingWorker == null ? "➕ إضافة عامل" : "✏️ تعديل العامل"),
       content: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -941,6 +1042,52 @@ class _WorkerFormState extends State<WorkerForm> {
                     ),
                   ),
                   keyboardType: TextInputType.phone),
+              const SizedBox(height: 10),
+              TextField(
+                  controller: secondaryPhoneController,
+                  decoration: InputDecoration(
+                    labelText: "📞 الهاتف الإضافي (اختياري)",
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.contact_phone, color: Colors.blue),
+                      onPressed: _pickSecondaryContact,
+                      tooltip: "اختيار من جهات الاتصال",
+                    ),
+                  ),
+                  keyboardType: TextInputType.phone),
+              const SizedBox(height: 10),
+              const Align(
+                alignment: Alignment.centerRight,
+                child: Text("حدد رقم الواتساب المفضل:",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              RadioGroup<String>(
+                groupValue: whatsappPhonePreference,
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      whatsappPhonePreference = val;
+                    });
+                  }
+                },
+                child: const Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile<String>(
+                        title: Text("الأساسي", style: TextStyle(fontSize: 13)),
+                        value: 'primary',
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<String>(
+                        title: Text("الإضافي", style: TextStyle(fontSize: 13)),
+                        value: 'secondary',
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 10),
               TextField(
                   controller: emailController,
@@ -963,9 +1110,12 @@ class _WorkerFormState extends State<WorkerForm> {
                       suffixIcon: Icon(Icons.arrow_drop_down),
                     ),
                     child: Text(
-                      _allDepartmentLabels.isNotEmpty && _allDepartmentCodes.contains(selectedDepartment)
-                          ? _allDepartmentLabels[_allDepartmentCodes.indexOf(selectedDepartment)]
-                          : (departmentOptions[selectedDepartment] ?? selectedDepartment),
+                      _allDepartmentLabels.isNotEmpty &&
+                              _allDepartmentCodes.contains(selectedDepartment)
+                          ? _allDepartmentLabels[
+                              _allDepartmentCodes.indexOf(selectedDepartment)]
+                          : (departmentOptions[selectedDepartment] ??
+                              selectedDepartment),
                       style: const TextStyle(fontSize: 15),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -994,8 +1144,10 @@ class _WorkerFormState extends State<WorkerForm> {
                 const SizedBox(height: 15),
                 const Divider(),
                 ExpansionTile(
-                  title: const Text("🏭 صلاحيات الإنتاج", style: TextStyle(fontWeight: FontWeight.bold)),
-                  collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                  title: const Text("🏭 صلاحيات الإنتاج",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  collapsedShape:
+                      const RoundedRectangleBorder(side: BorderSide.none),
                   shape: const RoundedRectangleBorder(side: BorderSide.none),
                   dense: true,
                   children: [
@@ -1009,19 +1161,23 @@ class _WorkerFormState extends State<WorkerForm> {
                       title: const Text("تعديل تقارير"),
                       value: canEdit,
                       dense: true,
-                      onChanged: (val) => setState(() => canEdit = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canEdit = val ?? false),
                     ),
                     CheckboxListTile(
                       title: const Text("حذف تقارير"),
                       value: canDelete,
                       dense: true,
-                      onChanged: (val) => setState(() => canDelete = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canDelete = val ?? false),
                     ),
                   ],
                 ),
                 ExpansionTile(
-                  title: const Text("📦 صلاحيات العملاء والأصناف", style: TextStyle(fontWeight: FontWeight.bold)),
-                  collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                  title: const Text("📦 صلاحيات العملاء والأصناف",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  collapsedShape:
+                      const RoundedRectangleBorder(side: BorderSide.none),
                   shape: const RoundedRectangleBorder(side: BorderSide.none),
                   dense: true,
                   children: [
@@ -1029,25 +1185,30 @@ class _WorkerFormState extends State<WorkerForm> {
                       title: const Text("إضافة عملاء وأصناف"),
                       value: canManageClientsAdd,
                       dense: true,
-                      onChanged: (val) => setState(() => canManageClientsAdd = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canManageClientsAdd = val ?? false),
                     ),
                     CheckboxListTile(
                       title: const Text("تعديل عملاء وأصناف"),
                       value: canManageClientsEdit,
                       dense: true,
-                      onChanged: (val) => setState(() => canManageClientsEdit = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canManageClientsEdit = val ?? false),
                     ),
                     CheckboxListTile(
                       title: const Text("حذف عملاء وأصناف"),
                       value: canManageClientsDelete,
                       dense: true,
-                      onChanged: (val) => setState(() => canManageClientsDelete = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canManageClientsDelete = val ?? false),
                     ),
                   ],
                 ),
                 ExpansionTile(
-                  title: const Text("📄 صلاحيات أوامر التشغيل", style: TextStyle(fontWeight: FontWeight.bold)),
-                  collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                  title: const Text("📄 صلاحيات أوامر التشغيل",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  collapsedShape:
+                      const RoundedRectangleBorder(side: BorderSide.none),
                   shape: const RoundedRectangleBorder(side: BorderSide.none),
                   dense: true,
                   children: [
@@ -1055,13 +1216,16 @@ class _WorkerFormState extends State<WorkerForm> {
                       title: const Text("إصدار أوامر التشغيل"),
                       value: canIssueJobOrders,
                       dense: true,
-                      onChanged: (val) => setState(() => canIssueJobOrders = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canIssueJobOrders = val ?? false),
                     ),
                   ],
                 ),
                 ExpansionTile(
-                  title: const Text("👥 صلاحيات شؤون العاملين", style: TextStyle(fontWeight: FontWeight.bold)),
-                  collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                  title: const Text("👥 صلاحيات شؤون العاملين",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  collapsedShape:
+                      const RoundedRectangleBorder(side: BorderSide.none),
                   shape: const RoundedRectangleBorder(side: BorderSide.none),
                   dense: true,
                   children: [
@@ -1069,31 +1233,37 @@ class _WorkerFormState extends State<WorkerForm> {
                       title: const Text("إضافة عامل"),
                       value: canAddWorker,
                       dense: true,
-                      onChanged: (val) => setState(() => canAddWorker = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canAddWorker = val ?? false),
                     ),
                     CheckboxListTile(
                       title: const Text("تعديل عامل"),
                       value: canEditWorker,
                       dense: true,
-                      onChanged: (val) => setState(() => canEditWorker = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canEditWorker = val ?? false),
                     ),
                     CheckboxListTile(
                       title: const Text("حذف عامل"),
                       value: canDeleteWorker,
                       dense: true,
-                      onChanged: (val) => setState(() => canDeleteWorker = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canDeleteWorker = val ?? false),
                     ),
                     CheckboxListTile(
                       title: const Text("إضافة حركة عامل"),
                       value: canAddWorkerAction,
                       dense: true,
-                      onChanged: (val) => setState(() => canAddWorkerAction = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canAddWorkerAction = val ?? false),
                     ),
                   ],
                 ),
                 ExpansionTile(
-                  title: const Text("🗄️ صلاحيات الأرشيف", style: TextStyle(fontWeight: FontWeight.bold)),
-                  collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                  title: const Text("🗄️ صلاحيات الأرشيف",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  collapsedShape:
+                      const RoundedRectangleBorder(side: BorderSide.none),
                   shape: const RoundedRectangleBorder(side: BorderSide.none),
                   dense: true,
                   children: [
@@ -1101,25 +1271,29 @@ class _WorkerFormState extends State<WorkerForm> {
                       title: const Text("قراءة الأرشيف (جميع الأقسام)"),
                       value: canReadArchive,
                       dense: true,
-                      onChanged: (val) => setState(() => canReadArchive = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canReadArchive = val ?? false),
                     ),
                     CheckboxListTile(
                       title: const Text("إضافة للأرشيف (نفس القسم فقط)"),
                       value: canAddArchive,
                       dense: true,
-                      onChanged: (val) => setState(() => canAddArchive = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canAddArchive = val ?? false),
                     ),
                     CheckboxListTile(
                       title: const Text("استعادة الأرشيف (نفس القسم فقط)"),
                       value: canRestoreArchive,
                       dense: true,
-                      onChanged: (val) => setState(() => canRestoreArchive = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canRestoreArchive = val ?? false),
                     ),
                     CheckboxListTile(
                       title: const Text("حذف من الأرشيف (نفس القسم فقط)"),
                       value: canDeleteArchive,
                       dense: true,
-                      onChanged: (val) => setState(() => canDeleteArchive = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => canDeleteArchive = val ?? false),
                     ),
                   ],
                 ),

@@ -21,6 +21,8 @@ class WorkerAdapter extends TypeAdapter<Worker> {
       name: fields[0] as String,
       phone: fields[1] as String,
       job: fields[2] as String,
+      secondaryPhone: fields[26] as String?,
+      whatsappPhone: fields[27] as String?,
       hasMedicalInsurance: fields[4] == null ? false : fields[4] as bool,
       factoryId: fields[5] as String?,
       department: fields[7] == null ? 'flexo' : fields[7] as String,
@@ -48,13 +50,17 @@ class WorkerAdapter extends TypeAdapter<Worker> {
   @override
   void write(BinaryWriter writer, Worker obj) {
     writer
-      ..writeByte(26)
+      ..writeByte(28)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
       ..write(obj.phone)
       ..writeByte(2)
       ..write(obj.job)
+      ..writeByte(26)
+      ..write(obj.secondaryPhone)
+      ..writeByte(27)
+      ..write(obj.whatsappPhone)
       ..writeByte(3)
       ..write(obj._actions)
       ..writeByte(4)

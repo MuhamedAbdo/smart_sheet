@@ -485,9 +485,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             tooltip: 'خيارات الاتصال',
             onSelected: (value) {
               if (value == 'call') {
-                _launchURL('tel:${_worker.phone}');
+                _handleCall();
               } else if (value == 'whatsapp') {
-                _launchWhatsApp(_worker.phone);
+                _handleWhatsApp();
               } else if (value == 'copy') {
                 _copyPhoneToClipboard();
               }
@@ -1617,6 +1617,59 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         ],
       ),
     );
+  }
+
+  void _handleCall() {
+    final p1 = _worker.phone.trim();
+    final p2 = _worker.secondaryPhone?.trim() ?? '';
+
+    if (p1.isNotEmpty && p2.isNotEmpty && p1 != p2) {
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text("اختر الرقم للاتصال", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.phone, color: Colors.green),
+                title: Text(p1, textDirection: TextDirection.ltr, textAlign: TextAlign.right),
+                subtitle: const Text("الأساسي"),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _launchURL('tel:$p1');
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.phone, color: Colors.green),
+                title: Text(p2, textDirection: TextDirection.ltr, textAlign: TextAlign.right),
+                subtitle: const Text("الإضافي"),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _launchURL('tel:$p2');
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      _launchURL('tel:${p1.isNotEmpty ? p1 : p2}');
+    }
+  }
+
+  void _handleWhatsApp() {
+    final wp = _worker.whatsappPhone?.trim();
+    final p1 = _worker.phone.trim();
+    final target = (wp != null && wp.isNotEmpty) ? wp : p1;
+    _launchWhatsApp(target);
   }
 
   Future<void> _launchURL(String url) async {

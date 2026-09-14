@@ -17,6 +17,12 @@ class Worker extends HiveObject {
   @HiveField(2)
   late String job;
 
+  @HiveField(26)
+  late String? secondaryPhone;
+
+  @HiveField(27)
+  late String? whatsappPhone;
+
   @HiveField(3)
   // ignore: experimental_member_use
   HiveList<WorkerAction>? _actions;
@@ -123,6 +129,8 @@ class Worker extends HiveObject {
     required this.name,
     required this.phone,
     required this.job,
+    this.secondaryPhone,
+    this.whatsappPhone,
     List<WorkerAction>? actions,
     this.hasMedicalInsurance = false,
     this.factoryId,
@@ -307,6 +315,8 @@ class Worker extends HiveObject {
       'sync_id': id, // Alias for compatibility with some schemas
       'name': name,
       'phone': phone,
+      'secondary_phone': secondaryPhone,
+      'whatsapp_phone': whatsappPhone,
       'job': job,
       'has_medical_insurance': hasMedicalInsurance,
       'factory_id': factoryId,
@@ -342,6 +352,8 @@ class Worker extends HiveObject {
       id: (map['sync_id'] ?? map['id'])?.toString(),
       name: map['name'] ?? '',
       phone: map['phone'] ?? '',
+      secondaryPhone: map['secondary_phone']?.toString(),
+      whatsappPhone: map['whatsapp_phone']?.toString(),
       job: map['job'] ?? '',
       actions: actions,
       hasMedicalInsurance: map['has_medical_insurance'] ?? false,
@@ -376,6 +388,8 @@ class Worker extends HiveObject {
     String? id,
     String? name,
     String? phone,
+    String? secondaryPhone,
+    String? whatsappPhone,
     String? job,
     List<WorkerAction>? actions,
     bool? hasMedicalInsurance,
@@ -404,6 +418,8 @@ class Worker extends HiveObject {
       id: id ?? this.id,
       name: name ?? this.name,
       phone: phone ?? this.phone,
+      secondaryPhone: secondaryPhone ?? this.secondaryPhone,
+      whatsappPhone: whatsappPhone ?? this.whatsappPhone,
       job: job ?? this.job,
       actions: actions ?? this.actions.toList(),
       hasMedicalInsurance: hasMedicalInsurance ?? this.hasMedicalInsurance,
