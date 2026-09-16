@@ -22,7 +22,7 @@ class SmartSheetCard extends StatelessWidget {
     return Container(
       margin: margin,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : theme.cardColor, // Deep Navy for dark mode
+        color: isDark ? const Color(0xFF0F172A) : Colors.white, // Stark white for light mode
         borderRadius: BorderRadius.circular(16.0),
         boxShadow: [
           if (isDark)
@@ -35,9 +35,9 @@ class SmartSheetCard extends StatelessWidget {
           else
             const BoxShadow(
               color: Colors.black12,
-              blurRadius: 8,
-              spreadRadius: 0,
-              offset: Offset(0, 2),
+              blurRadius: 10,
+              spreadRadius: 2,
+              offset: Offset(0, 4),
             ),
         ],
       ),

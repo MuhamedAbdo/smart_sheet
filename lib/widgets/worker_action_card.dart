@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../models/worker_action_model.dart';
 import '../../services/sync_service.dart';
+import '../../widgets/smart_sheet_card.dart';
 
 class WorkerActionCard extends StatelessWidget {
   final WorkerAction action;
@@ -29,12 +30,10 @@ class WorkerActionCard extends StatelessWidget {
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
 
-    return Card(
+    return SmartSheetCard(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -224,7 +223,6 @@ class WorkerActionCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 

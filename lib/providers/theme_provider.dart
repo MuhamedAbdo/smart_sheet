@@ -139,7 +139,14 @@ class ThemeProvider with ChangeNotifier {
     useMaterial3: true,
     brightness: Brightness.light,
     primaryColor: Colors.blue,
-    scaffoldBackgroundColor: Colors.white,
+    scaffoldBackgroundColor: Colors.grey[50],
+    cardColor: Colors.white,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: Colors.blue,
+      brightness: Brightness.light,
+      surface: Colors.grey[50]!,
+      onSurface: Colors.black87, // High contrast text
+    ),
     visualDensity: VisualDensity.adaptivePlatformDensity,
     fontFamily: 'Cairo',
     pageTransitionsTheme: const PageTransitionsTheme(

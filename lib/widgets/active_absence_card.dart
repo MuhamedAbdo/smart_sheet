@@ -7,6 +7,7 @@ import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/worker_details_screen.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 class ActiveAbsenceCard extends StatelessWidget {
   final Worker worker;
@@ -94,25 +95,22 @@ class ActiveAbsenceCard extends StatelessWidget {
       durationText = now.difference(action.date).inDays.toString();
     }
 
-    return Card(
-      elevation: isOverdue ? 8 : 6,
+    return SmartSheetCard(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: borderColor, width: borderWidth),
-      ),
+      padding: EdgeInsets.zero,
       child: Container(
         width: 300,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: borderWidth),
           gradient: LinearGradient(
             colors: isDark
                 ? [
                     isOverdue
-                        ? Colors.red.withValues(alpha: 0.25)
-                        : primaryColor.withValues(alpha: 0.3),
-                    primaryColor.withValues(alpha: 0.1)
+                        ? Colors.red.withValues(alpha: 0.15)
+                        : primaryColor.withValues(alpha: 0.1),
+                    Colors.transparent
                   ]
                 : [
                     isOverdue

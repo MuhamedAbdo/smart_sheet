@@ -1017,10 +1017,17 @@ class _WorkerFormState extends State<WorkerForm> {
 
     final bool showPermissions = isSuperAdmin || isCurrentUserManager;
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.0)),
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
       title: Text(
           widget.existingWorker == null ? "➕ إضافة عامل" : "✏️ تعديل العامل"),
-      content: SingleChildScrollView(
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: SingleChildScrollView(
         child: Padding(
           padding:
               EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -1299,6 +1306,7 @@ class _WorkerFormState extends State<WorkerForm> {
                 ),
               ],
             ],
+          ),
           ),
         ),
       ),

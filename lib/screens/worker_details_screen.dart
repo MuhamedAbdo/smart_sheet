@@ -528,10 +528,21 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? const Color(0xFF1E293B) 
+                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(24.0),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
             // Worker Header Card
             Card(
               elevation: 2,
@@ -750,6 +761,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
               ),
             ),
           ],
+              ),
+            ),
+          ),
         ),
       ),
       // ─── FAB: محمي بـ ValueListenableBuilder لسحب الصلاحيات فورياً ───
