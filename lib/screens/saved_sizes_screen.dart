@@ -188,18 +188,35 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Icon(Icons.people_alt_outlined,
-              color: Colors.white70, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            '$totalClients عميل مسجل',
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              const Icon(Icons.people_alt_outlined,
+                  color: Colors.white70, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                '$totalClients عميل مسجل',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
+          if (PermissionHelper.canManageClientsAdd)
+            IconButton(
+              icon: const Icon(Icons.person_add),
+              color: Colors.white,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddSheetSizeScreen(),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
