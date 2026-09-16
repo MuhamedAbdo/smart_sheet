@@ -4,6 +4,7 @@ import 'package:pdf/pdf.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/screens/pdf_preview_screen.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 import 'package:smart_sheet/services/job_order_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_sheet/screens/manual_job_order_dialog.dart';
@@ -339,18 +340,13 @@ class _OrderCard extends StatelessWidget {
     final canDelete =
         auth.isAdmin || auth.currentUserEmail == data.creatorEmail;
 
-    return Card(
+    return SmartSheetCard(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 3,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
+      onTap: onTap,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
               // ── الصف الأول: الأيقونة + اسم العميل + زر الحذف ──────────────
               Row(
                 children: [
@@ -434,9 +430,7 @@ class _OrderCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
+      );
   }
 }
 

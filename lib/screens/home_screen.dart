@@ -18,6 +18,7 @@ import 'package:smart_sheet/widgets/app_drawer.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -53,11 +54,19 @@ class HomeScreen extends StatelessWidget {
               }
 
               return Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: ListView(
-                    padding: const EdgeInsets.all(16.0),
-                    children: [
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                  decoration: BoxDecoration(
+                    color: theme.brightness == Brightness.dark 
+                        ? const Color(0xFF1E293B) // Slate 800
+                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(24.0),
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: ListView(
+                      padding: const EdgeInsets.all(24.0),
+                      children: [
                       // القسم الأول: أقسام المصنع
                       _buildSectionTitle('أقسام المصنع', theme),
                       _buildCard(
@@ -173,6 +182,7 @@ class HomeScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                ),
               );
             },
           ),
@@ -201,49 +211,30 @@ class HomeScreen extends StatelessWidget {
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A), // Deep Navy / Slate
-        borderRadius: BorderRadius.circular(16.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blueAccent.withValues(alpha: 0.15),
-            blurRadius: 12,
-            spreadRadius: 1,
-            offset: const Offset(0, 4),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return SmartSheetCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: ListTile(
+        leading: Icon(
+          icon,
+          color: Colors.blueAccent,
+          size: 28,
+        ),
+        title: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface,
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16.0),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: ListTile(
-              leading: Icon(
-                icon,
-                color: Colors.blueAccent,
-                size: 28,
-              ),
-              title: Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Colors.white,
-                ),
-              ),
-              trailing: const Icon(
-                Icons.arrow_back_ios, 
-                size: 16,
-                color: Colors.white54,
-              ),
-            ),
-          ),
+        ),
+        trailing: Icon(
+          Icons.arrow_back_ios, 
+          size: 16,
+          color: isDark ? Colors.white54 : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
         ),
       ),
     );

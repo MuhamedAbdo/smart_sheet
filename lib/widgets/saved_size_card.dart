@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:smart_sheet/widgets/full_screen_image_page.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 class SavedSizeCard extends StatelessWidget {
   final Map<String, dynamic> record;
@@ -55,13 +56,10 @@ class SavedSizeCard extends StatelessWidget {
         ? (record['imagePaths'] as List).map((e) => e.toString()).toList()
         : <String>[];
 
-    return Card(
+    return SmartSheetCard(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
+      padding: const EdgeInsets.all(14),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --- السطر الأول: العنوان والأزرار ---
@@ -222,7 +220,6 @@ class SavedSizeCard extends StatelessWidget {
               ),
           ],
         ),
-      ),
     );
   }
 

@@ -8,6 +8,7 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/models/worker_model.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 // تعريف أنواع الترتيب
 enum SortType {
@@ -404,21 +405,32 @@ class _ClientCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    return SmartSheetCard(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      onTap: onTap,
       child: ListTile(
-        onTap: onTap,
         leading: CircleAvatar(
           backgroundColor: Colors.blue.shade700,
           child: const Icon(Icons.person, color: Colors.white),
         ),
         title: Text(
           clientName,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          style: TextStyle(
+            fontWeight: FontWeight.bold, 
+            fontSize: 16,
+            color: isDark ? Colors.white : theme.colorScheme.onSurface,
+          ),
         ),
-        subtitle: Text('$itemCount صنف مسجل'),
+        subtitle: Text(
+          '$itemCount صنف مسجل',
+          style: TextStyle(
+            color: isDark ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -434,7 +446,11 @@ class _ClientCard extends StatelessWidget {
                 onPressed: onDelete,
                 tooltip: "حذف العميل",
               ),
-            const Icon(Icons.arrow_forward_ios, size: 16),
+            Icon(
+              Icons.arrow_forward_ios, 
+              size: 16,
+              color: isDark ? Colors.white54 : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
           ],
         ),
       ),

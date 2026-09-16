@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/worker_model.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 class WorkerCard extends StatefulWidget {
   final Worker worker;
@@ -30,12 +31,10 @@ class _WorkerCardState extends State<WorkerCard> {
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
 
-    return Card(
+    return SmartSheetCard(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -119,7 +118,6 @@ class _WorkerCardState extends State<WorkerCard> {
             ),
           ],
         ),
-      ),
     );
   }
 

@@ -50,7 +50,9 @@ class ThemeProvider with ChangeNotifier {
       final endM = box.get(_shiftEndMinuteKey, defaultValue: 0) as int;
       _shiftEnd = TimeOfDay(hour: endH, minute: endM);
 
-      _printedFactoryName = box.get(_printedFactoryNameKey, defaultValue: "العاشر للطباعة والنشر والتغليف\n( كازنبرس )") as String;
+      _printedFactoryName = box.get(_printedFactoryNameKey,
+              defaultValue: "العاشر للطباعة والنشر والتغليف\n( كازنبرس )")
+          as String;
       _factoryLogoBase64 = box.get(_factoryLogoBase64Key) as String?;
 
       notifyListeners();
@@ -140,6 +142,14 @@ class ThemeProvider with ChangeNotifier {
     scaffoldBackgroundColor: Colors.white,
     visualDensity: VisualDensity.adaptivePlatformDensity,
     fontFamily: 'Cairo',
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: ZoomPageTransitionsBuilder(),
+        TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+        TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+        TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
+      },
+    ),
   );
 
   static final _darkTheme = ThemeData(
@@ -148,5 +158,13 @@ class ThemeProvider with ChangeNotifier {
     scaffoldBackgroundColor: const Color(0xFF121212),
     visualDensity: VisualDensity.adaptivePlatformDensity,
     fontFamily: 'Cairo',
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: ZoomPageTransitionsBuilder(),
+        TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+        TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+        TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
+      },
+    ),
   );
 }
