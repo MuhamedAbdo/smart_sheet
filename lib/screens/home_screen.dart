@@ -1,4 +1,4 @@
-// lib/src/screens/home/home_screen.dart
+// lib/screens/home_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +8,6 @@ import 'package:smart_sheet/screens/crushing_screen.dart';
 import 'package:smart_sheet/screens/flexo_screen.dart';
 import 'package:smart_sheet/screens/production_line_screen.dart';
 import 'package:smart_sheet/screens/saved_sizes_screen.dart';
-import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/screens/staple_department_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/screens/linked_accounts_screen.dart';
@@ -16,9 +15,7 @@ import 'package:smart_sheet/screens/issued_work_orders_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/widgets/app_drawer.dart';
-import 'package:smart_sheet/widgets/home_button.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
-import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 
@@ -28,7 +25,6 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final isWindows = !kIsWeb && Platform.isWindows;
 
     return PopScope(
@@ -47,196 +43,206 @@ class HomeScreen extends StatelessWidget {
           elevation: 1,
         ),
         drawer: isWindows ? null : const AppDrawer(),
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                color: colorScheme.primary.withValues(alpha: 0.1),
-                child: Text(
-                  'اختر القسم الذي تريد العمل فيه :',
-                  textAlign: TextAlign.center,
-                  textDirection: TextDirection.rtl,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w500,
+        body: Directionality(
+          textDirection: TextDirection.rtl,
+          child: ValueListenableBuilder<Box<Worker>>(
+            valueListenable: Hive.box<Worker>('workers').listenable(),
+            builder: (context, box, child) {
+              if (!Hive.isBoxOpen('workers')) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: ListView(
+                    padding: const EdgeInsets.all(16.0),
+                    children: [
+                      // القسم الأول: أقسام المصنع
+                      _buildSectionTitle('أقسام المصنع', theme),
+                      _buildCard(
+                        context: context,
+                        title: 'الفلكسو',
+                        icon: Icons.print,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const FlexoScreen()),
+                        ),
+                      ),
+                      _buildCard(
+                        context: context,
+                        title: 'خط الإنتاج',
+                        icon: Icons.factory,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ProductionLineScreen()),
+                        ),
+                      ),
+                      _buildCard(
+                        context: context,
+                        title: 'التكسير',
+                        icon: Icons.cut,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const CrushingScreen()),
+                        ),
+                      ),
+                      _buildCard(
+                        context: context,
+                        title: 'الدبوس',
+                        icon: Icons.push_pin,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const StapleDepartmentScreen()),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // القسم الثاني: الإنتاج والمخازن
+                      _buildSectionTitle('الإنتاج والمخازن', theme),
+                      _buildCard(
+                        context: context,
+                        title: 'أوامر التشغيل الصادرة',
+                        icon: Icons.assignment,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const IssuedWorkOrdersScreen()),
+                        ),
+                      ),
+                      _buildCard(
+                        context: context,
+                        title: 'المخازن',
+                        icon: Icons.warehouse,
+                        onTap: () {
+                          UIUtils.showInfoSnackBar(
+                            message: 'سيتم تطويره قريبًا',
+                            backgroundColor: Colors.blueGrey,
+                          );
+                        },
+                      ),
+                      _buildCard(
+                        context: context,
+                        title: 'السليكات',
+                        icon: Icons.science,
+                        onTap: () {
+                          UIUtils.showInfoSnackBar(
+                            message: 'سيتم تطويره قريبًا',
+                            backgroundColor: Colors.blueGrey,
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // القسم الثالث: الإدارة والنظام
+                      _buildSectionTitle('الإدارة والنظام', theme),
+                      _buildCard(
+                        context: context,
+                        title: 'سجل العملاء',
+                        icon: Icons.save,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const SavedSizesScreen()),
+                        ),
+                      ),
+                      _buildCard(
+                        context: context,
+                        title: 'سجل العمال',
+                        icon: Icons.people,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const WorkersScreen(
+                              departmentBoxName: 'workers',
+                              departmentTitle: 'طاقم المصنع الموحد',
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (context.read<AuthService>().isAdmin)
+                        _buildCard(
+                          context: context,
+                          title: 'الأجهزة المرتبطة',
+                          icon: Icons.manage_accounts,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const LinkedAccountsScreen()),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    int crossAxisCount = 2;
-                    if (constraints.maxWidth > 1000) {
-                      crossAxisCount = 5;
-                    } else if (constraints.maxWidth > 700) {
-                      crossAxisCount = 4;
-                    } else if (constraints.maxWidth > 500) {
-                      crossAxisCount = 3;
-                    }
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
-                    if (!Hive.isBoxOpen('workers')) {
-                      // في حالة استعادة نسخة سحابية وإغلاق الصناديق قبل إعادة التشغيل
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    return ValueListenableBuilder<Box<Worker>>(
-                      valueListenable: Hive.box<Worker>('workers').listenable(),
-                      builder: (context, box, child) {
-                        return GridView.count(
-                          crossAxisCount: crossAxisCount,
-                      crossAxisSpacing: 24,
-                      mainAxisSpacing: 24,
-                      childAspectRatio: 1.1,
-                      children: [
-                        HomeButton(
-                          icon: Icons.factory,
-                          label: 'خط الإنتاج',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const ProductionLineScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        HomeButton(
-                          icon: Icons.print,
-                          label: 'الفلكسو',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const FlexoScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        HomeButton(
-                          icon: Icons.cut,
-                          label: 'التكسير',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const CrushingScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        HomeButton(
-                          icon: Icons.push_pin,
-                          label: 'الدبوس',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const StapleDepartmentScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        HomeButton(
-                          icon: Icons.science,
-                          label: 'السليكات',
-                          onTap: () {
-                            UIUtils.showInfoSnackBar(
-                              message: 'سيتم تطويره قريبًا',
-                              backgroundColor: Colors.blueGrey,
-                            );
-                          },
-                        ),
-                        HomeButton(
-                          icon: Icons.warehouse,
-                          label: 'المخازن',
-                          onTap: () {
-                            UIUtils.showInfoSnackBar(
-                              message: 'سيتم تطويره قريبًا',
-                              backgroundColor: Colors.blueGrey,
-                            );
-                          },
-                        ),
-                        if (PermissionHelper.canManageClientsAdd)
-                          HomeButton(
-                            icon: Icons.add,
-                            label: 'إضافة عميل جديد',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const AddSheetSizeScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        HomeButton(
-                          icon: Icons.save,
-                          label: 'سجل العملاء',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const SavedSizesScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        HomeButton(
-                          icon: Icons.people,
-                          label: 'سجل العمال',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const WorkersScreen(
-                                  departmentBoxName: 'workers',
-                                  departmentTitle: 'طاقم المصنع الموحد',
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        HomeButton(
-                          icon: Icons.assignment,
-                          label: 'أوامر التشغيل الصادرة',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const IssuedWorkOrdersScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        if (context.read<AuthService>().isAdmin)
-                          HomeButton(
-                            icon: Icons.manage_accounts,
-                            label: 'الأجهزة المرتبطة',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const LinkedAccountsScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
+  Widget _buildSectionTitle(String title, ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.blueGrey,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCard({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A), // Deep Navy / Slate
+        borderRadius: BorderRadius.circular(16.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blueAccent.withValues(alpha: 0.15),
+            blurRadius: 12,
+            spreadRadius: 1,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16.0),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: ListTile(
+              leading: Icon(
+                icon,
+                color: Colors.blueAccent,
+                size: 28,
+              ),
+              title: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.white,
+                ),
+              ),
+              trailing: const Icon(
+                Icons.arrow_back_ios, 
+                size: 16,
+                color: Colors.white54,
               ),
             ),
-            ],
           ),
         ),
       ),
