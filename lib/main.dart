@@ -39,6 +39,7 @@ import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/services/push_notification_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // استيراد الموديلات
 import 'package:smart_sheet/models/worker_action_model.dart';
@@ -104,6 +105,16 @@ Future<void> main() async {
 
       // ─── محاولة فتح صناديق Hive مع تفادي مشاكل Lock file المعلقة ───
       await _openBoxWithLockRecovery('settings');
+
+      // ✅ استرجاع مفتاح البوابة إذا تم حفظه مؤقتاً قبل Soft Restart (Cloud Restore)
+      final prefs = await SharedPreferences.getInstance();
+      final bool? isUnlockedTemp = prefs.getBool('is_device_unlocked_temp');
+      if (isUnlockedTemp == true) {
+        final settingsBox = Hive.box('settings');
+        await settingsBox.put('is_device_unlocked', true);
+        await prefs.remove('is_device_unlocked_temp');
+        debugPrint('🔓 تم استرجاع حالة فتح الجهاز بنجاح من SharedPreferences بعد Restart');
+      }
 
       // ✅ تأكد من أن كل جهاز يملك UUID ثابتاً منذ أول تشغيل
       // ضروري لنظام ملكية الإجراءات (isOwner check في action cards)

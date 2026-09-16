@@ -19,6 +19,7 @@ import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/pairing_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -185,6 +186,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
       final Map<dynamic, dynamic> currentSettings =
           Hive.box('settings').toMap();
+          
+      // حفظ المفتاح مؤقتاً في SharedPreferences لتفادي فقدانه إذا حدث Restart مفاجئ
+      final bool isUnlocked = currentSettings['is_device_unlocked'] == true;
+      if (isUnlocked) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('is_device_unlocked_temp', true);
+      }
+
       final restorePath = '$factoryId.zip';
       final result = await _backupService.downloadAndRestore(restorePath);
 
@@ -275,6 +284,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
       final Map<dynamic, dynamic> currentSettings =
           Hive.box('settings').toMap();
+          
+      // حفظ المفتاح مؤقتاً في SharedPreferences لتفادي فقدانه إذا حدث Restart مفاجئ
+      final bool isUnlocked = currentSettings['is_device_unlocked'] == true;
+      if (isUnlocked) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('is_device_unlocked_temp', true);
+      }
+          
       final result = await _backupService.restoreBackup();
 
       if (mounted) {
