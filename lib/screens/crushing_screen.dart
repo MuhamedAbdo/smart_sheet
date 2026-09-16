@@ -1,4 +1,4 @@
-﻿// lib/screens/crushing_screen.dart
+// lib/screens/crushing_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:smart_sheet/screens/calculator_screen.dart';
@@ -7,15 +7,65 @@ import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/screens/production_report_screen.dart';
 import 'package:smart_sheet/screens/machine_management_screen.dart';
-import 'package:smart_sheet/widgets/home_button.dart';
 import 'package:smart_sheet/widgets/flexo_report_drawer.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 
 class CrushingScreen extends StatelessWidget {
   const CrushingScreen({super.key});
 
+  Widget _buildSectionTitle(String title, ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.blueGrey,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDepartmentCard({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SmartSheetCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: ListTile(
+        leading: Icon(
+          icon,
+          color: Colors.blueAccent,
+          size: 28,
+        ),
+        title: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        trailing: Icon(
+          Icons.arrow_back_ios,
+          size: 16,
+          color: isDark ? Colors.white54 : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -29,66 +79,32 @@ class CrushingScreen extends StatelessWidget {
         elevation: 1,
       ),
       endDrawer: const FlexoReportDrawer(department: 'crushing'),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              color:
-                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-              child: Text(
-                'اختر القسم الذي تريد العمل فيه :',
-                textAlign: TextAlign.center,
-                textDirection: TextDirection.rtl,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            decoration: BoxDecoration(
+              color: theme.brightness == Brightness.dark 
+                  ? const Color(0xFF1E293B) 
+                  : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(24.0),
             ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  int crossAxisCount = 2;
-                  if (constraints.maxWidth > 1000) {
-                    crossAxisCount = 5;
-                  } else if (constraints.maxWidth > 700) {
-                    crossAxisCount = 4;
-                  } else if (constraints.maxWidth > 500) {
-                    crossAxisCount = 3;
-                  }
-
-                  return GridView.count(
-                    crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: 24,
-                    mainAxisSpacing: 24,
-                    childAspectRatio: 1.1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Builder(
+                builder: (innerContext) {
+                  return ListView(
+                    padding: const EdgeInsets.all(24.0),
                     children: [
-                      HomeButton(
-                        icon: Icons.group,
-                        label: 'طاقم التكسير',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const WorkersScreen(
-                                departmentBoxName: 'workers_crushing',
-                                departmentTitle: 'طاقم التكسير',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      HomeButton(
+                      _buildSectionTitle('الإنتاج والمخازن', theme),
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'تقرير الإنتاج',
                         icon: Icons.receipt,
-                        label: 'تقرير الإنتاج',
                         onTap: () {
                           Navigator.push(
-                            context,
+                            innerContext,
                             MaterialPageRoute(
                               builder: (context) =>
                                   const FlexoProductionReportScreen(
@@ -97,12 +113,13 @@ class CrushingScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      HomeButton(
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'وارد المخزن',
                         icon: Icons.inventory,
-                        label: 'وارد المخزن',
                         onTap: () {
                           Navigator.push(
-                            context,
+                            innerContext,
                             MaterialPageRoute(
                               builder: (context) => const StoreEntryScreen(
                                 boxName: 'store_crushing',
@@ -112,12 +129,41 @@ class CrushingScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      HomeButton(
-                        icon: Icons.settings,
-                        label: 'الصيانة',
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'تقارير الماكينات',
+                        icon: Icons.print_outlined,
+                        onTap: () {
+                          Scaffold.of(innerContext).openEndDrawer();
+                        },
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      _buildSectionTitle('الإدارة والصيانة', theme),
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'طاقم التكسير',
+                        icon: Icons.group,
                         onTap: () {
                           Navigator.push(
-                            context,
+                            innerContext,
+                            MaterialPageRoute(
+                              builder: (context) => const WorkersScreen(
+                                departmentBoxName: 'workers_crushing',
+                                departmentTitle: 'طاقم التكسير',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'الصيانة',
+                        icon: Icons.settings,
+                        onTap: () {
+                          Navigator.push(
+                            innerContext,
                             MaterialPageRoute(
                               builder: (context) => const MaintenanceScreen(
                                 boxName: 'maintenance_crushing_v2',
@@ -127,12 +173,13 @@ class CrushingScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      HomeButton(
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'إدارة الماكينات',
                         icon: Icons.precision_manufacturing,
-                        label: 'إدارة الماكينات',
                         onTap: () {
                           Navigator.push(
-                            context,
+                            innerContext,
                             MaterialPageRoute(
                               builder: (context) =>
                                   const MachineManagementScreen(
@@ -142,35 +189,35 @@ class CrushingScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      HomeButton(
+
+                      const SizedBox(height: 24),
+                      
+                      _buildSectionTitle('أدوات مساعدة', theme),
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'الآلة الحاسبة',
                         icon: Icons.calculate,
-                        label: 'الآلة الحاسبة',
                         onTap: () {
                           Navigator.push(
-                            context,
+                            innerContext,
                             MaterialPageRoute(
                               builder: (context) => const CalculatorScreen(),
                             ),
                           );
                         },
                       ),
-                      HomeButton(
-                        icon: Icons.print_outlined,
-                        label: 'تقارير الماكينات',
-                        onTap: () {
-                          Scaffold.of(context).openEndDrawer();
-                        },
-                      ),
-                      HomeButton(
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'قوالب التكسير',
                         icon: Icons.dvr,
-                        label: 'قوالب التكسير',
                         onTap: () {
-                          Navigator.pushNamed(context, '/die_cutting_forms');
+                          Navigator.pushNamed(innerContext, '/die_cutting_forms');
                         },
                       ),
-                      HomeButton(
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'تقرير الجودة',
                         icon: Icons.checklist,
-                        label: 'تقرير الجودة',
                         onTap: () {
                           UIUtils.showInfoSnackBar(
                             message: 'سيتم تطويره قريبًا',
@@ -179,9 +226,10 @@ class CrushingScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      HomeButton(
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'أدوات التكسير',
                         icon: Icons.widgets,
-                        label: 'أدوات التكسير',
                         onTap: () {
                           UIUtils.showInfoSnackBar(
                             message: 'سيتم تطويره قريبًا',
@@ -192,10 +240,10 @@ class CrushingScreen extends StatelessWidget {
                       ),
                     ],
                   );
-                },
+                }
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
