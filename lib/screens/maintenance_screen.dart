@@ -129,20 +129,37 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
         title: Text(widget.title ?? "سجلات الصيانة"),
         centerTitle: true,
       ),
-      body: ValueListenableBuilder(
-        valueListenable: _box!.listenable(),
-        builder: (context, Box<MaintenanceRecord> box, __) {
-          if (box.isEmpty) {
-            return const Center(child: Text("لا توجد سجلات صيانة"));
-          }
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1E293B)
+                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(24.0),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: ValueListenableBuilder(
+                valueListenable: _box!.listenable(),
+                builder: (context, Box<MaintenanceRecord> box, __) {
+                  if (box.isEmpty) {
+                    return const Center(child: Text("لا توجد سجلات صيانة"));
+                  }
 
-          return MaintenanceList(
-            box: box,
-            onAdd: () => _addOrEdit(),
-            onEdit: (i, r) => _addOrEdit(index: i, existing: r),
-            onDelete: _delete,
-          );
-        },
+                  return MaintenanceList(
+                    box: box,
+                    onAdd: () => _addOrEdit(),
+                    onEdit: (i, r) => _addOrEdit(index: i, existing: r),
+                    onDelete: _delete,
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addOrEdit(),

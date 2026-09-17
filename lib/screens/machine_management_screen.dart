@@ -5,6 +5,7 @@ import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 class MachineManagementScreen extends StatelessWidget {
   final String department;
@@ -87,7 +88,20 @@ class MachineManagementScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: FutureBuilder<Box<FlexoMachine>>(
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1E293B)
+                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(24.0),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: FutureBuilder<Box<FlexoMachine>>(
         future: Hive.isBoxOpen('flexo_machines')
             ? Future.value(Hive.box<FlexoMachine>('flexo_machines'))
             : Hive.openBox<FlexoMachine>('flexo_machines'),
@@ -123,10 +137,7 @@ class MachineManagementScreen extends StatelessWidget {
                 separatorBuilder: (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final machine = machines[index];
-                  return Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                  return SmartSheetCard(
                     child: ListTile(
                       leading: const CircleAvatar(
                         backgroundColor: Colors.blueAccent,
@@ -147,6 +158,10 @@ class MachineManagementScreen extends StatelessWidget {
             },
           );
         },
+      ),
+            ),
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddMachineDialog(context),

@@ -43,60 +43,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ThemeToggleButton(), // زر تبديل الثيم في الزاوية
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: isDesktop
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // ─── صف أول: المظهر + البيانات + إعدادات المصنع ───────
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildAppearanceCard(themeProvider)),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildDataCard(context)),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildFactorySettingsCard(
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          decoration: BoxDecoration(
+            color: themeProvider.isDarkTheme
+                ? const Color(0xFF1E293B)
+                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(24.0),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: isDesktop
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // ─── صف أول: المظهر + البيانات + إعدادات المصنع ───────
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _buildAppearanceCard(themeProvider)),
+                            const SizedBox(width: 16),
+                            Expanded(child: _buildDataCard(context)),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildFactorySettingsCard(
+                                themeProvider,
+                                context,
+                                isAdmin: isAdmin,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // ─── صف ثانٍ: جدول الوردية (2/3) + معلومات التطبيق (1/3)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                                flex: 2,
+                                child: FactoryScheduleCard(isAdmin: isAdmin)),
+                            const SizedBox(width: 16),
+                            Expanded(flex: 1, child: _buildAboutCard(context)),
+                          ],
+                        ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        _buildAppearanceCard(themeProvider),
+                        const SizedBox(height: 16),
+                        _buildDataCard(context),
+                        const SizedBox(height: 16),
+                        _buildFactorySettingsCard(
                           themeProvider,
                           context,
                           isAdmin: isAdmin,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // ─── صف ثانٍ: جدول الوردية (2/3) + معلومات التطبيق (1/3)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                          flex: 2,
-                          child: FactoryScheduleCard(isAdmin: isAdmin)),
-                      const SizedBox(width: 16),
-                      Expanded(flex: 1, child: _buildAboutCard(context)),
-                    ],
-                  ),
-                ],
-              )
-            : Column(
-                children: [
-                  _buildAppearanceCard(themeProvider),
-                  const SizedBox(height: 16),
-                  _buildDataCard(context),
-                  const SizedBox(height: 16),
-                  _buildFactorySettingsCard(
-                    themeProvider,
-                    context,
-                    isAdmin: isAdmin,
-                  ),
-                  const SizedBox(height: 16),
-                  FactoryScheduleCard(isAdmin: isAdmin),
-                  const SizedBox(height: 16),
-                  _buildAboutCard(context),
-                ],
-              ),
+                        const SizedBox(height: 16),
+                        FactoryScheduleCard(isAdmin: isAdmin),
+                        const SizedBox(height: 16),
+                        _buildAboutCard(context),
+                      ],
+                    ),
+            ),
+          ),
+        ),
       ),
     );
   }

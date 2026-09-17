@@ -749,13 +749,25 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       resizeToAvoidBottomInset: false, // منع الفراغ الأبيض عند ظهور الكيبورد
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        child: SingleChildScrollView(
-          // نُضيف ارتفاع الكيبورد كـ padding سفلي لضمان scroll صحيح
-          padding: EdgeInsets.fromLTRB(
-            16, 16, 16,
-            16 + MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Column(
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF1E293B)
+                    : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(24.0),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    16, 16, 16,
+                    16 + MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // --- نموذج الحقول الأساسية ---
@@ -905,6 +917,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
               const SizedBox(height: 40),
             ],
           ),
+        ),
+        ),
+        ),
+        ),
         ),
       ),
     );

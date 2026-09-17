@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../models/store_entry_model.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 class StoreEntryCard extends StatelessWidget {
   final StoreEntry record;
@@ -22,9 +23,8 @@ class StoreEntryCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final brightness = theme.brightness;
 
-    return Card(
+    return SmartSheetCard(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

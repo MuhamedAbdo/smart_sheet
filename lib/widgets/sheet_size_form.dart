@@ -95,6 +95,7 @@ class SheetSizeForm extends StatelessWidget {
 
         // --- بيانات العميل (مشتركة) ---
         _buildTextField(
+          context,
           "اسم العميل",
           clientNameController,
           enabled: clientNameEnabled,
@@ -105,14 +106,15 @@ class SheetSizeForm extends StatelessWidget {
         // في وضع إضافة العميل فقط، نخفي "اسم الصنف" و "الأبعاد" ونغير مسمى "الكود"
         if (isAddingClientOnly)
           _buildTextField(
+            context,
             "كود العميل (اختياري)",
             productCodeController,
             type: TextInputType.number,
             hint: "يمكن استكماله لاحقاً",
           )
         else ...[
-          _buildTextField("اسم الصنف", productNameController),
-          _buildTextField(
+          _buildTextField(context, "اسم الصنف", productNameController),
+          _buildTextField(context, 
               "كود الصنف", productCodeController, type: TextInputType.number),
 
           // --- خيار الشيت ---
@@ -129,10 +131,10 @@ class SheetSizeForm extends StatelessWidget {
 
 
           // --- الأبعاد (مشتركة) ---
-          _buildTextField("الطول", lengthController, type: TextInputType.number),
-          _buildTextField("العرض", widthController, type: TextInputType.number),
+          _buildTextField(context, "الطول", lengthController, type: TextInputType.number),
+          _buildTextField(context, "العرض", widthController, type: TextInputType.number),
           if (!(isSheet && processType == "تكسير"))
-            _buildTextField("الارتفاع", heightController, type: TextInputType.number),
+            _buildTextField(context, "الارتفاع", heightController, type: TextInputType.number),
 
 
 
@@ -155,14 +157,14 @@ class SheetSizeForm extends StatelessWidget {
                 ),
               ),
             if (formNumberController != null)
-              _buildTextField(
+              _buildTextField(context, 
                   "رقم الفورمة", formNumberController!, type: TextInputType.text),
             if (numberOfBoxesController != null)
-              _buildTextField(
+              _buildTextField(context, 
                   "عدد العلب (من الفورمة)", numberOfBoxesController!, type: TextInputType.number),
-            _buildTextField(
+            _buildTextField(context, 
                 "طول الشيت", sheetLengthManualController!, type: TextInputType.number),
-            _buildTextField(
+            _buildTextField(context, 
                 "عرض الشيت", sheetWidthManualController!, type: TextInputType.number),
             const SizedBox(height: 12),
             const Text("نوع الشريحة:",
@@ -201,8 +203,17 @@ class SheetSizeForm extends StatelessWidget {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller,
+  Widget _buildTextField(BuildContext context, String label, TextEditingController controller,
       {TextInputType? type, bool enabled = true, bool locked = false, String? hint}) {
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
+    Color? fillColor;
+    if (locked) {
+      fillColor = Colors.grey.withValues(alpha: 0.12);
+    } else {
+      fillColor = isDarkMode ? Colors.black26 : Colors.white;
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextField(
@@ -211,9 +222,9 @@ class SheetSizeForm extends StatelessWidget {
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
-          border: const OutlineInputBorder(),
-          filled: locked,
-          fillColor: locked ? Colors.grey.withValues(alpha: 0.12) : null,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          filled: true,
+          fillColor: fillColor,
           suffixIcon: locked
               ? const Icon(Icons.lock_outline, color: Colors.grey, size: 20)
               : null,

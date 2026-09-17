@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../models/maintenance_record_model.dart';
 import '../../widgets/full_screen_image_page.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 class MaintenanceCard extends StatelessWidget {
   final MaintenanceRecord record;
@@ -21,10 +22,8 @@ class MaintenanceCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final imagePaths = record.imagePaths;
 
-    return Card(
+    return SmartSheetCard(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

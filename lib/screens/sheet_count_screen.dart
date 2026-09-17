@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 class SheetCountScreen extends StatefulWidget {
   const SheetCountScreen({super.key});
@@ -83,6 +84,9 @@ class _SheetCountScreenState extends State<SheetCountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final Color fillColor = isDarkMode ? Colors.black26 : Colors.white;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('عدد الشيتات'),
@@ -90,74 +94,95 @@ class _SheetCountScreenState extends State<SheetCountScreen> {
       ),
       body: GestureDetector(
         onTap: _hideKeyboard,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              TextField(
-                controller: firstSheetLengthController,
-                decoration: const InputDecoration(
-                  labelText: 'طول الشيت الأول (سم)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.straighten),
-                ),
-                keyboardType: TextInputType.number,
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+              decoration: BoxDecoration(
+                color: isDarkMode
+                    ? const Color(0xFF1E293B)
+                    : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(24.0),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: firstSheetCountController,
-                decoration: const InputDecoration(
-                  labelText: 'عدد الشيتات الأول',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.inventory),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: secondSheetLengthController,
-                decoration: const InputDecoration(
-                  labelText: 'طول الشيت الثاني (سم)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.straighten),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton.icon(
-                  onPressed: _calculateSheetCount,
-                  icon: const Icon(Icons.calculate),
-                  label:
-                      const Text('احسب العدد', style: TextStyle(fontSize: 18)),
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              if (result.isNotEmpty)
-                Card(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      result,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: firstSheetLengthController,
+                        decoration: InputDecoration(
+                          labelText: 'طول الشيت الأول (سم)',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          filled: true,
+                          fillColor: fillColor,
+                          prefixIcon: const Icon(Icons.straighten),
+                        ),
+                        keyboardType: TextInputType.number,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: firstSheetCountController,
+                        decoration: InputDecoration(
+                          labelText: 'عدد الشيتات الأول',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          filled: true,
+                          fillColor: fillColor,
+                          prefixIcon: const Icon(Icons.inventory),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: secondSheetLengthController,
+                        decoration: InputDecoration(
+                          labelText: 'طول الشيت الثاني (سم)',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          filled: true,
+                          fillColor: fillColor,
+                          prefixIcon: const Icon(Icons.straighten),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton.icon(
+                          onPressed: _calculateSheetCount,
+                          icon: const Icon(Icons.calculate),
+                          label:
+                              const Text('احسب العدد', style: TextStyle(fontSize: 18)),
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      if (result.isNotEmpty)
+                        SmartSheetCard(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              result,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-            ],
+              ),
+            ),
           ),
         ),
       ),

@@ -21,7 +21,24 @@ class StoreEntryScreen extends StatelessWidget {
         title: Text("📄 $title"),
         centerTitle: true,
       ),
-      body: StoreEntryList(boxName: boxName),
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1E293B)
+                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(24.0),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: StoreEntryList(boxName: boxName),
+            ),
+          ),
+        ),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => StoreEntryForm.show(context, boxName: boxName),
         child: const Icon(Icons.add),

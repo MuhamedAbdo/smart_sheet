@@ -9,6 +9,7 @@ import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/widgets/qr_scanner_modal.dart';
 import 'package:smart_sheet/services/qr_print_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 class DieCuttingFormsScreen extends StatefulWidget {
   const DieCuttingFormsScreen({super.key});
@@ -40,8 +41,21 @@ class _DieCuttingFormsScreenState extends State<DieCuttingFormsScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1E293B)
+                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(24.0),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
@@ -83,10 +97,8 @@ class _DieCuttingFormsScreenState extends State<DieCuttingFormsScreen> {
                   itemCount: forms.length,
                   itemBuilder: (context, index) {
                     final form = forms[index];
-                    return Card(
+                    return SmartSheetCard(
                       margin: const EdgeInsets.only(bottom: 12),
-                      elevation: 3,
-                      clipBehavior: Clip.antiAlias,
                       child: InkWell(
                         onTap: () => _viewFormDetails(context, form),
                         child: Padding(
@@ -153,7 +165,11 @@ class _DieCuttingFormsScreenState extends State<DieCuttingFormsScreen> {
               },
             ),
           ),
-        ],
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showFormDialog(context),

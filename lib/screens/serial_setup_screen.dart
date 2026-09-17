@@ -213,6 +213,16 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
     super.dispose();
   }
 
+  InputDecoration _buildInputDecoration(String label) {
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return InputDecoration(
+      labelText: label,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      filled: true,
+      fillColor: isDarkMode ? Colors.black26 : Colors.white,
+    );
+  }
+
   Widget _buildAutoOutput(String label, double? value, BuildContext context) {
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Container(
@@ -259,30 +269,21 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
         children: [
           TextField(
             controller: lengthController,
-            decoration: const InputDecoration(
-              labelText: 'أدخل الطول',
-              border: OutlineInputBorder(),
-            ),
+            decoration: _buildInputDecoration('أدخل الطول'),
             keyboardType: TextInputType.number,
             onSubmitted: (_) => calculateValues(),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: widthController,
-            decoration: const InputDecoration(
-              labelText: 'أدخل العرض',
-              border: OutlineInputBorder(),
-            ),
+            decoration: _buildInputDecoration('أدخل العرض'),
             keyboardType: TextInputType.number,
             onSubmitted: (_) => calculateValues(),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: bladeController,
-            decoration: const InputDecoration(
-              labelText: 'أدخل السلاح الأول',
-              border: OutlineInputBorder(),
-            ),
+            decoration: _buildInputDecoration('أدخل السلاح الأول'),
             keyboardType: TextInputType.number,
             onSubmitted: (_) => calculateValues(),
           ),
@@ -376,20 +377,14 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
         children: [
           TextField(
             controller: autoLengthController,
-            decoration: const InputDecoration(
-              labelText: 'أدخل الطول',
-              border: OutlineInputBorder(),
-            ),
+            decoration: _buildInputDecoration('أدخل الطول'),
             keyboardType: TextInputType.number,
             onSubmitted: (_) => calculateAutoValues(),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: autoWidthController,
-            decoration: const InputDecoration(
-              labelText: 'أدخل العرض',
-              border: OutlineInputBorder(),
-            ),
+            decoration: _buildInputDecoration('أدخل العرض'),
             keyboardType: TextInputType.number,
             onSubmitted: (_) => calculateAutoValues(),
           ),
@@ -541,11 +536,28 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
         ),
         body: GestureDetector(
           onTap: hideKeyboard,
-          child: TabBarView(
-            children: [
-              _buildChainTab(),
-              _buildAutoTab(),
-            ],
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF1E293B)
+                      : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(24.0),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: TabBarView(
+                    children: [
+                      _buildChainTab(),
+                      _buildAutoTab(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

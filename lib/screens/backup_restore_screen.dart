@@ -335,6 +335,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
     final isAdmin = authService.isAdmin;
+    final brightness = Theme.of(context).brightness;
+    final isDark = brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -399,89 +401,103 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            // Status Card
-            if (_isLoading || _message != null) _buildStatusCard(),
-
-            const SizedBox(height: 20),
-
-            // Backup Status Indicator
-            _buildBackupStatusCard(),
-
-            const SizedBox(height: 30),
-
-            // Main Action Buttons (Cloud)
-            const Text("النسخ السحابي",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
-            _buildUploadButton(),
-            const SizedBox(height: 12),
-            _buildRestoreButton(),
-
-            const SizedBox(height: 24),
-            const Divider(),
-            const SizedBox(height: 24),
-
-            // Local Backup Buttons
-            const Text("النسخ المحلي",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _handleLocalBackup,
-                    icon: const Icon(Icons.save),
-                    label: const Text('حفظ نسخة محلية'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueGrey,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF1E293B)
+                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(24.0),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ListView(
+                children: [
+                  // Status Card
+                  if (_isLoading || _message != null) _buildStatusCard(),
+      
+                  const SizedBox(height: 20),
+      
+                  // Backup Status Indicator
+                  _buildBackupStatusCard(),
+      
+                  const SizedBox(height: 30),
+      
+                  // Main Action Buttons (Cloud)
+                  const Text("النسخ السحابي",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  _buildUploadButton(),
+                  const SizedBox(height: 12),
+                  _buildRestoreButton(),
+      
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 24),
+      
+                  // Local Backup Buttons
+                  const Text("النسخ المحلي",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _handleLocalBackup,
+                          icon: const Icon(Icons.save),
+                          label: const Text('حفظ نسخة محلية'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blueGrey,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _handleLocalRestore,
+                          icon: const Icon(Icons.restore),
+                          label: const Text('استعادة نسخة محلية'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepPurple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+      
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 24),
+      
+                  _buildQRActionSection(isAdmin),
+      
+                  const SizedBox(height: 32),
+      
+                  // Info Section
+                  _buildInfoSection(),
+      
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Text(
+                      isAdmin ? '(صلاحية: مدير النظام)' : '(صلاحية: مستخدم مساعد)',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _handleLocalRestore,
-                    icon: const Icon(Icons.restore),
-                    label: const Text('استعادة نسخة محلية'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-            const Divider(),
-            const SizedBox(height: 24),
-
-            _buildQRActionSection(isAdmin),
-
-            const SizedBox(height: 32),
-
-            // Info Section
-            _buildInfoSection(),
-
-            const SizedBox(height: 16),
-            Center(
-              child: Text(
-                isAdmin ? '(صلاحية: مدير النظام)' : '(صلاحية: مستخدم مساعد)',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

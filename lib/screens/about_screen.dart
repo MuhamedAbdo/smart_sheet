@@ -9,11 +9,7 @@ class AboutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     const Color accent = Colors.blueAccent;
-    final Color surface =
-        isDark ? const Color(0xFF1E1E2E) : const Color(0xFFF5F7FF);
-
     return Scaffold(
-      backgroundColor: surface,
       appBar: AppBar(
         title: const Text('عن التطبيق والمطور',
             style: TextStyle(fontWeight: FontWeight.bold)),
@@ -22,143 +18,157 @@ class AboutScreen extends StatelessWidget {
         backgroundColor: accent,
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ─── قسم عن التطبيق ───────────────────────────────────────────
-            _SectionCard(
-              isDark: isDark,
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF1E293B)
+                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(24.0),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // شعار التطبيق
-                  Center(
-                    child: Container(
-                      width: 90,
-                      height: 90,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: accent.withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            spreadRadius: 4,
+                  // ─── قسم عن التطبيق ───────────────────────────────────────────
+                  _SectionCard(
+                    isDark: isDark,
+                    child: Column(
+                      children: [
+                        // شعار التطبيق
+                        Center(
+                          child: Container(
+                            width: 90,
+                            height: 90,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: accent.withValues(alpha: 0.3),
+                                  blurRadius: 20,
+                                  spreadRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: Image(
+                                image: AssetImage(
+                                  isDark
+                                      ? 'assets/images/appdrawer_dark.jpg'
+                                      : 'assets/images/appdrawer_light.jpg',
+                                ),
+                                width: 90,
+                                height: 90,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: Image(
-                          image: AssetImage(
-                            isDark
-                                ? 'assets/images/appdrawer_dark.jpg'
-                                : 'assets/images/appdrawer_light.jpg',
-                          ),
-                          width: 90,
-                          height: 90,
-                          fit: BoxFit.cover,
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Smart Sheet',
+                          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                          textDirection: TextDirection.ltr,
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'الإصدار: Version 1.0.0',
+                            style:
+                                TextStyle(color: accent, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'نظام إدارة ومتابعة ورديات الإنتاج الذكي',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: isDark ? Colors.grey[400] : Colors.grey[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'نظام رقمي متكامل مصمم خصيصاً للمطابع والمنشآت الصناعية لإدارة خطوط الإنتاج، ومتابعة الجلسات النشطة لحظياً، وحساب الهالك والأعطال بدقة لرفع الكفاءة التشغيلية.',
+                          textAlign: TextAlign.center,
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(
+                              fontSize: 14,
+                              height: 1.7,
+                              color: isDark ? Colors.grey[300] : Colors.grey[800]),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Smart Sheet',
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                    textDirection: TextDirection.ltr,
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20),
+      
+                  const SizedBox(height: 20),
+      
+                  // ─── قسم عن المطور ────────────────────────────────────────────
+                  _SectionCard(
+                    isDark: isDark,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _SectionHeader(icon: Icons.person, label: 'عن المطور'),
+                        const SizedBox(height: 16),
+                        _InfoRow(
+                          isDark: isDark,
+                          icon: Icons.badge_outlined,
+                          label: 'الاسم',
+                          value: 'محمد عبد العال',
+                        ),
+                        _InfoRow(
+                          isDark: isDark,
+                          icon: Icons.work_outline,
+                          label: 'الوظيفة',
+                          value:
+                              'فني طباعة بشركة العاشر للطباعة والنشر والتغليف (كارتبرس)\nمبرمج Flutter',
+                        ),
+                        _InfoRow(
+                          isDark: isDark,
+                          icon: Icons.military_tech_outlined,
+                          label: 'الخبرة',
+                          value:
+                              '24 عاماً في مجال طباعة الفلكسو وتحسين كفاءة الإنتاج',
+                        ),
+                        _InfoRow(
+                          isDark: isDark,
+                          icon: Icons.email_outlined,
+                          label: 'التواصل',
+                          value: 'mohamedabdo9999933@gmail.com',
+                          isLast: true,
+                        ),
+                      ],
                     ),
-                    child: const Text(
-                      'الإصدار: Version 1.0.0',
-                      style:
-                          TextStyle(color: accent, fontWeight: FontWeight.w600),
-                    ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'نظام إدارة ومتابعة ورديات الإنتاج الذكي',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: isDark ? Colors.grey[400] : Colors.grey[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+      
                   const SizedBox(height: 12),
+      
+                  // ─── حقوق النسخ ───────────────────────────────────────────────
                   Text(
-                    'نظام رقمي متكامل مصمم خصيصاً للمطابع والمنشآت الصناعية لإدارة خطوط الإنتاج، ومتابعة الجلسات النشطة لحظياً، وحساب الهالك والأعطال بدقة لرفع الكفاءة التشغيلية.',
+                    '© ${DateTime.now().year} Smart Sheet — جميع الحقوق محفوظة',
                     textAlign: TextAlign.center,
-                    textDirection: TextDirection.rtl,
                     style: TextStyle(
-                        fontSize: 14,
-                        height: 1.7,
-                        color: isDark ? Colors.grey[300] : Colors.grey[800]),
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[600] : Colors.grey[500]),
                   ),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // ─── قسم عن المطور ────────────────────────────────────────────
-            _SectionCard(
-              isDark: isDark,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _SectionHeader(icon: Icons.person, label: 'عن المطور'),
-                  const SizedBox(height: 16),
-                  _InfoRow(
-                    isDark: isDark,
-                    icon: Icons.badge_outlined,
-                    label: 'الاسم',
-                    value: 'محمد عبد العال',
-                  ),
-                  _InfoRow(
-                    isDark: isDark,
-                    icon: Icons.work_outline,
-                    label: 'الوظيفة',
-                    value:
-                        'فني طباعة بشركة العاشر للطباعة والنشر والتغليف (كارتبرس)\nمبرمج Flutter',
-                  ),
-                  _InfoRow(
-                    isDark: isDark,
-                    icon: Icons.military_tech_outlined,
-                    label: 'الخبرة',
-                    value:
-                        '24 عاماً في مجال طباعة الفلكسو وتحسين كفاءة الإنتاج',
-                  ),
-                  _InfoRow(
-                    isDark: isDark,
-                    icon: Icons.email_outlined,
-                    label: 'التواصل',
-                    value: 'mohamedabdo9999933@gmail.com',
-                    isLast: true,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // ─── حقوق النسخ ───────────────────────────────────────────────
-            Text(
-              '© ${DateTime.now().year} Smart Sheet — جميع الحقوق محفوظة',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? Colors.grey[600] : Colors.grey[500]),
-            ),
-            const SizedBox(height: 8),
-          ],
+          ),
         ),
       ),
     );

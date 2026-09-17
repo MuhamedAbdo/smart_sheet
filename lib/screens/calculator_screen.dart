@@ -383,8 +383,6 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     final isDark = brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor:
-          isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: Text(
           "الآلة الحاسبة",
@@ -411,26 +409,40 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: SafeArea(
-        child: Directionality(
-          textDirection: TextDirection.ltr,
-          child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Column(
-              children: [
-                // 1. قسم الشاشة (Display Area)
-                Expanded(
-                  flex: 3,
-                  child: _buildDisplayArea(isDark),
+      body: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF1E293B)
+                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(24.0),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: SafeArea(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Column(
+                    children: [
+                      // 1. قسم الشاشة (Display Area)
+                      Expanded(
+                        flex: 3,
+                        child: _buildDisplayArea(isDark),
+                      ),
+                      const SizedBox(height: 8),
+                      // 2. قسم الأزرار (Keypad Area)
+                      Expanded(
+                        flex: _isScientificMode ? 5 : 4,
+                        child: _buildKeypadArea(isDark),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                // 2. قسم الأزرار (Keypad Area)
-                Expanded(
-                  flex: _isScientificMode ? 5 : 4,
-                  child: _buildKeypadArea(isDark),
-                ),
-              ],
+              ),
             ),
           ),
         ),

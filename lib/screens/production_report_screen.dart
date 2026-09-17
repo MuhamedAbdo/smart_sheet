@@ -24,14 +24,21 @@ import 'package:smart_sheet/utils/time_overlap_validator.dart';
 import 'dart:async';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 DateTime? _parseTimeForDieCutting(String? dateStr, String? timeStr) {
-  if (dateStr == null || timeStr == null || timeStr.isEmpty || timeStr == '--:--') return null;
+  if (dateStr == null ||
+      timeStr == null ||
+      timeStr.isEmpty ||
+      timeStr == '--:--') {
+    return null;
+  }
   try {
     final d = DateTime.parse(dateStr);
     final parts = timeStr.split(':');
     if (parts.length < 2) return null;
-    return DateTime(d.year, d.month, d.day, int.parse(parts[0]), int.parse(parts[1]));
+    return DateTime(
+        d.year, d.month, d.day, int.parse(parts[0]), int.parse(parts[1]));
   } catch (_) {
     return null;
   }
@@ -41,13 +48,16 @@ class FlexoProductionReportScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final String? department;
 
-  const FlexoProductionReportScreen({super.key, this.initialData, this.department});
+  const FlexoProductionReportScreen(
+      {super.key, this.initialData, this.department});
 
   @override
-  State<FlexoProductionReportScreen> createState() => _FlexoProductionReportScreenState();
+  State<FlexoProductionReportScreen> createState() =>
+      _FlexoProductionReportScreenState();
 }
 
-class _FlexoProductionReportScreenState extends State<FlexoProductionReportScreen> {
+class _FlexoProductionReportScreenState
+    extends State<FlexoProductionReportScreen> {
   Box? _productionReportBox;
   Box<Worker>? _workersBox;
   bool _isBoxLoading = true;
@@ -83,10 +93,11 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
   Future<void> _openBoxSafe() async {
     try {
-      final targetBox = (widget.department == 'crushing' || widget.department == 'die_cutting') 
-          ? 'die_cutting_production_reports' 
+      final targetBox = (widget.department == 'crushing' ||
+              widget.department == 'die_cutting')
+          ? 'die_cutting_production_reports'
           : 'flexo_production_reports_box';
-          
+
       if (!Hive.isBoxOpen(targetBox)) {
         if (targetBox == 'die_cutting_production_reports') {
           await Hive.openBox<DieCuttingProductionReport>(targetBox);
@@ -102,7 +113,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
       if (mounted) {
         setState(() {
           if (targetBox == 'die_cutting_production_reports') {
-            _productionReportBox = Hive.box<DieCuttingProductionReport>(targetBox);
+            _productionReportBox =
+                Hive.box<DieCuttingProductionReport>(targetBox);
           } else {
             _productionReportBox = Hive.box<FlexoProductionReport>(targetBox);
           }
@@ -132,11 +144,11 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
       // ─── 1. تحديث السجل محلياً في Hive ───
       // نحاول الحصول على النموذج الحالي من الصندوق
       final existing = _productionReportBox!.get(key);
-      
+
       if (existing is FlexoProductionReport) {
         final updated = existing.copyWith(status: 'approved');
         await _productionReportBox!.put(key, updated);
-        
+
         // ─── 2. إرسال تحديث الحالة فقط (snake_case) إلى Supabase ───
         final String tableName = (updated.department == 'production_line')
             ? 'line_production_reports'
@@ -158,16 +170,22 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         });
       } else {
         // ─── Fallback لـ Map ───
-        final updatedRecord = Map<dynamic, dynamic>.from(record is Map ? record : (record as dynamic).toJson());
+        final updatedRecord = Map<dynamic, dynamic>.from(
+            record is Map ? record : (record as dynamic).toJson());
         updatedRecord['status'] = 'approved';
         await _productionReportBox!.put(key, updatedRecord);
 
-        final syncId = (updatedRecord['sync_id'] ?? updatedRecord['id'])?.toString();
+        final syncId =
+            (updatedRecord['sync_id'] ?? updatedRecord['id'])?.toString();
         if (syncId != null) {
-          final dept = updatedRecord['department']?.toString() ?? widget.department ?? 'flexo';
+          final dept = updatedRecord['department']?.toString() ??
+              widget.department ??
+              'flexo';
           final String tableName = (dept == 'crushing' || dept == 'die_cutting')
               ? 'die_cutting_production_reports'
-              : (dept == 'production_line' ? 'line_production_reports' : 'flexo_production_reports');
+              : (dept == 'production_line'
+                  ? 'line_production_reports'
+                  : 'flexo_production_reports');
           // إرسال snake_case فقط
           SyncService.instance.pushToQueue(tableName, {
             'id': syncId,
@@ -216,13 +234,14 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             syncId = r['sync_id']?.toString() ?? r['id']?.toString();
           } catch (_) {}
         }
-        
-        final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
-            ? 'die_cutting_production_reports' 
-            : (widget.department == 'production_line') 
-                ? 'line_production_reports' 
+
+        final String tableName = (widget.department == 'crushing' ||
+                widget.department == 'die_cutting')
+            ? 'die_cutting_production_reports'
+            : (widget.department == 'production_line')
+                ? 'line_production_reports'
                 : 'flexo_production_reports';
-            
+
         if (syncId != null) {
           SyncService.instance.pushToQueue(
             tableName,
@@ -280,10 +299,11 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
           }
         }
 
-        final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
-            ? 'die_cutting_production_reports' 
-            : (widget.department == 'production_line') 
-                ? 'line_production_reports' 
+        final String tableName = (widget.department == 'crushing' ||
+                widget.department == 'die_cutting')
+            ? 'die_cutting_production_reports'
+            : (widget.department == 'production_line')
+                ? 'line_production_reports'
                 : 'flexo_production_reports';
 
         try {
@@ -340,7 +360,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         : widget.department == 'crushing'
             ? 'crushingArchive'
             : 'flexoArchive';
-    
+
     final archiveBox = Hive.isBoxOpen(archiveBoxName)
         ? Hive.box(archiveBoxName)
         : await Hive.openBox(archiveBoxName);
@@ -360,19 +380,26 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     }
 
     final allReports = _productionReportBox!.toMap();
-    
+
     final List<Map<String, dynamic>> newReports = [];
     final List<Map<String, dynamic>> duplicateReports = [];
 
     // 2. فرز التقارير إلى جديدة ومكررة
     for (var entry in allReports.entries) {
       final val = entry.value;
-      final r = val is DieCuttingProductionReport 
-          ? val.toJson() 
-          : (val is FlexoProductionReport ? val.toJson() : Map<String, dynamic>.from(val));
-          
-      final dept = r['department']?.toString() ?? (val is DieCuttingProductionReport ? (widget.department ?? 'die_cutting') : (val is FlexoProductionReport ? (widget.department ?? 'flexo') : null));
-      
+      final r = val is DieCuttingProductionReport
+          ? val.toJson()
+          : (val is FlexoProductionReport
+              ? val.toJson()
+              : Map<String, dynamic>.from(val));
+
+      final dept = r['department']?.toString() ??
+          (val is DieCuttingProductionReport
+              ? (widget.department ?? 'die_cutting')
+              : (val is FlexoProductionReport
+                  ? (widget.department ?? 'flexo')
+                  : null));
+
       if (isProdLineDept) {
         if (dept != 'production_line') continue;
       } else {
@@ -415,10 +442,12 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         context: context,
         builder: (BuildContext dialogCtx) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
-                Icon(Icons.pending_actions, color: Colors.orange.shade700, size: 26),
+                Icon(Icons.pending_actions,
+                    color: Colors.orange.shade700, size: 26),
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Text(
@@ -436,15 +465,20 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             ),
             actions: [
               TextButton.icon(
-                icon: const Icon(Icons.rate_review_outlined, color: Colors.blueGrey),
-                label: const Text('مراجعة التقارير', style: TextStyle(color: Colors.blueGrey)),
+                icon: const Icon(Icons.rate_review_outlined,
+                    color: Colors.blueGrey),
+                label: const Text('مراجعة التقارير',
+                    style: TextStyle(color: Colors.blueGrey)),
                 onPressed: () => Navigator.pop(dialogCtx),
               ),
               if (approvedReports.isNotEmpty)
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 18),
-                  label: const Text('أرشفة المعتمد فقط', style: TextStyle(color: Colors.white)),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+                  icon: const Icon(Icons.inventory_2_outlined,
+                      color: Colors.white, size: 18),
+                  label: const Text('أرشفة المعتمد فقط',
+                      style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueAccent),
                   onPressed: () {
                     Navigator.pop(dialogCtx);
                     if (duplicateReports.isNotEmpty) {
@@ -458,7 +492,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
                   onPressed: null,
-                  child: const Text('لا توجد تقارير معتمدة', style: TextStyle(color: Colors.white)),
+                  child: const Text('لا توجد تقارير معتمدة',
+                      style: TextStyle(color: Colors.white)),
                 ),
             ],
           );
@@ -474,22 +509,27 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: const Text('تنبيه: سجلات مكررة', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+            title: const Text('تنبيه: سجلات مكررة',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.orange)),
             content: Text(
                 'يوجد ${duplicateReports.length} تقرير موجود بالفعل في الأرشيف، وهناك ${newReports.length} تقرير جديد.\nهل تريد نقل التقارير الجديدة فقط؟',
                 style: const TextStyle(fontSize: 16)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+                child:
+                    const Text('إلغاء', style: TextStyle(color: Colors.grey)),
               ),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent),
                 onPressed: () {
                   Navigator.pop(context);
                   _executeArchiveTransfer(archiveBox, newReports);
                 },
-                child: const Text('نقل الجديد فقط', style: TextStyle(color: Colors.white)),
+                child: const Text('نقل الجديد فقط',
+                    style: TextStyle(color: Colors.white)),
               ),
             ],
           );
@@ -500,7 +540,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
       UIUtils.showDeleteConfirmation(
         context: context,
         title: "نقل التقارير للأرشيف",
-        content: "سيتم عمل نسخة من التقارير الحالية في الأرشيف مع بقائها هنا. هل تريد الاستمرار؟",
+        content:
+            "سيتم عمل نسخة من التقارير الحالية في الأرشيف مع بقائها هنا. هل تريد الاستمرار؟",
         confirmLabel: "نقل للأرشيف",
         confirmColor: Colors.blueAccent,
         onConfirm: () async {
@@ -510,7 +551,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     }
   }
 
-  Future<void> _executeArchiveTransfer(Box archiveBox, List<Map<String, dynamic>> reportsToArchive) async {
+  Future<void> _executeArchiveTransfer(
+      Box archiveBox, List<Map<String, dynamic>> reportsToArchive) async {
     try {
       for (var r in reportsToArchive) {
         final existingSyncId = r['sync_id']?.toString();
@@ -529,16 +571,23 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         await archiveBox.put(archiveSyncId, archiveEntry);
 
         String archiveTable = 'flexo_archived_reports';
-        if (widget.department == 'production_line') archiveTable = 'line_archived_reports';
-        if (widget.department == 'crushing' || widget.department == 'die_cutting') archiveTable = 'die_cutting_archived_reports';
+        if (widget.department == 'production_line') {
+          archiveTable = 'line_archived_reports';
+        }
+        if (widget.department == 'crushing' ||
+            widget.department == 'die_cutting') {
+          archiveTable = 'die_cutting_archived_reports';
+        }
 
         SyncService.instance.pushToQueue(archiveTable, r);
-        debugPrint('📤 الأرشفة (${widget.department}): تم إضافة للقائمة (sync_id=$archiveSyncId)');
+        debugPrint(
+            '📤 الأرشفة (${widget.department}): تم إضافة للقائمة (sync_id=$archiveSyncId)');
       }
 
       if (mounted) {
         UIUtils.showInfoSnackBar(
-          message: "تم نقل التقارير للأرشيف بنجاح. يمكنك الآن مسحها يدوياً من هذه الصفحة إذا أردت.",
+          message:
+              "تم نقل التقارير للأرشيف بنجاح. يمكنك الآن مسحها يدوياً من هذه الصفحة إذا أردت.",
           backgroundColor: Colors.blueAccent,
           icon: Icons.inventory_2,
         );
@@ -566,11 +615,11 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     return dateStr.split(' ')[0].split('T')[0];
   }
 
-
-
   void _showDateFilterDialog() async {
     if (_productionReportBox == null || _productionReportBox!.isEmpty) {
-      UIUtils.showInfoSnackBar(message: "لا توجد تقارير مسجلة لعرض تواريخها", backgroundColor: Colors.orange);
+      UIUtils.showInfoSnackBar(
+          message: "لا توجد تقارير مسجلة لعرض تواريخها",
+          backgroundColor: Colors.orange);
       return;
     }
 
@@ -591,17 +640,22 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     }
 
     if (uniqueDates.isEmpty) {
-      UIUtils.showInfoSnackBar(message: "لا توجد تواريخ مسجلة لعرضها", backgroundColor: Colors.orange);
+      UIUtils.showInfoSnackBar(
+          message: "لا توجد تواريخ مسجلة لعرضها",
+          backgroundColor: Colors.orange);
       return;
     }
 
-    final List<String> sortedDates = uniqueDates.toList()..sort((a, b) => b.compareTo(a));
+    final List<String> sortedDates = uniqueDates.toList()
+      ..sort((a, b) => b.compareTo(a));
 
     final String? pickedDate = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('اختر التاريخ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+          title: const Text('اختر التاريخ',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, color: Colors.blueAccent)),
           content: SizedBox(
             width: double.maxFinite,
             height: 300,
@@ -612,7 +666,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 final date = sortedDates[index];
                 return ListTile(
                   title: Text(date, style: const TextStyle(fontSize: 16)),
-                  trailing: const Icon(Icons.calendar_today, size: 16, color: Colors.blueAccent),
+                  trailing: const Icon(Icons.calendar_today,
+                      size: 16, color: Colors.blueAccent),
                   onTap: () {
                     Navigator.pop(context, date);
                   },
@@ -640,23 +695,41 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
   String? _selectedShiftFilter;
 
   List<String> _getAvailableShifts() {
-    final filterDate = _selectedDate != null ? (DateTime.tryParse(_selectedDate!) ?? DateTime.now()) : DateTime.now();
+    final filterDate = _selectedDate != null
+        ? (DateTime.tryParse(_selectedDate!) ?? DateTime.now())
+        : DateTime.now();
     String dayName = '';
     switch (filterDate.weekday) {
-      case DateTime.monday: dayName = 'Monday'; break;
-      case DateTime.tuesday: dayName = 'Tuesday'; break;
-      case DateTime.wednesday: dayName = 'Wednesday'; break;
-      case DateTime.thursday: dayName = 'Thursday'; break;
-      case DateTime.friday: dayName = 'Friday'; break;
-      case DateTime.saturday: dayName = 'Saturday'; break;
-      case DateTime.sunday: dayName = 'Sunday'; break;
+      case DateTime.monday:
+        dayName = 'Monday';
+        break;
+      case DateTime.tuesday:
+        dayName = 'Tuesday';
+        break;
+      case DateTime.wednesday:
+        dayName = 'Wednesday';
+        break;
+      case DateTime.thursday:
+        dayName = 'Thursday';
+        break;
+      case DateTime.friday:
+        dayName = 'Friday';
+        break;
+      case DateTime.saturday:
+        dayName = 'Saturday';
+        break;
+      case DateTime.sunday:
+        dayName = 'Sunday';
+        break;
     }
-    
+
     List<String> availableShifts = ['الوردية الأولى'];
     if (Hive.isBoxOpen('factory_schedule')) {
       final scheduleBox = Hive.box<DaySchedule>('factory_schedule');
       final schedule = scheduleBox.get(dayName);
-      if (schedule != null && schedule.shiftNames != null && schedule.shiftNames!.isNotEmpty) {
+      if (schedule != null &&
+          schedule.shiftNames != null &&
+          schedule.shiftNames!.isNotEmpty) {
         availableShifts = List<String>.from(schedule.shiftNames!);
       }
     }
@@ -669,13 +742,15 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
   void _selectAll() {
     if (_productionReportBox == null) return;
-    
+
     final currentShiftFilter = _getCurrentShiftFilter();
-    final filteredRecords = _filterAndSortRecords(_productionReportBox!, _searchQuery, _sortDescending, currentShiftFilter);
+    final filteredRecords = _filterAndSortRecords(_productionReportBox!,
+        _searchQuery, _sortDescending, currentShiftFilter);
     final currentFilteredKeys = filteredRecords.map((e) => e.key).toSet();
-    
+
     setState(() {
-      if (_selectedReportKeys.containsAll(currentFilteredKeys) && currentFilteredKeys.isNotEmpty) {
+      if (_selectedReportKeys.containsAll(currentFilteredKeys) &&
+          currentFilteredKeys.isNotEmpty) {
         _selectedReportKeys.removeAll(currentFilteredKeys);
       } else {
         _selectedReportKeys.addAll(currentFilteredKeys);
@@ -783,13 +858,19 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                 // استخدام صلاحيات الأرشيف الجديدة (ArchiveRbacService)
                 final Worker? cw = PermissionHelper.currentWorker;
                 final String currentScreenDept = widget.department ?? 'flexo';
-                final String normalizedDept = (currentScreenDept == 'crushing' && cw?.department == 'die_cutting') 
-                    ? 'die_cutting' 
-                    : currentScreenDept;
+                final String normalizedDept =
+                    (currentScreenDept == 'crushing' &&
+                            cw?.department == 'die_cutting')
+                        ? 'die_cutting'
+                        : currentScreenDept;
 
-                final bool showArchiveOpen = isSuperAdmin || ArchiveRbacService.canRead(cw);
-                final bool showArchiveMove = isSuperAdmin || ArchiveRbacService.canAdd(cw, normalizedDept);
-                final bool showClearAll = isSuperAdmin || AuthHelper.currentUserCanManageProduction(normalizedDept, 'canDelete');
+                final bool showArchiveOpen =
+                    isSuperAdmin || ArchiveRbacService.canRead(cw);
+                final bool showArchiveMove = isSuperAdmin ||
+                    ArchiveRbacService.canAdd(cw, normalizedDept);
+                final bool showClearAll = isSuperAdmin ||
+                    AuthHelper.currentUserCanManageProduction(
+                        normalizedDept, 'canDelete');
 
                 return Row(
                   mainAxisSize: MainAxisSize.min,
@@ -797,64 +878,66 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                     // تم نقل مسح الكل إلى القائمة المنسدلة
                     PopupMenuButton<String>(
                       icon: Icon(Icons.more_vert, color: appBarIconColor),
-                  tooltip: "خيارات التقارير",
-                  onSelected: (value) async {
-                    if (value == 'search') {
-                      setState(() => _isSearching = true);
-                    } else if (value == 'filter') {
-                      _showDateFilterDialog();
-                    } else if (value == 'archive_move') {
-                      _moveToArchive();
-                    } else if (value == 'archive_open') {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => FlexoArchiveScreen(
-                                    department: widget.department,
-                                  )));
-                    } else if (value == 'clear') {
-                      _deleteAllReports();
-                    } else if (value == 'sort') {
-                      _showSortSheet();
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                        value: 'search',
-                        child: ListTile(
-                            leading: Icon(Icons.search), title: Text('بحث'))),
-                    const PopupMenuItem(
-                        value: 'filter',
-                        child: ListTile(
-                            leading: Icon(Icons.calendar_month),
-                            title: Text('تصفية بالتاريخ'))),
-                    if (showArchiveMove)
-                      const PopupMenuItem(
-                          value: 'archive_move',
-                          child: ListTile(
-                              leading: Icon(Icons.inventory_2),
-                              title: Text('نقل للأرشيف'))),
-                    if (showArchiveOpen)
-                      const PopupMenuItem(
-                          value: 'archive_open',
-                          child: ListTile(
-                              leading: Icon(Icons.inventory_2_outlined),
-                              title: Text('فتح الأرشيف'))),
-                    const PopupMenuItem(
-                        value: 'sort',
-                        child: ListTile(
-                            leading: Icon(Icons.sort), title: Text('الترتيب'))),
-                    // ─── مسح الكل: للصلاحيات الكاملة ───
-                    if (showClearAll)
-                      const PopupMenuItem(
-                          value: 'clear',
-                          child: ListTile(
-                              leading:
-                                  Icon(Icons.delete_sweep, color: Colors.red),
-                              title: Text('مسح الكل',
-                                  style: TextStyle(color: Colors.red)))),
-                  ],
-                ),
+                      tooltip: "خيارات التقارير",
+                      onSelected: (value) async {
+                        if (value == 'search') {
+                          setState(() => _isSearching = true);
+                        } else if (value == 'filter') {
+                          _showDateFilterDialog();
+                        } else if (value == 'archive_move') {
+                          _moveToArchive();
+                        } else if (value == 'archive_open') {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => FlexoArchiveScreen(
+                                        department: widget.department,
+                                      )));
+                        } else if (value == 'clear') {
+                          _deleteAllReports();
+                        } else if (value == 'sort') {
+                          _showSortSheet();
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                            value: 'search',
+                            child: ListTile(
+                                leading: Icon(Icons.search),
+                                title: Text('بحث'))),
+                        const PopupMenuItem(
+                            value: 'filter',
+                            child: ListTile(
+                                leading: Icon(Icons.calendar_month),
+                                title: Text('تصفية بالتاريخ'))),
+                        if (showArchiveMove)
+                          const PopupMenuItem(
+                              value: 'archive_move',
+                              child: ListTile(
+                                  leading: Icon(Icons.inventory_2),
+                                  title: Text('نقل للأرشيف'))),
+                        if (showArchiveOpen)
+                          const PopupMenuItem(
+                              value: 'archive_open',
+                              child: ListTile(
+                                  leading: Icon(Icons.inventory_2_outlined),
+                                  title: Text('فتح الأرشيف'))),
+                        const PopupMenuItem(
+                            value: 'sort',
+                            child: ListTile(
+                                leading: Icon(Icons.sort),
+                                title: Text('الترتيب'))),
+                        // ─── مسح الكل: للصلاحيات الكاملة ───
+                        if (showClearAll)
+                          const PopupMenuItem(
+                              value: 'clear',
+                              child: ListTile(
+                                  leading: Icon(Icons.delete_sweep,
+                                      color: Colors.red),
+                                  title: Text('مسح الكل',
+                                      style: TextStyle(color: Colors.red)))),
+                      ],
+                    ),
                   ],
                 );
               },
@@ -897,8 +980,10 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               : ValueListenableBuilder(
                   valueListenable: _productionReportBox!.listenable(),
                   builder: (context, Box box, _) {
-                    final allRecords = _filterAndSortRecords(box, _searchQuery, _sortDescending, currentShiftFilter);
-                    final isDark = Theme.of(context).brightness == Brightness.dark;
+                    final allRecords = _filterAndSortRecords(
+                        box, _searchQuery, _sortDescending, currentShiftFilter);
+                    final isDark =
+                        Theme.of(context).brightness == Brightness.dark;
                     return Container(
                       height: 40,
                       width: double.infinity,
@@ -906,7 +991,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                         color: isDark ? Colors.grey[900] : Colors.blueGrey[50],
                         border: Border(
                           bottom: BorderSide(
-                            color: isDark ? Colors.black54 : Colors.blueGrey[100]!,
+                            color:
+                                isDark ? Colors.black54 : Colors.blueGrey[100]!,
                             width: 1,
                           ),
                         ),
@@ -917,7 +1003,9 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                           Icon(
                             Icons.receipt_long,
                             size: 16,
-                            color: isDark ? Colors.blueAccent[100] : Colors.blueAccent,
+                            color: isDark
+                                ? Colors.blueAccent[100]
+                                : Colors.blueAccent,
                           ),
                           const SizedBox(width: 10),
                           Text(
@@ -926,7 +1014,9 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
                               fontFamily: 'Cairo',
-                              color: isDark ? Colors.grey[300] : Colors.blueGrey[800],
+                              color: isDark
+                                  ? Colors.grey[300]
+                                  : Colors.blueGrey[800],
                             ),
                           ),
                         ],
@@ -938,106 +1028,135 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
       ),
       drawer: const AppDrawer(),
       endDrawer: FlexoReportDrawer(department: widget.department ?? 'flexo'),
-      body: ValueListenableBuilder(
-        valueListenable: _productionReportBox!.listenable(),
-        builder: (context, Box box, _) {
-          // ✅ FIX: استمع أيضاً لـ flexo_live_sessions حتى يتحدث isLiveSessionsEmpty فوراً
-          if (!Hive.isBoxOpen('flexo_live_sessions')) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return ValueListenableBuilder<Box<LiveSession>>(
-            valueListenable:
-                Hive.box<LiveSession>('flexo_live_sessions').listenable(),
-            builder: (context, liveSessionsBox, _) {
-              final isLiveSessionsEmpty = liveSessionsBox.isEmpty;
-              final allRecords =
-                  _filterAndSortRecords(box, _searchQuery, _sortDescending, currentShiftFilter);
-              return CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                          child: ActiveSessionsDashboard(
-                            department: widget.department,
-                            onFinishSession: (session) => _finishSession(session),
-                            onCancelSession: (session) =>
-                                _cancelSession(session),
-                          ),
-                        ),
-                        // ─── فلاتر الورديات ───
-                        SliverToBoxAdapter(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: availableShifts.map((shiftName) {
-                                  final isSelected = currentShiftFilter == shiftName;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(left: 8.0),
-                                    child: ChoiceChip(
-                                      label: Text(shiftName),
-                                      selected: isSelected,
-                                      selectedColor: Colors.blueAccent.withValues(alpha: 0.2),
-                                      onSelected: (bool selected) {
-                                        if (selected) {
-                                          setState(() {
-                                            _selectedShiftFilter = shiftName;
-                                          });
-                                        }
-                                      },
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Center(
+          child: Container(
+            margin:
+                const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1E293B)
+                  : Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(24.0),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: ValueListenableBuilder(
+                valueListenable: _productionReportBox!.listenable(),
+                builder: (context, Box box, _) {
+                  // ✅ FIX: استمع أيضاً لـ flexo_live_sessions حتى يتحدث isLiveSessionsEmpty فوراً
+                  if (!Hive.isBoxOpen('flexo_live_sessions')) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  return ValueListenableBuilder<Box<LiveSession>>(
+                    valueListenable:
+                        Hive.box<LiveSession>('flexo_live_sessions')
+                            .listenable(),
+                    builder: (context, liveSessionsBox, _) {
+                      final isLiveSessionsEmpty = liveSessionsBox.isEmpty;
+                      final allRecords = _filterAndSortRecords(box,
+                          _searchQuery, _sortDescending, currentShiftFilter);
+                      return CustomScrollView(
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: ActiveSessionsDashboard(
+                              department: widget.department,
+                              onFinishSession: (session) =>
+                                  _finishSession(session),
+                              onCancelSession: (session) =>
+                                  _cancelSession(session),
                             ),
                           ),
-                        ),
-                        if (allRecords.isEmpty && isLiveSessionsEmpty)
-                          const SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: Center(child: Text("🚫 لا يوجد تقارير أو جلسات نشطة")),
-                          ),
-                        if (allRecords.isNotEmpty || !isLiveSessionsEmpty) ...[
-                          if (_selectedDate != null)
-                            SliverToBoxAdapter(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                                color: Colors.blue.withValues(alpha: 0.1),
+                          // ─── فلاتر الورديات ───
+                          SliverToBoxAdapter(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
                                 child: Row(
-                                  children: [
-                                    const Icon(Icons.filter_list,
-                                        size: 16, color: Colors.blue),
-                                    const SizedBox(width: 8),
-                                    Text("تصفية بتاريخ: $_selectedDate",
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.blue)),
-                                    const Spacer(),
-                                    TextButton(
-                                        onPressed: () =>
-                                            setState(() => _selectedDate = null),
-                                        child: const Text("إلغاء"))
-                                  ],
+                                  children: availableShifts.map((shiftName) {
+                                    final isSelected =
+                                        currentShiftFilter == shiftName;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(left: 8.0),
+                                      child: ChoiceChip(
+                                        label: Text(shiftName),
+                                        selected: isSelected,
+                                        selectedColor: Colors.blueAccent
+                                            .withValues(alpha: 0.2),
+                                        onSelected: (bool selected) {
+                                          if (selected) {
+                                            setState(() {
+                                              _selectedShiftFilter = shiftName;
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
                               ),
                             ),
-                          SliverPadding(
-                            padding: const EdgeInsets.only(bottom: 80),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                                  return _buildReportCard(allRecords[index]);
-                                },
-                                childCount: allRecords.length,
+                          ),
+                          if (allRecords.isEmpty && isLiveSessionsEmpty)
+                            const SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(
+                                  child:
+                                      Text("🚫 لا يوجد تقارير أو جلسات نشطة")),
+                            ),
+                          if (allRecords.isNotEmpty ||
+                              !isLiveSessionsEmpty) ...[
+                            if (_selectedDate != null)
+                              SliverToBoxAdapter(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  color: Colors.blue.withValues(alpha: 0.1),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.filter_list,
+                                          size: 16, color: Colors.blue),
+                                      const SizedBox(width: 8),
+                                      Text("تصفية بتاريخ: $_selectedDate",
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.blue)),
+                                      const Spacer(),
+                                      TextButton(
+                                          onPressed: () => setState(
+                                              () => _selectedDate = null),
+                                          child: const Text("إلغاء"))
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            SliverPadding(
+                              padding: const EdgeInsets.only(bottom: 80),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    return _buildReportCard(allRecords[index]);
+                                  },
+                                  childCount: allRecords.length,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                ],
-              );
-            },
-          );
-        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
       ),
       floatingActionButton: _workersBox == null
           ? null
@@ -1065,7 +1184,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const StartProductionSessionScreen(),
+                            builder: (_) =>
+                                const StartProductionSessionScreen(),
                           ),
                         );
                       } else {
@@ -1075,7 +1195,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                     }
                   },
                   icon: const Icon(Icons.play_arrow),
-                  label: const Text('بدء إنتاج', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: const Text('بدء إنتاج',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                 );
               },
             ),
@@ -1113,282 +1234,342 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     final bool isSelected = _selectedReportKeys.contains(key);
 
     return GestureDetector(
-      onLongPress: () {
-        // الضغط الطويل دائماً يُدخل وضع التحديد ويحدد هذه البطاقة
-        setState(() {
-          _selectedReportKeys.add(key);
-        });
-      },
-      onTap: _isSelectionMode
-          ? () {
-              // في وضع التحديد: Tap يُبدّل حالة التحديد
-              setState(() {
-                if (_selectedReportKeys.contains(key)) {
-                  _selectedReportKeys.remove(key);
-                } else {
-                  _selectedReportKeys.add(key);
-                }
-              });
-            }
-          : null,
-      child: Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      elevation: isSelected ? 2 : 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-        side: isSelected
-            ? BorderSide(color: Colors.blue.shade400, width: 2)
-            : BorderSide.none,
-      ),
-      color: isSelected ? Colors.blue.withValues(alpha: 0.08) : null,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+        onLongPress: () {
+          // الضغط الطويل دائماً يُدخل وضع التحديد ويحدد هذه البطاقة
+          setState(() {
+            _selectedReportKeys.add(key);
+          });
+        },
+        onTap: _isSelectionMode
+            ? () {
+                // في وضع التحديد: Tap يُبدّل حالة التحديد
+                setState(() {
+                  if (_selectedReportKeys.contains(key)) {
+                    _selectedReportKeys.remove(key);
+                  } else {
+                    _selectedReportKeys.add(key);
+                  }
+                });
+              }
+            : null,
+        child: SmartSheetCard(
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            child: Container(
+              decoration: isSelected
+                  ? BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.blue.shade400, width: 2),
+                    )
+                  : null,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("📅 ${((record['date'] ?? '').toString().split('T')[0].split(' ')[0])}",
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, color: Colors.blue)),
-                    const SizedBox(width: 8),
-                    if (record['status'] == 'pending')
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.orange.shade300),
-                        ),
-                        child: Text('قيد المراجعة', style: TextStyle(fontSize: 10, color: Colors.orange.shade800, fontWeight: FontWeight.bold)),
-                      )
-                    else
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.green.shade300),
-                        ),
-                        child: Text('معتمد', style: TextStyle(fontSize: 10, color: Colors.green.shade800, fontWeight: FontWeight.bold)),
-                      ),
-                  ],
-                ),
-                if (isSelected)
-                  const Icon(Icons.check_circle, color: Colors.blue, size: 20)
-                else
-                  const Icon(Icons.receipt_long, color: Colors.grey, size: 18),
-              ],
-            ),
-            const Divider(),
-            _buildInfoRow(
-                "👤 العميل:", record['clientName']?.toString() ?? '---'),
-            _buildInfoRow("📦 الصنف:",
-                "${record['product']?.toString() ?? '---'} [ ${record['productCode']?.toString() ?? '---'} ]"),
-            if (record['orderNumber'] != null &&
-                record['orderNumber'].toString().isNotEmpty)
-              _buildInfoRow(
-                  "🔢 أمر التشغيل:", record['orderNumber'].toString()),
-            if (record['formNumber'] != null &&
-                record['formNumber'].toString().isNotEmpty)
-              _buildInfoRow("📄 رقم الفورمة:", record['formNumber'].toString()),
-            if ((record['startTime'] != null &&
-                    record['startTime'].toString().isNotEmpty) ||
-                (record['endTime'] != null &&
-                    record['endTime'].toString().isNotEmpty))
-              _buildInfoRow("🕒 وقت التشغيل:",
-                  "${record['startTime'] ?? '--:--'} إلى ${record['endTime'] ?? '--:--'}"),
-            _buildDimensionsText(record['dimensions'],
-                  isSheet: record['isSheet'] ?? false),
-            _buildQuantityText(record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity']),
-            Builder(
-              builder: (context) {
-                final dims = record['dimensions'] is Map
-                    ? record['dimensions'] as Map
-                    : {};
-                final w =
-                    record['weight'] ?? record['weight_tons'] ?? dims['weight'];
-                final double weightVal = w != null
-                    ? (w is num
-                        ? w.toDouble()
-                        : (double.tryParse(w.toString()) ?? 0.0))
-                    : 0.0;
-                if (weightVal <= 0) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      const Text("⚖️ الوزن: ",
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, color: Colors.teal)),
-                      Text("$weightVal طن",
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                );
-              },
-            ),
-            Builder(
-              builder: (context) {
-                final dims = record['dimensions'] is Map
-                    ? record['dimensions'] as Map
-                    : {};
-                final rawLayers = record['paperLayers'] ??
-                    record['paper_layers'] ??
-                    dims['paperLayers'] ??
-                    dims['paper_layers'];
-                final List<String> layers = [];
-                if (rawLayers is List) {
-                  layers.addAll(rawLayers
-                      .map((e) => e.toString().trim())
-                      .where((e) => e.isNotEmpty));
-                }
-                if (layers.isEmpty) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("📜 طبقات الورق:",
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.brown)),
-                      const SizedBox(height: 2),
-                      Text(layers.join('  |  '),
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                );
-              },
-            ),
-            if (widget.department != 'production_line' &&
-                widget.department != 'crushing' &&
-                record['department'] != 'crushing')
-              _buildColorsList(record['colors'] ?? []),
-            Builder(
-              builder: (context) {
-                final lineWaste = record['lineWaste'] ?? record['line_waste'] ?? record['waste_quantity'] ?? record['wasteQuantity'];
-                final printWaste = record['printWaste'] ?? record['print_waste'];
-                
-                if (lineWaste == null && printWaste == null) return const SizedBox.shrink();
-                
-                final isProdLineOrCrushing = widget.department == 'production_line' ||
-                    record['department'] == 'production_line' ||
-                    widget.department == 'crushing' ||
-                    widget.department == 'die_cutting' ||
-                    record['department'] == 'crushing' ||
-                    record['department'] == 'die_cutting';
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      const Text("📉 الهالك: ",
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      Text(isProdLineOrCrushing
-                          ? "${lineWaste ?? 0}"
-                          : "إنتاج: ${lineWaste ?? 0} | طباعة: ${printWaste ?? 0}"),
-                    ],
-                  ),
-                );
-              },
-            ),
-            if (mName.isNotEmpty)
-              _buildInfoRowWithIcon(Icons.settings, "الماكينة:", mName),
-            if (tName.isNotEmpty)
-              _buildInfoRowWithIcon(Icons.person, "الفني المسؤول:", tName),
-            if (record['crewMembers'] != null && (record['crewMembers'] as List).isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    const Icon(Icons.group, size: 16, color: Colors.blueGrey),
-                    const SizedBox(width: 8),
-                    const Text("طاقم العمل:", style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('طاقم العمل', style: TextStyle(fontFamily: 'Cairo')),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: (record['crewMembers'] as List)
-                                    .map((name) => Text('• $name', style: const TextStyle(fontFamily: 'Cairo', fontSize: 16)))
-                                    .toList(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                                "📅 ${((record['date'] ?? '').toString().split('T')[0].split(' ')[0])}",
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue)),
+                            const SizedBox(width: 8),
+                            if (record['status'] == 'pending')
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border:
+                                      Border.all(color: Colors.orange.shade300),
+                                ),
+                                child: Text('قيد المراجعة',
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.orange.shade800,
+                                        fontWeight: FontWeight.bold)),
+                              )
+                            else
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border:
+                                      Border.all(color: Colors.green.shade300),
+                                ),
+                                child: Text('معتمد',
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.green.shade800,
+                                        fontWeight: FontWeight.bold)),
                               ),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('موافق', style: TextStyle(fontFamily: 'Cairo'))),
-                              ],
+                          ],
+                        ),
+                        if (isSelected)
+                          const Icon(Icons.check_circle,
+                              color: Colors.blue, size: 20)
+                        else
+                          const Icon(Icons.receipt_long,
+                              color: Colors.grey, size: 18),
+                      ],
+                    ),
+                    const Divider(),
+                    _buildInfoRow("👤 العميل:",
+                        record['clientName']?.toString() ?? '---'),
+                    _buildInfoRow("📦 الصنف:",
+                        "${record['product']?.toString() ?? '---'} [ ${record['productCode']?.toString() ?? '---'} ]"),
+                    if (record['orderNumber'] != null &&
+                        record['orderNumber'].toString().isNotEmpty)
+                      _buildInfoRow(
+                          "🔢 أمر التشغيل:", record['orderNumber'].toString()),
+                    if (record['formNumber'] != null &&
+                        record['formNumber'].toString().isNotEmpty)
+                      _buildInfoRow(
+                          "📄 رقم الفورمة:", record['formNumber'].toString()),
+                    if ((record['startTime'] != null &&
+                            record['startTime'].toString().isNotEmpty) ||
+                        (record['endTime'] != null &&
+                            record['endTime'].toString().isNotEmpty))
+                      _buildInfoRow("🕒 وقت التشغيل:",
+                          "${record['startTime'] ?? '--:--'} إلى ${record['endTime'] ?? '--:--'}"),
+                    _buildDimensionsText(record['dimensions'],
+                        isSheet: record['isSheet'] ?? false),
+                    _buildQuantityText(record['quantity'] ??
+                        record['production_quantity'] ??
+                        record['productionQuantity']),
+                    Builder(
+                      builder: (context) {
+                        final dims = record['dimensions'] is Map
+                            ? record['dimensions'] as Map
+                            : {};
+                        final w = record['weight'] ??
+                            record['weight_tons'] ??
+                            dims['weight'];
+                        final double weightVal = w != null
+                            ? (w is num
+                                ? w.toDouble()
+                                : (double.tryParse(w.toString()) ?? 0.0))
+                            : 0.0;
+                        if (weightVal <= 0) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            children: [
+                              const Text("⚖️ الوزن: ",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.teal)),
+                              Text("$weightVal طن",
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    Builder(
+                      builder: (context) {
+                        final dims = record['dimensions'] is Map
+                            ? record['dimensions'] as Map
+                            : {};
+                        final rawLayers = record['paperLayers'] ??
+                            record['paper_layers'] ??
+                            dims['paperLayers'] ??
+                            dims['paper_layers'];
+                        final List<String> layers = [];
+                        if (rawLayers is List) {
+                          layers.addAll(rawLayers
+                              .map((e) => e.toString().trim())
+                              .where((e) => e.isNotEmpty));
+                        }
+                        if (layers.isEmpty) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("📜 طبقات الورق:",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.brown)),
+                              const SizedBox(height: 2),
+                              Text(layers.join('  |  '),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    if (widget.department != 'production_line' &&
+                        widget.department != 'crushing' &&
+                        record['department'] != 'crushing')
+                      _buildColorsList(record['colors'] ?? []),
+                    Builder(
+                      builder: (context) {
+                        final lineWaste = record['lineWaste'] ??
+                            record['line_waste'] ??
+                            record['waste_quantity'] ??
+                            record['wasteQuantity'];
+                        final printWaste =
+                            record['printWaste'] ?? record['print_waste'];
+
+                        if (lineWaste == null && printWaste == null) {
+                          return const SizedBox.shrink();
+                        }
+
+                        final isProdLineOrCrushing =
+                            widget.department == 'production_line' ||
+                                record['department'] == 'production_line' ||
+                                widget.department == 'crushing' ||
+                                widget.department == 'die_cutting' ||
+                                record['department'] == 'crushing' ||
+                                record['department'] == 'die_cutting';
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            children: [
+                              const Text("📉 الهالك: ",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              Text(isProdLineOrCrushing
+                                  ? "${lineWaste ?? 0}"
+                                  : "إنتاج: ${lineWaste ?? 0} | طباعة: ${printWaste ?? 0}"),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    if (mName.isNotEmpty)
+                      _buildInfoRowWithIcon(Icons.settings, "الماكينة:", mName),
+                    if (tName.isNotEmpty)
+                      _buildInfoRowWithIcon(
+                          Icons.person, "الفني المسؤول:", tName),
+                    if (record['crewMembers'] != null &&
+                        (record['crewMembers'] as List).isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.group,
+                                size: 16, color: Colors.blueGrey),
+                            const SizedBox(width: 8),
+                            const Text("طاقم العمل:",
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: InkWell(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('طاقم العمل',
+                                          style:
+                                              TextStyle(fontFamily: 'Cairo')),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children:
+                                            (record['crewMembers'] as List)
+                                                .map((name) => Text('• $name',
+                                                    style: const TextStyle(
+                                                        fontFamily: 'Cairo',
+                                                        fontSize: 16)))
+                                                .toList(),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            child: const Text('موافق',
+                                                style: TextStyle(
+                                                    fontFamily: 'Cairo'))),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  "عرض (${(record['crewMembers'] as List).length} عمال)",
+                                  style: const TextStyle(
+                                      color: Colors.blue,
+                                      decoration: TextDecoration.underline,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
                             ),
+                          ],
+                        ),
+                      ),
+                    if (downtimeDisplay.trim().isNotEmpty)
+                      _buildInfoRowWithIcon(Icons.timer_off, "وقت الأعطال:",
+                          downtimeDisplay.trim()),
+                    _buildNotesText(record['notes']),
+                    const SizedBox(height: 12),
+                    if (_workersBox != null)
+                      ValueListenableBuilder<Box<Worker>>(
+                        valueListenable: _workersBox!.listenable(),
+                        builder: (context, _, __) {
+                          // فحص RBAC ديناميكي: يستخدم قسم التقرير نفسه (مخزّن في record['department'])
+                          // هذا يجعل الفحص متوافقاً تلقائياً إذا كانت الشاشة مشتركة بين القسمين
+                          final reportDept = record['department']?.toString() ??
+                              (widget.department ?? 'flexo');
+                          final canEdit =
+                              AuthHelper.currentUserCanManageProduction(
+                                  reportDept, 'canEdit');
+                          final canDelete =
+                              AuthHelper.currentUserCanManageProduction(
+                                  reportDept, 'canDelete');
+
+                          final bool canApprove =
+                              (PermissionHelper.isSuperAdmin ||
+                                      PermissionHelper.isFactoryAdmin) ||
+                                  (canEdit && canDelete);
+
+                          if (!canEdit && !canDelete && !canApprove) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (record['status'] == 'pending' && canApprove)
+                                IconButton(
+                                  onPressed: () => _approveReport(key, record),
+                                  icon: const Icon(Icons.check_circle_outline,
+                                      color: Colors.green),
+                                  tooltip: "اعتماد",
+                                ),
+                              if (canEdit)
+                                IconButton(
+                                  onPressed: () => _editReport(key, record),
+                                  icon: const Icon(Icons.edit,
+                                      color: Colors.blue),
+                                  tooltip: "تعديل",
+                                ),
+                              if (canDelete)
+                                IconButton(
+                                  onPressed: () =>
+                                      _deleteSingleReport(key, record),
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.red),
+                                  tooltip: "حذف",
+                                ),
+                            ],
                           );
                         },
-                        child: Text(
-                          "عرض (${(record['crewMembers'] as List).length} عمال)",
-                          style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
+                      )
                   ],
                 ),
               ),
-            if (downtimeDisplay.trim().isNotEmpty)
-              _buildInfoRowWithIcon(
-                  Icons.timer_off, "وقت الأعطال:", downtimeDisplay.trim()),
-            _buildNotesText(record['notes']),
-            const SizedBox(height: 12),
-            if (_workersBox != null)
-              ValueListenableBuilder<Box<Worker>>(
-                valueListenable: _workersBox!.listenable(),
-                builder: (context, _, __) {
-                  // فحص RBAC ديناميكي: يستخدم قسم التقرير نفسه (مخزّن في record['department'])
-                  // هذا يجعل الفحص متوافقاً تلقائياً إذا كانت الشاشة مشتركة بين القسمين
-                  final reportDept = record['department']?.toString() ??
-                      (widget.department ?? 'flexo');
-                  final canEdit = AuthHelper.currentUserCanManageProduction(
-                      reportDept, 'canEdit');
-                  final canDelete = AuthHelper.currentUserCanManageProduction(
-                      reportDept, 'canDelete');
-                  
-                  final bool canApprove = (PermissionHelper.isSuperAdmin || PermissionHelper.isFactoryAdmin) || (canEdit && canDelete);
-                  
-                  if (!canEdit && !canDelete && !canApprove) return const SizedBox.shrink();
-                  
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (record['status'] == 'pending' && canApprove)
-                        IconButton(
-                          onPressed: () => _approveReport(key, record),
-                          icon: const Icon(Icons.check_circle_outline, color: Colors.green),
-                          tooltip: "اعتماد",
-                        ),
-                      if (canEdit)
-                        IconButton(
-                          onPressed: () => _editReport(key, record),
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          tooltip: "تعديل",
-                        ),
-                      if (canDelete)
-                        IconButton(
-                          onPressed: () => _deleteSingleReport(key, record),
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          tooltip: "حذف",
-                        ),
-                    ],
-                  );
-                },
-              )
-          ],
-        ),
-      ),
-    ));
+            )));
   }
 
   // ─── حساب إجماليات التقارير المحددة ────────────────────────────────────────
@@ -1409,24 +1590,42 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
       count++;
       Map<String, dynamic> r;
       if (val is DieCuttingProductionReport) {
-        r = {'quantity': val.productionQuantity, 'lineWaste': val.wasteQuantity};
+        r = {
+          'quantity': val.productionQuantity,
+          'lineWaste': val.wasteQuantity
+        };
       } else if (val is FlexoProductionReport) {
         r = val.toJson();
       } else if (val is Map) {
         r = Map<String, dynamic>.from(val);
       } else {
-        try { r = (val as dynamic).toJson(); } catch (_) { continue; }
+        try {
+          r = (val as dynamic).toJson();
+        } catch (_) {
+          continue;
+        }
       }
 
-      final qty = (r['quantity'] ?? r['production_quantity'] ?? r['productionQuantity']);
-      totalQty += (qty is num ? qty.toDouble() : double.tryParse(qty?.toString() ?? '0') ?? 0);
+      final qty = (r['quantity'] ??
+          r['production_quantity'] ??
+          r['productionQuantity']);
+      totalQty += (qty is num
+          ? qty.toDouble()
+          : double.tryParse(qty?.toString() ?? '0') ?? 0);
 
-      final lineWaste = (r['lineWaste'] ?? r['line_waste'] ?? r['waste_quantity'] ?? r['wasteQuantity']);
-      final lineWasteVal = lineWaste is num ? lineWaste.toDouble() : double.tryParse(lineWaste?.toString() ?? '0') ?? 0;
+      final lineWaste = (r['lineWaste'] ??
+          r['line_waste'] ??
+          r['waste_quantity'] ??
+          r['wasteQuantity']);
+      final lineWasteVal = lineWaste is num
+          ? lineWaste.toDouble()
+          : double.tryParse(lineWaste?.toString() ?? '0') ?? 0;
 
       if (isFlexo) {
         final printWaste = (r['printWaste'] ?? r['print_waste']);
-        final printWasteVal = printWaste is num ? printWaste.toDouble() : double.tryParse(printWaste?.toString() ?? '0') ?? 0;
+        final printWasteVal = printWaste is num
+            ? printWaste.toDouble()
+            : double.tryParse(printWaste?.toString() ?? '0') ?? 0;
         totalWaste += lineWasteVal + printWasteVal;
       } else {
         totalWaste += lineWasteVal;
@@ -1446,12 +1645,14 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.calculate_outlined, color: Colors.blueAccent, size: 26),
+            const Icon(Icons.calculate_outlined,
+                color: Colors.blueAccent, size: 26),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 'إجماليات ($count تقرير محدد)',
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -1469,7 +1670,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             const SizedBox(height: 10),
             _buildAggregationRow(
               icon: Icons.trending_down,
-              label: isFlexo ? 'إجمالي الهالك (إنتاج + طباعة)' : 'إجمالي الهالك',
+              label:
+                  isFlexo ? 'إجمالي الهالك (إنتاج + طباعة)' : 'إجمالي الهالك',
               value: wasteDisplay,
               color: Colors.orange.shade700,
             ),
@@ -1504,7 +1706,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
           const SizedBox(width: 10),
           Expanded(
             child: Text(label,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                style:
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           ),
           Text(
             value,
@@ -1531,7 +1734,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
       confirmLabel: 'حذف ($count)',
       confirmColor: Colors.red,
       onConfirm: () async {
-        final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting')
+        final String tableName = (widget.department == 'crushing' ||
+                widget.department == 'die_cutting')
             ? 'die_cutting_production_reports'
             : (widget.department == 'production_line')
                 ? 'line_production_reports'
@@ -1547,7 +1751,9 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
           } else if (val is Map) {
             syncId = val['sync_id']?.toString() ?? val['id']?.toString();
           } else {
-            try { syncId = (val as dynamic).toJson()['sync_id']?.toString(); } catch (_) {}
+            try {
+              syncId = (val as dynamic).toJson()['sync_id']?.toString();
+            } catch (_) {}
           }
           await _productionReportBox!.delete(key);
           if (syncId != null) {
@@ -1572,7 +1778,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
   DateTime _getExactReportDateTime(Map<String, dynamic> report) {
     final dateStr = report['date']?.toString() ?? '2000-01-01';
-    final date = DateTime.tryParse(dateStr.split('T')[0].split(' ')[0]) ?? DateTime(2000);
+    final date = DateTime.tryParse(dateStr.split('T')[0].split(' ')[0]) ??
+        DateTime(2000);
 
     String timeStr = report['endTime']?.toString() ?? '';
     if (timeStr.isEmpty || timeStr == '--:--') {
@@ -1590,8 +1797,10 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     timeStr = timeStr.replaceAll(RegExp(r'[صمامp]'), '').trim();
 
     final parts = timeStr.split(':');
-    if (parts.isEmpty) return DateTime(date.year, date.month, date.day, 23, 59, 59);
-    
+    if (parts.isEmpty) {
+      return DateTime(date.year, date.month, date.day, 23, 59, 59);
+    }
+
     int hours = int.tryParse(parts[0].trim()) ?? 0;
     int minutes = parts.length > 1 ? (int.tryParse(parts[1].trim()) ?? 0) : 0;
 
@@ -1607,79 +1816,86 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
   // ✅ التعديل الأول: ترتيب زمني فقط (الأحدث أولاً أو العكس) دون ترتيب أبجدي
   List<MapEntry<dynamic, Map<String, dynamic>>> _filterAndSortRecords(
       Box box, String query, bool descending, String activeShift) {
-    final entries = box
-        .toMap()
-        .entries
-        .map((e) {
-          final val = e.value;
-          Map<String, dynamic> r;
-          if (val is Map) {
-            r = Map<String, dynamic>.from(val);
-          } else if (val is DieCuttingProductionReport) {
-            r = {
-              'sync_id': val.id,
-              'id': val.id,
-              'date': val.reportDate.toIso8601String().split('T')[0],
-              'clientName': val.customerName,
-              'product': val.itemName,
-              'productCode': val.itemCode,
-              'formNumber': val.formNumber,
-              'orderNumber': val.workOrder,
-              'machineName': val.machineName,
-              'technicianName': val.technicianName,
-              'quantity': val.productionQuantity,
-              'lineWaste': val.wasteQuantity,
-              'notes': val.notes,
-              'dimensions': val.dimensions,
-              'department': widget.department ?? 'die_cutting', 
-              'crewMembers': val.crewMembers,
-              'shiftName': val.shiftName,
-            };
-            if (val.runTimeStart != null) r['startTime'] = "${val.runTimeStart!.hour.toString().padLeft(2, '0')}:${val.runTimeStart!.minute.toString().padLeft(2, '0')}";
-            if (val.runTimeEnd != null) r['endTime'] = "${val.runTimeEnd!.hour.toString().padLeft(2, '0')}:${val.runTimeEnd!.minute.toString().padLeft(2, '0')}";
-            if (val.downtimeStart != null) r['downtimeStart'] = "${val.downtimeStart!.hour.toString().padLeft(2, '0')}:${val.downtimeStart!.minute.toString().padLeft(2, '0')}";
-            if (val.downtimeEnd != null) r['downtimeEnd'] = "${val.downtimeEnd!.hour.toString().padLeft(2, '0')}:${val.downtimeEnd!.minute.toString().padLeft(2, '0')}";
-          } else {
-            try {
-              r = (val as dynamic).toJson();
-              r['clientName'] ??= r['client_name'];
-              r['product'] ??= r['product_name'];
-              r['productCode'] ??= r['product_code'];
-              r['orderNumber'] ??= r['order_number'];
-              r['formNumber'] ??= r['form_number'];
-              r['machineName'] ??= r['machine_name'];
-              r['technicianName'] ??= r['technician_name'];
-              r['startTime'] ??= r['start_time'];
-              r['endTime'] ??= r['end_time'];
-              r['totalDowntime'] ??= r['total_downtime'];
-              r['crewMembers'] ??= r['crew_members'];
-              r['shiftName'] ??= r['shift_name'];
-            } catch (_) {
-              r = {};
-            }
-          }
-          return MapEntry(e.key, r);
-        })
-        .where((e) {
-          final r = e.value;
-          
-          // --- Shift Filter ---
-          final reportShift = r['shiftName']?.toString() ?? 'الوردية الأولى';
-          if (reportShift != activeShift) return false;
-          
-          final dept = r['department']?.toString() ?? 'flexo';
-          final targetDept = widget.department ?? 'flexo';
-          // Relax department filter if they match the die cutting group
-          final bool isDieCuttingGroup = (dept == 'crushing' || dept == 'die_cutting') && (targetDept == 'crushing' || targetDept == 'die_cutting');
-          if (dept != targetDept && !isDieCuttingGroup) return false;
-          
-          final q = query.toLowerCase();
-          return (r['clientName']?.toString() ?? '')
-                  .toLowerCase()
-                  .contains(q) ||
-              (r['product']?.toString() ?? '').toLowerCase().contains(q);
-        })
-        .toList();
+    final entries = box.toMap().entries.map((e) {
+      final val = e.value;
+      Map<String, dynamic> r;
+      if (val is Map) {
+        r = Map<String, dynamic>.from(val);
+      } else if (val is DieCuttingProductionReport) {
+        r = {
+          'sync_id': val.id,
+          'id': val.id,
+          'date': val.reportDate.toIso8601String().split('T')[0],
+          'clientName': val.customerName,
+          'product': val.itemName,
+          'productCode': val.itemCode,
+          'formNumber': val.formNumber,
+          'orderNumber': val.workOrder,
+          'machineName': val.machineName,
+          'technicianName': val.technicianName,
+          'quantity': val.productionQuantity,
+          'lineWaste': val.wasteQuantity,
+          'notes': val.notes,
+          'dimensions': val.dimensions,
+          'department': widget.department ?? 'die_cutting',
+          'crewMembers': val.crewMembers,
+          'shiftName': val.shiftName,
+        };
+        if (val.runTimeStart != null) {
+          r['startTime'] =
+              "${val.runTimeStart!.hour.toString().padLeft(2, '0')}:${val.runTimeStart!.minute.toString().padLeft(2, '0')}";
+        }
+        if (val.runTimeEnd != null) {
+          r['endTime'] =
+              "${val.runTimeEnd!.hour.toString().padLeft(2, '0')}:${val.runTimeEnd!.minute.toString().padLeft(2, '0')}";
+        }
+        if (val.downtimeStart != null) {
+          r['downtimeStart'] =
+              "${val.downtimeStart!.hour.toString().padLeft(2, '0')}:${val.downtimeStart!.minute.toString().padLeft(2, '0')}";
+        }
+        if (val.downtimeEnd != null) {
+          r['downtimeEnd'] =
+              "${val.downtimeEnd!.hour.toString().padLeft(2, '0')}:${val.downtimeEnd!.minute.toString().padLeft(2, '0')}";
+        }
+      } else {
+        try {
+          r = (val as dynamic).toJson();
+          r['clientName'] ??= r['client_name'];
+          r['product'] ??= r['product_name'];
+          r['productCode'] ??= r['product_code'];
+          r['orderNumber'] ??= r['order_number'];
+          r['formNumber'] ??= r['form_number'];
+          r['machineName'] ??= r['machine_name'];
+          r['technicianName'] ??= r['technician_name'];
+          r['startTime'] ??= r['start_time'];
+          r['endTime'] ??= r['end_time'];
+          r['totalDowntime'] ??= r['total_downtime'];
+          r['crewMembers'] ??= r['crew_members'];
+          r['shiftName'] ??= r['shift_name'];
+        } catch (_) {
+          r = {};
+        }
+      }
+      return MapEntry(e.key, r);
+    }).where((e) {
+      final r = e.value;
+
+      // --- Shift Filter ---
+      final reportShift = r['shiftName']?.toString() ?? 'الوردية الأولى';
+      if (reportShift != activeShift) return false;
+
+      final dept = r['department']?.toString() ?? 'flexo';
+      final targetDept = widget.department ?? 'flexo';
+      // Relax department filter if they match the die cutting group
+      final bool isDieCuttingGroup =
+          (dept == 'crushing' || dept == 'die_cutting') &&
+              (targetDept == 'crushing' || targetDept == 'die_cutting');
+      if (dept != targetDept && !isDieCuttingGroup) return false;
+
+      final q = query.toLowerCase();
+      return (r['clientName']?.toString() ?? '').toLowerCase().contains(q) ||
+          (r['product']?.toString() ?? '').toLowerCase().contains(q);
+    }).toList();
 
     entries.sort((a, b) {
       DateTime timeA = _getExactReportDateTime(a.value);
@@ -1729,13 +1945,18 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
     final String width = d?['width']?.toString() ?? '0';
     final String height = d?['height']?.toString() ?? '0';
 
-    final bool isCrushing = widget.department == 'crushing' || widget.department == 'die_cutting';
+    final bool isCrushing =
+        widget.department == 'crushing' || widget.department == 'die_cutting';
     final bool isProdLine = widget.department == 'production_line';
 
     final String displayText = (isCrushing || isProdLine)
-        ? (height == '0' || height == '0.0' || height.isEmpty ? "$length / $width" : "$length / $width / $height")
+        ? (height == '0' || height == '0.0' || height.isEmpty
+            ? "$length / $width"
+            : "$length / $width / $height")
         // الفلكسو: طول / عرض / إرتفاع (يُقرأ من اليمين لليسار)
-        : (height == '0' || height == '0.0' || height.isEmpty ? "$length / $width" : "$length / $width / $height");
+        : (height == '0' || height == '0.0' || height.isEmpty
+            ? "$length / $width"
+            : "$length / $width / $height");
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -1743,8 +1964,7 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         children: [
           const Text("📏 المقاس: ",
               style: TextStyle(fontWeight: FontWeight.bold)),
-          Text(displayText,
-              style: const TextStyle(color: Colors.blueGrey)),
+          Text(displayText, style: const TextStyle(color: Colors.blueGrey)),
         ],
       ),
     );
@@ -1777,7 +1997,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               r['sync_id'] = syncId;
               r['id'] = syncId; // لحماية التوافق مع الكود القديم
 
-              r['status'] = PermissionHelper.canApproveReports ? 'approved' : 'pending';
+              r['status'] =
+                  PermissionHelper.canApproveReports ? 'approved' : 'pending';
 
               if (TimeOverlapValidator.hasOverlap(
                 box: _productionReportBox!,
@@ -1788,16 +2009,20 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               )) {
                 if (mounted) {
                   UIUtils.showInfoSnackBar(
-                    message: "يوجد تداخل زمني مع تقرير معتمد آخر على هذه الماكينة. يرجى مراجعة الأوقات.",
+                    message:
+                        "يوجد تداخل زمني مع تقرير معتمد آخر على هذه الماكينة. يرجى مراجعة الأوقات.",
                     backgroundColor: Colors.redAccent,
                   );
                 }
                 return;
               }
 
-              final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
-                  ? 'die_cutting_production_reports' 
-                  : (widget.department == 'production_line' ? 'line_production_reports' : 'flexo_production_reports');
+              final String tableName = (widget.department == 'crushing' ||
+                      widget.department == 'die_cutting')
+                  ? 'die_cutting_production_reports'
+                  : (widget.department == 'production_line'
+                      ? 'line_production_reports'
+                      : 'flexo_production_reports');
 
               final String reportStatus = r['status']?.toString() ?? 'approved';
 
@@ -1806,39 +2031,56 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   id: syncId,
                   machineName: r['machineName']?.toString() ?? '',
                   technicianName: r['technicianName']?.toString() ?? '',
-                  reportDate: DateTime.tryParse(r['date']?.toString() ?? '') ?? DateTime.now(),
+                  reportDate: DateTime.tryParse(r['date']?.toString() ?? '') ??
+                      DateTime.now(),
                   customerName: r['clientName']?.toString() ?? '',
                   itemName: r['product']?.toString() ?? '',
                   itemCode: r['productCode']?.toString() ?? '',
                   formNumber: r['formNumber']?.toString() ?? '',
                   workOrder: r['orderNumber']?.toString() ?? '',
-                  runTimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['startTime']?.toString()),
-                  runTimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['endTime']?.toString()),
-                  downtimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeStart']?.toString()),
-                  downtimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeEnd']?.toString()),
-                  productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
-                  wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
+                  runTimeStart: _parseTimeForDieCutting(
+                      r['date']?.toString(), r['startTime']?.toString()),
+                  runTimeEnd: _parseTimeForDieCutting(
+                      r['date']?.toString(), r['endTime']?.toString()),
+                  downtimeStart: _parseTimeForDieCutting(
+                      r['date']?.toString(), r['downtimeStart']?.toString()),
+                  downtimeEnd: _parseTimeForDieCutting(
+                      r['date']?.toString(), r['downtimeEnd']?.toString()),
+                  productionQuantity:
+                      double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
+                  wasteQuantity:
+                      double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
                   notes: r['notes']?.toString(),
-                  dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
-                  crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
-                  shiftName: r['shiftName']?.toString() ?? r['shift_name']?.toString(),
+                  dimensions: r['dimensions'] is Map
+                      ? Map<String, dynamic>.from(r['dimensions'])
+                      : null,
+                  crewMembers: r['crewMembers'] != null
+                      ? List<String>.from(r['crewMembers'])
+                      : (r['crew_members'] != null
+                          ? List<String>.from(r['crew_members'])
+                          : null),
+                  shiftName:
+                      r['shiftName']?.toString() ?? r['shift_name']?.toString(),
                   status: reportStatus, // ✅ تمرير الحالة الصحيحة
                 );
                 await _productionReportBox!.put(syncId, report);
                 // إرسال snake_case فقط لتجنب خطأ الأعمدة في Supabase
                 final jsonData = report.toJson();
-                jsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+                jsonData.removeWhere((k, v) =>
+                    k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
                 SyncService.instance.pushToQueue(tableName, jsonData);
               } else {
                 final reportObj = FlexoProductionReport.fromJson(r);
                 await _productionReportBox!.put(syncId, reportObj);
                 final jsonData = reportObj.toJson();
-                jsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+                jsonData.removeWhere((k, v) =>
+                    k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
                 SyncService.instance.pushToQueue(tableName, jsonData);
               }
               if (mounted) {
                 setState(() {
-                  _selectedShiftFilter = r['shiftName']?.toString() ?? 'الوردية الأولى';
+                  _selectedShiftFilter =
+                      r['shiftName']?.toString() ?? 'الوردية الأولى';
                 });
               }
               if (c.mounted) Navigator.pop(c);
@@ -1861,7 +2103,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               r['sync_id'] = existingSyncId;
               r['id'] = existingSyncId;
 
-              r['status'] = PermissionHelper.canApproveReports ? 'approved' : 'pending';
+              r['status'] =
+                  PermissionHelper.canApproveReports ? 'approved' : 'pending';
 
               if (TimeOverlapValidator.hasOverlap(
                 box: _productionReportBox!,
@@ -1873,16 +2116,20 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
               )) {
                 if (mounted) {
                   UIUtils.showInfoSnackBar(
-                    message: "يوجد تداخل زمني مع تقرير معتمد آخر على هذه الماكينة. يرجى مراجعة الأوقات.",
+                    message:
+                        "يوجد تداخل زمني مع تقرير معتمد آخر على هذه الماكينة. يرجى مراجعة الأوقات.",
                     backgroundColor: Colors.redAccent,
                   );
                 }
                 return;
               }
 
-              final String tableName = (widget.department == 'crushing' || widget.department == 'die_cutting') 
-                  ? 'die_cutting_production_reports' 
-                  : (widget.department == 'production_line' ? 'line_production_reports' : 'flexo_production_reports');
+              final String tableName = (widget.department == 'crushing' ||
+                      widget.department == 'die_cutting')
+                  ? 'die_cutting_production_reports'
+                  : (widget.department == 'production_line'
+                      ? 'line_production_reports'
+                      : 'flexo_production_reports');
 
               final String editedStatus = r['status']?.toString() ?? 'approved';
 
@@ -1891,38 +2138,55 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                   id: existingSyncId,
                   machineName: r['machineName']?.toString() ?? '',
                   technicianName: r['technicianName']?.toString() ?? '',
-                  reportDate: DateTime.tryParse(r['date']?.toString() ?? '') ?? DateTime.now(),
+                  reportDate: DateTime.tryParse(r['date']?.toString() ?? '') ??
+                      DateTime.now(),
                   customerName: r['clientName']?.toString() ?? '',
                   itemName: r['product']?.toString() ?? '',
                   itemCode: r['productCode']?.toString() ?? '',
                   formNumber: r['formNumber']?.toString() ?? '',
                   workOrder: r['orderNumber']?.toString() ?? '',
-                  runTimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['startTime']?.toString()),
-                  runTimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['endTime']?.toString()),
-                  downtimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeStart']?.toString()),
-                  downtimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeEnd']?.toString()),
-                  productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
-                  wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
+                  runTimeStart: _parseTimeForDieCutting(
+                      r['date']?.toString(), r['startTime']?.toString()),
+                  runTimeEnd: _parseTimeForDieCutting(
+                      r['date']?.toString(), r['endTime']?.toString()),
+                  downtimeStart: _parseTimeForDieCutting(
+                      r['date']?.toString(), r['downtimeStart']?.toString()),
+                  downtimeEnd: _parseTimeForDieCutting(
+                      r['date']?.toString(), r['downtimeEnd']?.toString()),
+                  productionQuantity:
+                      double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
+                  wasteQuantity:
+                      double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
                   notes: r['notes']?.toString(),
-                  dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
-                  crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
-                  shiftName: r['shiftName']?.toString() ?? r['shift_name']?.toString(),
+                  dimensions: r['dimensions'] is Map
+                      ? Map<String, dynamic>.from(r['dimensions'])
+                      : null,
+                  crewMembers: r['crewMembers'] != null
+                      ? List<String>.from(r['crewMembers'])
+                      : (r['crew_members'] != null
+                          ? List<String>.from(r['crew_members'])
+                          : null),
+                  shiftName:
+                      r['shiftName']?.toString() ?? r['shift_name']?.toString(),
                   status: editedStatus, // ✅ تمرير الحالة الصحيحة
                 );
                 await _productionReportBox!.put(existingSyncId, report);
                 final editJsonData = report.toJson();
-                editJsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+                editJsonData.removeWhere((k, v) =>
+                    k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
                 SyncService.instance.pushToQueue(tableName, editJsonData);
               } else {
                 final reportObj = FlexoProductionReport.fromJson(r);
                 await _productionReportBox!.put(existingSyncId, reportObj);
                 final editJsonData = reportObj.toJson();
-                editJsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+                editJsonData.removeWhere((k, v) =>
+                    k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
                 SyncService.instance.pushToQueue(tableName, editJsonData);
               }
               if (mounted) {
                 setState(() {
-                  _selectedShiftFilter = r['shiftName']?.toString() ?? 'الوردية الأولى';
+                  _selectedShiftFilter =
+                      r['shiftName']?.toString() ?? 'الوردية الأولى';
                 });
               }
               if (c.mounted) Navigator.pop(c);
@@ -1936,7 +2200,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => StartSessionDialog(department: widget.department ?? 'flexo'),
+      builder: (context) =>
+          StartSessionDialog(department: widget.department ?? 'flexo'),
     );
   }
 
@@ -2004,7 +2269,11 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      isProductionLine ? Icons.factory : isDieCutting ? Icons.content_cut : Icons.precision_manufacturing,
+                      isProductionLine
+                          ? Icons.factory
+                          : isDieCutting
+                              ? Icons.content_cut
+                              : Icons.precision_manufacturing,
                       color: isProductionLine
                           ? Colors.green.shade700
                           : isDieCutting
@@ -2244,7 +2513,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             r['sync_id'] = syncId;
             r['id'] = syncId;
 
-            r['status'] = PermissionHelper.canApproveReports ? 'approved' : 'pending';
+            r['status'] =
+                PermissionHelper.canApproveReports ? 'approved' : 'pending';
 
             if (TimeOverlapValidator.hasOverlap(
               box: _productionReportBox!,
@@ -2255,54 +2525,77 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             )) {
               if (mounted) {
                 UIUtils.showInfoSnackBar(
-                  message: "يوجد تداخل زمني مع تقرير معتمد آخر على هذه الماكينة. يرجى مراجعة الأوقات.",
+                  message:
+                      "يوجد تداخل زمني مع تقرير معتمد آخر على هذه الماكينة. يرجى مراجعة الأوقات.",
                   backgroundColor: Colors.redAccent,
                 );
               }
               return;
             }
 
-            final String tableName = (session.department == 'crushing' || session.department == 'die_cutting' || widget.department == 'crushing' || widget.department == 'die_cutting') 
-                ? 'die_cutting_production_reports' 
-                : ((session.department == 'production_line' || widget.department == 'production_line') ? 'line_production_reports' : 'flexo_production_reports');
+            final String tableName = (session.department == 'crushing' ||
+                    session.department == 'die_cutting' ||
+                    widget.department == 'crushing' ||
+                    widget.department == 'die_cutting')
+                ? 'die_cutting_production_reports'
+                : ((session.department == 'production_line' ||
+                        widget.department == 'production_line')
+                    ? 'line_production_reports'
+                    : 'flexo_production_reports');
 
             final String sessionStatus = r['status']?.toString() ?? 'approved';
 
             if (tableName == 'die_cutting_production_reports') {
-                final report = DieCuttingProductionReport(
-                  id: syncId,
-                  machineName: r['machineName']?.toString() ?? '',
-                  technicianName: r['technicianName']?.toString() ?? '',
-                  reportDate: DateTime.tryParse(r['date']?.toString() ?? '') ?? DateTime.now(),
-                  customerName: r['clientName']?.toString() ?? '',
-                  itemName: r['product']?.toString() ?? '',
-                  itemCode: r['productCode']?.toString() ?? '',
-                  formNumber: r['formNumber']?.toString() ?? '',
-                  workOrder: r['orderNumber']?.toString() ?? '',
-                  runTimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['startTime']?.toString()),
-                  runTimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['endTime']?.toString()),
-                  downtimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeStart']?.toString()),
-                  downtimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeEnd']?.toString()),
-                  productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
-                  wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
-                  notes: r['notes']?.toString(),
-                  dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
-                  crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
-                  shiftName: r['shiftName']?.toString() ?? r['shift_name']?.toString(),
-                  status: sessionStatus, // ✅ تمرير الحالة الصحيحة
-                );
-                // حفظ محلي بمفتاح ثابت لمنع التكرار
-                await _productionReportBox!.put(syncId, report);
-                final sessionJsonData = report.toJson();
-                sessionJsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
-                SyncService.instance.pushToQueue(tableName, sessionJsonData);
+              final report = DieCuttingProductionReport(
+                id: syncId,
+                machineName: r['machineName']?.toString() ?? '',
+                technicianName: r['technicianName']?.toString() ?? '',
+                reportDate: DateTime.tryParse(r['date']?.toString() ?? '') ??
+                    DateTime.now(),
+                customerName: r['clientName']?.toString() ?? '',
+                itemName: r['product']?.toString() ?? '',
+                itemCode: r['productCode']?.toString() ?? '',
+                formNumber: r['formNumber']?.toString() ?? '',
+                workOrder: r['orderNumber']?.toString() ?? '',
+                runTimeStart: _parseTimeForDieCutting(
+                    r['date']?.toString(), r['startTime']?.toString()),
+                runTimeEnd: _parseTimeForDieCutting(
+                    r['date']?.toString(), r['endTime']?.toString()),
+                downtimeStart: _parseTimeForDieCutting(
+                    r['date']?.toString(), r['downtimeStart']?.toString()),
+                downtimeEnd: _parseTimeForDieCutting(
+                    r['date']?.toString(), r['downtimeEnd']?.toString()),
+                productionQuantity:
+                    double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
+                wasteQuantity:
+                    double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
+                notes: r['notes']?.toString(),
+                dimensions: r['dimensions'] is Map
+                    ? Map<String, dynamic>.from(r['dimensions'])
+                    : null,
+                crewMembers: r['crewMembers'] != null
+                    ? List<String>.from(r['crewMembers'])
+                    : (r['crew_members'] != null
+                        ? List<String>.from(r['crew_members'])
+                        : null),
+                shiftName:
+                    r['shiftName']?.toString() ?? r['shift_name']?.toString(),
+                status: sessionStatus, // ✅ تمرير الحالة الصحيحة
+              );
+              // حفظ محلي بمفتاح ثابت لمنع التكرار
+              await _productionReportBox!.put(syncId, report);
+              final sessionJsonData = report.toJson();
+              sessionJsonData.removeWhere((k, v) =>
+                  k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+              SyncService.instance.pushToQueue(tableName, sessionJsonData);
             } else {
-                final reportObj = FlexoProductionReport.fromJson(r);
-                // حفظ محلي بمفتاح ثابت لمنع التكرار
-                await _productionReportBox!.put(syncId, reportObj);
-                final sessionJsonData = reportObj.toJson();
-                sessionJsonData.removeWhere((k, v) => k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
-                SyncService.instance.pushToQueue(tableName, sessionJsonData);
+              final reportObj = FlexoProductionReport.fromJson(r);
+              // حفظ محلي بمفتاح ثابت لمنع التكرار
+              await _productionReportBox!.put(syncId, reportObj);
+              final sessionJsonData = reportObj.toJson();
+              sessionJsonData.removeWhere((k, v) =>
+                  k == k.toUpperCase() || k.contains(RegExp(r'[A-Z]')));
+              SyncService.instance.pushToQueue(tableName, sessionJsonData);
             }
 
             debugPrint(
@@ -2311,7 +2604,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             // ─── حذف الجلسة بعد نجاح الحفظ ───
             try {
               if (Hive.isBoxOpen('flexo_live_sessions')) {
-                await Hive.box<LiveSession>('flexo_live_sessions').delete(sessionId);
+                await Hive.box<LiveSession>('flexo_live_sessions')
+                    .delete(sessionId);
               }
               if (Hive.isBoxOpen('live_sessions')) {
                 await Hive.box<LiveSession>('live_sessions').delete(sessionId);
@@ -2330,14 +2624,14 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
 
             if (mounted) {
               setState(() {
-                _selectedShiftFilter = r['shiftName']?.toString() ?? 'الوردية الأولى';
+                _selectedShiftFilter =
+                    r['shiftName']?.toString() ?? 'الوردية الأولى';
               });
             }
 
             if (c.mounted) Navigator.of(c).pop();
           } catch (saveError) {
-            debugPrint(
-                '❌ _finishSession.onSave: فشل حفظ التقرير: $saveError');
+            debugPrint('❌ _finishSession.onSave: فشل حفظ التقرير: $saveError');
           }
         },
       ),
@@ -2361,7 +2655,8 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
         final sessionId = session.id;
         try {
           if (Hive.isBoxOpen('flexo_live_sessions')) {
-            await Hive.box<LiveSession>('flexo_live_sessions').delete(sessionId);
+            await Hive.box<LiveSession>('flexo_live_sessions')
+                .delete(sessionId);
           }
           if (Hive.isBoxOpen('live_sessions')) {
             await Hive.box<LiveSession>('live_sessions').delete(sessionId);
@@ -2418,9 +2713,3 @@ class _FlexoProductionReportScreenState extends State<FlexoProductionReportScree
             ]));
   }
 }
-
-
-
-
-
-
