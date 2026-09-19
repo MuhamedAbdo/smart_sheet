@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/models/day_schedule.dart';
+import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/utils/worker_utils.dart';
 
 class AddStapleProductionReportScreen extends StatefulWidget {
@@ -43,8 +46,40 @@ class _AddStapleProductionReportScreenState extends State<AddStapleProductionRep
   
   final TextEditingController _notesController = TextEditingController();
 
-  final List<String> shifts = ['الوردية الصباحية', 'الوردية المسائية'];
-  final List<String> machines = ['دباسة 1', 'دباسة 2', 'تعبئة وتغليف'];
+  List<String> get _shifts {
+    try {
+      final scheduleBox = Hive.box<DaySchedule>('factory_schedule');
+      String dayName = '';
+      final dt = DateTime.tryParse(_dateController.text) ?? DateTime.now();
+      switch (dt.weekday) {
+        case DateTime.monday: dayName = 'Monday'; break;
+        case DateTime.tuesday: dayName = 'Tuesday'; break;
+        case DateTime.wednesday: dayName = 'Wednesday'; break;
+        case DateTime.thursday: dayName = 'Thursday'; break;
+        case DateTime.friday: dayName = 'Friday'; break;
+        case DateTime.saturday: dayName = 'Saturday'; break;
+        case DateTime.sunday: dayName = 'Sunday'; break;
+      }
+      
+      final schedule = scheduleBox.get(dayName);
+      List<String> shiftNames = [];
+      if (schedule != null && schedule.shiftNames != null) {
+        shiftNames = List<String>.from(schedule.shiftNames!);
+      }
+      
+      if (shiftNames.isEmpty) {
+        shiftNames = ['الوردية الأولى']; // Fallback
+      }
+      
+      if (_selectedShift != null && !shiftNames.contains(_selectedShift)) {
+        shiftNames.add(_selectedShift!);
+      }
+      
+      return shiftNames;
+    } catch (e) {
+      return ['الوردية الأولى'];
+    }
+  }
 
   @override
   void initState() {
@@ -53,6 +88,11 @@ class _AddStapleProductionReportScreenState extends State<AddStapleProductionRep
     _dateController.text = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
     _wasteController.text = "0";
     _totalDowntimeController.text = "0";
+    
+    final shiftsList = _shifts;
+    if (shiftsList.isNotEmpty) {
+      _selectedShift = shiftsList.first;
+    }
   }
 
   @override
@@ -112,6 +152,19 @@ class _AddStapleProductionReportScreenState extends State<AddStapleProductionRep
     }
   }
 
+  String? _formatDateTime(String date, String time) {
+    if (time.isEmpty) return null;
+    try {
+      final parsedDate = DateTime.parse(date);
+      final parts = time.split(':');
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+      return DateTime(parsedDate.year, parsedDate.month, parsedDate.day, hour, minute).toIso8601String();
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<void> _saveReport() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -127,22 +180,23 @@ class _AddStapleProductionReportScreenState extends State<AddStapleProductionRep
         'shift_name': _selectedShift,
         'report_date': _dateController.text,
         'work_order': _workOrderController.text,
-        'start_time': _startTimeController.text,
-        'end_time': _endTimeController.text,
+        'run_time_start': _formatDateTime(_dateController.text, _startTimeController.text),
+        'run_time_end': _formatDateTime(_dateController.text, _endTimeController.text),
         'customer_name': _customerController.text,
         'item_name': _itemController.text,
         'item_code': _itemCodeController.text,
         'machine_name': _selectedMachine,
         'technician_name': _selectedTechnician,
         'crew_members': _selectedCrewMembers,
-        'length': double.tryParse(_lengthController.text),
-        'width': double.tryParse(_widthController.text),
-        'height': double.tryParse(_heightController.text),
+        'dimensions': {
+          'length': double.tryParse(_lengthController.text) ?? 0,
+          'width': double.tryParse(_widthController.text) ?? 0,
+          'height': double.tryParse(_heightController.text) ?? 0,
+        },
         'production_quantity': productionQty,
         'waste_quantity': wasteQty,
-        'downtime_start': _downtimeStartController.text,
-        'downtime_end': _downtimeEndController.text,
-        'total_downtime': int.tryParse(_totalDowntimeController.text),
+        'downtime_start': _formatDateTime(_dateController.text, _downtimeStartController.text),
+        'downtime_end': _formatDateTime(_dateController.text, _downtimeEndController.text),
         'notes': _notesController.text,
         'created_at': DateTime.now().toIso8601String(),
         'status': 'approved',
@@ -430,7 +484,7 @@ class _AddStapleProductionReportScreenState extends State<AddStapleProductionRep
                           child: _buildDropdown(
                             label: 'الوردية',
                             value: _selectedShift,
-                            items: shifts,
+                            items: _shifts,
                             icon: Icons.work_outline,
                             onChanged: (val) => setState(() => _selectedShift = val),
                           ),
@@ -476,12 +530,28 @@ class _AddStapleProductionReportScreenState extends State<AddStapleProductionRep
                     Row(
                       children: [
                         Expanded(
-                          child: _buildDropdown(
-                            label: 'الماكينة',
-                            value: _selectedMachine,
-                            items: machines,
-                            icon: Icons.precision_manufacturing,
-                            onChanged: (val) => setState(() => _selectedMachine = val),
+                          child: ValueListenableBuilder<Box<FlexoMachine>>(
+                            valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
+                            builder: (context, box, _) {
+                              final machineNames = FlexoMachine.getMachinesForDepartment('staples').map((m) => m.name).toList();
+                              if (machineNames.isEmpty) machineNames.add('دباسة (افتراضي)');
+                              
+                              if (_selectedMachine != null && !machineNames.contains(_selectedMachine)) {
+                                _selectedMachine = null;
+                              }
+                              
+                              return _buildDropdown(
+                                label: 'الماكينة',
+                                value: _selectedMachine,
+                                items: machineNames,
+                                icon: Icons.precision_manufacturing,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _selectedMachine = val;
+                                  });
+                                },
+                              );
+                            }
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -542,29 +612,58 @@ class _AddStapleProductionReportScreenState extends State<AddStapleProductionRep
                     _buildTextField(_notesController, "📝 ملاحظات (اختياري)", icon: Icons.notes, isRequired: false, maxLines: 3),
 
                     const SizedBox(height: 24),
-                    SizedBox(
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _saveReport,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 2,
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                              )
-                            : const Text(
-                                'حفظ التقرير',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: OutlinedButton(
+                              onPressed: _isLoading ? null : () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.blueGrey.shade400),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
                               ),
-                      ),
+                              child: const Text(
+                                'إلغاء',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blueGrey,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _saveReport,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blueAccent,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                    )
+                                  : const Text(
+                                      'حفظ التقرير',
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

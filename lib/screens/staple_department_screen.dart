@@ -8,6 +8,7 @@ import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 import 'package:smart_sheet/screens/staple_production_reports_screen.dart';
+import 'package:smart_sheet/screens/machine_management_screen.dart';
 
 class StapleDepartmentScreen extends StatelessWidget {
   const StapleDepartmentScreen({super.key});
@@ -137,6 +138,19 @@ class StapleDepartmentScreen extends StatelessWidget {
                           );
                         },
                       ),
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'تقارير الماكينات',
+                        icon: Icons.print_outlined,
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('سيتم تفعيل تقارير الماكينات لاحقاً'),
+                              backgroundColor: Colors.blueAccent,
+                            ),
+                          );
+                        },
+                      ),
                       
                       const SizedBox(height: 24),
                       
@@ -152,6 +166,21 @@ class StapleDepartmentScreen extends StatelessWidget {
                               builder: (context) => const WorkersScreen(
                                 departmentBoxName: 'workers_staple',
                                 departmentTitle: 'طاقم الدبوس',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'إدارة الماكينات',
+                        icon: Icons.precision_manufacturing,
+                        onTap: () {
+                          Navigator.push(
+                            innerContext,
+                            MaterialPageRoute(
+                              builder: (context) => const MachineManagementScreen(
+                                department: 'staples',
                               ),
                             ),
                           );

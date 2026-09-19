@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/utils/worker_utils.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
+import 'package:smart_sheet/models/live_session.dart';
+import 'package:uuid/uuid.dart';
+import 'package:smart_sheet/services/sync_service.dart';
 
 class StartStapleJobScreen extends StatefulWidget {
   const StartStapleJobScreen({super.key});
@@ -21,9 +27,6 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
   final TextEditingController _workOrderController = TextEditingController();
   
   final List<String> _selectedCrewMembers = [];
-  
-  final List<String> machines = ['دباسة 1', 'دباسة 2', 'تعبئة وتغليف'];
-
   @override
   void dispose() {
     _customerController.dispose();
@@ -40,8 +43,49 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
       _isLoading = true;
     });
 
-    // TODO: Add backend logic for starting a job for staple department
-    await Future.delayed(const Duration(seconds: 1)); // Simulate API call
+    try {
+      final String? deviceId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('device_id') : null;
+      final String? factoryId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('factory_id') : null;
+
+      final session = LiveSession(
+        id: const Uuid().v4(),
+        machineName: _selectedMachine!,
+        clientName: _customerController.text,
+        productName: _itemController.text,
+        productCode: _itemCodeController.text,
+        orderNumber: _workOrderController.text,
+        technicianName: _selectedTechnician!,
+        startTime: DateTime.now(),
+        downtimeIntervals: [],
+        lastStateChange: DateTime.now(),
+        crewMembers: _selectedCrewMembers,
+        department: 'staples',
+        createdByDeviceId: deviceId,
+        factoryId: factoryId,
+        technicianId: PermissionHelper.currentWorker?.id,
+      );
+
+      final box = await Hive.openBox<LiveSession>('flexo_live_sessions');
+      await box.put(session.id, session);
+
+      if (Hive.isBoxOpen('live_sessions')) {
+        await Hive.box<LiveSession>('live_sessions').put(session.id, session);
+      }
+
+      await SyncService.instance.pushToQueue(
+        'live_sessions',
+        session.toJson(),
+        operation: 'upsert',
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('حدث خطأ أثناء بدء الجلسة: $e')),
+        );
+      }
+      return;
+    }
 
     if (mounted) {
       setState(() {
@@ -295,12 +339,28 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildDropdown(
-                      label: 'الماكينة',
-                      value: _selectedMachine,
-                      items: machines,
-                      icon: Icons.precision_manufacturing,
-                      onChanged: (val) => setState(() => _selectedMachine = val),
+                    ValueListenableBuilder<Box<FlexoMachine>>(
+                      valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
+                      builder: (context, box, _) {
+                        final machineNames = FlexoMachine.getMachinesForDepartment('staples').map((m) => m.name).toList();
+                        if (machineNames.isEmpty) machineNames.add('دباسة (افتراضي)');
+                        
+                        if (_selectedMachine != null && !machineNames.contains(_selectedMachine)) {
+                          _selectedMachine = null;
+                        }
+                        
+                        return _buildDropdown(
+                          label: 'الماكينة',
+                          value: _selectedMachine,
+                          items: machineNames,
+                          icon: Icons.precision_manufacturing,
+                          onChanged: (val) {
+                            setState(() {
+                              _selectedMachine = val;
+                            });
+                          },
+                        );
+                      }
                     ),
                     _buildTextField(_customerController, "👤 اسم العميل", icon: Icons.business),
                     _buildTextField(_itemController, "📦 الصنف", icon: Icons.category),
