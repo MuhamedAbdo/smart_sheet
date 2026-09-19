@@ -7,6 +7,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
 import 'package:smart_sheet/widgets/active_sessions_dashboard.dart';
 import 'package:smart_sheet/models/live_session.dart';
+import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 
 class StapleProductionReportsScreen extends StatefulWidget {
   const StapleProductionReportsScreen({super.key});
@@ -41,20 +43,101 @@ class _StapleProductionReportsScreenState extends State<StapleProductionReportsS
     return ['الكل', 'الوردية الأولى', 'الوردية الثانية'];
   }
 
-  void _finishSession(LiveSession session) {
-    Hive.box<LiveSession>('flexo_live_sessions').delete(session.id);
-    Navigator.push(
+  Future<void> _finishSession(LiveSession session) async {
+    final now = DateTime.now();
+    final startLocal = session.startTime.toLocal();
+    final startTimeStr =
+        "${startLocal.hour.toString().padLeft(2, '0')}:${startLocal.minute.toString().padLeft(2, '0')}";
+    final endTimeStr =
+        "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+    if (!session.isRunning && session.downtimeIntervals.isNotEmpty) {
+      final last = session.downtimeIntervals.last;
+      last.end ??= DateTime.now().toUtc();
+    }
+
+    String dStart = "";
+    String dEnd = "";
+    if (session.downtimeIntervals.isNotEmpty) {
+      final firstStart = session.downtimeIntervals.first.start.toLocal();
+      final lastEnd =
+          (session.downtimeIntervals.last.end ?? DateTime.now().toUtc())
+              .toLocal();
+      dStart =
+          "${firstStart.hour.toString().padLeft(2, '0')}:${firstStart.minute.toString().padLeft(2, '0')}";
+      dEnd =
+          "${lastEnd.hour.toString().padLeft(2, '0')}:${lastEnd.minute.toString().padLeft(2, '0')}";
+    }
+
+    final totalDowntimeMin = session.totalDowntime.inMinutes;
+
+    final initialData = {
+      'date': "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
+      'clientName': session.clientName,
+      'productName': session.productName,
+      'productCode': session.productCode,
+      'formNumber': session.formNumber ?? '',
+      'orderNumber': session.orderNumber,
+      'startTime': startTimeStr,
+      'endTime': endTimeStr,
+      'downtimeStart': dStart,
+      'downtimeEnd': dEnd,
+      'totalDowntime': totalDowntimeMin,
+      'machineName': session.machineName,
+      'technicianName': session.technicianName,
+      'dimensions': session.dimensions,
+      'shift': session.shift,
+      'department': session.department ?? 'staples',
+      'crewMembers': session.crewMembers,
+    };
+
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const AddStapleProductionReportScreen(),
+        builder: (context) => AddStapleProductionReportScreen(initialData: initialData),
       ),
     );
+    
+    if (result == true) {
+      Hive.box<LiveSession>('flexo_live_sessions').delete(session.id);
+    }
   }
 
   void _cancelSession(LiveSession session) {
-    Hive.box<LiveSession>('flexo_live_sessions').delete(session.id);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم إلغاء الجلسة بنجاح'), backgroundColor: Colors.red),
+    UIUtils.showDeleteConfirmation(
+      context: context,
+      title: "إلغاء الجلسة",
+      content:
+          "هل أنت متأكد من إلغاء هذه الجلسة؟ سيتم حذف جميع البيانات المؤقتة الخاصة بها نهائياً.",
+      confirmLabel: "إلغاء الجلسة",
+      onConfirm: () async {
+        final sessionId = session.id;
+        try {
+          if (Hive.isBoxOpen('flexo_live_sessions')) {
+            await Hive.box<LiveSession>('flexo_live_sessions')
+                .delete(sessionId);
+          }
+          if (Hive.isBoxOpen('live_sessions')) {
+            await Hive.box<LiveSession>('live_sessions').delete(sessionId);
+          }
+        } catch (e) {
+          debugPrint('⚠️ فشل حذف الجلسة محلياً: $e');
+        }
+
+        SyncService.instance.pushToQueue(
+          'live_sessions',
+          {'sync_id': sessionId, 'id': sessionId},
+          operation: 'delete',
+        );
+
+        if (mounted) {
+          UIUtils.showInfoSnackBar(
+            message: "تم إلغاء الجلسة بنجاح",
+            backgroundColor: Colors.orange,
+            icon: Icons.delete_sweep,
+          );
+        }
+      },
     );
   }
 
@@ -332,7 +415,8 @@ class _StapleProductionReportsScreenState extends State<StapleProductionReportsS
                                   final height = dimensions?['height'] ?? 0;
                                   final crewMembers = report['crew_members'] as List<dynamic>? ?? [];
                                   final notes = report['notes']?.toString().trim() ?? '';
-                                  final status = report['status'] ?? 'معتمد';
+                                  final rawStatus = report['status']?.toString() ?? 'approved';
+                                  final status = rawStatus == 'approved' ? 'معتمد' : (rawStatus == 'pending' ? 'قيد المراجعة' : rawStatus);
 
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 16.0),

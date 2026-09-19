@@ -26,6 +26,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/models/die_cutting_form.dart';
+import 'package:smart_sheet/models/staple_production_report.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'dart:convert';
@@ -156,7 +157,8 @@ class SyncService extends SyncServiceBase
       }
 
       if (PermissionHelper.isSuspended) {
-        debugPrint('⏳ SyncService: الحساب موقوف مؤقتاً، إيقاف المزامنة تماماً.');
+        debugPrint(
+            '⏳ SyncService: الحساب موقوف مؤقتاً، إيقاف المزامنة تماماً.');
         await _tearDownChannels();
         return;
       }
@@ -186,6 +188,7 @@ class SyncService extends SyncServiceBase
       await _initProductionReports(factoryId);
       await _initArchivedReports(factoryId);
       await _initDieCuttingReports(factoryId);
+      await _initStapleProductionReports(factoryId);
 
       // 5. المزامنة المبدئية لـ machines [MachinesSync]
       await _initMachines(factoryId);
@@ -469,15 +472,16 @@ class SyncService extends SyncServiceBase
 
       final reportsBox = Hive.isBoxOpen('flexo_production_reports_box')
           ? Hive.box<FlexoProductionReport>('flexo_production_reports_box')
-          : await Hive.openBox<FlexoProductionReport>('flexo_production_reports_box');
+          : await Hive.openBox<FlexoProductionReport>(
+              'flexo_production_reports_box');
       for (var key in reportsBox.keys) {
         final data = reportsBox.get(key);
         if (data != null) {
           final Map<String, dynamic> mapData = data.toJson();
           mapData['factory_id'] = factoryId;
           mapData.remove('sync_status');
-          final targetTable = data.department == 'production_line' 
-              ? 'line_production_reports' 
+          final targetTable = data.department == 'production_line'
+              ? 'line_production_reports'
               : 'flexo_production_reports';
           await pushToQueue(targetTable, mapData, operation: 'upsert');
           addedCount++;
@@ -729,6 +733,7 @@ class SyncService extends SyncServiceBase
 
   Future<void> _processQueue() async {
     if (_isProcessingQueue) return;
+    _isProcessingQueue = true;
 
     // ✅ الحارس الأساسي: إعادة فتح الـ box إن أُغلق بعد restart أو teardown
     late Box queueBox;
@@ -736,11 +741,13 @@ class SyncService extends SyncServiceBase
       queueBox = await _ensureQueueBox();
     } catch (e) {
       debugPrint('❌ _processQueue: تعذّر فتح sync_queue: $e');
+      _isProcessingQueue = false;
       return;
     }
 
     if (queueBox.isEmpty) {
       debugPrint('📱 Mobile Queue: القائمة فارغة.');
+      _isProcessingQueue = false;
       return;
     }
 
@@ -748,11 +755,11 @@ class SyncService extends SyncServiceBase
     final hasInternet = await _checkInternet();
     if (!hasInternet) {
       debugPrint('📴 Queue: لا إنترنت.');
+      _isProcessingQueue = false;
       return;
     }
     unawaited(ServerTimeService.instance.syncServerTime());
 
-    _isProcessingQueue = true;
     debugPrint('🔄 Queue: معالجة ${queueBox.length} عنصر...');
     final keysToDelete = <dynamic>[];
 
@@ -791,7 +798,8 @@ class SyncService extends SyncServiceBase
         final syncId =
             rawData['sync_id']?.toString() ?? rawData['id']?.toString();
         if (syncId == null || syncId.trim().isEmpty) {
-          debugPrint('🗑️ تقرير تالف (sync_id فارغ) → table=$table op=$operation');
+          debugPrint(
+              '🗑️ تقرير تالف (sync_id فارغ) → table=$table op=$operation');
           keysToDelete.add(key);
           continue;
         }
@@ -806,12 +814,14 @@ class SyncService extends SyncServiceBase
         keysToDelete.add(key);
         continue;
       }
-      
+
       final timestampStr = item['timestamp']?.toString();
       if (timestampStr != null) {
         final timestamp = DateTime.tryParse(timestampStr);
-        if (timestamp != null && DateTime.now().difference(timestamp).inDays > 3) {
-          debugPrint('⚠️ Queue: أمر قديم جداً (أكثر من 3 أيام) تم تجاهله → $table');
+        if (timestamp != null &&
+            DateTime.now().difference(timestamp).inDays > 3) {
+          debugPrint(
+              '⚠️ Queue: أمر قديم جداً (أكثر من 3 أيام) تم تجاهله → $table');
           keysToDelete.add(key);
           continue;
         }
@@ -824,8 +834,7 @@ class SyncService extends SyncServiceBase
         final payload = Map<String, dynamic>.from(rawData);
         payload['factory_id'] = factoryId;
 
-        final bool usesSyncId = (
-            table == 'customers' ||
+        final bool usesSyncId = (table == 'customers' ||
             table == 'flexo_production_reports' ||
             table == 'line_production_reports' ||
             table == 'workers' ||
@@ -834,8 +843,7 @@ class SyncService extends SyncServiceBase
             table == 'flexo_archived_reports' ||
             table == 'line_archived_reports' ||
             table == 'die_cutting_production_reports' ||
-            table == 'die_cutting_archived_reports'
-        );
+            table == 'die_cutting_archived_reports');
         final pkColumn = usesSyncId ? 'sync_id' : 'id';
 
         if (operation == 'batch_delete') {
@@ -843,12 +851,19 @@ class SyncService extends SyncServiceBase
           final rawIds = rawData['sync_ids'];
           if (rawIds is List && rawIds.isNotEmpty) {
             final ids = rawIds.map((e) => e.toString()).toList();
-            final deleteRes = await _supabase.from(table).delete().inFilter(pkColumn, ids).select();
+            final deleteRes = await _supabase
+                .from(table)
+                .delete()
+                .inFilter(pkColumn, ids)
+                .select();
             if (deleteRes.isEmpty) {
-              debugPrint('❌ Queue: فشل الحذف المجمع، السجلات غير موجودة في $table');
-              throw Exception('لم يتم العثور على السجلات للحذف المجمع في السيرفر: $table');
+              debugPrint(
+                  '❌ Queue: فشل الحذف المجمع، السجلات غير موجودة في $table');
+              throw Exception(
+                  'لم يتم العثور على السجلات للحذف المجمع في السيرفر: $table');
             } else {
-              debugPrint('✅ Queue: تم الحذف المجمع بنجاح من السيرفر لجدول $table [${deleteRes.length} عنصر]');
+              debugPrint(
+                  '✅ Queue: تم الحذف المجمع بنجاح من السيرفر لجدول $table [${deleteRes.length} عنصر]');
             }
           } else {
             debugPrint('⚠️ Queue: batch_delete فارغ — $table');
@@ -857,12 +872,19 @@ class SyncService extends SyncServiceBase
           final deleteSyncId =
               payload['sync_id']?.toString() ?? payload['id']?.toString();
           if (deleteSyncId != null && deleteSyncId.isNotEmpty) {
-            final deleteRes = await _supabase.from(table).delete().eq(pkColumn, deleteSyncId).select();
+            final deleteRes = await _supabase
+                .from(table)
+                .delete()
+                .eq(pkColumn, deleteSyncId)
+                .select();
             if (deleteRes.isEmpty) {
-              debugPrint('❌ Queue: فشل الحذف، السجل غير موجود في السيرفر لجدول $table [$pkColumn=$deleteSyncId]');
-              throw Exception('لم يتم العثور على السجل للحذف في السيرفر: $table [$pkColumn=$deleteSyncId]');
+              debugPrint(
+                  '❌ Queue: فشل الحذف، السجل غير موجود في السيرفر لجدول $table [$pkColumn=$deleteSyncId]');
+              throw Exception(
+                  'لم يتم العثور على السجل للحذف في السيرفر: $table [$pkColumn=$deleteSyncId]');
             } else {
-              debugPrint('✅ Queue: تم الحذف بنجاح من السيرفر لجدول $table [$pkColumn=$deleteSyncId]');
+              debugPrint(
+                  '✅ Queue: تم الحذف بنجاح من السيرفر لجدول $table [$pkColumn=$deleteSyncId]');
             }
           } else {
             debugPrint('⚠️ Queue: تجاهل delete — لا معرف في $table');
@@ -871,14 +893,17 @@ class SyncService extends SyncServiceBase
           final cleanPayload = _sanitizePayload(payload, table);
           // ✅ FIX: تعويض الـ id المفقود من الطابور المحلي للتقارير المعلقة (Self-healing)
           if (table == 'customers') {
-            cleanPayload.remove('id'); // Unconditional remove for customers to avoid type mismatches
-          } else if (cleanPayload['id'] == null && cleanPayload['sync_id'] != null) {
+            cleanPayload.remove(
+                'id'); // Unconditional remove for customers to avoid type mismatches
+          } else if (cleanPayload['id'] == null &&
+              cleanPayload['sync_id'] != null) {
             cleanPayload['id'] = cleanPayload['sync_id'];
           }
 
           try {
-            debugPrint('📤 [Queue] جاري رفع البيانات إلى $table: $cleanPayload');
-            
+            debugPrint(
+                '📤 [Queue] جاري رفع البيانات إلى $table: $cleanPayload');
+
             late List<dynamic> res;
             try {
               if (table == 'customers' ||
@@ -895,42 +920,50 @@ class SyncService extends SyncServiceBase
                     .upsert(cleanPayload, onConflict: 'sync_id')
                     .select();
               } else {
-                res = await _supabase
-                    .from(table)
-                    .upsert(cleanPayload)
-                    .select();
+                res = await _supabase.from(table).upsert(cleanPayload).select();
               }
             } on PostgrestException catch (upsertError) {
-              if (upsertError.code == '42P10' || upsertError.message.toLowerCase().contains('unique or exclusion constraint')) {
-                debugPrint('⚠️ [Queue] جدول $table لا يحتوي على قيد فريد (Unique Constraint) لعمود sync_id. جاري المحاولة باستخدام المفتاح الأساسي (id)...');
-                res = await _supabase
-                    .from(table)
-                    .upsert(cleanPayload)
-                    .select();
+              if (upsertError.code == '42P10' ||
+                  upsertError.message
+                      .toLowerCase()
+                      .contains('unique or exclusion constraint')) {
+                debugPrint(
+                    '⚠️ [Queue] جدول $table لا يحتوي على قيد فريد (Unique Constraint) لعمود sync_id. جاري المحاولة باستخدام المفتاح الأساسي (id)...');
+                res = await _supabase.from(table).upsert(cleanPayload).select();
               } else {
                 rethrow;
               }
             }
-            
+
             debugPrint('✅ [Sync] استجابة السيرفر بعد الرفع ($table): $res');
             if (res.isEmpty) {
-              throw Exception('السيرفر قبل الطلب 2xx ولكن لم يتم إدراج أي سجل! تأكد من عدم وجود Triggers تمنع الإدراج، أو أن الصلاحيات RLS لا تمنع ذلك.');
+              throw Exception(
+                  'السيرفر قبل الطلب 2xx ولكن لم يتم إدراج أي سجل! تأكد من عدم وجود Triggers تمنع الإدراج، أو أن الصلاحيات RLS لا تمنع ذلك.');
             }
-
           } on PostgrestException catch (e) {
             // ✅ معالجة تعارض الإيميل للعمال (تحديث بيانات العامل الموجود فعلياً بالسحابة)
-            if (table == 'workers' && e.code == '23505' && e.message.contains('unique_worker_email')) {
+            if (table == 'workers' &&
+                e.code == '23505' &&
+                e.message.contains('unique_worker_email')) {
               final workerEmail = cleanPayload['email'];
               if (workerEmail != null) {
-                debugPrint('⚠️ [Queue] تعارض في البريد الإلكتروني للعامل $workerEmail، محاولة جلب المعرّف من السحابة...');
-                final existingWorker = await _supabase.from('workers').select('id, sync_id').eq('email', workerEmail).maybeSingle();
+                debugPrint(
+                    '⚠️ [Queue] تعارض في البريد الإلكتروني للعامل $workerEmail، محاولة جلب المعرّف من السحابة...');
+                final existingWorker = await _supabase
+                    .from('workers')
+                    .select('id, sync_id')
+                    .eq('email', workerEmail)
+                    .maybeSingle();
                 if (existingWorker != null) {
-                  final serverSyncId = existingWorker['sync_id'] ?? existingWorker['id'];
+                  final serverSyncId =
+                      existingWorker['sync_id'] ?? existingWorker['id'];
                   if (serverSyncId != null) {
                     cleanPayload['sync_id'] = serverSyncId;
                     cleanPayload['id'] = serverSyncId;
-                    await _supabase.from('workers').upsert(cleanPayload, onConflict: 'sync_id');
-                    
+                    await _supabase
+                        .from('workers')
+                        .upsert(cleanPayload, onConflict: 'sync_id');
+
                     if (Hive.isBoxOpen('workers')) {
                       final workersBox = Hive.box<Worker>('workers');
                       for (final w in workersBox.values) {
@@ -941,7 +974,8 @@ class SyncService extends SyncServiceBase
                         }
                       }
                     }
-                    debugPrint('✅ [Queue] تم حل تعارض البريد ورفع بيانات العامل بنجاح.');
+                    debugPrint(
+                        '✅ [Queue] تم حل تعارض البريد ورفع بيانات العامل بنجاح.');
                     keysToDelete.add(key);
                     continue;
                   }
@@ -997,7 +1031,6 @@ class SyncService extends SyncServiceBase
                 modified = true;
               }
 
-
               if (modified) {
                 late List<dynamic> resFallback;
                 if (table == 'customers' ||
@@ -1010,13 +1043,15 @@ class SyncService extends SyncServiceBase
                       .upsert(cleanPayload, onConflict: 'sync_id')
                       .select();
                 } else {
-                  resFallback = await _supabase.from(table).upsert(cleanPayload).select();
+                  resFallback =
+                      await _supabase.from(table).upsert(cleanPayload).select();
                 }
-                debugPrint('✅ [Sync] استجابة السيرفر بعد الرفع (الاحتياطي) ($table): $resFallback');
+                debugPrint(
+                    '✅ [Sync] استجابة السيرفر بعد الرفع (الاحتياطي) ($table): $resFallback');
                 if (resFallback.isEmpty) {
-                  throw Exception('السيرفر قبل الطلب 2xx ولكن لم يتم إدراج أي سجل في المحاولة الاحتياطية!');
+                  throw Exception(
+                      'السيرفر قبل الطلب 2xx ولكن لم يتم إدراج أي سجل في المحاولة الاحتياطية!');
                 }
-
               } else {
                 rethrow;
               }
@@ -1050,7 +1085,8 @@ class SyncService extends SyncServiceBase
   // Payload Sanitizer — يمنع خطأ 22P02
   // ==============================================================
 
-  Map<String, dynamic> _sanitizePayload(Map<String, dynamic> raw, String table) {
+  Map<String, dynamic> _sanitizePayload(
+      Map<String, dynamic> raw, String table) {
     const numericFields = {
       'length',
       'width',
@@ -1070,7 +1106,8 @@ class SyncService extends SyncServiceBase
       // من جهاز الأدمن (الذي لا يملك معلومات جهاز العامل)
       if (table == 'workers' && workerDeviceProtectedFields.contains(key)) {
         if (value == null || value.toString().toLowerCase() == 'null') {
-          debugPrint('🛡️ [sanitize] تجاهل $key=null في جدول workers (حماية ربط الجهاز)');
+          debugPrint(
+              '🛡️ [sanitize] تجاهل $key=null في جدول workers (حماية ربط الجهاز)');
           return; // لا نُضيف الحقل لـ result
         }
         // نُبقي على القيمة فقط إذا كانت ذات معنى
@@ -1093,7 +1130,8 @@ class SyncService extends SyncServiceBase
             // لا نضيف مفتاح id إطلاقاً إذا كان فارغاً لترك السحابة تستخدم Default Value
             if (table == 'worker_actions' || table == 'die_cutting_forms') {
               result[key] = const Uuid().v4();
-              debugPrint('⚠️ [sanitize] توليد id مفقود لجدول $table: ${result[key]}');
+              debugPrint(
+                  '⚠️ [sanitize] توليد id مفقود لجدول $table: ${result[key]}');
             }
           } else {
             result[key] = const Uuid().v4();
@@ -1109,7 +1147,10 @@ class SyncService extends SyncServiceBase
     });
 
     // الحذف القاطع لمفتاح id بدون أي شروط (Unconditional Remove) لتوحيد هيكل الدفعة
-    if (table != 'die_cutting_forms' && table != 'worker_actions' && table != 'line_archived_reports') {
+    if (table != 'die_cutting_forms' &&
+        table != 'worker_actions' &&
+        table != 'line_archived_reports' &&
+        table != 'machines') {
       result.remove('id');
     }
 
@@ -1136,4 +1177,3 @@ class SyncService extends SyncServiceBase
     }
   }
 }
-

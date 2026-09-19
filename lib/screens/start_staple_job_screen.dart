@@ -8,7 +8,8 @@ import 'package:uuid/uuid.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 
 class StartStapleJobScreen extends StatefulWidget {
-  const StartStapleJobScreen({super.key});
+  final Map<String, dynamic>? initialData;
+  const StartStapleJobScreen({super.key, this.initialData});
 
   @override
   State<StartStapleJobScreen> createState() => _StartStapleJobScreenState();
@@ -27,6 +28,16 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
   final TextEditingController _workOrderController = TextEditingController();
   
   final List<String> _selectedCrewMembers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialData != null) {
+      _customerController.text = widget.initialData!['clientName']?.toString() ?? '';
+      _itemController.text = widget.initialData!['productName']?.toString() ?? '';
+      _itemCodeController.text = widget.initialData!['productCode']?.toString() ?? '';
+    }
+  }
   @override
   void dispose() {
     _customerController.dispose();
@@ -44,6 +55,28 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
     });
 
     try {
+      // ✅ التحقق الأوفلاين من وجود جلسة تعمل لنفس الماكينة وفي نفس القسم
+      final liveBoxCheck = Hive.isBoxOpen('flexo_live_sessions')
+          ? Hive.box<LiveSession>('flexo_live_sessions')
+          : await Hive.openBox<LiveSession>('flexo_live_sessions');
+      
+      final isAlreadyRunning = liveBoxCheck.values.any((s) => 
+        s.machineName == _selectedMachine && s.isRunning && s.department == 'staples'
+      );
+
+      if (isAlreadyRunning) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('لا يمكن البدء: الماكينة قيد التشغيل حالياً في جلسة أخرى'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
       final String? deviceId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('device_id') : null;
       final String? factoryId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('factory_id') : null;
 
@@ -60,10 +93,13 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
         lastStateChange: DateTime.now(),
         crewMembers: _selectedCrewMembers,
         department: 'staples',
+        dimensions: widget.initialData != null ? widget.initialData!['dimensions'] : null,
         createdByDeviceId: deviceId,
         factoryId: factoryId,
         technicianId: PermissionHelper.currentWorker?.id,
       );
+
+      await _saveNewMachineIfNeeded(_selectedMachine ?? '');
 
       final box = await Hive.openBox<LiveSession>('flexo_live_sessions');
       await box.put(session.id, session);
@@ -99,6 +135,77 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
       );
       Navigator.pop(context);
     }
+  }
+
+  Future<void> _saveNewMachineIfNeeded(String machineName) async {
+    if (machineName.isEmpty) return;
+    if (!Hive.isBoxOpen('flexo_machines')) return;
+    
+    final machinesBox = Hive.box<FlexoMachine>('flexo_machines');
+    bool exists = false;
+    for (var m in machinesBox.values) {
+      if (m.name == machineName && m.department == 'staples') {
+        exists = true;
+        break;
+      }
+    }
+    
+    if (!exists) {
+      final newMachineId = const Uuid().v4();
+      final newMachine = FlexoMachine(
+        id: newMachineId,
+        name: machineName,
+        department: 'staples',
+      );
+      await machinesBox.put(newMachineId, newMachine);
+      
+      final String? factoryId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('factory_id') : null;
+      await SyncService.instance.pushToQueue(
+        'machines',
+        {
+          'id': newMachine.id,
+          'name': newMachine.name,
+          'department': 'staples',
+          'factory_id': factoryId,
+        },
+        operation: 'upsert',
+      );
+    }
+  }
+
+  Future<void> _showAddMachineDialog() async {
+    final TextEditingController customMachineController = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('إضافة ماكينة يدوياً', style: TextStyle(fontFamily: 'Cairo')),
+          content: TextField(
+            controller: customMachineController,
+            decoration: const InputDecoration(
+              hintText: 'أدخل اسم الماكينة',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إلغاء'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (customMachineController.text.trim().isNotEmpty) {
+                  setState(() {
+                    _selectedMachine = customMachineController.text.trim();
+                  });
+                }
+                Navigator.pop(context);
+              },
+              child: const Text('إضافة'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildTextField(
@@ -342,12 +449,14 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
                     ValueListenableBuilder<Box<FlexoMachine>>(
                       valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
                       builder: (context, box, _) {
-                        final machineNames = FlexoMachine.getMachinesForDepartment('staples').map((m) => m.name).toList();
+                        final machineNames = FlexoMachine.getMachinesForDepartment('staples').map((m) => m.name).toSet().toList();
                         if (machineNames.isEmpty) machineNames.add('دباسة (افتراضي)');
                         
                         if (_selectedMachine != null && !machineNames.contains(_selectedMachine)) {
-                          _selectedMachine = null;
+                          machineNames.add(_selectedMachine!);
                         }
+                        
+                        machineNames.add('+ إضافة ماكينة يدوياً');
                         
                         return _buildDropdown(
                           label: 'الماكينة',
@@ -355,9 +464,13 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
                           items: machineNames,
                           icon: Icons.precision_manufacturing,
                           onChanged: (val) {
-                            setState(() {
-                              _selectedMachine = val;
-                            });
+                            if (val == '+ إضافة ماكينة يدوياً') {
+                              _showAddMachineDialog();
+                            } else {
+                              setState(() {
+                                _selectedMachine = val;
+                              });
+                            }
                           },
                         );
                       }
@@ -365,7 +478,7 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
                     _buildTextField(_customerController, "👤 اسم العميل", icon: Icons.business),
                     _buildTextField(_itemController, "📦 الصنف", icon: Icons.category),
                     _buildTextField(_itemCodeController, "كود الصنف", icon: Icons.qr_code, isNumber: true, isRequired: false),
-                    _buildTextField(_workOrderController, "رقم أمر التشغيل", icon: Icons.assignment, isNumber: true),
+                    _buildTextField(_workOrderController, "رقم أمر التشغيل", icon: Icons.assignment, isNumber: true, isRequired: false),
                     _buildDropdown(
                       label: 'اسم الفني (رئيسي)',
                       value: _selectedTechnician,

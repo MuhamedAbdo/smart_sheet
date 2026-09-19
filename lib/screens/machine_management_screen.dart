@@ -21,7 +21,11 @@ class MachineManagementScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(department == 'production_line'
             ? 'إدارة ماكينات خط الإنتاج'
-            : 'إدارة ماكينات الفلكسو'),
+            : department == 'crushing'
+                ? 'إدارة ماكينات التكسير'
+                : department == 'staples'
+                    ? 'إدارة ماكينات الدبوس'
+                    : 'إدارة ماكينات الفلكسو'),
         centerTitle: true,
         leading: Navigator.canPop(context)
             ? IconButton(

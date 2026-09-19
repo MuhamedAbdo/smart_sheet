@@ -9,6 +9,9 @@ import 'package:smart_sheet/screens/add_sheet_size_screen.dart';
 import 'package:smart_sheet/widgets/start_session_dialog.dart';
 import 'package:smart_sheet/screens/production_line/start_production_session_screen.dart';
 import 'package:smart_sheet/screens/production_line_screen.dart';
+import 'package:smart_sheet/screens/start_staple_job_screen.dart';
+import 'package:smart_sheet/screens/add_staple_production_report_screen.dart';
+import 'package:smart_sheet/screens/staple_production_reports_screen.dart';
 import 'package:smart_sheet/widgets/saved_size_card.dart';
 import 'package:smart_sheet/widgets/saved_size_search_bar.dart';
 import 'package:smart_sheet/widgets/production_report_form.dart';
@@ -255,6 +258,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     final canAddProductionLine = AuthHelper.currentUserCanManageProduction('production_line', 'canAdd');
     // صلاحية بدء إنتاج التكسير
     final canAddDieCutting = AuthHelper.currentUserCanManageProduction('crushing', 'canAdd');
+    // صلاحية بدء إنتاج الدبوس
+    final canAddStaples = AuthHelper.currentUserCanManageProduction('staple', 'canAdd');
 
     // إذا لم يكن هناك أي سجل (حتى السجل الأساسي) - هذا لا يحدث إلا إذا تم الحذف
     if (allClientRecords.isEmpty && searchQuery.isEmpty) {
@@ -333,11 +338,13 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                   canAddFlexo: canAddFlexo,
                   canAddProductionLine: canAddProductionLine,
                   canAddDieCutting: canAddDieCutting,
+                  canAddStaples: canAddStaples,
                   onEdit: () => _navigateToEdit(entry.key, entry.value),
                   onDelete: () => _confirmDelete(entry.key),
                   onStartProduction: (data) => _openFlexoProductionReportWithSheetData(context, data),
                   onStartProductionLine: (data) => _openProductionLineSessionWithSheetData(context, data),
                   onStartDieCutting: (data) => _openDieCuttingSessionWithSheetData(context, data),
+                  onStartStaples: (data) => _openStaplesSessionWithSheetData(context, data),
                 ),
               );
             },
@@ -593,14 +600,29 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     );
   }
 
+  // ─── BottomSheet اختيار نوع الإنتاج (دبوس) ────────────────────────────
+  void _openStaplesSessionWithSheetData(
+      BuildContext context, Map<String, dynamic> dataFromCard) async {
+    final initialData =
+        await _prepareInitialDataFromCard(context, dataFromCard);
+    if (initialData == null || !context.mounted) return;
+
+    showProductionOptionsSheet(
+      context: context,
+      initialData: initialData,
+      department: 'staple',
+    );
+  }
+
   // ─── دالة الـ BottomSheet المشتركة ───────────────────────────────────────────
   void showProductionOptionsSheet({
     required BuildContext context,
     required Map<String, dynamic> initialData,
-    required String department, // 'flexo' | 'production_line' | 'crushing'
+    required String department, // 'flexo' | 'production_line' | 'crushing' | 'staple'
   }) {
     final isFlexo = department == 'flexo';
     final isCrushing = department == 'crushing';
+    final isStaple = department == 'staple';
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -659,12 +681,16 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                     child: Icon(
                       isCrushing
                           ? Icons.content_cut
-                          : (isFlexo ? Icons.precision_manufacturing : Icons.factory),
+                          : (isStaple
+                              ? Icons.push_pin
+                              : (isFlexo ? Icons.precision_manufacturing : Icons.factory)),
                       color: isCrushing
                           ? Colors.orange.shade700
-                          : (isFlexo
-                              ? Colors.blue.shade700
-                              : Colors.green.shade700),
+                          : (isStaple
+                              ? Colors.deepPurple.shade700
+                              : (isFlexo
+                                  ? Colors.blue.shade700
+                                  : Colors.green.shade700)),
                       size: 22,
                     ),
                   ),
@@ -676,7 +702,9 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                         Text(
                           isCrushing
                               ? 'إنتاج تكسير'
-                              : (isFlexo ? 'إنتاج فلكسو' : 'خط الإنتاج'),
+                              : (isStaple
+                                  ? 'إنتاج دبوس'
+                                  : (isFlexo ? 'إنتاج فلكسو' : 'خط الإنتاج')),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -837,6 +865,22 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           ),
         );
       }
+    } else if (department == 'staple') {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              StartStapleJobScreen(initialData: initialData),
+        ),
+      );
+      if (result == true && context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const StapleProductionReportsScreen(),
+          ),
+        );
+      }
     } else {
       // فلكسو أو تكسير
       final started = await showModalBottomSheet<bool>(
@@ -877,6 +921,15 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     required Map<String, dynamic> initialData,
     required String department,
   }) {
+    if (department == 'staple') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddStapleProductionReportScreen(initialData: initialData),
+        ),
+      );
+      return;
+    }
     // تحضير البيانات الأولية بصيغة النموذج
     final formData = {
       ...initialData,

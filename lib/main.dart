@@ -54,6 +54,7 @@ import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
 import 'package:smart_sheet/models/die_cutting_form.dart';
 import 'package:smart_sheet/models/die_cutting_production_report.dart';
+import 'package:smart_sheet/models/staple_production_report.dart';
 
 // استيراد الخدمات والبروفايدر والشاشات
 import 'package:smart_sheet/config/constants.dart';
@@ -287,6 +288,9 @@ void _registerAdapters() {
   if (!Hive.isAdapterRegistered(25)) {
     Hive.registerAdapter(DieCuttingProductionReportAdapter());
   }
+  if (!Hive.isAdapterRegistered(27)) {
+    Hive.registerAdapter(StapleProductionReportAdapter());
+  }
 }
 
 /// يُعبّئ صندوق factory_schedule بالقيم الافتراضية إذا كان فارغاً (أول تشغيل)
@@ -308,6 +312,8 @@ void _openBackgroundBoxes() async {
         'maintenance_records_main');
     await _openBoxWithLockRecovery<FlexoProductionReport>(
         'flexo_production_reports_box');
+    await _openBoxWithLockRecovery<StapleProductionReport>(
+        'staple_production_reports_box');
   } catch (e) {
     debugPrint("⚠️ Failed to open some background typed boxes: $e");
   }

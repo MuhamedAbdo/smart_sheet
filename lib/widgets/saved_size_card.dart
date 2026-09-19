@@ -18,11 +18,13 @@ class SavedSizeCard extends StatelessWidget {
   final Function(Map<String, dynamic>) onStartProduction;
   final Function(Map<String, dynamic>)? onStartProductionLine;
   final Function(Map<String, dynamic>)? onStartDieCutting;
+  final Function(Map<String, dynamic>)? onStartStaples;
   final bool canEdit;
   final bool canDelete;
   final bool canAddFlexo;
   final bool canAddProductionLine;
   final bool canAddDieCutting;
+  final bool canAddStaples;
 
   const SavedSizeCard({
     super.key,
@@ -32,11 +34,13 @@ class SavedSizeCard extends StatelessWidget {
     required this.onStartProduction,
     this.onStartProductionLine,
     this.onStartDieCutting,
+    this.onStartStaples,
     required this.canEdit,
     required this.canDelete,
     required this.canAddFlexo,
     this.canAddProductionLine = false,
     this.canAddDieCutting = false,
+    this.canAddStaples = false,
   });
 
   // دالة مساعدة لجلب مسار مجلد الصور
@@ -183,7 +187,7 @@ class SavedSizeCard extends StatelessWidget {
             const SizedBox(height: 12),
 
             // ―― أزرار الإنتاج بناءً على صلاحية كل قسم ――
-            if (canAddFlexo || canAddProductionLine || canAddDieCutting)
+            if (canAddFlexo || canAddProductionLine || canAddDieCutting || canAddStaples)
               Align(
                 alignment: Alignment.centerLeft,
                 child: ElevatedButton.icon(
@@ -201,6 +205,8 @@ class SavedSizeCard extends StatelessWidget {
                         onStartProductionLine!(record);
                       } else if ((dept == 'crushing' || dept == 'die_cutting') && canAddDieCutting && onStartDieCutting != null) {
                         onStartDieCutting!(record);
+                      } else if (dept == 'staple' && canAddStaples && onStartStaples != null) {
+                        onStartStaples!(record);
                       } else {
                         // حالة احتياطية إذا لم يتطابق أي شيء
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -454,6 +460,15 @@ class SavedSizeCard extends StatelessWidget {
                   onTap: () {
                     Navigator.pop(ctx);
                     onStartDieCutting!(record);
+                  },
+                ),
+              if (canAddStaples && onStartStaples != null)
+                ListTile(
+                  leading: const Icon(Icons.push_pin, color: Colors.deepPurple),
+                  title: const Text("إنتاج دبوس"),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onStartStaples!(record);
                   },
                 ),
             ],

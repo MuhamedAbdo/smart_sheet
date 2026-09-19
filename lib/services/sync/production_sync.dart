@@ -23,6 +23,7 @@ mixin ProductionSync on SyncServiceBase {
   RealtimeChannel? _lineArchivedReportsChannel;
   RealtimeChannel? _crushingArchivedReportsChannel;
   RealtimeChannel? _dieCuttingProductionChannel;
+  RealtimeChannel? _stapleProductionChannel;
 
   // ==============================================================
   // Initial Sync
@@ -185,6 +186,46 @@ mixin ProductionSync on SyncServiceBase {
           '✅ ProductionSync: تم استرجاع ${res.length} die_cutting_production_reports.');
     } catch (e) {
       debugPrint('❌ ProductionSync._initDieCuttingReports: $e');
+    }
+  }
+
+  /// المزامنة المبدئية لجدول staple_production_reports → Hive box: staple_production_reports_box
+  Future<void> _initStapleProductionReports(String factoryId) async {
+    try {
+      final res = await _supabase
+          .from('staple_production_reports')
+          .select()
+          .or('factory_id.eq.$factoryId,factory_id.is.null')
+          .order('report_date', ascending: false);
+
+      final box = Hive.isBoxOpen('staple_production_reports_box')
+          ? Hive.box<StapleProductionReport>('staple_production_reports_box')
+          : await Hive.openBox<StapleProductionReport>(
+              'staple_production_reports_box');
+
+      final Map<dynamic, dynamic> tempMap = box.toMap();
+      await box.clear();
+
+      if (res.isEmpty) return;
+
+      for (final r in res) {
+        final syncId = r['sync_id']?.toString() ?? r['id']?.toString();
+        if (syncId == null) continue;
+        
+        Map<String, dynamic> updatedData = Map<String, dynamic>.from(r);
+        final existing = tempMap[syncId];
+        if (existing != null) {
+          if (!r.containsKey('status') || r['status'] == null) {
+            updatedData['status'] = existing.status;
+          }
+        }
+        final reportObj = StapleProductionReport.fromJson(updatedData);
+        await box.put(syncId, reportObj);
+      }
+      debugPrint(
+          '✅ ProductionSync: تم استرجاع ${res.length} staple_production_reports.');
+    } catch (e) {
+      debugPrint('❌ ProductionSync._initStapleProductionReports: $e');
     }
   }
 
@@ -564,6 +605,43 @@ mixin ProductionSync on SyncServiceBase {
         debugPrint('📡 die_cutting_production_reports: $status ${error ?? ""}');
       }
     });
+    // ─── staple_production_reports ─────────────────────────────
+    _stapleProductionChannel = _supabase
+        .channel('rt_staple_reports_${factoryId}_v1')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'staple_production_reports',
+          filter: filter,
+          callback: (payload) {
+            debugPrint(
+              '📥 [staple_production_reports] event=${payload.eventType}',
+            );
+            _onStapleReportChange(payload, factoryId);
+          },
+        )
+        .subscribe((status, error) {
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        debugPrint(
+            '✅ SUBSCRIBED → staple_production_reports (factory: $factoryId)');
+        _reconnectAttempts['staple_reports_channel'] = 0;
+      } else if (status == RealtimeSubscribeStatus.timedOut) {
+        debugPrint(
+            '⏱️ TIMEOUT → staple_production_reports — جدولة إعادة الاتصال...');
+        _scheduleReconnect('staple_reports_channel', () async {
+          await _tearDownProductionChannels();
+          _setupProductionChannels(factoryId);
+        });
+      } else if (status == RealtimeSubscribeStatus.channelError) {
+        debugPrint('❌ CHANNEL ERROR → staple_production_reports: $error');
+        _scheduleReconnect('staple_reports_channel', () async {
+          await _tearDownProductionChannels();
+          _setupProductionChannels(factoryId);
+        });
+      } else {
+        debugPrint('📡 staple_production_reports: $status ${error ?? ""}');
+      }
+    });
   }
 
   /// إغلاق قنوات الإنتاج وتحريرها
@@ -597,6 +675,10 @@ mixin ProductionSync on SyncServiceBase {
         await _supabase.removeChannel(_dieCuttingProductionChannel!);
         _dieCuttingProductionChannel = null;
       }
+      if (_stapleProductionChannel != null) {
+        await _supabase.removeChannel(_stapleProductionChannel!);
+        _stapleProductionChannel = null;
+      }
     } catch (e) {
       debugPrint('❌ _tearDownProductionChannels error: $e');
     }
@@ -607,6 +689,62 @@ mixin ProductionSync on SyncServiceBase {
   // ==============================================================
 
   // ─── die_cutting_production_reports ───────────────────────────────
+  void _onStapleReportChange(
+    PostgresChangePayload payload,
+    String myFactoryId,
+  ) async {
+    try {
+      final isDelete = payload.eventType == PostgresChangeEvent.delete;
+      Map<String, dynamic> record = isDelete
+          ? (payload.oldRecord.isNotEmpty ? payload.oldRecord : payload.newRecord)
+          : payload.newRecord;
+
+      if (record.isEmpty) return;
+      final recordFactoryId = record['factory_id']?.toString();
+      if (!isDelete && recordFactoryId != myFactoryId) return;
+
+      if (!Hive.isBoxOpen('staple_production_reports_box')) return;
+      final box = Hive.box<StapleProductionReport>('staple_production_reports_box');
+      final syncId = record['sync_id']?.toString() ?? record['id']?.toString();
+      
+      if (isDelete) {
+        final payloadSyncId = record['sync_id']?.toString();
+        final payloadId = record['id']?.toString();
+        if (payloadSyncId == null && payloadId == null) return;
+
+        bool deleted = false;
+        if (payloadSyncId != null && box.containsKey(payloadSyncId)) {
+          await box.delete(payloadSyncId);
+          deleted = true;
+        } else if (payloadId != null && box.containsKey(payloadId)) {
+          await box.delete(payloadId);
+          deleted = true;
+        }
+        
+        if (!deleted) {
+          final keysToRemove = box.keys.where((k) {
+            final existing = box.get(k);
+            return existing != null && (existing.id == payloadSyncId || existing.id == payloadId);
+          }).toList();
+          for (var k in keysToRemove) {
+            await box.delete(k);
+          }
+        }
+      } else {
+        if (syncId == null) return;
+        final existing = box.get(syncId);
+        if (existing != null) {
+          if (!record.containsKey('status') || record['status'] == null) {
+            record['status'] = existing.status;
+          }
+        }
+        await box.put(syncId, StapleProductionReport.fromJson(record));
+      }
+    } catch (e) {
+      debugPrint('❌ _onStapleReportChange error: $e');
+    }
+  }
+
   void _onDieCuttingReportChange(
     PostgresChangePayload payload,
     String myFactoryId,
