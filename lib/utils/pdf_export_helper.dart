@@ -55,6 +55,17 @@ Future<Uint8List?> generateFlexoProductionReportPdfBytes(Map<String, dynamic> pa
       return bytes.isEmpty ? null : bytes;
     }
 
+    if (department == 'staples') {
+      final bytes = await compute(_generateStapleProductionPdfBytes, {
+        'records': safeRecords,
+        'font': fontBytes,
+        'bold': boldFontBytes,
+        'title': params['title'] ?? 'تقرير إنتاج قسم الدبوس',
+        'shiftName': params['shiftName'],
+      });
+      return bytes.isEmpty ? null : bytes;
+    }
+
     final bytes = await compute(_generateConsolidatedProductionPdfBytes, {
       'records': safeRecords,
       'font': fontBytes,
@@ -1004,3 +1015,148 @@ pw.Widget _buildSpannedHeader(String text, double width, pw.Font font, {bool isR
   );
 }
 
+pw.Widget _buildCustomStapleHeader({required pw.Font font}) {
+  return pw.Row(
+    children: [
+      _buildSimpleHeaderCell('م', font, fixedWidth: 22),
+      _buildSimpleHeaderCell('الفني', font, flex: 20),
+      _buildSimpleHeaderCell('التاريخ', font, fixedWidth: 54),
+      _buildSimpleHeaderCell('طاقم التشغيل', font, flex: 35),
+      _buildSimpleHeaderCell('إسم العميل', font, flex: 35),
+      _buildSimpleHeaderCell('الصنف', font, flex: 35),
+      _buildSimpleHeaderCell('كود الصنف', font, fixedWidth: 46),
+      _buildSimpleHeaderCell('المقاس', font, fixedWidth: 65),
+      _buildSimpleHeaderCell('أمر التشغيل', font, fixedWidth: 43),
+      _buildSimpleHeaderCell('الإنتاج', font, fixedWidth: 36),
+      _buildSplitHeaderCell('وقت التشغيل', 'من', 'إلى', 36, 36, font),
+      _buildSimpleHeaderCell('الهالك', font, fixedWidth: 36),
+      _buildSplitHeaderCell('الأعطال', 'من', 'إلى', 36, 36, font),
+      _buildSimpleHeaderCell('الملاحظات', font, flex: 30),
+    ],
+  );
+}
+
+Future<Uint8List> _generateStapleProductionPdfBytes(Map<String, dynamic> params) async {
+  try {
+    final List<dynamic> records = params['records'];
+    final String customTitle = params['title']?.toString() ?? 'تقرير إنتاج الدبوس';
+    final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
+    final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
+
+    final pdf = pw.Document();
+    const int recordsPerPage = 13;
+    final int totalPages = (records.length / recordsPerPage).ceil();
+
+    final Map<int, pw.TableColumnWidth> stapleColumnWidths = _reverseColumnWidths({
+      0:  const pw.FixedColumnWidth(22),
+      1:  const pw.FlexColumnWidth(20),
+      2:  const pw.FixedColumnWidth(54),
+      3:  const pw.FlexColumnWidth(35),
+      4:  const pw.FlexColumnWidth(35),
+      5:  const pw.FlexColumnWidth(35),
+      6:  const pw.FixedColumnWidth(46),
+      7:  const pw.FixedColumnWidth(65),
+      8:  const pw.FixedColumnWidth(43),
+      9:  const pw.FixedColumnWidth(36),
+      10: const pw.FixedColumnWidth(36),
+      11: const pw.FixedColumnWidth(36),
+      12: const pw.FixedColumnWidth(36),
+      13: const pw.FixedColumnWidth(36),
+      14: const pw.FixedColumnWidth(36),
+      15: const pw.FlexColumnWidth(30),
+    });
+
+    for (int page = 0; page < totalPages; page++) {
+      final int startIndex = page * recordsPerPage;
+      final int endIndex = (page + 1) * recordsPerPage < records.length
+          ? (page + 1) * recordsPerPage
+          : records.length;
+
+      final List<dynamic> pageRecords = records.sublist(startIndex, endIndex);
+      final List<pw.TableRow> tableRows = [];
+
+      for (int i = 0; i < pageRecords.length; i++) {
+        final record = pageRecords[i] as Map<String, dynamic>;
+
+        final String tName = (record['technician_name'] ?? record['technicianName'])?.toString() ?? '---';
+        final crewRaw = record['crew_members'] ?? record['crewMembers'];
+        final String crewDisplay = (crewRaw is List && crewRaw.isNotEmpty)
+            ? crewRaw.map((e) => e.toString()).join(' / ')
+            : '---';
+        final String wasteValue = (record['line_waste'] ?? record['lineWaste'] ?? record['waste'] ?? record['wasteQuantity'] ?? record['waste_quantity'])?.toString() ?? '---';
+        final String wasteDisplay = wasteValue.trim().isEmpty || wasteValue == 'null' ? '---' : wasteValue;
+        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['client'] ?? record['customer_name'] ?? record['customerName'])?.toString() ?? '---';
+        final String productName = (record['product_name'] ?? record['productName'] ?? record['product'] ?? record['item_name'] ?? record['itemName'])?.toString() ?? '---';
+        final String productCode = (record['product_code'] ?? record['productCode'] ?? record['item_code'] ?? record['itemCode'])?.toString() ?? '---';
+        final String orderNumber = (record['order_number'] ?? record['orderNumber'] ?? record['work_order'] ?? record['workOrder'])?.toString() ?? '---';
+        final String quantity = (record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity'])?.toString() ?? '---';
+        final String startTime = _formatTime((record['start_time'] ?? record['startTime'] ?? record['run_time_start'] ?? record['runTimeStart'])?.toString() ?? '---');
+        final String endTime = _formatTime((record['end_time'] ?? record['endTime'] ?? record['run_time_end'] ?? record['runTimeEnd'])?.toString() ?? '---');
+        final String downtimeStart = _formatTime((record['downtime_start'] ?? record['downtimeStart'])?.toString() ?? '---');
+        final String downtimeEnd = _formatTime((record['downtime_end'] ?? record['downtimeEnd'])?.toString() ?? '---');
+        final String notes = record['notes']?.toString() ?? '---';
+        final String dateStr = (record['date'] ?? record['report_date'] ?? record['reportDate'])?.toString() ?? '---';
+
+        final List<pw.Widget> rowCells = [
+          _buildFlexCell('${startIndex + i + 1}', arabicFont),
+          _buildFlexCell(tName, arabicFont),
+          _buildFlexCell(_formatDate(dateStr), arabicFont),
+          _buildFlexCell(crewDisplay, arabicFont),
+          _buildFlexCell(clientName, arabicFont),
+          _buildFlexCell(productName, arabicFont),
+          _buildFlexCell(productCode, arabicFont),
+          _buildFlexCell(_getDimensionsOnly(record), arabicFont),
+          _buildFlexCell(orderNumber, arabicFont),
+          _buildFlexCell(quantity, arabicFont),
+          _buildFlexCell(startTime, arabicFont),
+          _buildFlexCell(endTime, arabicFont),
+          _buildFlexCell(wasteDisplay, arabicFont),
+          _buildFlexCell(downtimeStart, arabicFont),
+          _buildFlexCell(downtimeEnd, arabicFont),
+          _buildFlexCell(notes, arabicFont),
+        ];
+        tableRows.add(pw.TableRow(children: rowCells.reversed.toList()));
+      }
+
+      pdf.addPage(pw.Page(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(12),
+        build: (context) => pw.Directionality(
+          textDirection: pw.TextDirection.rtl,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              pw.Text(ArabicPDFHelper.fixArabic(customTitle),
+                style: pw.TextStyle(font: arabicBoldFont, fontSize: 16),
+                textAlign: pw.TextAlign.center),
+              if (params['shiftName'] != null && params['shiftName'].toString().isNotEmpty && params['shiftName'] != 'كل الورديات')
+                pw.Padding(
+                  padding: const pw.EdgeInsets.only(top: 4),
+                  child: pw.Text(ArabicPDFHelper.fixArabic('الوردية: ${params['shiftName']}'),
+                    style: pw.TextStyle(font: arabicFont, fontSize: 12),
+                    textAlign: pw.TextAlign.center),
+                ),
+              pw.SizedBox(height: 10),
+              _buildCustomStapleHeader(font: arabicBoldFont),
+              pw.Table(
+                columnWidths: stapleColumnWidths,
+                border: const pw.TableBorder(
+                  bottom: pw.BorderSide(width: 0.5),
+                  left: pw.BorderSide(width: 0.5),
+                  right: pw.BorderSide(width: 0.5),
+                  horizontalInside: pw.BorderSide(width: 0.5),
+                  verticalInside: pw.BorderSide(width: 0.5),
+                ),
+                children: tableRows,
+              ),
+            ],
+          ),
+        ),
+      ));
+    }
+    return await pdf.save();
+  } catch (e) {
+    debugPrint('❌ خطأ في _generateStapleProductionPdfBytes: $e');
+    return Uint8List(0);
+  }
+}

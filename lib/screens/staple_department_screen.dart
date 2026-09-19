@@ -6,6 +6,7 @@ import 'package:smart_sheet/screens/finished_product_screen.dart';
 import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
+import 'package:smart_sheet/widgets/staple_report_drawer.dart';
 import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 import 'package:smart_sheet/screens/staple_production_reports_screen.dart';
 import 'package:smart_sheet/screens/machine_management_screen.dart';
@@ -77,6 +78,7 @@ class StapleDepartmentScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 1,
       ),
+      endDrawer: const StapleReportDrawer(),
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: Center(
@@ -143,12 +145,7 @@ class StapleDepartmentScreen extends StatelessWidget {
                         title: 'تقارير الماكينات',
                         icon: Icons.print_outlined,
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('سيتم تفعيل تقارير الماكينات لاحقاً'),
-                              backgroundColor: Colors.blueAccent,
-                            ),
-                          );
+                          Scaffold.of(innerContext).openEndDrawer();
                         },
                       ),
                       
