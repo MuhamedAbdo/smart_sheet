@@ -99,7 +99,7 @@ class _StapleReportDrawerState extends State<StapleReportDrawer> {
                 fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
-              value: _selectedShift,
+              initialValue: _selectedShift,
               items: _shifts.map((shift) => DropdownMenuItem(value: shift, child: Text(shift))).toList(),
               onChanged: (val) {
                 if (val != null) setState(() => _selectedShift = val);

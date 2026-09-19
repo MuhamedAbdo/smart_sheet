@@ -9,6 +9,7 @@ import 'package:smart_sheet/widgets/active_sessions_dashboard.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 
 class StapleProductionReportsScreen extends StatefulWidget {
   const StapleProductionReportsScreen({super.key});
@@ -190,6 +191,31 @@ class _StapleProductionReportsScreenState extends State<StapleProductionReportsS
     );
   }
 
+  Future<void> _approveReport(String id) async {
+    try {
+      await Supabase.instance.client
+          .from('staple_production_reports')
+          .update({'status': 'approved'})
+          .eq('id', id);
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: 'تم الاعتماد بنجاح',
+          backgroundColor: Colors.green,
+          icon: Icons.check_circle,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل الاعتماد: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -210,8 +236,9 @@ class _StapleProductionReportsScreenState extends State<StapleProductionReportsS
         centerTitle: true,
         elevation: 1,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
+      floatingActionButton: (PermissionHelper.isSuperAdmin || ((PermissionHelper.currentWorker?.department == 'staple' || PermissionHelper.currentWorker?.department == 'staples') && PermissionHelper.currentWorker?.canAdd == true))
+          ? FloatingActionButton.extended(
+              onPressed: () {
           showModalBottomSheet(
             context: context,
             shape: const RoundedRectangleBorder(
@@ -299,7 +326,7 @@ class _StapleProductionReportsScreenState extends State<StapleProductionReportsS
         label: const Text('بدء إنتاج', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
-      ),
+      ) : null,
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: Center(
@@ -668,6 +695,12 @@ class _StapleProductionReportsScreenState extends State<StapleProductionReportsS
                                             child: Row(
                                               mainAxisAlignment: MainAxisAlignment.start,
                                               children: [
+                                                if (report['status'] == 'pending' && PermissionHelper.canApproveReports)
+                                                  IconButton(
+                                                    icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                                                    tooltip: 'اعتماد',
+                                                    onPressed: () => _approveReport(report['id']),
+                                                  ),
                                                 IconButton(
                                                   icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                                                   tooltip: 'حذف التقرير',

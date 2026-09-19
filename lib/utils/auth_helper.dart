@@ -126,6 +126,11 @@ class AuthHelper {
       return true;
     }
 
+    // استثناء خاص بقسم الدبوس والتعبئة (قد يكون قسمهم staples في النظام)
+    if (targetDepartment == 'staple' && dept == 'staples') {
+      return true;
+    }
+
     // قسم مختلف → false
     return false;
   }
@@ -164,6 +169,12 @@ class AuthHelper {
 
     // القاعدة 2: الإدارة المحلية — قسمه فقط
     if (currentUser.department == targetWorkerDepartment) {
+      return true;
+    }
+
+    // استثناء الدبوس والتعبئة
+    if ((targetWorkerDepartment == 'staple' && currentUser.department == 'staples') ||
+        (targetWorkerDepartment == 'staples' && currentUser.department == 'staple')) {
       return true;
     }
 

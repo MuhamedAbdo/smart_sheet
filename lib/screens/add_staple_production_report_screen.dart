@@ -5,6 +5,7 @@ import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/utils/worker_utils.dart';
 import 'package:smart_sheet/models/staple_production_report.dart';
 import 'package:smart_sheet/services/sync_service.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:uuid/uuid.dart';
 
 class AddStapleProductionReportScreen extends StatefulWidget {
@@ -254,6 +255,13 @@ class _AddStapleProductionReportScreenState
           ? Hive.box('settings').get('factory_id')
           : null;
 
+      final currentUser = PermissionHelper.currentWorker;
+      final isAdmin = PermissionHelper.isSuperAdmin;
+      String reportStatus = 'pending';
+      if (isAdmin || (currentUser != null && currentUser.job == 'رئيس القسم')) {
+        reportStatus = 'approved';
+      }
+
       final report = StapleProductionReport(
         id: syncId,
         machineName: _selectedMachine ?? '',
@@ -298,7 +306,7 @@ class _AddStapleProductionReportScreenState
         },
         crewMembers: _selectedCrewMembers,
         shiftName: _selectedShift,
-        status: 'pending', // في انتظار موافقة رئيس القسم
+        status: reportStatus,
       );
 
       await _saveNewMachineIfNeeded(_selectedMachine ?? '');

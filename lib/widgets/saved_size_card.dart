@@ -205,7 +205,7 @@ class SavedSizeCard extends StatelessWidget {
                         onStartProductionLine!(record);
                       } else if ((dept == 'crushing' || dept == 'die_cutting') && canAddDieCutting && onStartDieCutting != null) {
                         onStartDieCutting!(record);
-                      } else if (dept == 'staple' && canAddStaples && onStartStaples != null) {
+                      } else if ((dept == 'staple' || dept == 'staples') && canAddStaples && onStartStaples != null) {
                         onStartStaples!(record);
                       } else {
                         // حالة احتياطية إذا لم يتطابق أي شيء
@@ -422,6 +422,14 @@ class SavedSizeCard extends StatelessWidget {
   }
 
   void _showProductionMenu(BuildContext context, Map<String, dynamic> record) {
+    final worker = PermissionHelper.currentWorker;
+    final isAdmin = PermissionHelper.isSuperAdmin;
+
+    final showFlexo = isAdmin || (worker?.department == 'flexo' && worker?.canAdd == true);
+    final showProductionLine = isAdmin || (worker?.department == 'production_line' && worker?.canAdd == true);
+    final showDieCutting = isAdmin || (worker?.department == 'crushing' && worker?.canAdd == true);
+    final showStaple = isAdmin || ((worker?.department == 'staple' || worker?.department == 'staples') && worker?.canAdd == true);
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -435,7 +443,7 @@ class SavedSizeCard extends StatelessWidget {
             children: [
               const Text("اختر قسم الإنتاج:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              if (canAddFlexo)
+              if (showFlexo)
                 ListTile(
                   leading: const Icon(Icons.precision_manufacturing, color: Colors.blue),
                   title: const Text("إنتاج فلكسو"),
@@ -444,7 +452,7 @@ class SavedSizeCard extends StatelessWidget {
                     onStartProduction(record);
                   },
                 ),
-              if (canAddProductionLine && onStartProductionLine != null)
+              if (showProductionLine && onStartProductionLine != null)
                 ListTile(
                   leading: const Icon(Icons.factory, color: Colors.green),
                   title: const Text("إنتاج خط الإنتاج"),
@@ -453,7 +461,7 @@ class SavedSizeCard extends StatelessWidget {
                     onStartProductionLine!(record);
                   },
                 ),
-              if (canAddDieCutting && onStartDieCutting != null)
+              if (showDieCutting && onStartDieCutting != null)
                 ListTile(
                   leading: const Icon(Icons.content_cut, color: Colors.orange),
                   title: const Text("إنتاج تكسير"),
@@ -462,7 +470,7 @@ class SavedSizeCard extends StatelessWidget {
                     onStartDieCutting!(record);
                   },
                 ),
-              if (canAddStaples && onStartStaples != null)
+              if (showStaple && onStartStaples != null)
                 ListTile(
                   leading: const Icon(Icons.push_pin, color: Colors.deepPurple),
                   title: const Text("إنتاج دبوس"),

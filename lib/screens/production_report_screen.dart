@@ -1997,8 +1997,13 @@ class _FlexoProductionReportScreenState
               r['sync_id'] = syncId;
               r['id'] = syncId; // لحماية التوافق مع الكود القديم
 
-              r['status'] =
-                  PermissionHelper.canApproveReports ? 'approved' : 'pending';
+              final currentUser = PermissionHelper.currentWorker;
+              final isAdmin = PermissionHelper.isSuperAdmin;
+              if (isAdmin || (currentUser != null && currentUser.job == 'رئيس القسم')) {
+                r['status'] = 'approved';
+              } else {
+                r['status'] = 'pending';
+              }
 
               if (TimeOverlapValidator.hasOverlap(
                 box: _productionReportBox!,
