@@ -7,6 +7,7 @@ import 'package:smart_sheet/screens/maintenance_screen.dart';
 import 'package:smart_sheet/screens/store_entry_screen.dart';
 import 'package:smart_sheet/screens/workers_screen.dart';
 import 'package:smart_sheet/widgets/smart_sheet_card.dart';
+import 'package:smart_sheet/screens/staple_production_reports_screen.dart';
 
 class StapleDepartmentScreen extends StatelessWidget {
   const StapleDepartmentScreen({super.key});
@@ -94,6 +95,19 @@ class StapleDepartmentScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(24.0),
                     children: [
                       _buildSectionTitle('الإنتاج والمخازن', theme),
+                      _buildDepartmentCard(
+                        context: innerContext,
+                        title: 'تقرير الإنتاج',
+                        icon: Icons.assignment,
+                        onTap: () {
+                          Navigator.push(
+                            innerContext,
+                            MaterialPageRoute(
+                              builder: (context) => const StapleProductionReportsScreen(),
+                            ),
+                          );
+                        },
+                      ),
                       _buildDepartmentCard(
                         context: innerContext,
                         title: 'المنتج التام',
