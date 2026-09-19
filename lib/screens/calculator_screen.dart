@@ -409,9 +409,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Directionality(
-        textDirection: TextDirection.ltr,
-        child: Center(
+      body: Center(
           child: Container(
             margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
             decoration: BoxDecoration(
@@ -437,7 +435,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                       // 2. قسم الأزرار (Keypad Area)
                       Expanded(
                         flex: _isScientificMode ? 5 : 4,
-                        child: _buildKeypadArea(isDark),
+                        child: Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: _buildKeypadArea(isDark),
+                        ),
                       ),
                     ],
                   ),
@@ -445,7 +446,6 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
               ),
             ),
           ),
-        ),
       ),
     );
   }
