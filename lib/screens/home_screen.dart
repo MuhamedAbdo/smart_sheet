@@ -53,142 +53,197 @@ class HomeScreen extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              return Center(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
-                  decoration: BoxDecoration(
-                    color: theme.brightness == Brightness.dark 
-                        ? const Color(0xFF1E293B) // Slate 800
-                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(24.0),
-                  ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: ListView(
-                      padding: const EdgeInsets.all(24.0),
-                      children: [
-                      // القسم الأول: أقسام المصنع
-                      _buildSectionTitle('أقسام المصنع', theme),
-                      _buildCard(
-                        context: context,
-                        title: 'الفلكسو',
-                        icon: Icons.print,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const FlexoScreen()),
-                        ),
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final isDesktop = constraints.maxWidth >= 900;
+                  
+                  return Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                      decoration: BoxDecoration(
+                        color: theme.brightness == Brightness.dark 
+                            ? const Color(0xFF1E293B) // Slate 800
+                            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(24.0),
                       ),
-                      _buildCard(
-                        context: context,
-                        title: 'خط الإنتاج',
-                        icon: Icons.factory,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const ProductionLineScreen()),
-                        ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: isDesktop ? 1200 : 600),
+                        child: isDesktop 
+                            ? _buildDesktopLayout(context, theme)
+                            : _buildMobileLayout(context, theme),
                       ),
-                      _buildCard(
-                        context: context,
-                        title: 'التكسير',
-                        icon: Icons.cut,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const CrushingScreen()),
-                        ),
-                      ),
-                      _buildCard(
-                        context: context,
-                        title: 'الدبوس',
-                        icon: Icons.push_pin,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const StapleDepartmentScreen()),
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // القسم الثاني: الإنتاج والمخازن
-                      _buildSectionTitle('الإنتاج والمخازن', theme),
-                      _buildCard(
-                        context: context,
-                        title: 'أوامر التشغيل الصادرة',
-                        icon: Icons.assignment,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const IssuedWorkOrdersScreen()),
-                        ),
-                      ),
-                      _buildCard(
-                        context: context,
-                        title: 'المخازن',
-                        icon: Icons.warehouse,
-                        onTap: () {
-                          UIUtils.showInfoSnackBar(
-                            message: 'سيتم تطويره قريبًا',
-                            backgroundColor: Colors.blueGrey,
-                          );
-                        },
-                      ),
-                      _buildCard(
-                        context: context,
-                        title: 'السليكات',
-                        icon: Icons.science,
-                        onTap: () {
-                          UIUtils.showInfoSnackBar(
-                            message: 'سيتم تطويره قريبًا',
-                            backgroundColor: Colors.blueGrey,
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // القسم الثالث: الإدارة والنظام
-                      _buildSectionTitle('الإدارة والنظام', theme),
-                      _buildCard(
-                        context: context,
-                        title: 'سجل العملاء',
-                        icon: Icons.save,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const SavedSizesScreen()),
-                        ),
-                      ),
-                      _buildCard(
-                        context: context,
-                        title: 'سجل العمال',
-                        icon: Icons.people,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const WorkersScreen(
-                              departmentBoxName: 'workers',
-                              departmentTitle: 'طاقم المصنع الموحد',
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (context.read<AuthService>().isAdmin)
-                        _buildCard(
-                          context: context,
-                          title: 'الأجهزة المرتبطة',
-                          icon: Icons.manage_accounts,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const LinkedAccountsScreen()),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                ),
+                    ),
+                  );
+                },
               );
             },
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildMobileLayout(BuildContext context, ThemeData theme) {
+    return ListView(
+      padding: const EdgeInsets.all(24.0),
+      children: [
+        ..._buildSection1(context, theme),
+        const SizedBox(height: 24),
+        ..._buildSection2(context, theme),
+        const SizedBox(height: 24),
+        ..._buildSection3(context, theme),
+      ],
+    );
+  }
+
+  Widget _buildDesktopLayout(BuildContext context, ThemeData theme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(24.0),
+            children: _buildSection1(context, theme),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24.0),
+          child: VerticalDivider(
+            color: Colors.grey.withValues(alpha: 0.2),
+            width: 1,
+            thickness: 1,
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(24.0),
+            children: [
+              ..._buildSection2(context, theme),
+              const SizedBox(height: 24),
+              ..._buildSection3(context, theme),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildSection1(BuildContext context, ThemeData theme) {
+    return [
+      _buildSectionTitle('أقسام المصنع', theme),
+      _buildCard(
+        context: context,
+        title: 'الفلكسو',
+        icon: Icons.print,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const FlexoScreen()),
+        ),
+      ),
+      _buildCard(
+        context: context,
+        title: 'خط الإنتاج',
+        icon: Icons.factory,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProductionLineScreen()),
+        ),
+      ),
+      _buildCard(
+        context: context,
+        title: 'التكسير',
+        icon: Icons.cut,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CrushingScreen()),
+        ),
+      ),
+      _buildCard(
+        context: context,
+        title: 'الدبوس',
+        icon: Icons.push_pin,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const StapleDepartmentScreen()),
+        ),
+      ),
+      _buildCard(
+        context: context,
+        title: 'السليكات',
+        icon: Icons.science,
+        onTap: () {
+          UIUtils.showInfoSnackBar(
+            message: 'سيتم تطويره قريبًا',
+            backgroundColor: Colors.blueGrey,
+          );
+        },
+      ),
+    ];
+  }
+
+  List<Widget> _buildSection2(BuildContext context, ThemeData theme) {
+    return [
+      _buildSectionTitle('الإنتاج والمخازن', theme),
+      _buildCard(
+        context: context,
+        title: 'أوامر التشغيل الصادرة',
+        icon: Icons.assignment,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const IssuedWorkOrdersScreen()),
+        ),
+      ),
+      _buildCard(
+        context: context,
+        title: 'المخازن',
+        icon: Icons.warehouse,
+        onTap: () {
+          UIUtils.showInfoSnackBar(
+            message: 'سيتم تطويره قريبًا',
+            backgroundColor: Colors.blueGrey,
+          );
+        },
+      ),
+    ];
+  }
+
+  List<Widget> _buildSection3(BuildContext context, ThemeData theme) {
+    return [
+      _buildSectionTitle('الإدارة والنظام', theme),
+      _buildCard(
+        context: context,
+        title: 'سجل العملاء',
+        icon: Icons.save,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SavedSizesScreen()),
+        ),
+      ),
+      _buildCard(
+        context: context,
+        title: 'سجل العمال',
+        icon: Icons.people,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const WorkersScreen(
+              departmentBoxName: 'workers',
+              departmentTitle: 'طاقم المصنع الموحد',
+            ),
+          ),
+        ),
+      ),
+      if (context.read<AuthService>().isAdmin)
+        _buildCard(
+          context: context,
+          title: 'الأجهزة المرتبطة',
+          icon: Icons.manage_accounts,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const LinkedAccountsScreen()),
+          ),
+        ),
+    ];
   }
 
   Widget _buildSectionTitle(String title, ThemeData theme) {
