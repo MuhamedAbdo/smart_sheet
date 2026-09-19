@@ -65,90 +65,122 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              '🚀 بدء تشغيل أوردر جديد',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const Divider(),
-            const SizedBox(height: 10),
-            ValueListenableBuilder(
-              valueListenable:
-                  Hive.box<FlexoMachine>('flexo_machines').listenable(),
-              builder: (context, Box<FlexoMachine> box, _) {
-                final machines = box.values
-                    .where((m) =>
-                        m.department == widget.department || (widget.department == 'flexo' && m.department.isEmpty))
-                    .toList();
-                return DropdownButtonFormField<String>(
-                  initialValue: selectedMachine,
-                  decoration: const InputDecoration(
-                      labelText: 'اختر الماكينة', border: OutlineInputBorder()),
-                  items: [
-                    ...machines.map((m) =>
-                        DropdownMenuItem(value: m.name, child: Text(m.name))),
-                    const DropdownMenuItem(
-                        value: 'MANUAL', child: Text('➕ إضافة يدوي')),
-                  ],
-                  onChanged: (val) async {
-                    if (val == 'MANUAL') {
-                      final name =
-                          await _showSimplePrompt('اسم الماكينة الجديدة');
-                      if (name != null && name.isNotEmpty) {
-                        box.add(FlexoMachine(
-                            id: const Uuid().v4(),
-                            name: name,
-                            department: widget.department));
-                        setState(() => selectedMachine = name);
-                      }
-                    } else {
-                      setState(() => selectedMachine = val);
-                    }
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            _buildSimpleField(clientController, 'اسم العميل', Icons.person),
-            const SizedBox(height: 12),
-            _buildSimpleField(productController, 'الصنف', Icons.inventory),
-            const SizedBox(height: 12),
-            _buildSimpleField(productCodeController, 'كود الصنف', Icons.qr_code,
-                keyboardType: TextInputType.number),
-            const SizedBox(height: 12),
-            _buildSimpleField(
-                orderNumberController, 'رقم أمر التشغيل', Icons.numbers,
-                keyboardType: TextInputType.number),
-            const SizedBox(height: 12),
-            if (widget.department == 'crushing') ...[
-              _buildSimpleField(
-                  formNumberController, 'رقم الفورمة (اختياري)', Icons.grid_3x3,
-                  keyboardType: TextInputType.number),
-              const SizedBox(height: 12),
-            ],
-            _buildWorkerSuggestField(techController),
-            if (widget.department == 'die_cutting' || widget.department == 'crushing' || widget.department == 'production_line') ...[
-              const SizedBox(height: 12),
-              _buildCrewMembersSelector(),
-            ],
-            const SizedBox(height: 20),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Center(
+        child: Container(
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(24.0),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      '🚀 بدء تشغيل أوردر جديد',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ValueListenableBuilder(
+                      valueListenable:
+                          Hive.box<FlexoMachine>('flexo_machines').listenable(),
+                      builder: (context, Box<FlexoMachine> box, _) {
+                        final machines = box.values
+                            .where((m) =>
+                                m.department == widget.department || (widget.department == 'flexo' && m.department.isEmpty))
+                            .toList();
+                        return DropdownButtonFormField<String>(
+                          initialValue: selectedMachine,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                            labelText: 'اختر الماكينة',
+                            labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+                            prefixIcon: const Icon(Icons.precision_manufacturing, color: Colors.blueAccent, size: 20),
+                            prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+                            ),
+                          ),
+                          isExpanded: true,
+                          dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          items: [
+                            ...machines.map((m) => DropdownMenuItem(value: m.name, child: Text(m.name, style: TextStyle(color: isDark ? Colors.white : Colors.black87)))),
+                            const DropdownMenuItem(value: 'MANUAL', child: Text('➕ إضافة يدوي', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold))),
+                          ],
+                          onChanged: (val) async {
+                            if (val == 'MANUAL') {
+                              final name =
+                                  await _showSimplePrompt('اسم الماكينة الجديدة');
+                              if (name != null && name.isNotEmpty) {
+                                box.add(FlexoMachine(
+                                    id: const Uuid().v4(),
+                                    name: name,
+                                    department: widget.department));
+                                setState(() => selectedMachine = name);
+                              }
+                            } else {
+                              setState(() => selectedMachine = val);
+                            }
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _buildSimpleField(clientController, 'اسم العميل', Icons.person)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _buildSimpleField(orderNumberController, 'أمر التشغيل', Icons.numbers, keyboardType: TextInputType.number)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(flex: 2, child: _buildSimpleField(productController, 'الصنف', Icons.inventory)),
+                        const SizedBox(width: 8),
+                        Expanded(flex: 1, child: _buildSimpleField(productCodeController, 'كود الصنف', Icons.qr_code, keyboardType: TextInputType.number)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (widget.department == 'crushing') ...[
+                      _buildSimpleField(formNumberController, 'رقم الفورمة (اختياري)', Icons.grid_3x3, keyboardType: TextInputType.number),
+                      const SizedBox(height: 12),
+                    ],
+                    _buildWorkerSuggestField(techController),
+                    if (widget.department == 'die_cutting' || widget.department == 'crushing' || widget.department == 'production_line') ...[
+                      const SizedBox(height: 12),
+                      _buildCrewMembersSelector(),
+                    ],
+            const SizedBox(height: 24),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 15),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               onPressed: () async {
                 if (selectedMachine == null || clientController.text.isEmpty) {
@@ -234,10 +266,13 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
 
                 if (context.mounted) Navigator.pop(context, true);
               },
-              child: const Text('ابدأ التشغيل الآن ⚡'),
+              child: const Text('ابدأ التشغيل الآن ⚡', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
-            const SizedBox(height: 20),
           ],
+        ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -371,14 +406,34 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
   Widget _buildSimpleField(
       TextEditingController controller, String label, IconData icon,
       {TextInputType? keyboardType, FocusNode? focusNode}) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     return TextField(
       controller: controller,
       focusNode: focusNode,
       keyboardType: keyboardType,
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12),
       decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         labelText: label,
-        prefixIcon: Icon(icon),
-        border: const OutlineInputBorder(),
+        labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+        prefixIcon: Icon(icon, color: Colors.blueAccent, size: 20),
+        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        filled: true,
+        fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+        ),
       ),
     );
   }

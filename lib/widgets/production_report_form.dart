@@ -308,18 +308,36 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Stack(
         children: [
           Scaffold(
             resizeToAvoidBottomInset: true,
+            backgroundColor: isDark ? const Color(0xFF0F172A) : theme.colorScheme.surface,
             appBar: AppBar(
                 title: Text(widget.reportKey == null
                     ? "🆕 إضافة تقرير إنتاج"
-                    : "✏️ تعديل تقرير إنتاج")),
-            body: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+                    : "✏️ تعديل تقرير إنتاج"),
+                backgroundColor: isDark ? const Color(0xFF1E293B) : theme.colorScheme.primary,
+                foregroundColor: Colors.white,
+                centerTitle: true,
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(bottom: Radius.circular(16))),
+            ),
+            body: Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(24.0),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -339,18 +357,21 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    _buildTextField(orderNumberController, "🔢 رقم أمر التشغيل",
-                        icon: Icons.numbers,
-                        isRequired: false,
-                        keyboardType: TextInputType.number),
+                    Row(
+                      children: [
+                        Expanded(child: _buildTextField(clientNameController, "👤 اسم العميل")),
+                        const SizedBox(width: 8),
+                        Expanded(child: _buildTextField(orderNumberController, "🔢 رقم أمر التشغيل", icon: Icons.numbers, isRequired: false, keyboardType: TextInputType.number)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     if (isCrushing) ...[
-                      const SizedBox(height: 12),
                       _buildTextField(formNumberController, "📄 رقم الفورمة",
                           icon: Icons.confirmation_number,
                           isRequired: false,
                           keyboardType: TextInputType.number),
+                      const SizedBox(height: 12),
                     ],
-                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
@@ -371,11 +392,13 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    _buildTextField(clientNameController, "👤 اسم العميل"),
-                    const SizedBox(height: 12),
-                    _buildTextField(productController, "📦 الصنف"),
-                    const SizedBox(height: 12),
-                    _buildTextField(productCodeController, "كود الصنف", icon: Icons.qr_code, keyboardType: TextInputType.number),
+                    Row(
+                      children: [
+                        Expanded(flex: 1, child: _buildTextField(productController, "📦 الصنف")),
+                        const SizedBox(width: 8),
+                        Expanded(flex: 1, child: _buildTextField(productCodeController, "كود الصنف", icon: Icons.qr_code, keyboardType: TextInputType.number)),
+                      ],
+                    ),
                     const SizedBox(height: 16),
                     _buildMachineAndTechRow(),
                     if (isCrushing || isProductionLine) ...[
@@ -477,7 +500,10 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
               ),
             ),
           ),
-          if (_isSaving) const Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    ),
+    if (_isSaving) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );
@@ -557,10 +583,10 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
         setState(() {}); // Update UI to reflect selected count
       },
       child: InputDecorator(
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: 'طاقم الماكينة (اختياري)',
-          border: OutlineInputBorder(),
-          prefixIcon: Icon(Icons.group),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+          prefixIcon: const Icon(Icons.group, color: Colors.blueAccent),
         ),
         child: Text(
           selectedCrewMembers.isEmpty 
@@ -750,7 +776,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
         // ── الفني ────────────────────────────────────────────────────────────
         Expanded(
           child: _buildDropdownField(
-            label: 'الفني المسؤول',
+            label: 'الفني',
             icon: Icons.engineering,
             value: _selectedTechnicianName,
             items: workerNames,
@@ -798,18 +824,33 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
       ),
     ];
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return DropdownButtonFormField<String>(
       initialValue: (value != null && items.contains(value)) ? value : null,
       decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         labelText: label,
-        prefixIcon: Icon(icon),
-        border: const OutlineInputBorder(),
+        labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+        prefixIcon: Icon(icon, color: Colors.blueAccent, size: 20),
+        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        filled: true,
+        fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+        ),
         // إظهار القيمة المخزّنة كـ hint حتى لو خارج القائمة
         hintText: (value != null && value.isNotEmpty && !items.contains(value))
             ? value
             : null,
       ),
       isExpanded: true,
+      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
       items: dropdownItems,
       validator: isRequired
           ? (v) => (v == null || v.isEmpty) ? 'مطلوب' : null
@@ -861,19 +902,37 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
       shiftNames.add(_selectedShiftName!);
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return DropdownButtonFormField<String>(
       key: ValueKey(dateController.text),
       initialValue: _selectedShiftName ?? (shiftNames.isNotEmpty ? shiftNames.first : null),
       isExpanded: true,
-      decoration: const InputDecoration(
+      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         labelText: 'الوردية',
-        prefixIcon: Icon(Icons.work_history),
-        border: OutlineInputBorder(),
+        labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+        prefixIcon: const Icon(Icons.work_history, color: Colors.blueAccent, size: 20),
+        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        filled: true,
+        fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+        ),
       ),
       items: shiftNames.map((String val) {
         return DropdownMenuItem<String>(
           value: val,
-          child: Text(val, overflow: TextOverflow.ellipsis),
+          child: Text(
+            val,
+            style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+            overflow: TextOverflow.ellipsis,
+          ),
         );
       }).toList(),
       onChanged: (String? newValue) {
@@ -929,24 +988,47 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
     bool isRequired = true,
     IconData? icon,
   }) {
-    return TextFormField(
-      controller: controller,
-      readOnly: readOnly,
-      onTap: onTap,
-      keyboardType: keyboardType,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: icon != null ? Icon(icon) : null,
-        border: const OutlineInputBorder(),
-        alignLabelWithHint: maxLines > 1,
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: TextFormField(
+        controller: controller,
+        readOnly: readOnly,
+        onTap: onTap,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12),
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+          prefixIcon: icon != null ? Icon(icon, color: Colors.blueAccent, size: 20) : null,
+          prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          alignLabelWithHint: maxLines > 1,
+          filled: true,
+          fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+          ),
+        ),
+        validator: (v) {
+          if (isRequired && (v == null || v.isEmpty)) {
+            return "مطلوب";
+          }
+          return null;
+        },
       ),
-      validator: (v) {
-        if (isRequired && (v == null || v.isEmpty)) {
-          return "مطلوب";
-        }
-        return null;
-      },
     );
   }
 
