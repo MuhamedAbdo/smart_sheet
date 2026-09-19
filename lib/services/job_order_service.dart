@@ -1774,7 +1774,7 @@ class JobOrderService {
                           color: PdfColors.grey700, fontSize: 8)),
                 ),
                 pw.Expanded(
-                  flex: 2,
+                  flex: 33,
                   child: pw.Container(
                     alignment: pw.Alignment.center,
                     decoration: const pw.BoxDecoration(
@@ -1783,7 +1783,7 @@ class JobOrderService {
                   ),
                 ),
                 pw.Expanded(
-                  flex: 2,
+                  flex: 16,
                   child: pw.Container(
                     alignment: pw.Alignment.center,
                     decoration: const pw.BoxDecoration(
@@ -1792,7 +1792,7 @@ class JobOrderService {
                   ),
                 ),
                 pw.Expanded(
-                  flex: 2,
+                  flex: 20,
                   child: pw.Container(
                     alignment: pw.Alignment.center,
                     decoration: const pw.BoxDecoration(
@@ -1801,7 +1801,7 @@ class JobOrderService {
                   ),
                 ),
                 pw.Expanded(
-                  flex: 3,
+                  flex: 30,
                   child: pw.Container(
                     alignment: pw.Alignment.center,
                     decoration: const pw.BoxDecoration(
@@ -1810,7 +1810,7 @@ class JobOrderService {
                   ),
                 ),
                 pw.Expanded(
-                  flex: 3,
+                  flex: 21,
                   child: pw.Container(
                     alignment: pw.Alignment.center,
                     child: pw.Text(_ar("التوقيع"), style: boldStyle.copyWith(fontSize: 8.5)),
@@ -1840,35 +1840,35 @@ class JobOrderService {
                         style: boldStyle.copyWith(fontSize: 9)),
                   ),
                   pw.Expanded(
-                    flex: 2,
+                    flex: 33,
                     child: pw.Container(
                       decoration: const pw.BoxDecoration(
                           border: pw.Border(left: pw.BorderSide(width: 1.0))),
                     ),
                   ),
                   pw.Expanded(
-                    flex: 2,
+                    flex: 16,
                     child: pw.Container(
                       decoration: const pw.BoxDecoration(
                           border: pw.Border(left: pw.BorderSide(width: 1.0))),
                     ),
                   ),
                   pw.Expanded(
-                    flex: 2,
+                    flex: 20,
                     child: pw.Container(
                       decoration: const pw.BoxDecoration(
                           border: pw.Border(left: pw.BorderSide(width: 1.0))),
                     ),
                   ),
                   pw.Expanded(
-                    flex: 3,
+                    flex: 30,
                     child: pw.Container(
                       decoration: const pw.BoxDecoration(
                           border: pw.Border(left: pw.BorderSide(width: 1.0))),
                     ),
                   ),
                   pw.Expanded(
-                    flex: 3,
+                    flex: 21,
                     child: pw.Container(),
                   ),
                 ],
