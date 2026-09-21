@@ -925,18 +925,7 @@ class _StapleProductionReportsScreenState extends State<StapleProductionReportsS
                                                         ),
                                                       ),
                                                     ),
-                                                    if (report['work_order'] != null && report['work_order'].toString().isNotEmpty)
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.blueAccent.withValues(alpha: 0.1),
-                                                          borderRadius: BorderRadius.circular(8),
-                                                        ),
-                                                        child: Text(
-                                                          'أمر: ${report['work_order']}',
-                                                          style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 12),
-                                                        ),
-                                                      ),
+                                                    UIUtils.buildOrderNumberBadge(report['order_number']?.toString() ?? report['work_order']?.toString()),
                                                   ],
                                                 ),
                                                 const SizedBox(height: 8),

@@ -25,7 +25,7 @@ class StapleProductionReportAdapter
       customerName: fields[4] as String,
       itemName: fields[5] as String,
       itemCode: fields[6] as String,
-      workOrder: fields[7] as String,
+      orderNumber: fields[7] as String,
       runTimeStart: fields[8] as DateTime?,
       runTimeEnd: fields[9] as DateTime?,
       downtimeStart: fields[10] as DateTime?,
@@ -60,7 +60,7 @@ class StapleProductionReportAdapter
       ..writeByte(6)
       ..write(obj.itemCode)
       ..writeByte(7)
-      ..write(obj.workOrder)
+      ..write(obj.orderNumber)
       ..writeByte(8)
       ..write(obj.runTimeStart)
       ..writeByte(9)

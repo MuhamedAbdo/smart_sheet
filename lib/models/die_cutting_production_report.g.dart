@@ -26,7 +26,7 @@ class DieCuttingProductionReportAdapter
       itemName: fields[5] as String,
       itemCode: fields[6] as String,
       formNumber: fields[7] as String,
-      workOrder: fields[8] as String,
+      orderNumber: fields[8] as String,
       runTimeStart: fields[9] as DateTime?,
       runTimeEnd: fields[10] as DateTime?,
       downtimeStart: fields[11] as DateTime?,
@@ -63,7 +63,7 @@ class DieCuttingProductionReportAdapter
       ..writeByte(7)
       ..write(obj.formNumber)
       ..writeByte(8)
-      ..write(obj.workOrder)
+      ..write(obj.orderNumber)
       ..writeByte(9)
       ..write(obj.runTimeStart)
       ..writeByte(10)

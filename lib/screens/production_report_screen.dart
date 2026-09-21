@@ -1321,14 +1321,15 @@ class _FlexoProductionReportScreenState
                       ],
                     ),
                     const Divider(),
-                    _buildInfoRow("👤 العميل:",
-                        record['clientName']?.toString() ?? '---'),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _buildInfoRow("👤 العميل:", record['clientName']?.toString() ?? '---')),
+                        UIUtils.buildOrderNumberBadge(record['orderNumber']?.toString()),
+                      ],
+                    ),
                     _buildInfoRow("📦 الصنف:",
                         "${record['product']?.toString() ?? '---'} [ ${record['productCode']?.toString() ?? '---'} ]"),
-                    if (record['orderNumber'] != null &&
-                        record['orderNumber'].toString().isNotEmpty)
-                      _buildInfoRow(
-                          "🔢 أمر التشغيل:", record['orderNumber'].toString()),
                     if (record['formNumber'] != null &&
                         record['formNumber'].toString().isNotEmpty)
                       _buildInfoRow(
@@ -1830,7 +1831,7 @@ class _FlexoProductionReportScreenState
           'product': val.itemName,
           'productCode': val.itemCode,
           'formNumber': val.formNumber,
-          'orderNumber': val.workOrder,
+          'orderNumber': val.orderNumber,
           'machineName': val.machineName,
           'technicianName': val.technicianName,
           'quantity': val.productionQuantity,
@@ -2043,7 +2044,7 @@ class _FlexoProductionReportScreenState
                   itemName: r['product']?.toString() ?? '',
                   itemCode: r['productCode']?.toString() ?? '',
                   formNumber: r['formNumber']?.toString() ?? '',
-                  workOrder: r['orderNumber']?.toString() ?? '',
+                  orderNumber: r['orderNumber']?.toString() ?? '',
                   runTimeStart: _parseTimeForDieCutting(
                       r['date']?.toString(), r['startTime']?.toString()),
                   runTimeEnd: _parseTimeForDieCutting(
@@ -2150,7 +2151,7 @@ class _FlexoProductionReportScreenState
                   itemName: r['product']?.toString() ?? '',
                   itemCode: r['productCode']?.toString() ?? '',
                   formNumber: r['formNumber']?.toString() ?? '',
-                  workOrder: r['orderNumber']?.toString() ?? '',
+                  orderNumber: r['orderNumber']?.toString() ?? '',
                   runTimeStart: _parseTimeForDieCutting(
                       r['date']?.toString(), r['startTime']?.toString()),
                   runTimeEnd: _parseTimeForDieCutting(
@@ -2562,7 +2563,7 @@ class _FlexoProductionReportScreenState
                 itemName: r['product']?.toString() ?? '',
                 itemCode: r['productCode']?.toString() ?? '',
                 formNumber: r['formNumber']?.toString() ?? '',
-                workOrder: r['orderNumber']?.toString() ?? '',
+                orderNumber: r['orderNumber']?.toString() ?? '',
                 runTimeStart: _parseTimeForDieCutting(
                     r['date']?.toString(), r['startTime']?.toString()),
                 runTimeEnd: _parseTimeForDieCutting(

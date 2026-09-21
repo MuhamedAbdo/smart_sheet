@@ -25,7 +25,7 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
   final TextEditingController _customerController = TextEditingController();
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _itemCodeController = TextEditingController();
-  final TextEditingController _workOrderController = TextEditingController();
+  final TextEditingController _orderNumberController = TextEditingController();
   
   final List<String> _selectedCrewMembers = [];
 
@@ -43,7 +43,7 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
     _customerController.dispose();
     _itemController.dispose();
     _itemCodeController.dispose();
-    _workOrderController.dispose();
+    _orderNumberController.dispose();
     super.dispose();
   }
 
@@ -86,7 +86,7 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
         clientName: _customerController.text,
         productName: _itemController.text,
         productCode: _itemCodeController.text,
-        orderNumber: _workOrderController.text,
+        orderNumber: _orderNumberController.text,
         technicianName: _selectedTechnician!,
         startTime: DateTime.now(),
         downtimeIntervals: [],
@@ -478,7 +478,7 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
                     _buildTextField(_customerController, "👤 اسم العميل", icon: Icons.business),
                     _buildTextField(_itemController, "📦 الصنف", icon: Icons.category),
                     _buildTextField(_itemCodeController, "كود الصنف", icon: Icons.qr_code, isNumber: true, isRequired: false),
-                    _buildTextField(_workOrderController, "رقم أمر التشغيل", icon: Icons.assignment, isNumber: true, isRequired: false),
+                    _buildTextField(_orderNumberController, "رقم أمر التشغيل", icon: Icons.assignment, isNumber: true, isRequired: false),
                     _buildDropdown(
                       label: 'اسم الفني (رئيسي)',
                       value: _selectedTechnician,

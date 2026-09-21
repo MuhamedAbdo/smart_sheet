@@ -842,14 +842,22 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
                     ),
                   );
 
-                  final clientText = Text(
-                    clientName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  final clientText = Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          clientName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueAccent,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      UIUtils.buildOrderNumberBadge(orderNumber),
+                    ],
                   );
 
                   if (isNarrow) {

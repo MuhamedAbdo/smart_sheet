@@ -964,7 +964,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           itemName: r['product']?.toString() ?? '',
           itemCode: r['productCode']?.toString() ?? '',
           formNumber: r['formNumber']?.toString() ?? '',
-          workOrder: r['orderNumber']?.toString() ?? '',
+          orderNumber: r['orderNumber']?.toString() ?? '',
           runTimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['startTime']?.toString()),
           runTimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['endTime']?.toString()),
           downtimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeStart']?.toString()),

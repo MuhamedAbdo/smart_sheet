@@ -26,7 +26,7 @@ class StapleProductionReport extends HiveObject {
   final String itemCode;
 
   @HiveField(7)
-  final String workOrder;
+  final String orderNumber;
 
   @HiveField(8)
   final DateTime? runTimeStart;
@@ -72,7 +72,7 @@ class StapleProductionReport extends HiveObject {
     required this.customerName,
     required this.itemName,
     required this.itemCode,
-    required this.workOrder,
+    required this.orderNumber,
     this.runTimeStart,
     this.runTimeEnd,
     this.downtimeStart,
@@ -95,7 +95,7 @@ class StapleProductionReport extends HiveObject {
     String? customerName,
     String? itemName,
     String? itemCode,
-    String? workOrder,
+    String? orderNumber,
     DateTime? runTimeStart,
     DateTime? runTimeEnd,
     DateTime? downtimeStart,
@@ -117,7 +117,7 @@ class StapleProductionReport extends HiveObject {
       customerName: customerName ?? this.customerName,
       itemName: itemName ?? this.itemName,
       itemCode: itemCode ?? this.itemCode,
-      workOrder: workOrder ?? this.workOrder,
+      orderNumber: orderNumber ?? this.orderNumber,
       runTimeStart: runTimeStart ?? this.runTimeStart,
       runTimeEnd: runTimeEnd ?? this.runTimeEnd,
       downtimeStart: downtimeStart ?? this.downtimeStart,
@@ -144,7 +144,7 @@ class StapleProductionReport extends HiveObject {
       'customer_name': customerName,
       'item_name': itemName,
       'item_code': itemCode,
-      'work_order': workOrder,
+      'order_number': orderNumber,
       'run_time_start': runTimeStart?.toIso8601String(),
       'run_time_end': runTimeEnd?.toIso8601String(),
       'downtime_start': downtimeStart?.toIso8601String(),
@@ -171,7 +171,7 @@ class StapleProductionReport extends HiveObject {
       customerName: map['customer_name']?.toString() ?? '',
       itemName: map['item_name']?.toString() ?? '',
       itemCode: map['item_code']?.toString() ?? '',
-      workOrder: map['work_order']?.toString() ?? '',
+      orderNumber: map['order_number']?.toString() ?? map['orderNumber']?.toString() ?? '',
       runTimeStart: map['run_time_start'] != null 
           ? DateTime.tryParse(map['run_time_start'].toString()) 
           : null,

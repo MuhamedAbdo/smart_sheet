@@ -965,14 +965,22 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                     ),
                   );
 
-                  final clientText = Text(
-                    clientName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  final clientText = Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          clientName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueAccent,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      UIUtils.buildOrderNumberBadge(orderNumber),
+                    ],
                   );
 
                   if (isNarrow) {
@@ -1063,9 +1071,6 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                 ],
               ),
               const SizedBox(height: 6),
-              if (orderNumber.isNotEmpty)
-                _buildArchiveInfoRow(
-                    Icons.numbers, "أمر التشغيل:", orderNumber),
               if (formNumber.isNotEmpty)
                 _buildArchiveInfoRow(
                     Icons.description, "رقم الفورمة:", formNumber),

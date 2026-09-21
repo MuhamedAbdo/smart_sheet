@@ -25,7 +25,7 @@ class _AddStapleProductionReportScreenState
   final TextEditingController _dateController = TextEditingController();
   String? _selectedShift;
 
-  final TextEditingController _workOrderController = TextEditingController();
+  final TextEditingController _orderNumberController = TextEditingController();
 
   final TextEditingController _startTimeController = TextEditingController();
   final TextEditingController _endTimeController = TextEditingController();
@@ -77,7 +77,7 @@ class _AddStapleProductionReportScreenState
       _customerController.text = data['clientName']?.toString() ?? data['customer_name']?.toString() ?? '';
       _itemController.text = data['productName']?.toString() ?? data['product']?.toString() ?? data['item_name']?.toString() ?? '';
       _itemCodeController.text = data['productCode']?.toString() ?? data['item_code']?.toString() ?? '';
-      _workOrderController.text = data['orderNumber']?.toString() ?? data['work_order']?.toString() ?? '';
+      _orderNumberController.text = data['orderNumber']?.toString() ?? data['order_number']?.toString() ?? data['work_order']?.toString() ?? '';
       
       String parseTime(String? timeStr) {
         if (timeStr == null || timeStr.isEmpty) return '';
@@ -193,7 +193,7 @@ class _AddStapleProductionReportScreenState
   @override
   void dispose() {
     _dateController.dispose();
-    _workOrderController.dispose();
+    _orderNumberController.dispose();
     _startTimeController.dispose();
     _endTimeController.dispose();
     _customerController.dispose();
@@ -307,7 +307,7 @@ class _AddStapleProductionReportScreenState
         customerName: _customerController.text,
         itemName: _itemController.text,
         itemCode: _itemCodeController.text,
-        workOrder: _workOrderController.text,
+        orderNumber: _orderNumberController.text,
         runTimeStart:
             _formatDateTime(_dateController.text, _startTimeController.text) !=
                     null
@@ -366,7 +366,7 @@ class _AddStapleProductionReportScreenState
           'customer_name': report.customerName,
           'item_name': report.itemName,
           'item_code': report.itemCode,
-          'work_order': report.workOrder,
+          'order_number': report.orderNumber,
           'run_time_start': report.runTimeStart?.toIso8601String(),
           'run_time_end': report.runTimeEnd?.toIso8601String(),
           'downtime_start': report.downtimeStart?.toIso8601String(),
@@ -782,7 +782,7 @@ class _AddStapleProductionReportScreenState
                         ),
                       ],
                     ),
-                    _buildTextField(_workOrderController, "رقم أمر التشغيل",
+                    _buildTextField(_orderNumberController, "رقم أمر التشغيل",
                         icon: Icons.assignment,
                         isNumber: true,
                         isRequired: false),

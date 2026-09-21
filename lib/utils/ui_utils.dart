@@ -6,6 +6,37 @@ import 'package:window_manager/window_manager.dart';
 import 'package:smart_sheet/globals.dart';
 
 class UIUtils {
+  /// Widget موحد لعرض "أمر التشغيل" كـ Badge
+  static Widget buildOrderNumberBadge(String? orderNumber) {
+    if (orderNumber == null || orderNumber.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.blueAccent.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.numbers, size: 14, color: Colors.blueAccent),
+            const SizedBox(width: 4),
+            Text(
+              'أمر: $orderNumber',
+              style: const TextStyle(
+                  color: Colors.blueAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// يعرض نافذة تأكيد الحذف
   static void showDeleteConfirmation({
     required BuildContext context,
