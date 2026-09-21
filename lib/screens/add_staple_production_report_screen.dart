@@ -64,44 +64,69 @@ class _AddStapleProductionReportScreenState
     _totalDowntimeController.text = "0";
 
     if (widget.initialData != null) {
-      _customerController.text = widget.initialData!['clientName']?.toString() ?? '';
-      _itemController.text = widget.initialData!['productName']?.toString() ?? widget.initialData!['product']?.toString() ?? '';
-      _itemCodeController.text = widget.initialData!['productCode']?.toString() ?? '';
-      _workOrderController.text = widget.initialData!['orderNumber']?.toString() ?? '';
-      _startTimeController.text = widget.initialData!['startTime']?.toString() ?? '';
-      _endTimeController.text = widget.initialData!['endTime']?.toString() ?? '';
-      _downtimeStartController.text = widget.initialData!['downtimeStart']?.toString() ?? '';
-      _downtimeEndController.text = widget.initialData!['downtimeEnd']?.toString() ?? '';
+      final data = widget.initialData!;
       
-      final totalDowntime = widget.initialData!['totalDowntime']?.toString();
+      final reportDateStr = data['report_date']?.toString() ?? data['reportDate']?.toString();
+      if (reportDateStr != null && reportDateStr.isNotEmpty) {
+        try {
+          final dt = DateTime.parse(reportDateStr);
+          _dateController.text = "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
+        } catch (_) {}
+      }
+
+      _customerController.text = data['clientName']?.toString() ?? data['customer_name']?.toString() ?? '';
+      _itemController.text = data['productName']?.toString() ?? data['product']?.toString() ?? data['item_name']?.toString() ?? '';
+      _itemCodeController.text = data['productCode']?.toString() ?? data['item_code']?.toString() ?? '';
+      _workOrderController.text = data['orderNumber']?.toString() ?? data['work_order']?.toString() ?? '';
+      
+      String parseTime(String? timeStr) {
+        if (timeStr == null || timeStr.isEmpty) return '';
+        try {
+          final dt = DateTime.parse(timeStr);
+          return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+        } catch (_) {
+          return timeStr;
+        }
+      }
+      
+      _startTimeController.text = parseTime(data['startTime']?.toString() ?? data['run_time_start']?.toString());
+      _endTimeController.text = parseTime(data['endTime']?.toString() ?? data['run_time_end']?.toString());
+      _downtimeStartController.text = parseTime(data['downtimeStart']?.toString() ?? data['downtime_start']?.toString());
+      _downtimeEndController.text = parseTime(data['downtimeEnd']?.toString() ?? data['downtime_end']?.toString());
+      
+      final totalDowntime = data['totalDowntime']?.toString();
       if (totalDowntime != null && totalDowntime.isNotEmpty) {
         _totalDowntimeController.text = totalDowntime;
       }
       
-      _selectedMachine = widget.initialData!['machineName']?.toString();
+      _selectedMachine = data['machineName']?.toString() ?? data['machine_name']?.toString();
       if (_selectedMachine != null && _selectedMachine!.isEmpty) _selectedMachine = null;
       
-      _selectedTechnician = widget.initialData!['technicianName']?.toString();
+      _selectedTechnician = data['technicianName']?.toString() ?? data['technician_name']?.toString();
       if (_selectedTechnician != null && _selectedTechnician!.isEmpty) _selectedTechnician = null;
       
-      _selectedShift = widget.initialData!['shift']?.toString();
+      _selectedShift = data['shift']?.toString() ?? data['shift_name']?.toString();
       if (_selectedShift != null && _selectedShift!.isEmpty) _selectedShift = null;
 
-      final crew = widget.initialData!['crewMembers'] ?? widget.initialData!['crew_members'];
+      final crew = data['crewMembers'] ?? data['crew_members'];
       if (crew is List) {
         _selectedCrewMembers.addAll(crew.map((e) => e.toString()));
       }
 
-      final dimensions = widget.initialData!['dimensions'];
+      final dimensions = data['dimensions'];
       if (dimensions is Map) {
         _lengthController.text = dimensions['length']?.toString() ?? '';
         _widthController.text = dimensions['width']?.toString() ?? '';
         _heightController.text = dimensions['height']?.toString() ?? '';
       } else {
-        _lengthController.text = widget.initialData!['length']?.toString() ?? '';
-        _widthController.text = widget.initialData!['width']?.toString() ?? '';
-        _heightController.text = widget.initialData!['height']?.toString() ?? '';
+        _lengthController.text = data['length']?.toString() ?? '';
+        _widthController.text = data['width']?.toString() ?? '';
+        _heightController.text = data['height']?.toString() ?? '';
       }
+      
+      _productionController.text = data['productionQuantity']?.toString() ?? data['production_quantity']?.toString() ?? '';
+      _wasteController.text = data['wasteQuantity']?.toString() ?? data['waste_quantity']?.toString() ?? '0';
+      _notesController.text = data['notes']?.toString() ?? '';
     }
   }
 
@@ -250,7 +275,9 @@ class _AddStapleProductionReportScreenState
           double.tryParse(_productionController.text) ?? 0;
       final double wasteQty = double.tryParse(_wasteController.text) ?? 0;
 
-      final syncId = const Uuid().v4();
+      final existingId = widget.initialData?['id']?.toString() ?? widget.initialData?['sync_id']?.toString();
+      final syncId = existingId ?? const Uuid().v4();
+      
       final String? factoryId = Hive.isBoxOpen('settings')
           ? Hive.box('settings').get('factory_id')
           : null;
@@ -260,6 +287,16 @@ class _AddStapleProductionReportScreenState
       String reportStatus = 'pending';
       if (isAdmin || (currentUser != null && currentUser.job == 'رئيس القسم')) {
         reportStatus = 'approved';
+      }
+      
+      if (existingId != null && widget.initialData != null && widget.initialData!['status'] != null) {
+        // If editing, preserve original status unless an admin is making it approved
+        final originalStatus = widget.initialData!['status'].toString();
+        if (isAdmin || (currentUser != null && currentUser.job == 'رئيس القسم')) {
+          reportStatus = 'approved';
+        } else {
+          reportStatus = originalStatus;
+        }
       }
 
       final report = StapleProductionReport(
@@ -322,6 +359,7 @@ class _AddStapleProductionReportScreenState
         'staple_production_reports',
         {
           'id': report.id,
+          'sync_id': report.id,
           'machine_name': report.machineName,
           'technician_name': report.technicianName,
           'report_date': report.reportDate.toIso8601String(),
@@ -342,7 +380,7 @@ class _AddStapleProductionReportScreenState
           'shift_name': report.shiftName,
           'status': report.status,
         },
-        operation: 'insert',
+        operation: existingId != null ? 'update' : 'insert',
       );
 
       if (mounted) {

@@ -1894,7 +1894,8 @@ class _FlexoProductionReportScreenState
 
       final q = query.toLowerCase();
       return (r['clientName']?.toString() ?? '').toLowerCase().contains(q) ||
-          (r['product']?.toString() ?? '').toLowerCase().contains(q);
+          (r['product']?.toString() ?? '').toLowerCase().contains(q) ||
+          (r['productCode']?.toString() ?? '').toLowerCase().contains(q);
     }).toList();
 
     entries.sort((a, b) {

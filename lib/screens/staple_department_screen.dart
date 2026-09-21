@@ -148,6 +148,7 @@ class StapleDepartmentScreen extends StatelessWidget {
                           Scaffold.of(innerContext).openEndDrawer();
                         },
                       ),
+
                       
                       const SizedBox(height: 24),
                       

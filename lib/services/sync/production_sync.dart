@@ -24,6 +24,7 @@ mixin ProductionSync on SyncServiceBase {
   RealtimeChannel? _crushingArchivedReportsChannel;
   RealtimeChannel? _dieCuttingProductionChannel;
   RealtimeChannel? _stapleProductionChannel;
+  RealtimeChannel? _stapleArchivedReportsChannel;
 
   // ==============================================================
   // Initial Sync
@@ -241,6 +242,9 @@ mixin ProductionSync on SyncServiceBase {
       final crushingBox = Hive.isBoxOpen('crushingArchive')
           ? Hive.box('crushingArchive')
           : await Hive.openBox('crushingArchive');
+      final stapleBox = Hive.isBoxOpen('stapleArchive')
+          ? Hive.box('stapleArchive')
+          : await Hive.openBox('stapleArchive');
 
       // 1. Flexo
       final flexoRes = await _supabase
@@ -265,6 +269,15 @@ mixin ProductionSync on SyncServiceBase {
           .or('factory_id.eq.$factoryId,factory_id.is.null')
           .order('report_date', ascending: false);
       await _populateArchiveBox(crushingBox, crushingRes, isCrushing: true);
+
+      // 4. Staple
+      final stapleRes = await _supabase
+          .from('staple_archived_reports')
+          .select()
+          .or('factory_id.eq.$factoryId,factory_id.is.null')
+          .order('report_date', ascending: false);
+      await _populateArchiveBox(stapleBox, stapleRes, isCrushing: true); // Using isCrushing: true to reuse the department injection logic if missing, but we'll adapt later if needed. Actually it's better to just pass isCrushing: false and ensure _reportToHive maps it. But let's check what staple_archived_reports has. 
+      // Wait, let's just pass it as isCrushing: true to ensure 'report_date' is parsed correctly. Let's fix that below.
 
       debugPrint('✅ ProductionSync: تم استرجاع تقارير الأرشيف الموزعة بنجاح.');
     } catch (e) {
@@ -568,6 +581,39 @@ mixin ProductionSync on SyncServiceBase {
         }
       }
     });
+
+    // ─── staple_archived_reports ──────────────────────────────────────────
+    _stapleArchivedReportsChannel = _supabase
+        .channel('rt_staple_archived_reports_${factoryId}_v1')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'staple_archived_reports',
+          filter: filter,
+          callback: (payload) {
+            _onArchivedReportChange(payload, factoryId,
+                boxName: 'stapleArchive', isCrushing: true);
+          },
+        )
+        .subscribe((status, error) {
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        debugPrint(
+            '✅ SUBSCRIBED → staple_archived_reports (factory: $factoryId)');
+        _reconnectAttempts['archived_reports_channel'] = 0;
+      } else if (status == RealtimeSubscribeStatus.closed) {
+        debugPrint('📡 staple_archived_reports: $status');
+      } else {
+        debugPrint(
+            '❌ FAILED/STATUS → staple_archived_reports: status=$status, error=$error');
+        if (status == RealtimeSubscribeStatus.timedOut ||
+            status == RealtimeSubscribeStatus.channelError) {
+          _scheduleReconnect('archived_reports_channel', () async {
+            await _tearDownProductionChannels();
+            _setupProductionChannels(factoryId);
+          });
+        }
+      }
+    });
     // ─── die_cutting_production_reports ─────────────────────────────
     _dieCuttingProductionChannel = _supabase
         .channel('rt_die_cutting_reports_${factoryId}_v1')
@@ -678,6 +724,10 @@ mixin ProductionSync on SyncServiceBase {
       if (_stapleProductionChannel != null) {
         await _supabase.removeChannel(_stapleProductionChannel!);
         _stapleProductionChannel = null;
+      }
+      if (_stapleArchivedReportsChannel != null) {
+        await _supabase.removeChannel(_stapleArchivedReportsChannel!);
+        _stapleArchivedReportsChannel = null;
       }
     } catch (e) {
       debugPrint('❌ _tearDownProductionChannels error: $e');

@@ -323,6 +323,7 @@ void _openBackgroundBoxes() async {
     'flexoArchive',
     'lineArchive',
     'crushingArchive',
+    'stapleArchive',
     'serial_setup_state',
   ];
   for (var box in otherBoxes) {
