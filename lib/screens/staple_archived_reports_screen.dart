@@ -834,7 +834,7 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
                   );
 
                   final dateText = Text(
-                    displayDate.split('T')[0].split(' ')[0],
+                    displayDate != "---" ? displayDate.toString().split('T')[0].split(' ')[0] : "---",
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,

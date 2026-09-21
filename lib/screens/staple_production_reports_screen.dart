@@ -878,7 +878,9 @@ class _StapleProductionReportsScreenState extends State<StapleProductionReportsS
                                                     const Icon(Icons.calendar_today, size: 16, color: Colors.blueGrey),
                                                     const SizedBox(width: 8),
                                                     Text(
-                                                      report['report_date'] ?? '-',
+                                                      (report['report_date'] != null && report['report_date'].toString().isNotEmpty)
+                                                          ? report['report_date'].toString().split('T')[0].split(' ')[0]
+                                                          : '-',
                                                       style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey),
                                                     ),
                                                   ],
