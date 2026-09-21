@@ -267,6 +267,27 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
+            tooltip: "مسح الكل",
+            onPressed: () {
+              UIUtils.showDeleteConfirmation(
+                context: context,
+                title: "تنظيف السجلات",
+                content: "هل أنت متأكد من مسح كافة سجلات المنتج التام؟",
+                onConfirm: () async {
+                  await _productsBox?.clear();
+                  if (context.mounted) {
+                    UIUtils.showInfoSnackBar(
+                      message: "تم تنظيف الشاشة بالكامل",
+                      backgroundColor: Colors.green,
+                      icon: Icons.check_circle,
+                    );
+                  }
+                },
+              );
+            },
+          ),
+          IconButton(
               icon: const Icon(Icons.refresh), onPressed: () => setState(() {}))
         ],
       ),

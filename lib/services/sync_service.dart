@@ -37,7 +37,7 @@ import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/models/worker_action_model.dart';
 import 'package:smart_sheet/models/live_session.dart';
 import 'package:smart_sheet/models/flexo_machine.dart';
-import 'package:smart_sheet/models/finished_product_model.dart';
+
 import 'package:smart_sheet/models/die_cutting_production_report.dart';
 // import 'package:smart_sheet/models/maintenance_record_model.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
