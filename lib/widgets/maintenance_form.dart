@@ -213,31 +213,31 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
               ],
             ),
             body: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
               child: Column(
                 children: [
                   _buildTextField(
                       machineController, "اسم الماكينة", Icons.settings),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   _buildDateField(issueDateController, "تاريخ ظهور العطل"),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   _buildTextField(
                       issueDescController, "وصف العطل", Icons.warning_amber,
                       maxLines: 2),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   _buildDateField(reportDateController, "تاريخ التبليغ"),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   _buildTextField(reportedToTechnicianController,
                       "تم التبليغ إلى", Icons.person),
                   const Divider(height: 32),
                   _buildTextField(
                       actionController, "الإجراء المتخذ", Icons.build),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   _buildDateField(actionDateController, "تاريخ التنفيذ"),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   _buildTextField(repairedByController, "تم الإصلاح بواسطة",
                       Icons.engineering),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   _buildLocationDropdown(),
                   CheckboxListTile(
                     title: const Text("تم الإصلاح بالكامل؟"),
@@ -270,9 +270,13 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
+      style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           labelText: label,
-          prefixIcon: Icon(icon),
+          labelStyle: const TextStyle(fontSize: 13),
+          prefixIcon: Icon(icon, size: 20),
+          prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           border: const OutlineInputBorder()),
     );
   }
@@ -281,9 +285,13 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     return TextFormField(
       controller: controller,
       readOnly: true,
+      style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           labelText: label,
-          prefixIcon: const Icon(Icons.calendar_today),
+          labelStyle: const TextStyle(fontSize: 13),
+          prefixIcon: const Icon(Icons.calendar_today, size: 20),
+          prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           border: const OutlineInputBorder()),
       onTap: () async {
         DateTime? picked = await showDatePicker(
@@ -300,7 +308,10 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
     return DropdownButtonFormField<String>(
       initialValue: repairLocation,
       decoration: const InputDecoration(
-          labelText: "مكان الإصلاح", border: OutlineInputBorder()),
+          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+          labelText: "مكان الإصلاح",
+          labelStyle: TextStyle(fontSize: 13),
+          border: OutlineInputBorder()),
       items: ['في المصنع', 'ورشة خارجية']
           .map((l) => DropdownMenuItem(value: l, child: Text(l)))
           .toList(),

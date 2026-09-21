@@ -86,7 +86,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
             constraints: const BoxConstraints(maxWidth: 600),
             child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -96,7 +96,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     ValueListenableBuilder(
                       valueListenable:
                           Hive.box<FlexoMachine>('flexo_machines').listenable(),
@@ -108,11 +108,11 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                         return DropdownButtonFormField<String>(
                           initialValue: selectedMachine,
                           decoration: InputDecoration(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                            labelText: 'اختر الماكينة',
-                            labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
-                            prefixIcon: const Icon(Icons.precision_manufacturing, color: Colors.blueAccent, size: 20),
-                            prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                              labelText: 'اختر الماكينة',
+                              labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
+                              prefixIcon: const Icon(Icons.precision_manufacturing, color: Colors.blueAccent, size: 20),
+                              prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                             filled: true,
                             fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
                             border: OutlineInputBorder(
@@ -148,30 +148,30 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                         );
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(child: _buildSimpleField(clientController, 'اسم العميل', Icons.person)),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(child: _buildSimpleField(orderNumberController, 'أمر التشغيل', Icons.numbers, keyboardType: TextInputType.number)),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(flex: 2, child: _buildSimpleField(productController, 'الصنف', Icons.inventory)),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(flex: 1, child: _buildSimpleField(productCodeController, 'كود الصنف', Icons.qr_code, keyboardType: TextInputType.number)),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     if (widget.department == 'crushing') ...[
                       _buildSimpleField(formNumberController, 'رقم الفورمة (اختياري)', Icons.grid_3x3, keyboardType: TextInputType.number),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                     ],
                     _buildWorkerSuggestField(techController),
                     if (widget.department == 'die_cutting' || widget.department == 'crushing' || widget.department == 'production_line') ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       _buildCrewMembersSelector(),
                     ],
             const SizedBox(height: 24),
@@ -413,13 +413,13 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
       controller: controller,
       focusNode: focusNode,
       keyboardType: keyboardType,
-      style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12),
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
       decoration: InputDecoration(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
         labelText: label,
-        labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+        labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
         prefixIcon: Icon(icon, color: Colors.blueAccent, size: 20),
-        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         filled: true,
         fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
         border: OutlineInputBorder(

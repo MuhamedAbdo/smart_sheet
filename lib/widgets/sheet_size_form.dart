@@ -76,13 +76,13 @@ class SheetSizeForm extends StatelessWidget {
           Row(
             children: [
               const Text("نوع العملية:"),
-              const SizedBox(width: 12),
+              const SizedBox(width: 4),
               ChoiceChip(
                 label: const Text("تفصيل"),
                 selected: processType == "تفصيل",
                 onSelected: (v) => onProcessTypeChanged("تفصيل"),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               ChoiceChip(
                 label: const Text("تكسير"),
                 selected: processType == "تكسير",
@@ -90,7 +90,7 @@ class SheetSizeForm extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
         ],
 
         // --- بيانات العميل (مشتركة) ---
@@ -140,7 +140,7 @@ class SheetSizeForm extends StatelessWidget {
 
           // --- حقول التكسير ---
           if (processType == "تكسير") ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             if (onImportForm != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
@@ -166,7 +166,7 @@ class SheetSizeForm extends StatelessWidget {
                 "طول الشيت", sheetLengthManualController!, type: TextInputType.number),
             _buildTextField(context, 
                 "عرض الشيت", sheetWidthManualController!, type: TextInputType.number),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             const Text("نوع الشريحة:",
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -219,8 +219,11 @@ class SheetSizeForm extends StatelessWidget {
       child: TextField(
         controller: controller,
         enabled: enabled,
+        style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87, fontSize: 14),
         decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           labelText: label,
+          labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
           hintText: hint,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           filled: true,
@@ -228,6 +231,7 @@ class SheetSizeForm extends StatelessWidget {
           suffixIcon: locked
               ? const Icon(Icons.lock_outline, color: Colors.grey, size: 20)
               : null,
+          suffixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         ),
         keyboardType: type ?? TextInputType.text,
         inputFormatters: type == TextInputType.number

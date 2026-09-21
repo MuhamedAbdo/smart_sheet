@@ -337,7 +337,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 600),
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -349,28 +349,28 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                           child: _buildTextField(dateController, "📅 التاريخ",
                               readOnly: true, onTap: _selectDate),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(
                           flex: 1,
                           child: _buildShiftDropdown(),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(child: _buildTextField(clientNameController, "👤 اسم العميل")),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(child: _buildTextField(orderNumberController, "🔢 رقم أمر التشغيل", icon: Icons.numbers, isRequired: false, keyboardType: TextInputType.number)),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     if (isCrushing) ...[
                       _buildTextField(formNumberController, "📄 رقم الفورمة",
                           icon: Icons.confirmation_number,
                           isRequired: false,
                           keyboardType: TextInputType.number),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                     ],
                     Row(
                       children: [
@@ -381,7 +381,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                               onTap: () => _selectTime(startTimeController),
                               isRequired: false),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(
                           child: _buildTextField(endTimeController, "🕒 وقت النهاية",
                               icon: Icons.access_time,
@@ -391,32 +391,32 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(flex: 1, child: _buildTextField(productController, "📦 الصنف")),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(flex: 1, child: _buildTextField(productCodeController, "كود الصنف", icon: Icons.qr_code, keyboardType: TextInputType.number)),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     _buildMachineAndTechRow(),
                     if (isCrushing || isProductionLine) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
                       _buildCrewMembersSelector(),
                     ],
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                             child: _buildTextField(lengthController, "📏 طول",
                                 keyboardType: TextInputType.number)),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(
                             child: _buildTextField(widthController, "📏 عرض",
                                 keyboardType: TextInputType.number)),
                         if (!isSheet) ...[
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 4),
                           Expanded(
                               child: _buildTextField(
                                   heightController, "📏 ارتفاع",
@@ -430,10 +430,10 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                       _buildPaperLayersSection()
                     else if (!isCrushing)
                       _buildColorsSection(),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     _buildTextField(quantityController, "🔢 عدد الشيتات",
                         keyboardType: TextInputType.number),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     if (isProductionLine || isCrushing) ...[
                       if (isProductionLine) ...[
                         _buildTextField(
@@ -443,7 +443,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                               const TextInputType.numberWithOptions(decimal: true),
                           isRequired: false,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                       ],
                       _buildTextField(lineWasteController, "📉 الهالك",
                           keyboardType: TextInputType.number, isRequired: false),
@@ -456,7 +456,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                                 keyboardType: TextInputType.number,
                                 isRequired: false),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 4),
                           Expanded(
                             child: _buildTextField(
                                 printWasteController, "📉 هالك الطباعة",
@@ -465,7 +465,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                           ),
                         ],
                       ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
@@ -475,7 +475,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                               onTap: () => _selectTime(downtimeStartController),
                               isRequired: false),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(
                           child: _buildTextField(downtimeEndController, "⏱️ نهاية العطل",
                               icon: Icons.access_time,
@@ -485,12 +485,12 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     _buildTextField(totalDowntimeController, "⏳ إجمالي دقائق التعطل",
                         icon: Icons.timer_off,
                         keyboardType: TextInputType.number,
                         isRequired: false),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     _buildTextField(notesController, "📝 ملاحظات (اختياري)",
                         maxLines: 3, isRequired: false),
                     const SizedBox(height: 30),
@@ -670,7 +670,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
               child: Row(
                 children: [
                   Expanded(child: _buildTextField(c.colorController, "اللون")),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   Expanded(
                       child: _buildTextField(c.quantityController, "الكمية",
                           keyboardType: TextInputType.number)),
@@ -697,7 +697,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
             child: OutlinedButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text("إلغاء"))),
-        const SizedBox(width: 12),
+        const SizedBox(width: 4),
         Expanded(
             child: ElevatedButton(
                 onPressed: _saveReport, child: const Text("💾 حفظ التقرير"))),
@@ -772,7 +772,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
             },
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 4),
         // ── الفني ────────────────────────────────────────────────────────────
         Expanded(
           child: _buildDropdownField(
@@ -829,11 +829,11 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
     return DropdownButtonFormField<String>(
       initialValue: (value != null && items.contains(value)) ? value : null,
       decoration: InputDecoration(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
         labelText: label,
-        labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+        labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
         prefixIcon: Icon(icon, color: Colors.blueAccent, size: 20),
-        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         filled: true,
         fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
         border: OutlineInputBorder(
@@ -909,11 +909,11 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
       isExpanded: true,
       dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
       decoration: InputDecoration(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
         labelText: 'الوردية',
-        labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+        labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
         prefixIcon: const Icon(Icons.work_history, color: Colors.blueAccent, size: 20),
-        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         filled: true,
         fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
         border: OutlineInputBorder(
@@ -999,13 +999,13 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
         onTap: onTap,
         keyboardType: keyboardType,
         maxLines: maxLines,
-        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12),
+        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
         decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           labelText: label,
-          labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+          labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
           prefixIcon: icon != null ? Icon(icon, color: Colors.blueAccent, size: 20) : null,
-          prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           alignLabelWithHint: maxLines > 1,
           filled: true,
           fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,

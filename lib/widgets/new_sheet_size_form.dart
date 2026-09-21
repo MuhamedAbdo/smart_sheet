@@ -150,14 +150,14 @@ class _NewSheetSizeFormState extends State<NewSheetSizeForm> {
         children: [
           _buildTextField("الطول", lengthController),
           const SizedBox(
-            height: 10,
+            height: 8,
           ),
           _buildTextField("العرض", widthController),
           const SizedBox(
-            height: 10,
+            height: 8,
           ),
           _buildTextField("الارتفاع", heightController),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
 
           // أوڨر فلاب / فلاب
           _buildToggleRow(
@@ -285,8 +285,11 @@ class _NewSheetSizeFormState extends State<NewSheetSizeForm> {
   Widget _buildTextField(String label, TextEditingController controller) {
     return TextField(
       controller: controller,
+      style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
         labelText: label,
+        labelStyle: const TextStyle(fontSize: 13),
         border: const OutlineInputBorder(),
       ),
       keyboardType: TextInputType.number,

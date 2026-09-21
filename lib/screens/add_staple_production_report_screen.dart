@@ -457,7 +457,7 @@ class _AddStapleProductionReportScreenState
     final isDark = theme.brightness == Brightness.dark;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: TextFormField(
         controller: controller,
         keyboardType: isNumber
@@ -466,12 +466,13 @@ class _AddStapleProductionReportScreenState
         maxLines: maxLines,
         readOnly: readOnly,
         onTap: onTap,
-        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
         decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           labelText: label,
-          labelStyle: TextStyle(color: Colors.blueGrey.shade400),
-          prefixIcon:
-              icon != null ? Icon(icon, color: Colors.blueAccent) : null,
+          labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
+          prefixIcon: icon != null ? Icon(icon, color: Colors.blueAccent, size: 20) : null,
+          prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           filled: true,
           fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
           border: OutlineInputBorder(
@@ -513,14 +514,15 @@ class _AddStapleProductionReportScreenState
     final isDark = theme.brightness == Brightness.dark;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: DropdownButtonFormField<String>(
         initialValue: value,
         decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           labelText: label,
-          labelStyle: TextStyle(color: Colors.blueGrey.shade400),
-          prefixIcon:
-              icon != null ? Icon(icon, color: Colors.blueAccent) : null,
+          labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
+          prefixIcon: icon != null ? Icon(icon, color: Colors.blueAccent, size: 20) : null,
+          prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           filled: true,
           fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
           border: OutlineInputBorder(
@@ -560,7 +562,7 @@ class _AddStapleProductionReportScreenState
 
   Widget _buildCrewMembersSelector() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: InkWell(
         onTap: () async {
           final sortedWorkers = WorkerUtils.getSortedWorkers('staples');
@@ -643,9 +645,11 @@ class _AddStapleProductionReportScreenState
         },
         child: InputDecorator(
           decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
             labelText: 'طاقم الماكينة (اختياري)',
-            labelStyle: TextStyle(color: Colors.blueGrey.shade400),
-            prefixIcon: const Icon(Icons.group, color: Colors.blueAccent),
+            labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
+            prefixIcon: const Icon(Icons.group, color: Colors.blueAccent, size: 20),
+            prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             filled: true,
             fillColor: Theme.of(context).brightness == Brightness.dark
                 ? const Color(0xFF0F172A)
@@ -705,7 +709,7 @@ class _AddStapleProductionReportScreenState
               child: Form(
                 key: _formKey,
                 child: ListView(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
                   children: [
                     const Text(
                       'بيانات التقرير',
@@ -715,7 +719,7 @@ class _AddStapleProductionReportScreenState
                         color: Colors.blueGrey,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
@@ -728,7 +732,7 @@ class _AddStapleProductionReportScreenState
                                 setState(() => _selectedShift = val),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(
                           child: _buildTextField(
                             _dateController,
@@ -754,7 +758,7 @@ class _AddStapleProductionReportScreenState
                               onTap: () => _selectTime(_startTimeController),
                               isRequired: false),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(
                           child: _buildTextField(
                               _endTimeController, "🕒 وقت النهاية",
@@ -813,7 +817,7 @@ class _AddStapleProductionReportScreenState
                                 );
                               }),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(
                           child: _buildDropdown(
                             label: 'اسم الفني',
@@ -832,11 +836,11 @@ class _AddStapleProductionReportScreenState
                         Expanded(
                             child: _buildTextField(_lengthController, "📏 طول",
                                 isNumber: true)),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(
                             child: _buildTextField(_widthController, "📏 عرض",
                                 isNumber: true)),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(
                             child: _buildTextField(
                                 _heightController, "📏 ارتفاع",
@@ -860,7 +864,7 @@ class _AddStapleProductionReportScreenState
                                   _selectTime(_downtimeStartController),
                               isRequired: false),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(
                           child: _buildTextField(
                               _downtimeEndController, "⏱️ نهاية العطل",
