@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/widgets/auth_gate.dart';
 
 class GatekeeperScreen extends StatefulWidget {
@@ -40,9 +41,16 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
       );
 
       if (response == true) {
-        // Code is valid
-        final settingsBox = Hive.box('settings');
-        await settingsBox.put('is_device_unlocked', true);
+        // Code is valid — حفظ حالة التفعيل في pairing_vault الدائم
+        // ✅ pairing_vault لا يُمسح بـ forceLogout() أبداً
+        if (Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)) {
+          await Hive.box(SafeSecureStorage.pairingVaultBoxName)
+              .put('is_device_unlocked', true);
+        } else {
+          final vaultBox = await Hive.openBox(SafeSecureStorage.pairingVaultBoxName);
+          await vaultBox.put('is_device_unlocked', true);
+        }
+        debugPrint('✅ GatekeeperScreen: is_device_unlocked حُفظ في pairing_vault');
 
         if (mounted) {
           Navigator.pushReplacement(

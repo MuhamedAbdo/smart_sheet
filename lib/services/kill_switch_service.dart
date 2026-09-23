@@ -529,14 +529,16 @@ class KillSwitchService {
         }
       }
 
-      // 1. مسح بيانات الارتباط من التخزين المحلي
-      await _storage.delete(key: 'factory_id');
+      // 1. مسح بيانات الجلسة من التخزين الآمن (factory_id + user_role + linked_worker_id)
+      //    ملاحظة: هذه تُكتب في pairing_vault (عبر SafeSecureStorage)، لكننا نحذفها
+      //    عند الطرد الحقيقي (فك الارتباط من الإدارة) فقط — وليس عند logout عادي.
+      //    حالياً نُبقي على factory_id و is_device_unlocked لضمان الاستمرارية عبر التحديثات.
       await _storage.delete(key: 'user_role');
       await clearLinkedWorkerId();
 
-      // 1b. المسح الشامل لجميع بيانات التطبيق المحلية بطريقة آمنة
+      // 1b. المسح الشامل لبيانات العمل المحلية (بيانات المصنع، المزامنة، إلخ)
+      //     ⚠️ pairing_vault لا يُلمس هنا إطلاقاً — فقط صناديق بيانات التشغيل
       try {
-        // بدلاً من deleteFromDisk الذي يغلق الصناديق ويفسد واجهة المستخدم، نقوم بتفريغها فقط مع تحديد نوع الصندوق الأصلي
         Future<void> clearBoxSafely<T>(String name) async {
           try {
             if (Hive.isBoxOpen(name)) {
@@ -546,7 +548,6 @@ class KillSwitchService {
                 await Hive.box<T>(name).clear();
               }
             } else {
-              // إذا كان الصندوق غير مفتوح، يمكننا حذفه من القرص بأمان تام لأنه لن يؤثر على واجهة المستخدم
               await Hive.deleteBoxFromDisk(name);
             }
           } catch (e) {
@@ -554,8 +555,25 @@ class KillSwitchService {
           }
         }
 
-        // تفريغ الصناديق التي تم فتحها بدون نوع محدد (dynamic)
-        await clearBoxSafely('settings');
+        // ✅ تفريغ settings بشكل انتقائي — نحذف فقط مفاتيح الجلسة، ونُبقي على الباقي
+        // (is_device_unlocked و device_id محفوظة في pairing_vault وليس هنا)
+        if (Hive.isBoxOpen('settings')) {
+          final settingsBox = Hive.box('settings');
+          // المفاتيح التي يجوز مسحها عند تسجيل الخروج (جلسة المستخدم فقط)
+          const sessionKeys = [
+            'is_user_logged_in',
+            'user_role',
+            'linked_worker_id',
+          ];
+          for (final key in sessionKeys) {
+            try {
+              await settingsBox.delete(key);
+            } catch (_) {}
+          }
+          debugPrint('✅ KillSwitch: تم مسح مفاتيح الجلسة من settings (انتقائي)');
+        }
+
+        // تفريغ صناديق البيانات الوظيفية (ليس الإعدادات أو التفعيل)
         await clearBoxSafely('sync_queue');
         await clearBoxSafely('savedSheetSizes');
         await clearBoxSafely('serial_setup_state');
@@ -583,7 +601,7 @@ class KillSwitchService {
         await clearBoxSafely<MaintenanceRecord>('maintenance_flexo_v2');
         await clearBoxSafely<StoreEntry>('store_flexo');
         await clearBoxSafely<DaySchedule>('factory_schedule');
-        
+
         // مسح الصور من الكاش كإجراء إضافي (مجلد smart_sheet_cache)
         final appDir = await getApplicationDocumentsDirectory();
         Directory cacheDir;
@@ -597,8 +615,8 @@ class KillSwitchService {
             cacheDir.deleteSync(recursive: true);
           } catch (_) {}
         }
-        
-        debugPrint('✅ KillSwitch: تم تفريغ صناديق البيانات المحلية بأمان!');
+
+        debugPrint('✅ KillSwitch: تم تفريغ صناديق البيانات المحلية بأمان! (pairing_vault محفوظ)');
       } catch (e) {
         debugPrint('⚠️ KillSwitch: فشل تفريغ بعض الصناديق: $e');
       }

@@ -221,23 +221,53 @@ class AuthService extends ChangeNotifier {
         final oldFactoryId = await storage.read(key: 'factory_id');
 
         // 🚨 1. فحص الحسابات التي تم فك ارتباطها (كان لها مصنع وتمت إزالته)
+        // ✅ إصلاح False Positive: نتحقق من فك الارتباط الفعلي فقط عند:
+        //    (أ) وصلنا للسيرفر بنجاح (response != null — محقق دائماً هنا)
+        //    (ب) السيرفر أعاد factory_id = null صراحةً
+        //    (ج) الجهاز كان مرتبطاً بمصنع سابق (oldFactoryId != null)
+        //    (د) الدور ليس super_admin أو الآدمن الرئيسي
+        //
+        // لا نمسح البيانات إذا كان السبب هو timeout/خطأ شبكة —
+        // هذه الحالة تُعالَج في كتلة catch بالأسفل بدون استدعاء forceLogout.
         if (fetchedFactoryId == null &&
             oldFactoryId != null &&
             oldFactoryId.isNotEmpty &&
             userEmail != 'mohamedabdo9999933@gmail.com' &&
-            role != 'super_admin') {
-          debugPrint('🚨 AuthService: User was unlinked. Wiping data.');
-          await KillSwitchService.instance.forceLogout(
-            reason:
-                'تم فك ارتباط حسابك بالمصنع. يرجى الانتظار حتى يتم ربطك بمصنع جديد.',
-            clearProfileFactoryId: false,
-          );
-          _state = UserState.unauthenticated().copyWith(
-            errorMessage: 'تم فك ارتباط حسابك.',
-          );
-          notifyListeners();
-          return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
-        }
+            role != 'super_admin' &&
+            checkDeviceLink) {
+          // تحقق إضافي: هل الحذف من الـ profile متعمد (ليس مجرد بيانات ناقصة)؟
+          // نفعل ذلك بالتحقق من عدم وجود factory_id في profiles مرة ثانية بعد تأخير قصير
+          debugPrint('🚨 AuthService: factory_id = null من السيرفر وكان لدينا ارتباط قديم. جاري التحقق المزدوج...');
+          await Future.delayed(const Duration(seconds: 1));
+          try {
+            final confirmResponse = await _supabaseClient
+                .from('profiles')
+                .select('factory_id')
+                .eq('id', userId)
+                .maybeSingle();
+
+            final confirmedFactoryId = confirmResponse?['factory_id']?.toString();
+            if (confirmedFactoryId == null) {
+              debugPrint('🚨 AuthService: تأكيد فك الارتباط. سيتم مسح البيانات.');
+              await KillSwitchService.instance.forceLogout(
+                reason:
+                    'تم فك ارتباط حسابك بالمصنع. يرجى الانتظار حتى يتم ربطك بمصنع جديد.',
+                clearProfileFactoryId: false,
+              );
+              _state = UserState.unauthenticated().copyWith(
+                errorMessage: 'تم فك ارتباط حسابك.',
+              );
+              notifyListeners();
+              return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
+            } else {
+              // السيرفر أعاد قيمة صحيحة في التحقق الثاني — كان timeout أو race condition
+              debugPrint('ℹ️ AuthService: factory_id موجود في التحقق الثاني ($confirmedFactoryId). تجاهل false positive.');
+            }
+          } catch (confirmErr) {
+            // فشل التحقق المزدوج — الغالب أنه مشكلة شبكة. لا نمسح البيانات.
+            debugPrint('⚠️ AuthService: فشل التحقق المزدوج ($confirmErr). الإبقاء على بيانات الجهاز.');
+          }
+        } // نهاية if (fetchedFactoryId == null)
 
         // 🚨 2. مسح البيانات إذا تغير المصنع لمنع تسريب بيانات المصنع القديم
         if (oldFactoryId != null &&
@@ -446,7 +476,8 @@ class AuthService extends ChangeNotifier {
 
   Future<void> _clearUserData() async {
     const storage = SafeSecureStorage();
-    await storage.delete(key: 'factory_id');
+    // ✅ إصلاح: لا نحذف factory_id هنا لأنه مخزَّن في pairing_vault الدائم
+    // factory_id يُحذف فقط عند: (أ) forceLogout من الإدارة، (ب) تسجيل الخروج الصريح مع unlinkFactory
     await storage.delete(key: 'user_role');
     _factoryId = null;
     // إلغاء Real-time channels عند تسجيل الخروج

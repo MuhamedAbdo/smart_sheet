@@ -104,20 +104,24 @@ Future<void> main() async {
       }
       _registerAdapters();
 
-      // ─── محاولة فتح صناديق Hive مع تفادي مشاكل Lock file المعلقة ───
+      // ─── فتح صناديق Hive مع تفادي مشاكل Lock file المعلقة ────────────────
+      // ⚡ IMPORTANT: pairing_vault يُفتح أولاً لأنه يحمل بيانات التفعيل الحيوية
+      //   التي يجب أن تكون متاحة قبل أي عملية أخرى (Gatekeeper, DeviceManager, etc.)
+      await _openBoxWithLockRecovery(SafeSecureStorage.pairingVaultBoxName);
       await _openBoxWithLockRecovery('settings');
 
       // ✅ استرجاع مفتاح البوابة إذا تم حفظه مؤقتاً قبل Soft Restart (Cloud Restore)
       final prefs = await SharedPreferences.getInstance();
       final bool? isUnlockedTemp = prefs.getBool('is_device_unlocked_temp');
       if (isUnlockedTemp == true) {
-        final settingsBox = Hive.box('settings');
-        await settingsBox.put('is_device_unlocked', true);
+        // ✅ الكتابة في pairing_vault الدائم لضمان بقاء الحالة عبر forceLogout
+        final vaultBox = Hive.box(SafeSecureStorage.pairingVaultBoxName);
+        await vaultBox.put('is_device_unlocked', true);
         await prefs.remove('is_device_unlocked_temp');
-        debugPrint('🔓 تم استرجاع حالة فتح الجهاز بنجاح من SharedPreferences بعد Restart');
+        debugPrint('🔓 تم استرجاع حالة فتح الجهاز بنجاح من SharedPreferences إلى pairing_vault بعد Restart');
       }
 
-      // ✅ تأكد من أن كل جهاز يملك UUID ثابتاً منذ أول تشغيل
+      // ✅ تأكد من أن كل جهاز يملك UUID ثابتاً منذ أول تشغيل (محفوظ في pairing_vault)
       // ضروري لنظام ملكية الإجراءات (isOwner check في action cards)
       await DeviceManager.getDeviceId();
 

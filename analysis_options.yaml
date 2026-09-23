@@ -18,6 +18,13 @@ analyzer:
     - "packages/**"
     # ملف اختبار مؤقت للتطوير فقط
     - "lib/test_pdf_generate.dart"
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
   errors:
     # HiveList مُعلَّمة بـ @experimental في hive — تحذير لا يؤثر على الأداء
     experimental_member_use: ignore

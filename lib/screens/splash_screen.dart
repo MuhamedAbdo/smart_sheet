@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:hive/hive.dart';
+import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/widgets/auth_gate.dart';
 import 'package:smart_sheet/screens/gatekeeper_screen.dart';
 
@@ -25,8 +26,28 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     try {
-      // Check Gatekeeper status
-      final isUnlocked = Hive.box('settings').get('is_device_unlocked', defaultValue: false);
+      // ✅ إصلاح: قراءة is_device_unlocked من pairing_vault الدائم بدلاً من settings
+      // pairing_vault لا يُمسح بـ forceLogout() أو تسجيل الخروج العادي
+      bool isUnlocked = false;
+      if (Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)) {
+        isUnlocked = Hive.box(SafeSecureStorage.pairingVaultBoxName)
+            .get('is_device_unlocked', defaultValue: false) == true;
+      }
+
+      // التوافق مع النسخ القديمة: إذا لم تُوجد في vault، ابحث في settings (Legacy)
+      if (!isUnlocked && Hive.isBoxOpen('settings')) {
+        final legacyVal = Hive.box('settings').get('is_device_unlocked', defaultValue: false);
+        if (legacyVal == true) {
+          isUnlocked = true;
+          // ترحيل القيمة لـ pairing_vault لضمان استمراريتها
+          if (Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)) {
+            await Hive.box(SafeSecureStorage.pairingVaultBoxName)
+                .put('is_device_unlocked', true);
+            debugPrint('🔄 SplashScreen: is_device_unlocked مُرحَّل من settings إلى pairing_vault');
+          }
+        }
+      }
+
       final Widget targetScreen = isUnlocked ? const AuthGate() : const GatekeeperScreen();
 
       // انتقال سلس (Fade Transition) للواجهة الرئيسية
