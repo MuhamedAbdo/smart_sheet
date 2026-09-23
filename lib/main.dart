@@ -83,6 +83,36 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
+Future<void> initializeHeavyData() async {
+  if (!kIsWeb) {
+    // فتح صناديق العلاقات الأساسية
+    await _openBoxWithLockRecovery<WorkerAction>('worker_actions');
+    await Future.wait([
+      _openBoxWithLockRecovery<Worker>('workers'),
+      _openBoxWithLockRecovery<Worker>('workers_flexo'),
+      _openBoxWithLockRecovery<Worker>('workers_production'),
+      _openBoxWithLockRecovery<Worker>('workers_staple'),
+      _openBoxWithLockRecovery<FinishedProduct>('finished_products'),
+      _openBoxWithLockRecovery<LiveSession>('flexo_live_sessions'),
+      _openBoxWithLockRecovery<FlexoMachine>('flexo_machines'),
+      _openBoxWithLockRecovery<DaySchedule>('factory_schedule'), // جدول أيام الوردية
+      _openBoxWithLockRecovery('sync_queue'), // قائمة انتظار المزامنة
+      _openBoxWithLockRecovery<DieCuttingForm>('die_cutting_forms'), // قوالب التكسير
+      _openBoxWithLockRecovery<DieCuttingProductionReport>('die_cutting_production_reports'),
+    ]);
+    _openBackgroundBoxes();
+
+    // ✅ التنظيف الفوري: طبقة التوافق (Migration/Normalization Layer)
+    await DataNormalizationHelper.normalizeUntypedBoxes();
+
+    // تهيئة القيم الافتراضية لجدول أيام الوردية إذا كان فارغاً
+    _initDefaultSchedule();
+
+    // إغلاق أي أذونات أو إجراءات بالساعات مفتوحة من الأيام السابقة
+    Worker.autoCloseHourlyActionsGlobal();
+  }
+}
+
 Future<void> main() async {
   bool initSuccess = false;
   String? initErrorDetails;
@@ -124,36 +154,6 @@ Future<void> main() async {
       // ✅ تأكد من أن كل جهاز يملك UUID ثابتاً منذ أول تشغيل (محفوظ في pairing_vault)
       // ضروري لنظام ملكية الإجراءات (isOwner check في action cards)
       await DeviceManager.getDeviceId();
-
-      // فتح صناديق العلاقات الأساسية
-      await _openBoxWithLockRecovery<WorkerAction>('worker_actions');
-      await Future.wait([
-        _openBoxWithLockRecovery<Worker>('workers'),
-        _openBoxWithLockRecovery<Worker>('workers_flexo'),
-        _openBoxWithLockRecovery<Worker>('workers_production'),
-        _openBoxWithLockRecovery<Worker>('workers_staple'),
-        _openBoxWithLockRecovery<FinishedProduct>('finished_products'),
-        _openBoxWithLockRecovery<LiveSession>('flexo_live_sessions'),
-        _openBoxWithLockRecovery<FlexoMachine>('flexo_machines'),
-        _openBoxWithLockRecovery<DaySchedule>(
-            'factory_schedule'), // جدول أيام الوردية
-        _openBoxWithLockRecovery('sync_queue'), // قائمة انتظار المزامنة
-        _openBoxWithLockRecovery<DieCuttingForm>(
-            'die_cutting_forms'), // قوالب التكسير
-        _openBoxWithLockRecovery<DieCuttingProductionReport>(
-            'die_cutting_production_reports'),
-      ]);
-      _openBackgroundBoxes();
-
-      // ✅ التنظيف الفوري: طبقة التوافق (Migration/Normalization Layer)
-      // نضمن تحويل أي مفاتيح قديمة في الأرشيف وقائمة الانتظار لـ snake_case مباشرة
-      await DataNormalizationHelper.normalizeUntypedBoxes();
-
-      // تهيئة القيم الافتراضية لجدول أيام الوردية إذا كان فارغاً
-      _initDefaultSchedule();
-
-      // إغلاق أي أذونات أو إجراءات بالساعات مفتوحة من الأيام السابقة
-      Worker.autoCloseHourlyActionsGlobal();
     }
 
     // 3. تهيئة Firebase وتسجيل Background Handler

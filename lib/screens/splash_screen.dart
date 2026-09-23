@@ -5,6 +5,7 @@ import 'package:hive/hive.dart';
 import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/widgets/auth_gate.dart';
 import 'package:smart_sheet/screens/gatekeeper_screen.dart';
+import 'package:smart_sheet/main.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,7 +22,13 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _navigateToHome() async {
-    await Future.delayed(const Duration(milliseconds: 2500)); // مدة أطول قليلاً لتناسب الديسكتوب
+    // 1. الانتظار المزدوج: نعطي مهلة للرسم (Splash) وفي نفس الوقت نحمّل البيانات الثقيلة
+    final minDelay = Future.delayed(const Duration(milliseconds: 2500)); // مدة أطول قليلاً لتناسب الديسكتوب
+    
+    // تشغيل التهيئة الثقيلة في الخلفية
+    final heavyInit = initializeHeavyData();
+
+    await Future.wait([minDelay, heavyInit]);
 
     if (!mounted) return;
 
@@ -51,6 +58,7 @@ class _SplashScreenState extends State<SplashScreen> {
       final Widget targetScreen = isUnlocked ? const AuthGate() : const GatekeeperScreen();
 
       // انتقال سلس (Fade Transition) للواجهة الرئيسية
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
@@ -68,6 +76,7 @@ class _SplashScreenState extends State<SplashScreen> {
     } catch (e) {
       debugPrint("Navigation Error: $e");
       // Fallback
+      if (!mounted) return;
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthGate()));
     }
   }

@@ -21,8 +21,11 @@ class DataNormalizationHelper {
       if (Hive.isBoxOpen('sync_queue')) {
         final box = Hive.box('sync_queue');
         int updatedCount = 0;
+        int loopIndex = 0;
         
         for (var key in box.keys.toList()) {
+          if (loopIndex % 20 == 0) await Future.delayed(Duration.zero);
+          loopIndex++;
           final entry = box.get(key);
           if (entry != null && entry is Map) {
             final String? table = entry['table']?.toString();
@@ -94,7 +97,10 @@ class DataNormalizationHelper {
       if (Hive.isBoxOpen(boxName)) {
         final box = Hive.box(boxName);
         int updatedCount = 0;
+        int loopIndex = 0;
         for (var key in box.keys.toList()) {
+          if (loopIndex % 20 == 0) await Future.delayed(Duration.zero);
+          loopIndex++;
           final entry = box.get(key);
           if (entry != null && entry is Map) {
             try {
