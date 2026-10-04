@@ -8,6 +8,7 @@ import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/worker_details_screen.dart';
 import 'package:smart_sheet/widgets/smart_sheet_card.dart';
+import 'package:smart_sheet/controllers/worker_leave_controller.dart';
 
 class ActiveAbsenceCard extends StatelessWidget {
   final Worker worker;
@@ -49,14 +50,10 @@ class ActiveAbsenceCard extends StatelessWidget {
   }
 
   /// هل تأخر العامل عن موعد العودة المتوقع؟
-  bool get isOverdue {
-    final erd = action.expectedReturnDate;
-    if (erd == null || action.returnDate != null) return false;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final expectedDay = DateTime(erd.year, erd.month, erd.day);
-    return today.isAfter(expectedDay);
-  }
+  bool get isOverdue => WorkerLeaveController.isOverdue(action);
+
+  /// عدد أيام التأخير عن موعد العودة المتوقع
+  int get delayDays => WorkerLeaveController.calculateDelayDays(action);
 
   @override
   Widget build(BuildContext context) {
@@ -104,23 +101,26 @@ class ActiveAbsenceCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: borderColor, width: borderWidth),
-          gradient: LinearGradient(
-            colors: isDark
-                ? [
-                    isOverdue
-                        ? Colors.red.withValues(alpha: 0.15)
-                        : primaryColor.withValues(alpha: 0.1),
-                    Colors.transparent
-                  ]
-                : [
-                    isOverdue
-                        ? Colors.red.withValues(alpha: 0.06)
-                        : primaryColor.withValues(alpha: 0.05),
-                    Colors.white
-                  ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: isOverdue
+              ? (isDark
+                  ? Colors.red.shade900.withValues(alpha: 0.25)
+                  : Colors.red.shade50)
+              : null,
+          gradient: isOverdue
+              ? null
+              : LinearGradient(
+                  colors: isDark
+                      ? [
+                          primaryColor.withValues(alpha: 0.1),
+                          Colors.transparent
+                        ]
+                      : [
+                          primaryColor.withValues(alpha: 0.05),
+                          Colors.white
+                        ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,14 +134,14 @@ class ActiveAbsenceCard extends StatelessWidget {
                   color: Colors.red.shade600,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.warning_amber_rounded, size: 14, color: Colors.white),
-                    SizedBox(width: 4),
+                    const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.white),
+                    const SizedBox(width: 4),
                     Text(
-                      "⚠️ تأخر عن العودة",
-                      style: TextStyle(
+                      "⚠️ تأخر عن العودة ($delayDays ${delayDays == 1 ? 'يوم' : 'أيام'})",
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -228,13 +228,16 @@ class ActiveAbsenceCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-
                 _buildInfoColumn(
                     isTimeBased ? "وقت الخروج" : "بدأ في",
                     isTimeBased
                         ? (action.startTime?.format(context) ?? "--")
                         : _formatDate(action.date)),
-                _buildInfoColumn("المدة حتى الآن", durationText),
+                _buildInfoColumn(
+                  "المدة حتى الآن",
+                  durationText,
+                  showWarningIcon: isOverdue,
+                ),
                 if (action.expectedReturnDate != null)
                   _buildInfoColumn(
                     "العودة المتوقعة",
@@ -249,16 +252,30 @@ class ActiveAbsenceCard extends StatelessWidget {
                 width: double.infinity,
                 height: 40,
                 child: ElevatedButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     // 🔑 حماية صخرية: منع التفاعل إذا تم إلغاء الإجراء سلفاً من جهاز آخر
                     if (action.box == null || !action.isInBox) {
                       _showSyncWarning(context);
                       return;
                     }
-                    // زر تسجيل العودة يفتح دائماً مربع تأكيد (سواء time-based أو full-day)
-                    isTimeBased
-                        ? _showTimeReturnDialog(context)
-                        : _showReturnConfirmDialog(context);
+
+                    if (isTimeBased) {
+                      _showTimeReturnDialog(context);
+                      return;
+                    }
+
+                    // اعتراض زر تسجيل العودة:
+                    // إذا كان تاريخ اليوم أقل من أو يساوي تاريخ العودة المتوقعة -> تسجيل العودة بشكل طبيعي وصامت
+                    // إذا كان تاريخ اليوم أكبر من تاريخ العودة المتوقعة -> إيقاف العودة وعرض showDialog للمسؤول
+                    if (action.expectedReturnDate != null) {
+                      if (isOverdue) {
+                        await _showOverdueDecisionDialog(context);
+                      } else {
+                        await _executeSilentNormalReturn(context);
+                      }
+                    } else {
+                      _showReturnConfirmDialog(context);
+                    }
                   },
                   icon: const Icon(Icons.check_circle, size: 18),
                   label: const Text("تسجيل العودة ✅",
@@ -294,7 +311,8 @@ class ActiveAbsenceCard extends StatelessWidget {
     }
   }
 
-  Widget _buildInfoColumn(String label, String value, {Color? valueColor}) {
+  Widget _buildInfoColumn(String label, String value,
+      {Color? valueColor, bool showWarningIcon = false}) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,9 +321,18 @@ class ActiveAbsenceCard extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                if (showWarningIcon) ...[
+                  const SizedBox(width: 4),
+                  const Text("⚠️", style: TextStyle(fontSize: 10)),
+                ],
+              ],
             ),
           ),
           const SizedBox(height: 2),
@@ -317,7 +344,7 @@ class ActiveAbsenceCard extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
-                color: valueColor,
+                color: showWarningIcon ? Colors.red.shade700 : valueColor,
               ),
             ),
           ),
@@ -559,22 +586,13 @@ class ActiveAbsenceCard extends StatelessWidget {
                     return;
                   }
 
-                  final finalDays = calcDays();
-
-                  action.returnDate = returnDateNotifier.value;
-                  action.days = finalDays;
-                  action.endTimeHour = returnTimeNotifier.value.hour;
-                  action.endTimeMinute = returnTimeNotifier.value.minute;
-
-                  final factoryId = await SupabaseManager.getFactoryId();
-                  action.factoryId = factoryId ?? action.factoryId;
-
-                  await action.save();
-                  await worker.save();
-
-                  final actionData = action.toJson();
-                  actionData['factory_id'] = factoryId;
-                  SyncService.instance.pushToQueue('worker_actions', actionData);
+                  await WorkerLeaveController.processNormalReturn(
+                    worker: worker,
+                    action: action,
+                    returnDate: returnDateNotifier.value,
+                    returnTime: returnTimeNotifier.value,
+                    themeProvider: themeProvider,
+                  );
 
                   if (context.mounted) Navigator.pop(context);
                   onRefresh();
@@ -593,6 +611,239 @@ class ActiveAbsenceCard extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+
+  /// تسجيل العودة بشكل طبيعي وصامت عند الالتزام بالموعد أو العودة مبكراً
+  Future<void> _executeSilentNormalReturn(BuildContext context) async {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    try {
+      await WorkerLeaveController.processNormalReturn(
+        worker: worker,
+        action: action,
+        themeProvider: themeProvider,
+      );
+
+      onRefresh();
+
+      if (context.mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "تم تسجيل عودة ${worker.name} بنجاح ✅",
+          backgroundColor: Colors.green,
+          icon: Icons.check_circle,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        UIUtils.showInfoSnackBar(
+          message: "حدث خطأ أثناء تسجيل العودة: $e",
+          backgroundColor: Colors.red,
+          icon: Icons.error_outline,
+        );
+      }
+    }
+  }
+
+  /// صندوق اتخاذ القرار الإداري عند تأخر العامل عن موعد العودة المتوقع
+  Future<void> _showOverdueDecisionDialog(BuildContext context) async {
+    final currentDelay = delayDays;
+    OverdueLeaveAction selectedOption = OverdueLeaveAction.extendLeave;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 26),
+                SizedBox(width: 8),
+                Text(
+                  "تأخر عن موعد العودة",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "تنبيه: لقد تأخر العامل ${worker.name} عن موعد العودة المتوقع بمقدار $currentDelay أيام. الرجاء تحديد الإجراء الإداري لاحتساب فترة التأخير:",
+                    style: const TextStyle(fontSize: 14, height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDecisionRadioOption(
+                    value: OverdueLeaveAction.extendLeave,
+                    groupValue: selectedOption,
+                    title: "تمديد الإجازة:",
+                    subtitle: "(احتساب أيام التأخير كإجازة اعتيادية ممتدة).",
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => selectedOption = val);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDecisionRadioOption(
+                    value: OverdueLeaveAction.absenceWithoutPermission,
+                    groupValue: selectedOption,
+                    title: "غياب بدون إذن:",
+                    subtitle: "(احتساب مدة الإجازة الأصلية كإجازة، واحتساب أيام التأخير فقط كغياب).",
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => selectedOption = val);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDecisionRadioOption(
+                    value: OverdueLeaveAction.convertAllToAbsence,
+                    groupValue: selectedOption,
+                    title: "تحويل كامل المدة إلى غياب:",
+                    subtitle: "(إلغاء الإجازة واحتساب المدة من يوم المغادرة حتى اليوم كغياب).",
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => selectedOption = val);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text("❌ إلغاء"),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                icon: const Icon(Icons.check_circle, size: 18),
+                label: const Text("تأكيد"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      if (action.box == null || !action.isInBox) {
+        _showSyncWarning(context);
+        return;
+      }
+
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      try {
+        await WorkerLeaveController.processOverdueReturn(
+          worker: worker,
+          action: action,
+          decision: selectedOption,
+          themeProvider: themeProvider,
+        );
+
+        onRefresh();
+
+        if (context.mounted) {
+          final message = switch (selectedOption) {
+            OverdueLeaveAction.extendLeave =>
+              "تم تمديد إجازة ${worker.name} وتسجيل عودته بنجاح ✅",
+            OverdueLeaveAction.absenceWithoutPermission =>
+              "تم إنهاء إجازة ${worker.name} واحتساب التأخير كغياب بدون إذن بنجاح ✅",
+            OverdueLeaveAction.convertAllToAbsence =>
+              "تم تحويل كامل مدة الإجازة إلى غياب وتسجيل العودة بنجاح ✅",
+          };
+
+          UIUtils.showInfoSnackBar(
+            message: message,
+            backgroundColor: Colors.green,
+            icon: Icons.check_circle,
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          UIUtils.showInfoSnackBar(
+            message: "حدث خطأ أثناء معالجة القرار: $e",
+            backgroundColor: Colors.red,
+            icon: Icons.error_outline,
+          );
+        }
+      }
+    }
+  }
+
+  Widget _buildDecisionRadioOption({
+    required OverdueLeaveAction value,
+    required OverdueLeaveAction groupValue,
+    required String title,
+    required String subtitle,
+    required ValueChanged<OverdueLeaveAction?> onChanged,
+  }) {
+    final isSelected = value == groupValue;
+    return InkWell(
+      onTap: () => onChanged(value),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.withValues(alpha: 0.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey.withValues(alpha: 0.3),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ignore: deprecated_member_use
+            Radio<OverdueLeaveAction>(
+              value: value,
+              // ignore: deprecated_member_use
+              groupValue: groupValue,
+              // ignore: deprecated_member_use
+              onChanged: onChanged,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.blue.shade900 : null,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
