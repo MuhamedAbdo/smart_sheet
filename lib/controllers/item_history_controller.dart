@@ -174,11 +174,34 @@ class ItemHistoryController {
   /// التحقق مما إذا كانت القيمة فارغة أو تعادل صفراً
   static bool isEffectivelyEmptyOrZero(dynamic value) {
     if (value == null) return true;
-    final str = value.toString().trim();
+    String str = value.toString().trim();
     if (str.isEmpty || str == 'null' || str == '—') return true;
-    final numVal = double.tryParse(str);
-    if (numVal != null && numVal == 0) return true;
-    return false;
+
+    // تنظيف البادئات والوحدات
+    const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
+    const englishDigits = '0123456789';
+    str = str.replaceAll('٫', '.').replaceAll('،', '.');
+    for (int i = 0; i < 10; i++) {
+      str = str.replaceAll(arabicDigits[i], englishDigits[i]);
+    }
+
+    str = str.replaceAll(
+      RegExp(
+        r'^(?:📏|📐)?\s*(?:طول|عرض|ارتفاع|فلاب)?\s*(?:الشيت)?\s*[:\-]?\s*',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    str = str.replaceAll(RegExp(r'\s*(سم|cm|علبة)', caseSensitive: false), '').trim();
+
+    final match = RegExp(r'[-+]?\d+(?:\.\d+)?').firstMatch(str);
+    if (match != null) {
+      final numVal = double.tryParse(match.group(0)!);
+      if (numVal != null && numVal == 0) return true;
+      return false;
+    }
+
+    return str.isEmpty;
   }
 
   /// حساب تسمية نوع الشريحة لعمليات التفصيل (ص، 1/2 ص، 1/4 ص)
@@ -285,10 +308,10 @@ class ItemHistoryController {
         continue;
       }
 
-      final oldValStr = oldValRaw?.toString().trim() ?? '';
-      final newValStr = newValRaw?.toString().trim() ?? '';
+      final oldFormatted = _formatFieldValue(key, oldValRaw, isDetailing);
+      final newFormatted = _formatFieldValue(key, newValRaw, isDetailing);
 
-      if (oldValStr != newValStr) {
+      if (oldFormatted != newFormatted) {
         final label = _getFieldLabel(key, isDetailing);
         final icon = _getFieldIcon(key, isDetailing);
 
@@ -296,8 +319,8 @@ class ItemHistoryController {
           ItemFieldDiff(
             key: key,
             label: label,
-            oldValue: _formatFieldValue(key, oldValRaw, isDetailing),
-            newValue: _formatFieldValue(key, newValRaw, isDetailing),
+            oldValue: oldFormatted,
+            newValue: newFormatted,
             icon: icon,
           ),
         );
@@ -364,6 +387,91 @@ class ItemHistoryController {
     return fieldIcons[key] ?? Icons.edit_note_rounded;
   }
 
+  /// فحص ما إذا كان المفتاح يمثل بعداً أو مقاساً بوحدة "سم"
+  static bool isDimensionKey(String key) {
+    return key == 'length' ||
+        key == 'width' ||
+        key == 'height' ||
+        key == 'sheetLength' ||
+        key == 'sheetWidth' ||
+        key == 'sheet_length' ||
+        key == 'sheet_width' ||
+        key == 'sheetLengthManual' ||
+        key == 'sheetWidthManual' ||
+        key == 'sheet_length_manual' ||
+        key == 'sheet_width_manual' ||
+        key == 'sheetLengthResult' ||
+        key == 'sheetWidthResult' ||
+        key == 'sheet_length_result' ||
+        key == 'sheet_width_result' ||
+        key == 'productionWidth1' ||
+        key == 'production_width_1' ||
+        key == 'productionWidth2' ||
+        key == 'production_width_2' ||
+        key == 'productionHeight' ||
+        key == 'production_height';
+  }
+
+  /// استخراج الرقم وتنسيق الأبعاد ومقاسات الشيت دون بادئات وصفية ومع منع تكرار وحدة "سم"
+  static String formatDimension(dynamic value) {
+    if (value == null) return '—';
+    String str = value.toString().trim();
+    if (str.isEmpty || str == 'null' || str == '—') return '—';
+
+    // توحيد الأرقام المكتوبة بالعربية والفاصلة العشرية
+    const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
+    const englishDigits = '0123456789';
+    str = str.replaceAll('٫', '.').replaceAll('،', '.');
+    for (int i = 0; i < 10; i++) {
+      str = str.replaceAll(arabicDigits[i], englishDigits[i]);
+    }
+
+    // 1. تنظيف أي بادئات وصفية مثل "طول الشيت:" أو "عرض الشيت:" أو "طول:" أو الرموز التعبيرية
+    str = str.replaceAll(
+      RegExp(
+        r'^(?:📏|📐)?\s*(?:طول|عرض|ارتفاع|فلاب)?\s*(?:الشيت)?\s*[:\-]?\s*',
+        caseSensitive: false,
+      ),
+      '',
+    );
+
+    // 2. إزالة أي تواجد مكرر لوحدة "سم" أو "cm" أو مسافات زائدة
+    str = str.replaceAll(RegExp(r'\s*(سم|cm)', caseSensitive: false), '').trim();
+
+    // 3. استخراج القيمة الرقمية النظيفة فقط لمنع أي تكرار أو تشوه
+    final match = RegExp(r'[-+]?\d+(?:\.\d+)?').firstMatch(str);
+    if (match != null) {
+      final rawNumStr = match.group(0)!;
+      final d = double.tryParse(rawNumStr);
+      if (d != null) {
+        // إذا كان الرقم عدداً صحيحاً، يُعرض كعدد صحيح نظيف مثل الطول والعرض (مثال: 134 سم، 120 سم)
+        if (d % 1 == 0) {
+          return '${d.toInt()} سم';
+        }
+        // إذا كان كسراً عشرياً، إزالة الأصفار غير الضرورية في النهاية (مثال: 35.90 تصبح 35.9 سم مثل الارتفاع 22.5 سم)
+        final formatted = d.toString().replaceAll(RegExp(r'\.?0+$'), '');
+        return '$formatted سم';
+      }
+      return '$rawNumStr سم';
+    }
+
+    return str.isEmpty ? '—' : '$str سم';
+  }
+
+  /// استخراج وتنسيق عدد العلب
+  static String formatBoxes(dynamic value) {
+    if (value == null) return '—';
+    String str = value.toString().trim();
+    if (str.isEmpty || str == 'null' || str == '—') return '—';
+    str = str.replaceAll(RegExp(r'\s*علبة', caseSensitive: false), '').trim();
+    final d = double.tryParse(str);
+    if (d != null) {
+      final formatted = d % 1 == 0 ? d.toInt().toString() : d.toString();
+      return '$formatted علبة';
+    }
+    return '$str علبة';
+  }
+
   /// تنسيق القيم لعرض مقروء (إضافة وحدات القياس أو النصوص المناسبة)
   static String _formatFieldValue(String key, dynamic value, bool isDetailing) {
     if (value == null) return '—';
@@ -378,31 +486,12 @@ class ItemHistoryController {
     }
 
     // الأبعاد ومقاسات الفلاب والشيت
-    if (key == 'length' ||
-        key == 'width' ||
-        key == 'height' ||
-        key == 'sheetLengthManual' ||
-        key == 'sheetWidthManual' ||
-        key == 'sheetLengthResult' ||
-        key == 'sheetWidthResult' ||
-        key == 'productionWidth1' ||
-        key == 'productionWidth2' ||
-        key == 'productionHeight') {
-      final d = double.tryParse(str);
-      if (d != null) {
-        final formatted = d % 1 == 0 ? d.toInt().toString() : d.toString();
-        return '$formatted سم';
-      }
-      return '$str سم';
+    if (isDimensionKey(key)) {
+      return formatDimension(value);
     }
 
     if (key == 'numberOfBoxes' || key == 'number_of_boxes') {
-      final d = double.tryParse(str);
-      if (d != null) {
-        final formatted = d % 1 == 0 ? d.toInt().toString() : d.toString();
-        return '$formatted علبة';
-      }
-      return '$str علبة';
+      return formatBoxes(value);
     }
 
     return str;

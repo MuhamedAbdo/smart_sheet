@@ -130,5 +130,66 @@ void main() {
       expect(diffs.isEmpty, isTrue);
       expect(ItemHistoryController.hasChanges(oldData, newData), isFalse);
     });
+
+    test('تنظيف بادئات طول وعرض الشيت ومنع تكرار وحدة "سم"', () {
+      // فحص دالة formatDimension مباشرة
+      expect(
+        ItemHistoryController.formatDimension('طول الشيت: 134.00 سم سم'),
+        '134 سم',
+      );
+      expect(
+        ItemHistoryController.formatDimension('طول الشيت: 120.00 سم'),
+        '120 سم',
+      );
+      expect(
+        ItemHistoryController.formatDimension('📏 طول الشيت: 134.00 سم'),
+        '134 سم',
+      );
+      expect(
+        ItemHistoryController.formatDimension('عرض الشيت : 57.00 سم سم'),
+        '57 سم',
+      );
+      expect(
+        ItemHistoryController.formatDimension('📐 عرض الشيت: 35.90 سم'),
+        '35.9 سم',
+      );
+      expect(
+        ItemHistoryController.formatDimension('52 سم'),
+        '52 سم',
+      );
+      expect(
+        ItemHistoryController.formatDimension('22.5'),
+        '22.5 سم',
+      );
+      expect(
+        ItemHistoryController.formatDimension('طول الشيت: ١٣٤.٠٠ سم سم'),
+        '134 سم',
+      );
+
+      // فحص ظهور الفروقات في computeDifferences كما في شاشة المستخدم بالضبط
+      final oldData = {
+        'processType': 'تفصيل',
+        'sheetLengthResult': 'طول الشيت: 120.00 سم سم',
+        'sheetWidthResult': 'عرض الشيت: 57.00 سم سم',
+      };
+
+      final newData = {
+        'processType': 'تفصيل',
+        'sheetLengthResult': 'طول الشيت: 134.00 سم سم',
+        'sheetWidthResult': 'عرض الشيت: 35.90 سم',
+      };
+
+      final diffs = ItemHistoryController.computeDifferences(oldData, newData);
+
+      final lengthDiff = diffs.firstWhere((d) => d.key == 'sheetLengthResult');
+      expect(lengthDiff.label, 'طول الشيت المحسوب');
+      expect(lengthDiff.oldValue, '120 سم');
+      expect(lengthDiff.newValue, '134 سم');
+
+      final widthDiff = diffs.firstWhere((d) => d.key == 'sheetWidthResult');
+      expect(widthDiff.label, 'عرض الشيت المحسوب');
+      expect(widthDiff.oldValue, '57 سم');
+      expect(widthDiff.newValue, '35.9 سم');
+    });
   });
 }

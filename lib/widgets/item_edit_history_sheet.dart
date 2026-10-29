@@ -412,7 +412,7 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: isDark
               ? Colors.white.withValues(alpha: 0.03)
@@ -430,76 +430,78 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
               color: isDark ? Colors.white70 : Colors.grey.shade700,
             ),
             const SizedBox(width: 6),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 70, maxWidth: 115),
+            Expanded(
               child: Text(
                 diff.label,
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
 
             // القيمة القديمة
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: Colors.red.withValues(alpha: 0.3),
-                    width: 0.8,
-                  ),
-                ),
-                child: Text(
-                  diff.oldValue,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: Colors.red.shade700,
-                    fontWeight: FontWeight.w500,
-                    decoration: TextDecoration.lineThrough,
-                  ),
-                ),
-              ),
+            _buildValueBox(
+              value: diff.oldValue,
+              color: Colors.red,
+              isOld: true,
             ),
 
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 6),
+              padding: EdgeInsets.symmetric(horizontal: 5),
               child: Icon(
                 Icons.arrow_back_rounded,
-                size: 16,
+                size: 15,
                 color: Colors.grey,
               ),
             ),
 
             // القيمة الجديدة
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: Colors.green.withValues(alpha: 0.3),
-                    width: 0.8,
-                  ),
-                ),
-                child: Text(
-                  diff.newValue,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: Colors.green.shade700,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+            _buildValueBox(
+              value: diff.newValue,
+              color: Colors.green,
+              isOld: false,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// مربع عرض القيمة (موحد المقاسات عبر كل الحقول دون تشويه أو تصغير)
+  Widget _buildValueBox({
+    required String value,
+    required MaterialColor color,
+    required bool isOld,
+  }) {
+    return Container(
+      width: 70,
+      height: 28,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 0.8,
+        ),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          value,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          style: TextStyle(
+            fontSize: 12,
+            color: color.shade700,
+            fontWeight: isOld ? FontWeight.w500 : FontWeight.bold,
+            decoration: isOld ? TextDecoration.lineThrough : null,
+          ),
         ),
       ),
     );
