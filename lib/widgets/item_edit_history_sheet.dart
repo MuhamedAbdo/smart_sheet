@@ -1,0 +1,507 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' hide TextDirection;
+import 'package:smart_sheet/controllers/item_history_controller.dart';
+import 'package:smart_sheet/widgets/smart_sheet_card.dart';
+
+/// واجهة عرض سجل التعديلات (Timeline BottomSheet / Dialog)
+class ItemEditHistorySheet extends StatefulWidget {
+  final String itemId;
+  final String productName;
+  final String productCode;
+  final String clientName;
+
+  const ItemEditHistorySheet({
+    super.key,
+    required this.itemId,
+    required this.productName,
+    required this.productCode,
+    required this.clientName,
+  });
+
+  /// دالة مساعدة لفتح الـ BottomSheet بسهولة من أي مكان
+  static Future<void> show(
+    BuildContext context, {
+    required String itemId,
+    required String productName,
+    required String productCode,
+    required String clientName,
+  }) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ItemEditHistorySheet(
+        itemId: itemId,
+        productName: productName,
+        productCode: productCode,
+        clientName: clientName,
+      ),
+    );
+  }
+
+  @override
+  State<ItemEditHistorySheet> createState() => _ItemEditHistorySheetState();
+}
+
+class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _historyList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() => _isLoading = true);
+    final data = await ItemHistoryController.fetchHistory(widget.itemId);
+    if (mounted) {
+      setState(() {
+        _historyList = data;
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _formatDateTime(dynamic timestamp) {
+    if (timestamp == null) return 'تاريخ غير معروف';
+    try {
+      final dt = DateTime.parse(timestamp.toString()).toLocal();
+      return DateFormat('yyyy/MM/dd - hh:mm a').format(dt);
+    } catch (_) {
+      return timestamp.toString();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final bgColor = isDark ? const Color(0xFF1E293B) : Colors.white;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // مقبض السحب العلوي (Drag Handle)
+            const SizedBox(height: 12),
+            Center(
+              child: Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2.5),
+                ),
+              ),
+            ),
+
+            // رأس الـ BottomSheet (Header)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade700.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.history_rounded,
+                      color: Colors.amber.shade700,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "سجل التعديلات",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "${widget.productName.isNotEmpty ? widget.productName : 'صنف'} ${widget.productCode.isNotEmpty ? '(${widget.productCode})' : ''} — ${widget.clientName}",
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? Colors.white70 : Colors.grey.shade600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: 'إغلاق',
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+
+            const Divider(height: 1),
+
+            // المحتوى الرئيسي
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(strokeWidth: 2.5),
+                          SizedBox(height: 14),
+                          Text(
+                            "جاري تحميل سجل التعديلات...",
+                            style: TextStyle(color: Colors.grey, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _historyList.isEmpty
+                      ? _buildEmptyState(isDark)
+                      : RefreshIndicator(
+                          onRefresh: _loadHistory,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                            itemCount: _historyList.length,
+                            itemBuilder: (context, index) {
+                              final item = _historyList[index];
+                              final isFirst = index == 0;
+                              final isLast = index == _historyList.length - 1;
+                              return _buildTimelineItem(
+                                item: item,
+                                isFirst: isFirst,
+                                isLast: isLast,
+                                isDark: isDark,
+                              );
+                            },
+                          ),
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// واجهة حالة عدم وجود تعديلات سابقة
+  Widget _buildEmptyState(bool isDark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.grey.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.history_toggle_off_rounded,
+                size: 54,
+                color: isDark ? Colors.white38 : Colors.grey.shade400,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "لا يوجد سجل تعديلات لهذا الصنف",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "لم يتم تسجيل أي تعديلات سابقة على أبعاد أو بيانات هذا الصنف حتى الآن.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.white60 : Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// بناء عنصر واحد في التايم لاين (Timeline Node + Card)
+  Widget _buildTimelineItem({
+    required Map<String, dynamic> item,
+    required bool isFirst,
+    required bool isLast,
+    required bool isDark,
+  }) {
+    final oldData = Map<String, dynamic>.from(item['old_data'] as Map? ?? {});
+    final newData = Map<String, dynamic>.from(item['new_data'] as Map? ?? {});
+    final diffs = ItemHistoryController.computeDifferences(oldData, newData);
+    final editedAtStr = _formatDateTime(item['edited_at']);
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // عمود خط التايم لاين والأيقونة
+          Column(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isFirst ? Colors.blue.shade600 : Colors.amber.shade700,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isFirst ? Colors.blue : Colors.amber)
+                          .withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  isFirst ? Icons.edit_note_rounded : Icons.history_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    color: isDark ? Colors.white24 : Colors.grey.shade300,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(width: 14),
+
+          // بطاقة التعديل ومقارنة القيم
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: SmartSheetCard(
+                margin: EdgeInsets.zero,
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // تاريخ ووقت التعديل
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 15,
+                          color: isDark ? Colors.white60 : Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            editedAtStr,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white70 : Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          margin: const EdgeInsets.only(left: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: (ItemHistoryController.getOperationType(oldData, newData) == 'تكسير'
+                                    ? Colors.orange
+                                    : Colors.blue)
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            ItemHistoryController.getOperationType(oldData, newData),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: ItemHistoryController.getOperationType(oldData, newData) == 'تكسير'
+                                  ? Colors.orange.shade800
+                                  : Colors.blue.shade700,
+                            ),
+                          ),
+                        ),
+                        if (isFirst)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              "آخر تعديل",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+                    const Divider(height: 1),
+                    const SizedBox(height: 10),
+
+                    // قائمة التغييرات المسجلة
+                    if (diffs.isEmpty)
+                      const Text(
+                        "تحديث في بيانات الصنف (لا توجد تغييرات نصية)",
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      )
+                    else
+                      ...diffs.map((diff) => _buildDiffRow(diff, isDark)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// بناء صف تفصيلي لكل حقل تغير (القيمة القديمة ⬅️ القيمة الجديدة)
+  Widget _buildDiffRow(ItemFieldDiff diff, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.03)
+              : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? Colors.white12 : Colors.grey.shade200,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              diff.icon,
+              size: 16,
+              color: isDark ? Colors.white70 : Colors.grey.shade700,
+            ),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 70, maxWidth: 115),
+              child: Text(
+                diff.label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+
+            // القيمة القديمة
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: Colors.red.withValues(alpha: 0.3),
+                    width: 0.8,
+                  ),
+                ),
+                child: Text(
+                  diff.oldValue,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.red.shade700,
+                    fontWeight: FontWeight.w500,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+              ),
+            ),
+
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6),
+              child: Icon(
+                Icons.arrow_back_rounded,
+                size: 16,
+                color: Colors.grey,
+              ),
+            ),
+
+            // القيمة الجديدة
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: Colors.green.withValues(alpha: 0.3),
+                    width: 0.8,
+                  ),
+                ),
+                child: Text(
+                  diff.newValue,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

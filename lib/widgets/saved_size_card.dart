@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:smart_sheet/widgets/full_screen_image_page.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/widgets/smart_sheet_card.dart';
+import 'package:smart_sheet/widgets/item_edit_history_sheet.dart';
 
 class SavedSizeCard extends StatelessWidget {
   final Map<String, dynamic> record;
@@ -113,6 +114,21 @@ class SavedSizeCard extends StatelessWidget {
                       ? _showCutterDetails(
                           context, clientName, productName, productCode)
                       : _showFullDetails(context, record),
+                ),
+                // ―― زر سجل التعديلات ――
+                IconButton(
+                  icon: const Icon(Icons.history_rounded, color: Colors.amber),
+                  tooltip: 'سجل التعديلات',
+                  onPressed: () {
+                    final itemId = (record['sync_id'] ?? record['id'] ?? '').toString();
+                    ItemEditHistorySheet.show(
+                      context,
+                      itemId: itemId,
+                      productName: productName,
+                      productCode: productCode,
+                      clientName: clientName,
+                    );
+                  },
                 ),
                 // ―― أزرار التعديل والحذف بناءً على الصلاحيات ――
                 Row(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -7,6 +8,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/screens/client_items_screen.dart';
 import 'package:smart_sheet/models/die_cutting_form.dart';
+import 'package:smart_sheet/controllers/item_history_controller.dart';
 // الويدجات التالية محجوبة مؤقتاً من الـ UI لكنها تُستخدم في منطق التعديل
 // ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_buttons.dart';
@@ -419,6 +421,18 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     if (mounted) {
       // مزامنة سحابية عبر Queue (تعمل offline أيضاً)
       SyncService.instance.pushToQueue('customers', _buildCustomerPayload(newRecord));
+
+      // تسجيل التعديل في سجل التعديلات (Edit History) عند تعديل صنف موجود (استثناء تام للصور)
+      if (widget.existingData != null && !widget.isClientOnlyMode) {
+        final originalMap = Map<String, dynamic>.from(widget.existingData!);
+        unawaited(
+          ItemHistoryController.recordHistory(
+            itemId: syncId,
+            oldData: originalMap,
+            newData: newRecord,
+          ),
+        );
+      }
 
       UIUtils.showInfoSnackBar(
         message: "تم حفظ البيانات وتحديث السجلات",
