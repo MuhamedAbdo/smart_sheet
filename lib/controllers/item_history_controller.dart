@@ -693,4 +693,243 @@ class ItemHistoryController {
 
     return localRecords;
   }
+
+  /// تنظيف القيم المدخلة من أي وحدات قياس ملتصقة مثل "سم" أو "علبة"
+  static dynamic cleanRawValue(String key, dynamic value) {
+    if (value == null) return null;
+    if (value is num || value is bool) return value;
+    final str = value.toString().trim();
+    if (isDimensionKey(key)) {
+      return str.replaceAll(RegExp(r'\s*(سم|cm)', caseSensitive: false), '').trim();
+    }
+    if (key == 'numberOfBoxes' || key == 'number_of_boxes') {
+      return str.replaceAll(RegExp(r'\s*علبة', caseSensitive: false), '').trim();
+    }
+    return str;
+  }
+
+  /// استعادة نسخة سابقة من الصنف مع دمج ذكي وحماية كاملة للصور (Rollback / Restore)
+  static Future<bool> restoreHistoryVersion(
+    String itemId,
+    Map<String, dynamic> targetData,
+  ) async {
+    if (itemId.trim().isEmpty) {
+      debugPrint('⚠️ [restoreHistoryVersion] itemId فارغ');
+      return false;
+    }
+
+    try {
+      final box = Hive.isBoxOpen('savedSheetSizes')
+          ? Hive.box('savedSheetSizes')
+          : await Hive.openBox('savedSheetSizes');
+
+      dynamic targetKey;
+      Map<String, dynamic>? currentItem;
+
+      // البحث عن السجل الحالي في Hive
+      for (final key in box.keys) {
+        final entry = box.get(key);
+        if (entry is Map) {
+          final sId = (entry['sync_id'] ?? entry['id'] ?? '').toString().trim();
+          final keyStr = key.toString().trim();
+          if (sId == itemId.trim() || keyStr == itemId.trim()) {
+            targetKey = key;
+            currentItem = Map<String, dynamic>.from(entry);
+            break;
+          }
+        }
+      }
+
+      if (currentItem == null && box.containsKey(itemId)) {
+        final entry = box.get(itemId);
+        if (entry is Map) {
+          targetKey = itemId;
+          currentItem = Map<String, dynamic>.from(entry);
+        }
+      }
+
+      if (currentItem == null || targetKey == null) {
+        debugPrint('⚠️ [restoreHistoryVersion] لم يتم العثور على الصنف في Hive: $itemId');
+        return false;
+      }
+
+      // ── حماية الصور (حرج جداً) ──
+      // الاحتفاظ بمصفوفة الصور الحالية للعميل دون أي تغيير أو مسح
+      final dynamic rawImages = currentItem['imagePaths'] ??
+          currentItem['image_paths'] ??
+          currentItem['images'];
+
+      List<dynamic> preservedImages = [];
+      if (rawImages is List) {
+        preservedImages = List.from(rawImages);
+      } else if (rawImages != null && rawImages.toString().trim().isNotEmpty) {
+        preservedImages = [rawImages.toString().trim()];
+      }
+
+      // ── الدمج الذكي (Smart Merge) ──
+      // استبدال جميع الحقول النصية والرقمية بالبيانات الموجودة في targetData
+      final cleanTarget = extractCleanTextAndNumericData(targetData);
+      final mergedItem = Map<String, dynamic>.from(currentItem);
+
+      // تحديد نوع العملية المستهدف (تفصيل أو تكسير)
+      final op = getOperationType(currentItem, targetData);
+      mergedItem['processType'] = op;
+      mergedItem['process_type'] = op;
+      mergedItem['operation_type'] = op;
+
+      // استبدال الحقول المتتبعة
+      for (final key in trackedKeys) {
+        dynamic val = targetData[key];
+        if (val == null) {
+          if (key == 'productName') val = targetData['product_name'];
+          if (key == 'productCode') val = targetData['product_code'];
+          if (key == 'clientName') val = targetData['client_name'];
+          if (key == 'processType') val = targetData['process_type'] ?? targetData['operation_type'];
+          if (key == 'isSheet') val = targetData['is_sheet'];
+          if (key == 'formNumber') val = targetData['form_number'];
+          if (key == 'numberOfBoxes') val = targetData['number_of_boxes'];
+          if (key == 'productState') val = targetData['product_state'];
+          if (key == 'notes') val = targetData['notes'];
+        }
+
+        if (val != null) {
+          mergedItem[key] = cleanRawValue(key, val);
+        } else if (cleanTarget.containsKey(key)) {
+          mergedItem[key] = cleanRawValue(key, cleanTarget[key]);
+        }
+      }
+
+      // ضبط الحقول الخاصة بنوع العملية لمنع التضارب
+      if (op == 'تفصيل') {
+        mergedItem.remove('cuttingType');
+        mergedItem.remove('sheetLengthManual');
+        mergedItem.remove('sheetWidthManual');
+        mergedItem.remove('formNumber');
+        mergedItem.remove('form_number');
+        mergedItem.remove('numberOfBoxes');
+        mergedItem.remove('number_of_boxes');
+      } else if (op == 'تكسير') {
+        mergedItem.remove('productionWidth1');
+        mergedItem.remove('productionWidth2');
+        mergedItem.remove('productionHeight');
+        mergedItem.remove('sheetLengthResult');
+        mergedItem.remove('sheetWidthResult');
+        mergedItem.remove('isOverFlap');
+        mergedItem.remove('isFlap');
+        mergedItem.remove('isOneFlap');
+        mergedItem.remove('isTwoFlap');
+        mergedItem.remove('addTwoMm');
+      }
+
+      // توحيد الحقول المشتركة وذات التسميات المزدوجة
+      final pState = targetData['productState'] ??
+          targetData['product_state'] ??
+          cleanTarget['productState'] ??
+          mergedItem['productState'] ??
+          mergedItem['product_state'] ??
+          'سادة';
+      mergedItem['productState'] = pState;
+      mergedItem['product_state'] = pState;
+
+      final notesVal = targetData['notes'] ??
+          cleanTarget['notes'] ??
+          mergedItem['notes'] ??
+          '';
+      mergedItem['notes'] = notesVal.toString();
+
+      final fNum = mergedItem['formNumber'] ?? mergedItem['form_number'];
+      mergedItem['formNumber'] = fNum;
+      mergedItem['form_number'] = fNum;
+
+      final nBoxes = mergedItem['numberOfBoxes'] ?? mergedItem['number_of_boxes'];
+      mergedItem['numberOfBoxes'] = nBoxes;
+      mergedItem['number_of_boxes'] = nBoxes;
+
+      // مزامنة تفاصيل الشيت الداخلية sheet_details
+      final sheetDetailsMap = (mergedItem['sheet_details'] is Map)
+          ? Map<String, dynamic>.from(mergedItem['sheet_details'])
+          : <String, dynamic>{};
+
+      sheetDetailsMap.addAll({
+        'isOverFlap': mergedItem['isOverFlap'] ?? false,
+        'isFlap': mergedItem['isFlap'] ?? true,
+        'isOneFlap': mergedItem['isOneFlap'] ?? false,
+        'isTwoFlap': mergedItem['isTwoFlap'] ?? true,
+        'addTwoMm': mergedItem['addTwoMm'] ?? false,
+        'isFullSize': mergedItem['isFullSize'] ?? true,
+        'isQuarterSize': mergedItem['isQuarterSize'] ?? false,
+        'isQuarterWidth': mergedItem['isQuarterWidth'] ?? true,
+        'sheetLengthResult': mergedItem['sheetLengthResult']?.toString() ?? '',
+        'sheetWidthResult': mergedItem['sheetWidthResult']?.toString() ?? '',
+        'productionWidth1': mergedItem['productionWidth1']?.toString() ?? '',
+        'productionHeight': mergedItem['productionHeight']?.toString() ?? '',
+        'productionWidth2': mergedItem['productionWidth2']?.toString() ?? '',
+        'sheetLengthManual': mergedItem['sheetLengthManual']?.toString() ?? '',
+        'sheetWidthManual': mergedItem['sheetWidthManual']?.toString() ?? '',
+        'cuttingType': mergedItem['cuttingType']?.toString() ?? 'دوبل',
+        'formNumber': fNum?.toString() ?? '',
+        'form_number': fNum?.toString() ?? '',
+        'numberOfBoxes': nBoxes,
+        'number_of_boxes': nBoxes,
+      });
+      mergedItem['sheet_details'] = sheetDetailsMap;
+
+      // تطبيق الحماية الصارمة لمصفوفة الصور
+      mergedItem['imagePaths'] = preservedImages;
+      mergedItem['image_paths'] = preservedImages;
+      if (currentItem.containsKey('images')) {
+        mergedItem['images'] = preservedImages;
+      }
+
+      // تحديث تاريخ السجل
+      mergedItem['date'] = DateTime.now().toIso8601String();
+      mergedItem['sync_id'] = (currentItem['sync_id'] ?? itemId).toString();
+
+      // ── 3. الحفظ والتسجيل (Save & Sync) ──
+      // أ) حفظ الكائن المدمج الجديد في Hive
+      await box.put(targetKey, mergedItem);
+      debugPrint('✅ [restoreHistoryVersion] تم حفظ الصنف المستعاد في Hive بنجاح');
+
+      // ب) إضافة عملية الحفظ إلى طابور المزامنة sync_queue (كعملية update)
+      final customerPayload = <String, dynamic>{
+        'sync_id': mergedItem['sync_id'],
+        'client_name': mergedItem['clientName'] ?? mergedItem['client_name'] ?? '',
+        'product_name': mergedItem['productName'] ?? mergedItem['product_name'] ?? '',
+        'product_code': mergedItem['productCode'] ?? mergedItem['product_code'] ?? '',
+        'process_type': mergedItem['processType'] ?? mergedItem['process_type'] ?? 'تفصيل',
+        'length': double.tryParse(mergedItem['length']?.toString() ?? ''),
+        'width': double.tryParse(mergedItem['width']?.toString() ?? ''),
+        'height': double.tryParse(mergedItem['height']?.toString() ?? ''),
+        'is_sheet': mergedItem['isSheet'] == true || mergedItem['is_sheet'] == true,
+        'date': mergedItem['date'],
+        'is_client_record': mergedItem['isClientRecord'] == true || mergedItem['is_client_record'] == true,
+        'image_paths': preservedImages.map((e) => e.toString()).toList(),
+        'form_number': fNum?.toString() ?? '',
+        'number_of_boxes': double.tryParse(nBoxes?.toString() ?? ''),
+        'sheet_details': sheetDetailsMap,
+        'product_state': pState,
+        'notes': notesVal.toString(),
+      };
+
+      await SyncService.instance.pushToQueue(
+        'customers',
+        customerPayload,
+        operation: 'update',
+      );
+      debugPrint('✅ [restoreHistoryVersion] تم إدراج عملية التحديث في sync_queue (update)');
+
+      // ج) تفعيل دالة recordHistory تلقائياً لتسجيل حركة الاستعادة كتعديل جديد في السجل
+      await recordHistory(
+        itemId: itemId,
+        oldData: currentItem,
+        newData: mergedItem,
+      );
+      debugPrint('✅ [restoreHistoryVersion] تم تسجيل حركة الاستعادة كتعديل جديد في السجل');
+
+      return true;
+    } catch (e, stack) {
+      debugPrint('❌ [restoreHistoryVersion] خطأ أثناء استعادة التعديل: $e\n$stack');
+      return false;
+    }
+  }
 }

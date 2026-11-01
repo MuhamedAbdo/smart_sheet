@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:smart_sheet/controllers/item_history_controller.dart';
+import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
 /// واجهة عرض سجل التعديلات (Timeline BottomSheet / Dialog)
@@ -19,14 +20,14 @@ class ItemEditHistorySheet extends StatefulWidget {
   });
 
   /// دالة مساعدة لفتح الـ BottomSheet بسهولة من أي مكان
-  static Future<void> show(
+  static Future<bool?> show(
     BuildContext context, {
     required String itemId,
     required String productName,
     required String productCode,
     required String clientName,
   }) {
-    return showModalBottomSheet(
+    return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -91,6 +92,84 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
       return DateFormat('yyyy/MM/dd - hh:mm a').format(dt);
     } catch (_) {
       return timestamp.toString();
+    }
+  }
+
+  /// حوار التأكيد واستدعاء منطق الاستعادة
+  Future<void> _showRestoreDialog({
+    required Map<String, dynamic> targetData,
+    required String title,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.restore, color: Colors.amber.shade800),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: const Text(
+            "هل أنت متأكد من استعادة هذه المقاسات؟ سيتم تطبيق المقاسات القديمة وتسجيل هذا الإجراء كتعديل جديد.",
+            style: TextStyle(fontSize: 14, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx, false),
+              child: const Text("إلغاء"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber.shade800,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => Navigator.pop(dialogCtx, true),
+              child: const Text(
+                "تأكيد الاستعادة",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLoading = true);
+
+    final success = await ItemHistoryController.restoreHistoryVersion(
+      widget.itemId,
+      targetData,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      // إغلاق الـ BottomSheet بعد نجاح الاستعادة
+      Navigator.of(context).pop(true);
+      UIUtils.showInfoSnackBar(
+        message: "تم استعادة النسخة بنجاح وتطبيق المقاسات",
+        backgroundColor: Colors.green,
+        icon: Icons.check_circle_outline,
+      );
+    } else {
+      setState(() => _isLoading = false);
+      UIUtils.showInfoSnackBar(
+        message: "تعذر استعادة المقاسات. يرجى المحاولة مرة أخرى.",
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
+      );
     }
   }
 
@@ -335,91 +414,142 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 20),
-              child: SmartSheetCard(
-                margin: EdgeInsets.zero,
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // تاريخ ووقت التعديل
-                    Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SmartSheetCard(
+                    margin: EdgeInsets.zero,
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.access_time_rounded,
-                          size: 15,
-                          color: isDark ? Colors.white60 : Colors.grey.shade600,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            editedAtStr,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white70 : Colors.grey.shade700,
+                        // تاريخ ووقت التعديل
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 15,
+                              color: isDark ? Colors.white60 : Colors.grey.shade600,
                             ),
-                          ),
-                        ),
-                        Container(
-                          margin: const EdgeInsets.only(left: 6),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: (ItemHistoryController.getOperationType(oldData, newData) == 'تكسير'
-                                    ? Colors.orange
-                                    : Colors.blue)
-                                .withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            ItemHistoryController.getOperationType(oldData, newData),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: ItemHistoryController.getOperationType(oldData, newData) == 'تكسير'
-                                  ? Colors.orange.shade800
-                                  : Colors.blue.shade700,
-                            ),
-                          ),
-                        ),
-                        if (isFirst)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              "آخر تعديل",
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                editedAtStr,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                                ),
                               ),
                             ),
-                          ),
+                            Container(
+                              margin: const EdgeInsets.only(left: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: (ItemHistoryController.getOperationType(oldData, newData) == 'تكسير'
+                                        ? Colors.orange
+                                        : Colors.blue)
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                ItemHistoryController.getOperationType(oldData, newData),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: ItemHistoryController.getOperationType(oldData, newData) == 'تكسير'
+                                      ? Colors.orange.shade800
+                                      : Colors.blue.shade700,
+                                ),
+                              ),
+                            ),
+                            if (isFirst)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  "آخر تعديل",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(width: 4),
+                            // زر استعادة هذا التعديل
+                            IconButton(
+                              icon: const Icon(Icons.restore),
+                              tooltip: 'استعادة هذا التعديل',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
+                              onPressed: () => _showRestoreDialog(
+                                targetData: newData.isNotEmpty ? newData : oldData,
+                                title: "استعادة التعديل",
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 10),
+                        const Divider(height: 1),
+                        const SizedBox(height: 10),
+
+                        // قائمة التغييرات المسجلة
+                        if (diffs.isEmpty)
+                          const Text(
+                            "تحديث في بيانات الصنف (لا توجد تغييرات نصية)",
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          )
+                        else
+                          ...diffs.map((diff) => _buildDiffRow(diff, isDark)),
                       ],
                     ),
-
-                    const SizedBox(height: 10),
-                    const Divider(height: 1),
-                    const SizedBox(height: 10),
-
-                    // قائمة التغييرات المسجلة
-                    if (diffs.isEmpty)
-                      const Text(
-                        "تحديث في بيانات الصنف (لا توجد تغييرات نصية)",
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      )
-                    else
-                      ...diffs.map((diff) => _buildDiffRow(diff, isDark)),
+                  ),
+                  if (isLast) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.amber.shade800,
+                        side: BorderSide(color: Colors.amber.shade700, width: 1.5),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 11,
+                          horizontal: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(Icons.restore, size: 20),
+                      label: const Text(
+                        "استعادة الأصل (Restore Original)",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      onPressed: () {
+                        final oldestData = Map<String, dynamic>.from(
+                          item['old_data'] as Map? ?? {},
+                        );
+                        _showRestoreDialog(
+                          targetData: oldestData,
+                          title: "استعادة الأصل",
+                        );
+                      },
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
           ),

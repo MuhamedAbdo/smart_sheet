@@ -219,5 +219,13 @@ void main() {
       expect(notesDiff.oldValue, 'ملاحظة قديمة');
       expect(notesDiff.newValue, 'ملاحظة جديدة معدلة');
     });
+
+    test('فحص دالة cleanRawValue لتنظيف الأبعاد وأعداد العلب', () {
+      expect(ItemHistoryController.cleanRawValue('length', '120 سم'), '120');
+      expect(ItemHistoryController.cleanRawValue('width', '50.5 cm'), '50.5');
+      expect(ItemHistoryController.cleanRawValue('numberOfBoxes', '10 علبة'), '10');
+      expect(ItemHistoryController.cleanRawValue('productName', 'كرتونة مياه'), 'كرتونة مياه');
+      expect(ItemHistoryController.cleanRawValue('notes', 'ملاحظات هامة'), 'ملاحظات هامة');
+    });
   });
 }
