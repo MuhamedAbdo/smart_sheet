@@ -31,6 +31,8 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
   final orderNumberController = TextEditingController();
   final techController = TextEditingController();
   final formNumberController = TextEditingController();
+  final notesController = TextEditingController();
+  String _productState = 'سادة';
   String? selectedMachine;
   List<String> selectedCrewMembers = [];
 
@@ -49,6 +51,10 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
           widget.initialData!['orderNumber']?.toString() ?? '';
       formNumberController.text =
           widget.initialData!['formNumber']?.toString() ?? '';
+      notesController.text = widget.initialData!['notes']?.toString() ?? '';
+      _productState = widget.initialData!['productState']?.toString() ??
+          widget.initialData!['product_state']?.toString() ??
+          'سادة';
     }
   }
 
@@ -60,6 +66,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
     orderNumberController.dispose();
     techController.dispose();
     formNumberController.dispose();
+    notesController.dispose();
     super.dispose();
   }
 
@@ -169,6 +176,29 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                       _buildSimpleField(formNumberController, 'رقم الفورمة (اختياري)', Icons.grid_3x3, keyboardType: TextInputType.number),
                       const SizedBox(height: 8),
                     ],
+                    // اختيار حالة المنتج: سادة أو مطبوع
+                    Row(
+                      children: [
+                        const Text("حالة المنتج:", style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          avatar: const Icon(Icons.crop_square_rounded, size: 16),
+                          label: const Text("سادة"),
+                          selected: _productState == "سادة",
+                          onSelected: (v) => setState(() => _productState = "سادة"),
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          avatar: const Icon(Icons.print_rounded, size: 16),
+                          label: const Text("مطبوع"),
+                          selected: _productState == "مطبوع",
+                          onSelected: (v) => setState(() => _productState = "مطبوع"),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _buildSimpleField(notesController, 'الملاحظات', Icons.notes_rounded, maxLines: 2),
+                    const SizedBox(height: 8),
                     _buildWorkerSuggestField(techController),
                     if (widget.department == 'die_cutting' || widget.department == 'crushing' || widget.department == 'production_line') ...[
                       const SizedBox(height: 8),
@@ -239,7 +269,13 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                   startTime: ServerTimeService.nowUtc,
                   downtimeIntervals: [],
                   lastStateChange: ServerTimeService.nowUtc,
-                  dimensions: widget.initialData?['dimensions'],
+                  dimensions: () {
+                    final d = Map<String, dynamic>.from(widget.initialData?['dimensions'] ?? {});
+                    d['notes'] = notesController.text.trim();
+                    d['product_state'] = _productState;
+                    d['productState'] = _productState;
+                    return d;
+                  }(),
                   isSheet: widget.initialData?['isSheet'] ?? false,
                   imagePaths: List<String>.from(
                       widget.initialData?['imagePaths'] ?? []),
@@ -405,14 +441,15 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
 
   Widget _buildSimpleField(
       TextEditingController controller, String label, IconData icon,
-      {TextInputType? keyboardType, FocusNode? focusNode}) {
+      {TextInputType? keyboardType, FocusNode? focusNode, int maxLines = 1}) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     
     return TextField(
       controller: controller,
       focusNode: focusNode,
-      keyboardType: keyboardType,
+      keyboardType: maxLines > 1 ? TextInputType.multiline : keyboardType,
+      maxLines: maxLines,
       style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),

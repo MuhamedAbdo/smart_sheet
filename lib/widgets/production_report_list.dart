@@ -89,8 +89,43 @@ class FlexoProductionReportList extends StatelessWidget {
                     const SizedBox(height: 12),
                     _buildInfoRow("👤 العميل:",
                         record['clientName']?.toString() ?? 'غير محدد'),
-                    _buildInfoRow("📦 الصنف:",
-                        record['product']?.toString() ?? 'غير محدد'),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: _buildInfoRow("📦 الصنف:",
+                              record['product']?.toString() ?? 'غير محدد'),
+                        ),
+                        Builder(
+                          builder: (_) {
+                            final pState = record['productState']?.toString() ??
+                                record['product_state']?.toString() ??
+                                (record['dimensions'] is Map
+                                    ? (record['dimensions']['product_state']?.toString() ??
+                                        record['dimensions']['productState']?.toString())
+                                    : null) ??
+                                'سادة';
+                            final isPr = pState == 'مطبوع';
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isPr ? Colors.purple.shade700 : Colors.teal.shade700,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                pState,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                     
                     if (record['productCode'] != null &&
                         record['productCode'].toString().isNotEmpty)
@@ -175,7 +210,7 @@ class FlexoProductionReportList extends StatelessWidget {
                           ),
                         IconButton(
                           onPressed: () =>
-                              onEdit(key, _convertValuesToString(record)),
+                          onEdit(key, _convertValuesToString(record)),
                           icon: const Icon(Icons.edit, color: Colors.blue),
                           tooltip: 'تعديل',
                         ),
@@ -228,10 +263,45 @@ class FlexoProductionReportList extends StatelessWidget {
   }
 
   Widget _buildNotesText(dynamic notes) {
-    if (notes == null || notes.toString().isEmpty) {
+    if (notes == null || notes.toString().trim().isEmpty) {
       return const SizedBox.shrink();
     }
-    return Text("📝 ملاحظات: $notes");
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.notes_rounded, size: 18, color: Colors.amber),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "الملاحظات:",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  notes.toString(),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Map<String, dynamic> _convertToTypedMap(dynamic data) {
@@ -280,4 +350,3 @@ class FlexoProductionReportList extends StatelessWidget {
     }
   }
 }
-

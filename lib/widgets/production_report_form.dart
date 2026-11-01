@@ -77,6 +77,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
   bool _isSaving = false;
   bool isSheet = false;
   List<String> selectedCrewMembers = [];
+  String _productState = 'سادة';
 
 
   @override
@@ -152,6 +153,11 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
     weightController.text =
         data['weight']?.toString() ?? dimensions['weight']?.toString() ?? '';
     notesController.text = data['notes']?.toString() ?? '';
+    _productState = data['productState']?.toString() ??
+        data['product_state']?.toString() ??
+        (dimensions['product_state']?.toString() ??
+            dimensions['productState']?.toString()) ??
+        'سادة';
 
     orderNumberController.text = data['orderNumber']?.toString() ?? data['order_number']?.toString() ?? '';
     formNumberController.text = data['formNumber']?.toString() ?? data['form_number']?.toString() ?? '';
@@ -223,6 +229,8 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
           'weight': wVal,
           'paperLayers': layersVal,
           'form_number': formNumberController.text.trim(),
+          'product_state': _productState,
+          'productState': _productState,
         },
         'isSheet': isSheet,
 
@@ -245,6 +253,8 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
         'shiftName': _selectedShiftName,
         'shift_name': _selectedShiftName,
         'notes': notesController.text.trim(),
+        'productState': _productState,
+        'product_state': _productState,
         'orderNumber': orderNumberController.text.trim(),
         'formNumber': formNumberController.text.trim(),
         'form_number': formNumberController.text.trim(),
@@ -490,6 +500,26 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                         icon: Icons.timer_off,
                         keyboardType: TextInputType.number,
                         isRequired: false),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text("حالة المنتج:", style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          avatar: const Icon(Icons.crop_square_rounded, size: 16),
+                          label: const Text("سادة"),
+                          selected: _productState == "سادة",
+                          onSelected: (v) => setState(() => _productState = "سادة"),
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          avatar: const Icon(Icons.print_rounded, size: 16),
+                          label: const Text("مطبوع"),
+                          selected: _productState == "مطبوع",
+                          onSelected: (v) => setState(() => _productState = "مطبوع"),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     _buildTextField(notesController, "📝 ملاحظات (اختياري)",
                         maxLines: 3, isRequired: false),

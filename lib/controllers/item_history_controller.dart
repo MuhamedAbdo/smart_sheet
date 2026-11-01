@@ -56,6 +56,8 @@ class ItemHistoryController {
     'isFullSize',
     'isQuarterSize',
     'isQuarterWidth',
+    'productState',
+    'notes',
   ];
 
   /// مسميات الحقول باللغة العربية
@@ -93,6 +95,9 @@ class ItemHistoryController {
     'isFullSize': 'مقاس كامل',
     'isQuarterSize': 'ربع المقاس',
     'isQuarterWidth': 'ربع العرض',
+    'productState': 'حالة المنتج',
+    'product_state': 'حالة المنتج',
+    'notes': 'الملاحظات',
   };
 
   /// أيقونات معبرة لكل حقل
@@ -119,6 +124,9 @@ class ItemHistoryController {
     'sheetWidthManual': Icons.square_foot_rounded,
     'sheetLengthResult': Icons.calculate_outlined,
     'sheetWidthResult': Icons.calculate_outlined,
+    'productState': Icons.style_outlined,
+    'product_state': Icons.style_outlined,
+    'notes': Icons.notes_rounded,
   };
 
   /// استخراج كائن نظيف يحتوي فقط على الحقول النصية والرقمية (مع استثناء تام لمصفوفات الصور)
@@ -137,6 +145,8 @@ class ItemHistoryController {
         if (key == 'isSheet') value = data['is_sheet'];
         if (key == 'formNumber') value = data['form_number'];
         if (key == 'numberOfBoxes') value = data['number_of_boxes'];
+        if (key == 'productState') value = data['product_state'] ?? data['productState'];
+        if (key == 'notes') value = data['notes'];
       }
 
       if (value != null) {
@@ -368,6 +378,9 @@ class ItemHistoryController {
       'is_sheet': 'شيت فقط',
       'sheetLengthResult': 'طول الشيت المحسوب',
       'sheetWidthResult': 'عرض الشيت المحسوب',
+      'productState': 'حالة المنتج',
+      'product_state': 'حالة المنتج',
+      'notes': 'الملاحظات',
     };
 
     return generalLabels[key] ?? fieldLabels[key] ?? key;
@@ -558,12 +571,13 @@ class ItemHistoryController {
     }
   }
 
-  /// جلب سجل التعديلات لصنف معين (من السيرفر مع كاش محلي)
-  static Future<List<Map<String, dynamic>>> fetchHistory(String itemId) async {
+  /// جلب السجلات المحلية من كاش Hive مع فحص طابور المزامنة (sync_queue) أولاً (Offline-First)
+  static Future<List<Map<String, dynamic>>> getLocalHistory(String itemId) async {
     if (itemId.trim().isEmpty) return [];
 
-    // استرجاع الكاش المحلي أولاً
-    List<Map<String, dynamic>> localRecords = [];
+    final recordsMap = <String, Map<String, dynamic>>{};
+
+    // 1. استرجاع السجلات المحفوظة في صندوق Hive
     try {
       final box = Hive.isBoxOpen('item_edit_history')
           ? Hive.box('item_edit_history')
@@ -571,37 +585,108 @@ class ItemHistoryController {
 
       final cached = box.get(itemId) as List?;
       if (cached != null) {
-        localRecords = cached
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
+        for (final item in cached) {
+          if (item is Map) {
+            final map = Map<String, dynamic>.from(item);
+            final id = map['id']?.toString() ?? const Uuid().v4();
+            recordsMap[id] = map;
+          }
+        }
       }
     } catch (e) {
       debugPrint('⚠️ [ItemHistoryController] خطأ قراءة الكاش المحلي: $e');
     }
 
-    // محاولة جلب أحدث البيانات من Supabase
+    // 2. فحص طابور المزامنة sync_queue لأي عمليات تعديل معلقة لم ترفع بعد
     try {
-      final res = await _supabase
-          .from('item_edit_history')
-          .select()
-          .eq('item_id', itemId)
-          .order('edited_at', ascending: false);
+      if (Hive.isBoxOpen('sync_queue') || await Hive.boxExists('sync_queue')) {
+        final queueBox = Hive.isBoxOpen('sync_queue')
+            ? Hive.box('sync_queue')
+            : await Hive.openBox('sync_queue');
 
-      if (res.isNotEmpty) {
-        final serverRecords = res
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-
-        // تحديث الكاش المحلي
-        try {
-          final box = Hive.isBoxOpen('item_edit_history')
-              ? Hive.box('item_edit_history')
-              : await Hive.openBox('item_edit_history');
-          await box.put(itemId, serverRecords);
-        } catch (_) {}
-
-        return serverRecords;
+        for (var i = 0; i < queueBox.length; i++) {
+          final entry = queueBox.getAt(i);
+          if (entry is Map && entry['table'] == 'item_edit_history') {
+            final data = entry['data'];
+            if (data is Map && data['item_id']?.toString() == itemId) {
+              final map = Map<String, dynamic>.from(data);
+              final id = map['id']?.toString() ?? 'pending_$i';
+              recordsMap[id] = map;
+            }
+          }
+        }
       }
+    } catch (e) {
+      debugPrint('⚠️ [ItemHistoryController] خطأ قراءة طابور المزامنة: $e');
+    }
+
+    final list = recordsMap.values.toList();
+    list.sort((a, b) {
+      final aDate = a['edited_at']?.toString() ?? '';
+      final bDate = b['edited_at']?.toString() ?? '';
+      return bDate.compareTo(aDate);
+    });
+
+    return list;
+  }
+
+  /// جلب أحدث البيانات من Supabase وتحديث الكاش المحلي
+  static Future<List<Map<String, dynamic>>> fetchRemoteHistory(String itemId) async {
+    if (itemId.trim().isEmpty) return [];
+
+    final res = await _supabase
+        .from('item_edit_history')
+        .select()
+        .eq('item_id', itemId)
+        .order('edited_at', ascending: false)
+        .timeout(const Duration(seconds: 4));
+
+    final serverRecords = (res as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+
+    // دمج السجلات المحلية المعلقة في sync_queue التي قد لا تكون رُفعت بعد
+    final localRecords = await getLocalHistory(itemId);
+    final mergedMap = <String, Map<String, dynamic>>{};
+
+    for (final r in serverRecords) {
+      final id = r['id']?.toString() ?? '';
+      if (id.isNotEmpty) mergedMap[id] = r;
+    }
+    for (final r in localRecords) {
+      final id = r['id']?.toString() ?? '';
+      if (id.isNotEmpty && !mergedMap.containsKey(id)) {
+        mergedMap[id] = r;
+      }
+    }
+
+    final combinedList = mergedMap.values.toList()
+      ..sort((a, b) {
+        final aDate = a['edited_at']?.toString() ?? '';
+        final bDate = b['edited_at']?.toString() ?? '';
+        return bDate.compareTo(aDate);
+      });
+
+    // تحديث الكاش المحلي
+    try {
+      final box = Hive.isBoxOpen('item_edit_history')
+          ? Hive.box('item_edit_history')
+          : await Hive.openBox('item_edit_history');
+      await box.put(itemId, combinedList);
+    } catch (_) {}
+
+    return combinedList;
+  }
+
+  /// جلب سجل التعديلات لصنف معين (Offline-First: محلي أولاً ثم السيرفر)
+  static Future<List<Map<String, dynamic>>> fetchHistory(String itemId) async {
+    if (itemId.trim().isEmpty) return [];
+
+    final localRecords = await getLocalHistory(itemId);
+
+    try {
+      final remoteRecords = await fetchRemoteHistory(itemId);
+      if (remoteRecords.isNotEmpty) return remoteRecords;
     } catch (e) {
       debugPrint('⚠️ [ItemHistoryController] فشل الجلب من Supabase ($e) — استخدام الكاش المحلي');
     }

@@ -64,6 +64,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   final sheetWidthManualController = TextEditingController();
   final formNumberController = TextEditingController();
   final numberOfBoxesController = TextEditingController();
+  final notesController = TextEditingController();
+  String _productState = "سادة";
 
   bool _isProcessing = false;
   bool _isUploading = false; // حالة رفع الصور إلى Cloud
@@ -262,6 +264,9 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'date': DateTime.now().toIso8601String(),
       'isSheet': isSheet,
       'isClientRecord': isAddingClientOnly,
+      'productState': _productState,
+      'product_state': _productState,
+      'notes': notesController.text.trim(),
       'factoryId': '', // سيُملأ بواسطة SyncService
       'formNumber': _processType == 'تكسير' ? formNumberController.text.trim() : null,
       'form_number': _processType == 'تكسير' ? formNumberController.text.trim() : null,
@@ -481,6 +486,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'date': r['date'],
       'is_client_record': r['isClientRecord'],
       'image_paths': r['imagePaths'] ?? [],
+      'product_state': r['product_state'] ?? r['productState'] ?? 'سادة',
+      'notes': r['notes'] ?? '',
       'form_number': r['form_number'] ?? r['formNumber'],
       'number_of_boxes': r['number_of_boxes'] ?? double.tryParse(r['numberOfBoxes']?.toString() ?? ''),
       'sheet_details': {
@@ -572,6 +579,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       widthController.text = data['width']?.toString() ?? '';
       heightController.text = data['height']?.toString() ?? '';
       isSheet = data['isSheet'] ?? false;
+      _productState = data['productState']?.toString() ?? data['product_state']?.toString() ?? 'سادة';
+      notesController.text = data['notes']?.toString() ?? '';
 
       if (data['imagePaths'] != null) {
         _capturedImages = (data['imagePaths'] as List).map((p) {
@@ -726,6 +735,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
     sheetWidthManualController.dispose();
     formNumberController.dispose();
     numberOfBoxesController.dispose();
+    notesController.dispose();
     super.dispose();
   }
 
@@ -814,6 +824,9 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                 clientNameEnabled: !isLockedMode,
                 clientNameLocked: isLockedMode,
                 isAddingClientOnly: isAddingClientOnly,
+                productState: _productState,
+                onProductStateChanged: (v) => setState(() => _productState = v),
+                notesController: notesController,
               ),
 
               const SizedBox(height: 16),

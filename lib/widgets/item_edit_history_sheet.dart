@@ -54,13 +54,33 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
   }
 
   Future<void> _loadHistory() async {
-    setState(() => _isLoading = true);
-    final data = await ItemHistoryController.fetchHistory(widget.itemId);
+    // 1. قراءة السجل من الكاش المحلي وطابور المزامنة فوراً (حتى لو أوفلاين)
+    final localData = await ItemHistoryController.getLocalHistory(widget.itemId);
     if (mounted) {
       setState(() {
-        _historyList = data;
-        _isLoading = false;
+        _historyList = localData;
+        if (localData.isNotEmpty) {
+          _isLoading = false;
+        }
       });
+    }
+
+    // 2. عند وجود اتصال، جلب التعديلات الجديدة من Supabase وتحديث الـ UI
+    try {
+      final remoteData = await ItemHistoryController.fetchRemoteHistory(widget.itemId);
+      if (mounted) {
+        setState(() {
+          _historyList = remoteData;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('ℹ️ [ItemEditHistorySheet] استمرار العمل بالكاش المحلي (أوفلاين): $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -236,11 +256,12 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
             ),
             const SizedBox(height: 16),
             const Text(
-              "لا يوجد سجل تعديلات لهذا الصنف",
+              "لا يوجد سجل تعديلات لهذا الصنف حتى الآن.",
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(

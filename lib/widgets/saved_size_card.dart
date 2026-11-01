@@ -60,6 +60,9 @@ class SavedSizeCard extends StatelessWidget {
     final images = (record['imagePaths'] is List)
         ? (record['imagePaths'] as List).map((e) => e.toString()).toList()
         : <String>[];
+    final productState = record['productState']?.toString() ?? record['product_state']?.toString() ?? 'سادة';
+    final notes = record['notes']?.toString().trim() ?? '';
+    final isPrinted = productState == 'مطبوع';
 
     return SmartSheetCard(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
@@ -103,6 +106,35 @@ class SavedSizeCard extends StatelessWidget {
                             ? Colors.orange
                             : Colors.blue,
                         visualDensity: VisualDensity.compact,
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isPrinted
+                              ? Colors.purple.shade700
+                              : Colors.teal.shade700,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isPrinted ? Icons.print_rounded : Icons.crop_square_rounded,
+                              size: 13,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              productState,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -189,6 +221,50 @@ class SavedSizeCard extends StatelessWidget {
                         fontWeight: FontWeight.w500),
                   ),
                 ),
+            ],
+
+            // --- قسم الملاحظات (تحت مقاسات الشيت وقبل قسم الصور) ---
+            if (notes.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.notes_rounded, size: 18, color: Colors.amber),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "ملاحظات الصنف:",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            notes,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
 
             // --- عرض الصور المعالج ---
@@ -523,6 +599,9 @@ class SavedSizeCard extends StatelessWidget {
             Text("📏 طول الشيت: ${record['sheetLengthManual'] ?? '—'} سم"),
             Text("📐 عرض الشيت: ${record['sheetWidthManual'] ?? '—'} سم"),
             Text("🔧 النوع: ${record['cuttingType'] ?? '—'}"),
+            Text("🏷️ حالة المنتج: ${record['productState'] ?? record['product_state'] ?? 'سادة'}"),
+            if (record['notes']?.toString().trim().isNotEmpty ?? false)
+              Text("📝 الملاحظات: ${record['notes']}"),
           ],
         ),
         actions: [
@@ -583,6 +662,12 @@ class SavedSizeCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text("📏 الأبعاد: $length × $width × $height سم"),
+            const SizedBox(height: 4),
+            Text("🏷️ حالة المنتج: ${record['productState'] ?? record['product_state'] ?? 'سادة'}"),
+            if (record['notes']?.toString().trim().isNotEmpty ?? false) ...[
+              const SizedBox(height: 4),
+              Text("📝 الملاحظات: ${record['notes']}"),
+            ],
             const SizedBox(height: 10),
             if ((record['sheetLengthResult']?.isNotEmpty ?? false) ||
                 (record['sheetWidthResult']?.isNotEmpty ?? false))

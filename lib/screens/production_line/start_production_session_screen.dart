@@ -168,7 +168,15 @@ class _StartProductionSessionScreenState
         downtimeIntervals: [],
         lastStateChange: ServerTimeService.nowUtc,
         isRunning: true,
-        dimensions: widget.initialData?['dimensions'],
+        dimensions: () {
+          final d = Map<String, dynamic>.from(widget.initialData?['dimensions'] ?? {});
+          if (widget.initialData?['notes'] != null) d['notes'] = widget.initialData!['notes'];
+          if (widget.initialData?['product_state'] != null || widget.initialData?['productState'] != null) {
+            d['product_state'] = widget.initialData?['product_state'] ?? widget.initialData?['productState'];
+            d['productState'] = d['product_state'];
+          }
+          return d;
+        }(),
         isSheet: widget.initialData?['isSheet'] ?? false,
         imagePaths:
             List<String>.from(widget.initialData?['imagePaths'] ?? []),

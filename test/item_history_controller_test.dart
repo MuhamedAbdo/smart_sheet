@@ -191,5 +191,33 @@ void main() {
       expect(widthDiff.oldValue, '57 سم');
       expect(widthDiff.newValue, '35.9 سم');
     });
+
+    test('تتبع تغييرات حالة المنتج والملاحظات', () {
+      final oldData = {
+        'productName': 'كرتونة مياه',
+        'productState': 'سادة',
+        'notes': 'ملاحظة قديمة',
+      };
+
+      final newData = {
+        'productName': 'كرتونة مياه',
+        'product_state': 'مطبوع',
+        'notes': 'ملاحظة جديدة معدلة',
+      };
+
+      final diffs = ItemHistoryController.computeDifferences(oldData, newData);
+
+      expect(diffs.any((d) => d.key == 'productState'), isTrue);
+      final stateDiff = diffs.firstWhere((d) => d.key == 'productState');
+      expect(stateDiff.label, 'حالة المنتج');
+      expect(stateDiff.oldValue, 'سادة');
+      expect(stateDiff.newValue, 'مطبوع');
+
+      expect(diffs.any((d) => d.key == 'notes'), isTrue);
+      final notesDiff = diffs.firstWhere((d) => d.key == 'notes');
+      expect(notesDiff.label, 'الملاحظات');
+      expect(notesDiff.oldValue, 'ملاحظة قديمة');
+      expect(notesDiff.newValue, 'ملاحظة جديدة معدلة');
+    });
   });
 }

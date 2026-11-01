@@ -32,12 +32,16 @@ class SheetSizeForm extends StatelessWidget {
   final ValueChanged<bool?> onSheetChanged;
 
   // --- تحكم في حقل اسم العميل ---
-
   final bool clientNameEnabled;
   final bool clientNameLocked;
 
   // --- وضع الإضافة المبسط (عميل فقط) ---
   final bool isAddingClientOnly;
+
+  // --- حالة المنتج والملاحظات ---
+  final String? productState;
+  final ValueChanged<String>? onProductStateChanged;
+  final TextEditingController? notesController;
 
   const SheetSizeForm({
     super.key,
@@ -61,8 +65,10 @@ class SheetSizeForm extends StatelessWidget {
     this.clientNameEnabled = true,
     this.clientNameLocked = false,
     this.isAddingClientOnly = false,
+    this.productState,
+    this.onProductStateChanged,
+    this.notesController,
   });
-
 
   // ✅ الحصول على القيمة الفعلية لنوع الشريحة (مع افتراضي)
   String get _effectiveCuttingType => cuttingType ?? 'دوبل';
@@ -71,7 +77,7 @@ class SheetSizeForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // --- اختيار نوع العملية ---
+        // --- اختيار نوع العملية وحالة المنتج ---
         if (!isAddingClientOnly) ...[
           Row(
             children: [
@@ -87,6 +93,28 @@ class SheetSizeForm extends StatelessWidget {
                 label: const Text("تكسير"),
                 selected: processType == "تكسير",
                 onSelected: (v) => onProcessTypeChanged("تكسير"),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // --- خيار حالة المنتج: سادة أو مطبوع ---
+          Row(
+            children: [
+              const Text("حالة المنتج:"),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                avatar: const Icon(Icons.crop_square_rounded, size: 16),
+                label: const Text("سادة"),
+                selected: (productState ?? "سادة") == "سادة",
+                onSelected: (v) => onProductStateChanged?.call("سادة"),
+              ),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                avatar: const Icon(Icons.print_rounded, size: 16),
+                label: const Text("مطبوع"),
+                selected: (productState ?? "سادة") == "مطبوع",
+                onSelected: (v) => onProductStateChanged?.call("مطبوع"),
               ),
             ],
           ),
@@ -129,14 +157,11 @@ class SheetSizeForm extends StatelessWidget {
               dense: true,
             ),
 
-
           // --- الأبعاد (مشتركة) ---
           _buildTextField(context, "الطول", lengthController, type: TextInputType.number),
           _buildTextField(context, "العرض", widthController, type: TextInputType.number),
           if (!(isSheet && processType == "تكسير"))
             _buildTextField(context, "الارتفاع", heightController, type: TextInputType.number),
-
-
 
           // --- حقول التكسير ---
           if (processType == "تكسير") ...[
@@ -198,13 +223,25 @@ class SheetSizeForm extends StatelessWidget {
               onChanged: onCuttingTypeChanged,
             ),
           ],
+
+          // --- حقل الملاحظات ---
+          if (notesController != null) ...[
+            const SizedBox(height: 8),
+            _buildTextField(
+              context,
+              "الملاحظات",
+              notesController!,
+              maxLines: 3,
+              hint: "أدخل أي ملاحظات إضافية هنا...",
+            ),
+          ],
         ],
       ],
     );
   }
 
   Widget _buildTextField(BuildContext context, String label, TextEditingController controller,
-      {TextInputType? type, bool enabled = true, bool locked = false, String? hint}) {
+      {TextInputType? type, bool enabled = true, bool locked = false, String? hint, int maxLines = 1}) {
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
     Color? fillColor;
@@ -219,6 +256,7 @@ class SheetSizeForm extends StatelessWidget {
       child: TextField(
         controller: controller,
         enabled: enabled,
+        maxLines: maxLines,
         style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87, fontSize: 14),
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
@@ -233,12 +271,11 @@ class SheetSizeForm extends StatelessWidget {
               : null,
           suffixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         ),
-        keyboardType: type ?? TextInputType.text,
-        inputFormatters: type == TextInputType.number
+        keyboardType: maxLines > 1 ? TextInputType.multiline : (type ?? TextInputType.text),
+        inputFormatters: (type == TextInputType.number && maxLines == 1)
             ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
             : null,
       ),
     );
   }
 }
-

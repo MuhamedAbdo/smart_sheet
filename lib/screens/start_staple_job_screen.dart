@@ -93,7 +93,15 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
         lastStateChange: DateTime.now(),
         crewMembers: _selectedCrewMembers,
         department: 'staples',
-        dimensions: widget.initialData != null ? widget.initialData!['dimensions'] : null,
+        dimensions: () {
+          final d = Map<String, dynamic>.from(widget.initialData?['dimensions'] ?? {});
+          if (widget.initialData?['notes'] != null) d['notes'] = widget.initialData!['notes'];
+          if (widget.initialData?['product_state'] != null || widget.initialData?['productState'] != null) {
+            d['product_state'] = widget.initialData?['product_state'] ?? widget.initialData?['productState'];
+            d['productState'] = d['product_state'];
+          }
+          return d;
+        }(),
         createdByDeviceId: deviceId,
         factoryId: factoryId,
         technicianId: PermissionHelper.currentWorker?.id,

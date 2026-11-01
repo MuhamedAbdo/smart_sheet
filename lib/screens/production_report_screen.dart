@@ -1307,8 +1307,43 @@ class _FlexoProductionReportScreenState
                         UIUtils.buildOrderNumberBadge(record['orderNumber']?.toString()),
                       ],
                     ),
-                    _buildInfoRow("📦 الصنف:",
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: _buildInfoRow("📦 الصنف:",
                         "${record['product']?.toString() ?? '---'} [ ${record['productCode']?.toString() ?? '---'} ]"),
+                        ),
+                        Builder(
+                          builder: (_) {
+                            final pState = record['productState']?.toString() ??
+                                record['product_state']?.toString() ??
+                                (record['dimensions'] is Map
+                                    ? (record['dimensions']['product_state']?.toString() ??
+                                        record['dimensions']['productState']?.toString())
+                                    : null) ??
+                                'سادة';
+                            final isPr = pState == 'مطبوع';
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isPr ? Colors.purple.shade700 : Colors.teal.shade700,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                pState,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                     if (record['formNumber'] != null &&
                         record['formNumber'].toString().isNotEmpty)
                       _buildInfoRow(
@@ -1491,7 +1526,11 @@ class _FlexoProductionReportScreenState
                     if (downtimeDisplay.trim().isNotEmpty)
                       _buildInfoRowWithIcon(Icons.timer_off, "وقت الأعطال:",
                           downtimeDisplay.trim()),
-                    _buildNotesText(record['notes']),
+                    _buildNotesText(
+                      record['notes'],
+                      onEdit: () => _editReportNoteDirectly(key, record),
+                      onDelete: () => _deleteReportNoteDirectly(key, record),
+                    ),
                     const SizedBox(height: 12),
                     if (_workersBox != null)
                       ValueListenableBuilder<Box<Worker>>(
@@ -1959,11 +1998,151 @@ class _FlexoProductionReportScreenState
               style: TextStyle(fontWeight: FontWeight.bold)),
           ...c.map((i) => Text(" • ${i['color']} (${i['quantity']} لتر)"))
         ]);
-  Widget _buildNotesText(n) => (n == null || n == '')
-      ? const SizedBox()
-      : Text("📝 ملاحظة: $n",
-          style:
-              const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic));
+  Widget _buildNotesText(dynamic n, {VoidCallback? onEdit, VoidCallback? onDelete}) {
+    if (n == null || n.toString().trim().isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.notes_rounded, size: 18, color: Colors.amber),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "الملاحظات:",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  n.toString(),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+          if (onEdit != null)
+            IconButton(
+              icon: const Icon(Icons.edit, size: 16, color: Colors.blue),
+              tooltip: "تعديل الملاحظة",
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: onEdit,
+            ),
+          if (onDelete != null) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+              tooltip: "حذف الملاحظة",
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: onDelete,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _editReportNoteDirectly(dynamic key, dynamic record) {
+    final textController = TextEditingController(text: record['notes']?.toString() ?? '');
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text("تعديل الملاحظات"),
+        content: TextField(
+          controller: textController,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: "أدخل الملاحظات...",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text("إلغاء"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newNote = textController.text.trim();
+              Navigator.pop(dialogCtx);
+              _updateReportNote(key, record, newNote);
+            },
+            child: const Text("حفظ"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteReportNoteDirectly(dynamic key, dynamic record) {
+    UIUtils.showDeleteConfirmation(
+      context: context,
+      title: "حذف الملاحظات",
+      content: "هل أنت متأكد من رغبتك في حذف هذه الملاحظة؟",
+      confirmLabel: "حذف",
+      onConfirm: () {
+        _updateReportNote(key, record, '');
+      },
+    );
+  }
+
+  void _updateReportNote(dynamic key, dynamic record, String newNote) {
+    final existing = _productionReportBox?.get(key);
+    if (existing is FlexoProductionReport) {
+      final updated = existing.copyWith(notes: newNote);
+      _productionReportBox!.put(key, updated);
+      final String tableName = (updated.department == 'production_line')
+          ? 'line_production_reports'
+          : 'flexo_production_reports';
+      SyncService.instance.pushToQueue(tableName, {
+        'id': updated.id,
+        'sync_id': updated.id,
+        'notes': newNote,
+      });
+    } else if (existing is DieCuttingProductionReport) {
+      final updated = existing.copyWith(notes: newNote);
+      _productionReportBox!.put(key, updated);
+      SyncService.instance.pushToQueue('die_cutting_production_reports', {
+        'id': updated.id,
+        'sync_id': updated.id,
+        'notes': newNote,
+      });
+    } else {
+      final updatedMap = record is Map
+          ? Map<dynamic, dynamic>.from(record)
+          : (record as dynamic).toJson();
+      updatedMap['notes'] = newNote;
+      _productionReportBox?.put(key, updatedMap);
+      final syncId = updatedMap['sync_id']?.toString() ?? updatedMap['id']?.toString();
+      if (syncId != null) {
+        final tableName = (widget.department == 'crushing' || widget.department == 'die_cutting')
+            ? 'die_cutting_production_reports'
+            : (widget.department == 'production_line'
+                ? 'line_production_reports'
+                : 'flexo_production_reports');
+        SyncService.instance.pushToQueue(tableName, {
+          'id': syncId,
+          'sync_id': syncId,
+          'notes': newNote,
+        });
+      }
+    }
+    if (mounted) setState(() {});
+  }
 
   void _showAddReportDialog([Map<String, dynamic>? data]) {
     showModalBottomSheet(
@@ -2482,7 +2661,9 @@ class _FlexoProductionReportScreenState
       'paper_layers': session.paperLayers ?? [],
       'crewMembers': session.crewMembers,
       'crew_members': session.crewMembers,
-      'notes': "",
+      'notes': session.dimensions?['notes'] ?? session.dimensions?['note'] ?? "",
+      'productState': session.dimensions?['productState'] ?? session.dimensions?['product_state'] ?? 'سادة',
+      'product_state': session.dimensions?['product_state'] ?? session.dimensions?['productState'] ?? 'سادة',
     };
 
     // ─── الترتيب الجديد: فتح نموذج التقرير أولاً وحذف الجلسة فقط عند الحفظ بنجاح ───
