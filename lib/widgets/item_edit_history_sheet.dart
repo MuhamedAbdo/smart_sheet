@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:smart_sheet/controllers/item_history_controller.dart';
+import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/widgets/smart_sheet_card.dart';
 
@@ -10,6 +11,7 @@ class ItemEditHistorySheet extends StatefulWidget {
   final String productName;
   final String productCode;
   final String clientName;
+  final bool? canEdit;
 
   const ItemEditHistorySheet({
     super.key,
@@ -17,6 +19,7 @@ class ItemEditHistorySheet extends StatefulWidget {
     required this.productName,
     required this.productCode,
     required this.clientName,
+    this.canEdit,
   });
 
   /// دالة مساعدة لفتح الـ BottomSheet بسهولة من أي مكان
@@ -26,6 +29,7 @@ class ItemEditHistorySheet extends StatefulWidget {
     required String productName,
     required String productCode,
     required String clientName,
+    bool? canEdit,
   }) {
     return showModalBottomSheet<bool>(
       context: context,
@@ -36,6 +40,7 @@ class ItemEditHistorySheet extends StatefulWidget {
         productName: productName,
         productCode: productCode,
         clientName: clientName,
+        canEdit: canEdit,
       ),
     );
   }
@@ -47,6 +52,9 @@ class ItemEditHistorySheet extends StatefulWidget {
 class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _historyList = [];
+
+  /// فحص صلاحية التعديل والاستعادة للمستخدم الحالي
+  bool get _canRestore => widget.canEdit ?? PermissionHelper.canManageClientsEdit;
 
   @override
   void initState() {
@@ -100,6 +108,16 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
     required Map<String, dynamic> targetData,
     required String title,
   }) async {
+    // التحقق الأمني: منع الاستعادة لمن لا يملك الصلاحية
+    if (!_canRestore) {
+      UIUtils.showInfoSnackBar(
+        message: "ليس لديك صلاحية استعادة تعديلات هذا الصنف",
+        backgroundColor: Colors.red,
+        icon: Icons.lock_outline,
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => Directionality(
@@ -485,19 +503,21 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
                                   ),
                                 ),
                               ),
-                            const SizedBox(width: 4),
-                            // زر استعادة هذا التعديل
-                            IconButton(
-                              icon: const Icon(Icons.restore),
-                              tooltip: 'استعادة هذا التعديل',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                              color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
-                              onPressed: () => _showRestoreDialog(
-                                targetData: newData.isNotEmpty ? newData : oldData,
-                                title: "استعادة التعديل",
+                            if (_canRestore) ...[
+                              const SizedBox(width: 4),
+                              // زر استعادة هذا التعديل
+                              IconButton(
+                                icon: const Icon(Icons.restore),
+                                tooltip: 'استعادة هذا التعديل',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
+                                onPressed: () => _showRestoreDialog(
+                                  targetData: newData.isNotEmpty ? newData : oldData,
+                                  title: "استعادة التعديل",
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
 
@@ -516,7 +536,7 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
                       ],
                     ),
                   ),
-                  if (isLast) ...[
+                  if (isLast && _canRestore) ...[
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(

@@ -159,6 +159,7 @@ class SavedSizeCard extends StatelessWidget {
                       productName: productName,
                       productCode: productCode,
                       clientName: clientName,
+                      canEdit: canEdit,
                     );
                   },
                 ),
