@@ -65,7 +65,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
   final formNumberController = TextEditingController();
   final numberOfBoxesController = TextEditingController();
   final notesController = TextEditingController();
-  String _productState = "سادة";
+  String _productState = "مطبوع";
 
   bool _isProcessing = false;
   bool _isUploading = false; // حالة رفع الصور إلى Cloud
@@ -486,7 +486,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'date': r['date'],
       'is_client_record': r['isClientRecord'],
       'image_paths': r['imagePaths'] ?? [],
-      'product_state': r['product_state'] ?? r['productState'] ?? 'سادة',
+      'product_state': r['product_state'] ?? r['productState'] ?? 'مطبوع',
       'notes': r['notes'] ?? '',
       'form_number': r['form_number'] ?? r['formNumber'],
       'number_of_boxes': r['number_of_boxes'] ?? double.tryParse(r['numberOfBoxes']?.toString() ?? ''),
@@ -579,7 +579,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       widthController.text = data['width']?.toString() ?? '';
       heightController.text = data['height']?.toString() ?? '';
       isSheet = data['isSheet'] ?? false;
-      _productState = data['productState']?.toString() ?? data['product_state']?.toString() ?? 'سادة';
+      _productState = data['productState']?.toString() ?? data['product_state']?.toString() ?? 'مطبوع';
       notesController.text = data['notes']?.toString() ?? '';
 
       if (data['imagePaths'] != null) {

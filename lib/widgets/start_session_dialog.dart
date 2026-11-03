@@ -32,7 +32,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
   final techController = TextEditingController();
   final formNumberController = TextEditingController();
   final notesController = TextEditingController();
-  String _productState = 'سادة';
+  String _productState = 'مطبوع';
   String? selectedMachine;
   List<String> selectedCrewMembers = [];
 
@@ -54,7 +54,7 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
       notesController.text = widget.initialData!['notes']?.toString() ?? '';
       _productState = widget.initialData!['productState']?.toString() ??
           widget.initialData!['product_state']?.toString() ??
-          'سادة';
+          'مطبوع';
     }
   }
 

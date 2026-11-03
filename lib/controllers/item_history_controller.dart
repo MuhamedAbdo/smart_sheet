@@ -821,21 +821,27 @@ class ItemHistoryController {
         mergedItem.remove('addTwoMm');
       }
 
-      // توحيد الحقول المشتركة وذات التسميات المزدوجة
-      final pState = targetData['productState'] ??
+      // ── استخراج product_state و notes من targetData وكتابتها فوق البيانات الحالية ──
+      // (معالجة التوافق الرجعي): إذا كانت النسخة قديمة جداً ولا تحتوي عليهما،
+      // يتم تعيين 'مطبوع' لحالة المنتج و '' للملاحظات.
+      final dynamic rawProductState = targetData['productState'] ??
           targetData['product_state'] ??
           cleanTarget['productState'] ??
-          mergedItem['productState'] ??
-          mergedItem['product_state'] ??
-          'سادة';
-      mergedItem['productState'] = pState;
-      mergedItem['product_state'] = pState;
+          cleanTarget['product_state'];
 
-      final notesVal = targetData['notes'] ??
-          cleanTarget['notes'] ??
-          mergedItem['notes'] ??
-          '';
-      mergedItem['notes'] = notesVal.toString();
+      final String restoredProductState;
+      if (rawProductState != null && rawProductState.toString().trim().isNotEmpty) {
+        restoredProductState = rawProductState.toString().trim();
+      } else {
+        restoredProductState = 'مطبوع';
+      }
+
+      final dynamic rawNotes = targetData['notes'] ?? cleanTarget['notes'];
+      final String restoredNotes = (rawNotes != null) ? rawNotes.toString().trim() : '';
+
+      mergedItem['productState'] = restoredProductState;
+      mergedItem['product_state'] = restoredProductState;
+      mergedItem['notes'] = restoredNotes;
 
       final fNum = mergedItem['formNumber'] ?? mergedItem['form_number'];
       mergedItem['formNumber'] = fNum;
@@ -907,8 +913,8 @@ class ItemHistoryController {
         'form_number': fNum?.toString() ?? '',
         'number_of_boxes': double.tryParse(nBoxes?.toString() ?? ''),
         'sheet_details': sheetDetailsMap,
-        'product_state': pState,
-        'notes': notesVal.toString(),
+        'product_state': restoredProductState,
+        'notes': restoredNotes,
       };
 
       await SyncService.instance.pushToQueue(

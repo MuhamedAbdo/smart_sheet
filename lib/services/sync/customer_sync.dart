@@ -183,7 +183,7 @@ mixin CustomerSync on SyncServiceBase {
           'sheet_details': sheetDetailsMap,
           'product_state': r['product_state']?.toString() ??
               r['productState']?.toString() ??
-              'سادة',
+              'مطبوع',
           'notes': r['notes']?.toString() ?? '',
         };
 
@@ -597,8 +597,8 @@ mixin CustomerSync on SyncServiceBase {
         'number_of_boxes': r['number_of_boxes'] ??
             sheetDetails['numberOfBoxes'] ??
             sheetDetails['number_of_boxes'],
-        'productState': r['product_state']?.toString() ?? 'سادة',
-        'product_state': r['product_state']?.toString() ?? 'سادة',
+        'productState': r['product_state']?.toString() ?? 'مطبوع',
+        'product_state': r['product_state']?.toString() ?? 'مطبوع',
         'notes': r['notes']?.toString() ?? '',
       };
     } catch (e) {

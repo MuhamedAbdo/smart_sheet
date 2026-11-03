@@ -77,7 +77,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
   bool _isSaving = false;
   bool isSheet = false;
   List<String> selectedCrewMembers = [];
-  String _productState = 'سادة';
+  String _productState = 'مطبوع';
 
 
   @override
@@ -157,7 +157,7 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
         data['product_state']?.toString() ??
         (dimensions['product_state']?.toString() ??
             dimensions['productState']?.toString()) ??
-        'سادة';
+        'مطبوع';
 
     orderNumberController.text = data['orderNumber']?.toString() ?? data['order_number']?.toString() ?? '';
     formNumberController.text = data['formNumber']?.toString() ?? data['form_number']?.toString() ?? '';

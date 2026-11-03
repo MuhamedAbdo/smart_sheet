@@ -106,14 +106,14 @@ class SheetSizeForm extends StatelessWidget {
               ChoiceChip(
                 avatar: const Icon(Icons.crop_square_rounded, size: 16),
                 label: const Text("سادة"),
-                selected: (productState ?? "سادة") == "سادة",
+                selected: (productState ?? "مطبوع") == "سادة",
                 onSelected: (v) => onProductStateChanged?.call("سادة"),
               ),
               const SizedBox(width: 8),
               ChoiceChip(
                 avatar: const Icon(Icons.print_rounded, size: 16),
                 label: const Text("مطبوع"),
-                selected: (productState ?? "سادة") == "مطبوع",
+                selected: (productState ?? "مطبوع") == "مطبوع",
                 onSelected: (v) => onProductStateChanged?.call("مطبوع"),
               ),
             ],

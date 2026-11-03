@@ -331,7 +331,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
               final entry = filteredEntries[index];
               return RepaintBoundary(
                 child: SavedSizeCard(
-                  key: ValueKey(entry.key),
+                  key: ValueKey('${entry.key}_${entry.value['date']}_${entry.value['productState']}_${entry.value['product_state']}_${entry.value['notes']}'),
                   record: entry.value,
                   canEdit: canEdit,
                   canDelete: canDelete,
@@ -345,6 +345,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                   onStartProductionLine: (data) => _openProductionLineSessionWithSheetData(context, data),
                   onStartDieCutting: (data) => _openDieCuttingSessionWithSheetData(context, data),
                   onStartStaples: (data) => _openStaplesSessionWithSheetData(context, data),
+                  onRefresh: _refreshLocalData,
                 ),
               );
             },
@@ -549,8 +550,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         'imagePaths': finalImages,
         'isSheet': dataFromCard['isSheet'] ?? false,
         'notes': dataFromCard['notes']?.toString() ?? '',
-        'productState': dataFromCard['productState'] ?? dataFromCard['product_state'] ?? 'سادة',
-        'product_state': dataFromCard['product_state'] ?? dataFromCard['productState'] ?? 'سادة',
+        'productState': dataFromCard['productState'] ?? dataFromCard['product_state'] ?? 'مطبوع',
+        'product_state': dataFromCard['product_state'] ?? dataFromCard['productState'] ?? 'مطبوع',
       };
     } catch (e) {
       if (context.mounted) Navigator.pop(context);

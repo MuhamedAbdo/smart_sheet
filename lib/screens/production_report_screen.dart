@@ -2552,8 +2552,8 @@ class _FlexoProductionReportScreenState
       'crewMembers': session.crewMembers,
       'crew_members': session.crewMembers,
       'notes': session.dimensions?['notes'] ?? session.dimensions?['note'] ?? "",
-      'productState': session.dimensions?['productState'] ?? session.dimensions?['product_state'] ?? 'سادة',
-      'product_state': session.dimensions?['product_state'] ?? session.dimensions?['productState'] ?? 'سادة',
+      'productState': session.dimensions?['productState'] ?? session.dimensions?['product_state'] ?? 'مطبوع',
+      'product_state': session.dimensions?['product_state'] ?? session.dimensions?['productState'] ?? 'مطبوع',
     };
 
     // ─── الترتيب الجديد: فتح نموذج التقرير أولاً وحذف الجلسة فقط عند الحفظ بنجاح ───

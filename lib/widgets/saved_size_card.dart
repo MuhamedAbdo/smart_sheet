@@ -20,6 +20,7 @@ class SavedSizeCard extends StatelessWidget {
   final Function(Map<String, dynamic>)? onStartProductionLine;
   final Function(Map<String, dynamic>)? onStartDieCutting;
   final Function(Map<String, dynamic>)? onStartStaples;
+  final VoidCallback? onRefresh;
   final bool canEdit;
   final bool canDelete;
   final bool canAddFlexo;
@@ -36,6 +37,7 @@ class SavedSizeCard extends StatelessWidget {
     this.onStartProductionLine,
     this.onStartDieCutting,
     this.onStartStaples,
+    this.onRefresh,
     required this.canEdit,
     required this.canDelete,
     required this.canAddFlexo,
@@ -60,7 +62,7 @@ class SavedSizeCard extends StatelessWidget {
     final images = (record['imagePaths'] is List)
         ? (record['imagePaths'] as List).map((e) => e.toString()).toList()
         : <String>[];
-    final productState = record['productState']?.toString() ?? record['product_state']?.toString() ?? 'سادة';
+    final productState = record['productState']?.toString() ?? record['product_state']?.toString() ?? 'مطبوع';
     final notes = record['notes']?.toString().trim() ?? '';
     final isPrinted = productState == 'مطبوع';
 
@@ -151,9 +153,9 @@ class SavedSizeCard extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.history_rounded, color: Colors.amber),
                   tooltip: 'سجل التعديلات',
-                  onPressed: () {
+                  onPressed: () async {
                     final itemId = (record['sync_id'] ?? record['id'] ?? '').toString();
-                    ItemEditHistorySheet.show(
+                    final restored = await ItemEditHistorySheet.show(
                       context,
                       itemId: itemId,
                       productName: productName,
@@ -161,6 +163,9 @@ class SavedSizeCard extends StatelessWidget {
                       clientName: clientName,
                       canEdit: canEdit,
                     );
+                    if (restored == true) {
+                      onRefresh?.call();
+                    }
                   },
                 ),
                 // ―― أزرار التعديل والحذف بناءً على الصلاحيات ――
@@ -600,7 +605,7 @@ class SavedSizeCard extends StatelessWidget {
             Text("📏 طول الشيت: ${record['sheetLengthManual'] ?? '—'} سم"),
             Text("📐 عرض الشيت: ${record['sheetWidthManual'] ?? '—'} سم"),
             Text("🔧 النوع: ${record['cuttingType'] ?? '—'}"),
-            Text("🏷️ حالة المنتج: ${record['productState'] ?? record['product_state'] ?? 'سادة'}"),
+            Text("🏷️ حالة المنتج: ${record['productState'] ?? record['product_state'] ?? 'مطبوع'}"),
             if (record['notes']?.toString().trim().isNotEmpty ?? false)
               Text("📝 الملاحظات: ${record['notes']}"),
           ],
@@ -664,7 +669,7 @@ class SavedSizeCard extends StatelessWidget {
           children: [
             Text("📏 الأبعاد: $length × $width × $height سم"),
             const SizedBox(height: 4),
-            Text("🏷️ حالة المنتج: ${record['productState'] ?? record['product_state'] ?? 'سادة'}"),
+            Text("🏷️ حالة المنتج: ${record['productState'] ?? record['product_state'] ?? 'مطبوع'}"),
             if (record['notes']?.toString().trim().isNotEmpty ?? false) ...[
               const SizedBox(height: 4),
               Text("📝 الملاحظات: ${record['notes']}"),
