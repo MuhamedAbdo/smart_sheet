@@ -384,7 +384,9 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
   }) {
     final oldData = Map<String, dynamic>.from(item['old_data'] as Map? ?? {});
     final newData = Map<String, dynamic>.from(item['new_data'] as Map? ?? {});
-    final diffs = ItemHistoryController.computeDifferences(oldData, newData);
+    final diffs = ItemHistoryController.computeDifferences(oldData, newData)
+        .where((d) => d.key != 'productState' && d.key != 'product_state')
+        .toList();
     final editedAtStr = _formatDateTime(item['edited_at']);
 
     return IntrinsicHeight(

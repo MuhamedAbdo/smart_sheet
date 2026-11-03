@@ -21,6 +21,7 @@ import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/utils/auth_helper.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/utils/cache_helper.dart';
+import 'package:smart_sheet/utils/data_normalization_helper.dart';
 import 'package:uuid/uuid.dart';
 import 'package:smart_sheet/models/die_cutting_production_report.dart';
 
@@ -88,7 +89,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     }
   }
 
-  void _setupBox(Box box) {
+  void _setupBox(Box box) async {
     _savedSheetSizesBox = box;
     _refreshLocalData();
     
@@ -101,9 +102,17 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       });
     });
     
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+
+    // ✅ تشغيل الهجرة الهجومية وتحديث واجهة العرض فوراً لتعكس "مطبوع" دون إعادة تشغيل
+    await DataNormalizationHelper.migrateProductStateToPrinted();
+    if (mounted) {
+      _refreshLocalData();
+    }
   }
 
   void _refreshLocalData() {
@@ -114,9 +123,11 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       return (e.value['clientName']?.toString().trim() ?? '') == widget.clientName.trim();
     }).map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value))).toList();
     
-    setState(() {
-      _allClientRecords = records;
-    });
+    if (mounted) {
+      setState(() {
+        _allClientRecords = records;
+      });
+    }
   }
 
   @override

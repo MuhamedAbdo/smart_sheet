@@ -579,7 +579,10 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       widthController.text = data['width']?.toString() ?? '';
       heightController.text = data['height']?.toString() ?? '';
       isSheet = data['isSheet'] ?? false;
-      _productState = data['productState']?.toString() ?? data['product_state']?.toString() ?? 'مطبوع';
+      final loadedState = (data['productState'] ?? data['product_state'])?.toString().trim();
+      _productState = (loadedState != null && loadedState.isNotEmpty && loadedState != 'null')
+          ? loadedState
+          : 'مطبوع';
       notesController.text = data['notes']?.toString() ?? '';
 
       if (data['imagePaths'] != null) {

@@ -9,6 +9,7 @@ import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/widgets/smart_sheet_card.dart';
+import 'package:smart_sheet/utils/data_normalization_helper.dart';
 
 // تعريف أنواع الترتيب
 enum SortType {
@@ -43,6 +44,7 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
 
   Future<void> _initBox() async {
     _savedSheetSizesBox = await Hive.openBox('savedSheetSizes');
+    await DataNormalizationHelper.migrateProductStateToPrinted();
     setState(() => _isLoading = false);
   }
 

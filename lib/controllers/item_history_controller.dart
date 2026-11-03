@@ -56,7 +56,6 @@ class ItemHistoryController {
     'isFullSize',
     'isQuarterSize',
     'isQuarterWidth',
-    'productState',
     'notes',
   ];
 
@@ -145,7 +144,6 @@ class ItemHistoryController {
         if (key == 'isSheet') value = data['is_sheet'];
         if (key == 'formNumber') value = data['form_number'];
         if (key == 'numberOfBoxes') value = data['number_of_boxes'];
-        if (key == 'productState') value = data['product_state'] ?? data['productState'];
         if (key == 'notes') value = data['notes'];
       }
 
@@ -306,6 +304,7 @@ class ItemHistoryController {
 
     for (final key in allKeys) {
       if (excludedKeys.contains(key)) continue;
+      if (key == 'productState' || key == 'product_state') continue; // ✅ استثناء تام لحالة المنتج من المقارنة (Diff)
 
       final oldValRaw = cleanOld[key];
       final newValRaw = cleanNew[key];
@@ -766,6 +765,13 @@ class ItemHistoryController {
         preservedImages = [rawImages.toString().trim()];
       }
 
+      // ── حماية حالة المنتج الحالية (حرج جداً - مثل الصور تماماً) ──
+      // الاحتفاظ بحالة المنتج الحالية للصنف دون الكتابة فوقها من النسخة المستعادة
+      final currentProductState = (currentItem['product_state'] ?? currentItem['productState'])?.toString().trim();
+      final String preservedProductState = (currentProductState != null && currentProductState.isNotEmpty)
+          ? currentProductState
+          : 'مطبوع';
+
       // ── الدمج الذكي (Smart Merge) ──
       // استبدال جميع الحقول النصية والرقمية بالبيانات الموجودة في targetData
       final cleanTarget = extractCleanTextAndNumericData(targetData);
@@ -788,7 +794,6 @@ class ItemHistoryController {
           if (key == 'isSheet') val = targetData['is_sheet'];
           if (key == 'formNumber') val = targetData['form_number'];
           if (key == 'numberOfBoxes') val = targetData['number_of_boxes'];
-          if (key == 'productState') val = targetData['product_state'];
           if (key == 'notes') val = targetData['notes'];
         }
 
@@ -821,26 +826,13 @@ class ItemHistoryController {
         mergedItem.remove('addTwoMm');
       }
 
-      // ── استخراج product_state و notes من targetData وكتابتها فوق البيانات الحالية ──
-      // (معالجة التوافق الرجعي): إذا كانت النسخة قديمة جداً ولا تحتوي عليهما،
-      // يتم تعيين 'مطبوع' لحالة المنتج و '' للملاحظات.
-      final dynamic rawProductState = targetData['productState'] ??
-          targetData['product_state'] ??
-          cleanTarget['productState'] ??
-          cleanTarget['product_state'];
-
-      final String restoredProductState;
-      if (rawProductState != null && rawProductState.toString().trim().isNotEmpty) {
-        restoredProductState = rawProductState.toString().trim();
-      } else {
-        restoredProductState = 'مطبوع';
-      }
-
+      // ── استخراج الملاحظات notes من targetData (مع الاحتفاظ التام بـ product_state الحالية) ──
       final dynamic rawNotes = targetData['notes'] ?? cleanTarget['notes'];
       final String restoredNotes = (rawNotes != null) ? rawNotes.toString().trim() : '';
 
-      mergedItem['productState'] = restoredProductState;
-      mergedItem['product_state'] = restoredProductState;
+      // الاحتفاظ بحالة المنتج الحالية للصنف دون الكتابة فوقها (تماما كما نفعل مع الصور)
+      mergedItem['productState'] = preservedProductState;
+      mergedItem['product_state'] = preservedProductState;
       mergedItem['notes'] = restoredNotes;
 
       final fNum = mergedItem['formNumber'] ?? mergedItem['form_number'];
@@ -913,7 +905,7 @@ class ItemHistoryController {
         'form_number': fNum?.toString() ?? '',
         'number_of_boxes': double.tryParse(nBoxes?.toString() ?? ''),
         'sheet_details': sheetDetailsMap,
-        'product_state': restoredProductState,
+        'product_state': preservedProductState,
         'notes': restoredNotes,
       };
 

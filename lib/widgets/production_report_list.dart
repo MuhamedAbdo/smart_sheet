@@ -104,7 +104,7 @@ class FlexoProductionReportList extends StatelessWidget {
                                     ? (record['dimensions']['product_state']?.toString() ??
                                         record['dimensions']['productState']?.toString())
                                     : null) ??
-                                'سادة';
+                                'مطبوع';
                             final isPr = pState == 'مطبوع';
                             return Container(
                               margin: const EdgeInsets.only(bottom: 2),

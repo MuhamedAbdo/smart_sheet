@@ -616,6 +616,13 @@ mixin CustomerSync on SyncServiceBase {
     Map<dynamic, dynamic> existingRecord,
     bool hasSheetDetails,
   ) {
+    // ✅ حماية حالة المنتج المحلية: إذا كان السجل المحلي "مطبوع" والسحابي قديم "سادة" أو فارغ، احتفظ بـ "مطبوع"
+    if ((existingRecord['product_state'] == 'مطبوع' || existingRecord['productState'] == 'مطبوع') &&
+        (newRecord['product_state'] == 'سادة' || newRecord['product_state'] == null || newRecord['product_state'] == 'null')) {
+      newRecord['product_state'] = 'مطبوع';
+      newRecord['productState'] = 'مطبوع';
+    }
+
     if (hasSheetDetails) return;
     const localFields = [
       'isOverFlap',

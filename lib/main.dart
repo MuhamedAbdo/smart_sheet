@@ -104,6 +104,7 @@ Future<void> initializeHeavyData() async {
 
     // ✅ التنظيف الفوري: طبقة التوافق (Migration/Normalization Layer)
     await DataNormalizationHelper.normalizeUntypedBoxes();
+    await DataNormalizationHelper.migrateProductStateToPrinted();
 
     // تهيئة القيم الافتراضية لجدول أيام الوردية إذا كان فارغاً
     _initDefaultSchedule();

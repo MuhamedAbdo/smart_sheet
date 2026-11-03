@@ -98,26 +98,33 @@ class SheetSizeForm extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          // --- خيار حالة المنتج: سادة أو مطبوع ---
-          Row(
-            children: [
-              const Text("حالة المنتج:"),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                avatar: const Icon(Icons.crop_square_rounded, size: 16),
-                label: const Text("سادة"),
-                selected: (productState ?? "مطبوع") == "سادة",
-                onSelected: (v) => onProductStateChanged?.call("سادة"),
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                avatar: const Icon(Icons.print_rounded, size: 16),
-                label: const Text("مطبوع"),
-                selected: (productState ?? "مطبوع") == "مطبوع",
-                onSelected: (v) => onProductStateChanged?.call("مطبوع"),
-              ),
-            ],
-          ),
+          // --- خيار حالة المنتج: سادة أو مطبوع (افتراضياً: مطبوع) ---
+          Builder(builder: (context) {
+            final effectiveState = (productState != null &&
+                    productState!.trim().isNotEmpty &&
+                    productState!.trim() != 'null')
+                ? productState!.trim()
+                : 'مطبوع';
+            return Row(
+              children: [
+                const Text("حالة المنتج:"),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  avatar: const Icon(Icons.crop_square_rounded, size: 16),
+                  label: const Text("سادة"),
+                  selected: effectiveState == "سادة",
+                  onSelected: (v) => onProductStateChanged?.call("سادة"),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  avatar: const Icon(Icons.print_rounded, size: 16),
+                  label: const Text("مطبوع"),
+                  selected: effectiveState == "مطبوع",
+                  onSelected: (v) => onProductStateChanged?.call("مطبوع"),
+                ),
+              ],
+            );
+          }),
           const SizedBox(height: 8),
         ],
 
