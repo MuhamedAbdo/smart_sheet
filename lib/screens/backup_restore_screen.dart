@@ -188,10 +188,35 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           Hive.box('settings').toMap();
           
       // حفظ المفتاح مؤقتاً في SharedPreferences لتفادي فقدانه إذا حدث Restart مفاجئ
-      final bool isUnlocked = currentSettings['is_device_unlocked'] == true;
+      final prefs = await SharedPreferences.getInstance();
+      const storage = SafeSecureStorage();
+      final Map<dynamic, dynamic> currentVault = Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)
+          ? Map<dynamic, dynamic>.from(Hive.box(SafeSecureStorage.pairingVaultBoxName).toMap())
+          : {};
+      final bool isUnlocked = prefs.getBool('is_device_unlocked') == true ||
+          prefs.getBool('has_valid_code') == true ||
+          currentVault['is_device_unlocked'] == true ||
+          currentVault['has_valid_code'] == true ||
+          currentSettings['is_device_unlocked'] == true;
+      final bool isDeviceLinked = prefs.getBool('is_device_linked') == true ||
+          currentVault['is_device_linked'] == true ||
+          currentSettings['is_device_linked'] == true;
       if (isUnlocked) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('is_device_unlocked_temp', true);
+        await prefs.setBool('is_device_unlocked', true);
+        await prefs.setBool('has_valid_code', true);
+        await storage.write(key: 'is_device_unlocked', value: 'true');
+        await storage.write(key: 'has_valid_code', value: 'true');
+      }
+      if (isDeviceLinked) {
+        await prefs.setBool('is_device_linked', true);
+        await storage.write(key: 'is_device_linked', value: 'true');
+      }
+      final String? currentFactoryId = currentVault['factory_id']?.toString() ??
+          currentSettings['factory_id']?.toString() ??
+          prefs.getString('factory_id');
+      if (currentFactoryId != null && currentFactoryId.isNotEmpty) {
+        await prefs.setString('factory_id', currentFactoryId);
+        await storage.write(key: 'factory_id', value: currentFactoryId);
       }
 
       final restorePath = '$factoryId.zip';
@@ -210,8 +235,36 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           } else {
             await Hive.initFlutter();
           }
+          final vaultBox = await Hive.openBox(SafeSecureStorage.pairingVaultBoxName);
+          if (currentVault.isNotEmpty) {
+            await vaultBox.putAll(currentVault);
+          }
+          if (isUnlocked) {
+            await vaultBox.put('is_device_unlocked', true);
+            await vaultBox.put('has_valid_code', true);
+          }
+          if (isDeviceLinked) {
+            await vaultBox.put('is_device_linked', true);
+          }
+          if (currentFactoryId != null && currentFactoryId.isNotEmpty) {
+            await vaultBox.put('factory_id', currentFactoryId);
+          }
+
           final settingsBox = await Hive.openBox('settings');
-          await settingsBox.putAll(currentSettings);
+          if (currentSettings.isNotEmpty) {
+            await settingsBox.putAll(currentSettings);
+          }
+          if (isUnlocked) {
+            await settingsBox.put('is_device_unlocked', true);
+            await settingsBox.put('has_valid_code', true);
+          }
+          if (isDeviceLinked) {
+            await settingsBox.put('is_device_linked', true);
+          }
+          await settingsBox.put('is_user_logged_in', true);
+          if (currentFactoryId != null && currentFactoryId.isNotEmpty) {
+            await settingsBox.put('factory_id', currentFactoryId);
+          }
 
           if (!mounted) return;
 
@@ -286,10 +339,35 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           Hive.box('settings').toMap();
           
       // حفظ المفتاح مؤقتاً في SharedPreferences لتفادي فقدانه إذا حدث Restart مفاجئ
-      final bool isUnlocked = currentSettings['is_device_unlocked'] == true;
+      final prefs = await SharedPreferences.getInstance();
+      const storage = SafeSecureStorage();
+      final Map<dynamic, dynamic> currentVault = Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)
+          ? Map<dynamic, dynamic>.from(Hive.box(SafeSecureStorage.pairingVaultBoxName).toMap())
+          : {};
+      final bool isUnlocked = prefs.getBool('is_device_unlocked') == true ||
+          prefs.getBool('has_valid_code') == true ||
+          currentVault['is_device_unlocked'] == true ||
+          currentVault['has_valid_code'] == true ||
+          currentSettings['is_device_unlocked'] == true;
+      final bool isDeviceLinked = prefs.getBool('is_device_linked') == true ||
+          currentVault['is_device_linked'] == true ||
+          currentSettings['is_device_linked'] == true;
       if (isUnlocked) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('is_device_unlocked_temp', true);
+        await prefs.setBool('is_device_unlocked', true);
+        await prefs.setBool('has_valid_code', true);
+        await storage.write(key: 'is_device_unlocked', value: 'true');
+        await storage.write(key: 'has_valid_code', value: 'true');
+      }
+      if (isDeviceLinked) {
+        await prefs.setBool('is_device_linked', true);
+        await storage.write(key: 'is_device_linked', value: 'true');
+      }
+      final String? currentFactoryId = currentVault['factory_id']?.toString() ??
+          currentSettings['factory_id']?.toString() ??
+          prefs.getString('factory_id');
+      if (currentFactoryId != null && currentFactoryId.isNotEmpty) {
+        await prefs.setString('factory_id', currentFactoryId);
+        await storage.write(key: 'factory_id', value: currentFactoryId);
       }
           
       final result = await _backupService.restoreBackup();
@@ -306,8 +384,36 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           } else {
             await Hive.initFlutter();
           }
+          final vaultBox = await Hive.openBox(SafeSecureStorage.pairingVaultBoxName);
+          if (currentVault.isNotEmpty) {
+            await vaultBox.putAll(currentVault);
+          }
+          if (isUnlocked) {
+            await vaultBox.put('is_device_unlocked', true);
+            await vaultBox.put('has_valid_code', true);
+          }
+          if (isDeviceLinked) {
+            await vaultBox.put('is_device_linked', true);
+          }
+          if (currentFactoryId != null && currentFactoryId.isNotEmpty) {
+            await vaultBox.put('factory_id', currentFactoryId);
+          }
+
           final settingsBox = await Hive.openBox('settings');
-          await settingsBox.putAll(currentSettings);
+          if (currentSettings.isNotEmpty) {
+            await settingsBox.putAll(currentSettings);
+          }
+          if (isUnlocked) {
+            await settingsBox.put('is_device_unlocked', true);
+            await settingsBox.put('has_valid_code', true);
+          }
+          if (isDeviceLinked) {
+            await settingsBox.put('is_device_linked', true);
+          }
+          await settingsBox.put('is_user_logged_in', true);
+          if (currentFactoryId != null && currentFactoryId.isNotEmpty) {
+            await settingsBox.put('factory_id', currentFactoryId);
+          }
 
           if (!mounted) return;
 

@@ -143,11 +143,30 @@ Future<void> main() async {
 
       // ✅ استرجاع مفتاح البوابة إذا تم حفظه مؤقتاً قبل Soft Restart (Cloud Restore)
       final prefs = await SharedPreferences.getInstance();
-      final bool? isUnlockedTemp = prefs.getBool('is_device_unlocked_temp');
-      if (isUnlockedTemp == true) {
+      const storage = SafeSecureStorage();
+      final Box vaultBox = Hive.box(SafeSecureStorage.pairingVaultBoxName);
+      final bool isUnlockedInPrefs = prefs.getBool('is_device_unlocked') == true ||
+          prefs.getBool('has_valid_code') == true ||
+          prefs.getBool('is_device_unlocked_temp') == true;
+      final bool isUnlockedInVault = vaultBox.get('is_device_unlocked') == true ||
+          vaultBox.get('has_valid_code') == true;
+      final bool isUnlockedInSettings = Hive.isBoxOpen('settings') &&
+          (Hive.box('settings').get('is_device_unlocked') == true ||
+              Hive.box('settings').get('has_valid_code') == true);
+
+      if (isUnlockedInPrefs || isUnlockedInVault || isUnlockedInSettings) {
         // ✅ الكتابة في pairing_vault الدائم لضمان بقاء الحالة عبر forceLogout
-        final vaultBox = Hive.box(SafeSecureStorage.pairingVaultBoxName);
+        // vaultBox already open
         await vaultBox.put('is_device_unlocked', true);
+        await vaultBox.put('has_valid_code', true);
+        await prefs.setBool('is_device_unlocked', true);
+        await prefs.setBool('has_valid_code', true);
+        await storage.write(key: 'is_device_unlocked', value: 'true');
+        await storage.write(key: 'has_valid_code', value: 'true');
+        if (Hive.isBoxOpen('settings')) {
+          await Hive.box('settings').put('is_device_unlocked', true);
+          await Hive.box('settings').put('has_valid_code', true);
+        }
         await prefs.remove('is_device_unlocked_temp');
         debugPrint('🔓 تم استرجاع حالة فتح الجهاز بنجاح من SharedPreferences إلى pairing_vault بعد Restart');
       }

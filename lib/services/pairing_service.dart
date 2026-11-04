@@ -103,10 +103,9 @@ class PairingService {
   /// التحقق من صحة الكود وربط الجهاز
   Future<Map<String, dynamic>?> verifyAndLink(String code) async {
     try {
-      // تنظيف الكود تماماً (أبجدي رقمي) كما طلب المستخدم
+      // تنظيف الكود تماماً (أبجدي رقمي)
       final cleanCode = code.trim().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
-      final currentFactoryId = await _storage.read(key: 'factory_id');
-      debugPrint('🔍 Verifying pairing code: $cleanCode (current factory: $currentFactoryId)');
+      debugPrint('🔍 Verifying pairing code: $cleanCode');
       
       // جلب الكود من قاعدة البيانات
       final response = await _supabase
@@ -122,21 +121,31 @@ class PairingService {
         return {'success': false, 'error': 'الكود غير صحيح'};
       }
       
+      // التحقق من حالة الاستخدام
+      if (response['is_used'] == true) {
+        return {'success': false, 'error': 'تم استخدام هذا الكود مسبقاً'};
+      }
+
       // التحقق من انتهاء الصلاحية
-      final expiresAt = DateTime.parse(response['expires_at']);
-      if (DateTime.now().isAfter(expiresAt)) {
-        return {'success': false, 'error': 'انتهت صلاحية الكود'};
+      if (response['expires_at'] != null) {
+        final expiresAt = DateTime.parse(response['expires_at'].toString());
+        if (DateTime.now().toUtc().isAfter(expiresAt)) {
+          return {'success': false, 'error': 'انتهت صلاحية الكود'};
+        }
       }
       
-      final factoryId = response['factory_id'] as String;
+      final factoryId = (response['factory_id'] ?? '').toString();
       
-      // حذف الكود بعد الاستخدام (للأمان)
-      await _supabase.from('pairing_codes').delete().eq('code', code);
+      // تحديث حالة الكود أو حذفه
+      try {
+        await _supabase.from('pairing_codes').update({'is_used': true}).eq('code', cleanCode);
+      } catch (_) {
+        await _supabase.from('pairing_codes').delete().eq('code', cleanCode);
+      }
 
-      // ✅ تسجيل جهاز العامل في Supabase (device_id + is_device_linked = true)
-      // نُنفّذه في الخلفية لعدم تأخير استجابة الربط الأساسية
+      // ✅ تسجيل جهاز العامل في Supabase إذا كان هناك مستخدم ومصنع
       final userEmail = _supabase.auth.currentUser?.email;
-      if (userEmail != null) {
+      if (userEmail != null && factoryId.isNotEmpty) {
         KillSwitchService.instance.registerDevice(
           email: userEmail,
           factoryId: factoryId,

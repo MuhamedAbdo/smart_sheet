@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_sheet/services/safe_secure_storage.dart';
-import 'package:smart_sheet/widgets/auth_gate.dart';
+import 'package:smart_sheet/screens/home_screen.dart';
 
 class GatekeeperScreen extends StatefulWidget {
   static const String routeName = '/gatekeeper';
@@ -22,10 +23,11 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
     super.dispose();
   }
 
+  /// دالة التحقق من كود الدخول العام (فصل تام عن المصانع)
   Future<void> _validateCode() async {
     final code = _codeController.text.trim();
     if (code.isEmpty) {
-      _showError('الرجاء إدخال كود الدعوة');
+      _showError('الرجاء إدخال كود الدخول');
       return;
     }
 
@@ -34,30 +36,96 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
     });
 
     try {
-      // Call the Supabase RPC function
-      final response = await Supabase.instance.client.rpc(
-        'validate_invitation_code',
-        params: {'p_code': code},
-      );
+      bool isValid = false;
 
-      if (response == true) {
-        // Code is valid — حفظ حالة التفعيل في pairing_vault الدائم
-        // ✅ pairing_vault لا يُمسح بـ forceLogout() أبداً
+      // 1. استدعاء الدالة البرمجية validate_invitation_code من Supabase (تتحقق فقط من الكود دون factory_id)
+      try {
+        final response = await Supabase.instance.client.rpc(
+          'validate_invitation_code',
+          params: {'p_code': code},
+        );
+        if (response == true) {
+          isValid = true;
+        }
+      } catch (rpcError) {
+        debugPrint('⚠️ validate_invitation_code RPC info/error: $rpcError');
+      }
+
+      // 2. التحقق المباشر من جدول pairing_codes (تطابق الكود + is_used = false + الصلاحية expires_at)
+      if (!isValid) {
+        final res = await Supabase.instance.client
+            .from('pairing_codes')
+            .select()
+            .eq('code', code)
+            .maybeSingle();
+
+        if (res != null) {
+          final isUsed = res['is_used'] == true;
+          bool isExpired = false;
+          if (res['expires_at'] != null) {
+            final expiresAt = DateTime.tryParse(res['expires_at'].toString());
+            if (expiresAt != null && DateTime.now().toUtc().isAfter(expiresAt)) {
+              isExpired = true;
+            }
+          }
+
+          if (!isUsed && !isExpired) {
+            isValid = true;
+            // تحديث الكود ليكون مستخدماً لمنع تكرار استخدامه
+            try {
+              await Supabase.instance.client
+                  .from('pairing_codes')
+                  .update({'is_used': true})
+                  .eq('code', code);
+            } catch (uErr) {
+              debugPrint('⚠️ pairing_codes update error: $uErr');
+            }
+          }
+        }
+      }
+
+      if (isValid) {
+        // الكود صحيح وغير مستخدم — حفظ حالة التفعيل الدائمة في كافة طبقات التخزين الدائم
+        // 1. SharedPreferences (مفتاح دائم لا يتأثر بأي تحديث للتطبيق أو زيادة رقم الإصدار)
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('is_device_unlocked', true);
+          await prefs.setBool('has_valid_code', true);
+        } catch (prefsErr) {
+          debugPrint('⚠️ GatekeeperScreen: prefs save error: $prefsErr');
+        }
+
+        // 2. SafeSecureStorage (FlutterSecureStorage / KeyStore)
+        const storage = SafeSecureStorage();
+        await storage.write(key: 'is_device_unlocked', value: 'true');
+        await storage.write(key: 'has_valid_code', value: 'true');
+
+        // 3. Hive pairing_vault (صندوق الارتباط والتفعيل الدائم)
         if (Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)) {
-          await Hive.box(SafeSecureStorage.pairingVaultBoxName)
-              .put('is_device_unlocked', true);
+          final box = Hive.box(SafeSecureStorage.pairingVaultBoxName);
+          await box.put('is_device_unlocked', true);
+          await box.put('has_valid_code', true);
         } else {
           final vaultBox = await Hive.openBox(SafeSecureStorage.pairingVaultBoxName);
           await vaultBox.put('is_device_unlocked', true);
+          await vaultBox.put('has_valid_code', true);
         }
-        debugPrint('✅ GatekeeperScreen: is_device_unlocked حُفظ في pairing_vault');
+
+        // 4. Hive settings (للتوافق الرجعي)
+        if (Hive.isBoxOpen('settings')) {
+          await Hive.box('settings').put('is_device_unlocked', true);
+          await Hive.box('settings').put('has_valid_code', true);
+        }
+
+        debugPrint('✅ GatekeeperScreen: تم حفظ حالة التفعيل (is_device_unlocked) بنجاح في جميع طبقات التخزين الدائم.');
 
         if (mounted) {
+          // التوجيه مباشرة إلى الشاشة الرئيسية (Home) كمتصفح عام
           Navigator.pushReplacement(
             context,
             PageRouteBuilder(
-              settings: const RouteSettings(name: '/auth_gate'),
-              pageBuilder: (context, animation, secondaryAnimation) => const AuthGate(),
+              settings: const RouteSettings(name: '/home'),
+              pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 return FadeTransition(opacity: animation, child: child);
               },
@@ -66,8 +134,8 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
           );
         }
       } else {
-        // Code is invalid or expired
-        _showError('الكود غير صحيح أو منتهي الصلاحية');
+        // الكود غير صحيح أو مستخدم أو منتهي الصلاحية
+        _showError('الكود غير صحيح أو تم استخدامه مسبقاً أو منتهي الصلاحية');
       }
     } catch (e) {
       debugPrint('Error validating code: $e');
@@ -153,7 +221,7 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
                   
                   // Subtitle
                   Text(
-                    'الرجاء إدخال كود الدعوة للوصول إلى التطبيق',
+                    'الرجاء إدخال كود الدخول للوصول إلى التطبيق',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -168,17 +236,17 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
                     child: TextField(
                       controller: _codeController,
                       style: TextStyle(
-                        fontSize: 18,
-                        letterSpacing: 2,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 22,
+                        letterSpacing: 4,
+                        fontWeight: FontWeight.bold,
                         color: isDarkMode ? Colors.white : Colors.black87,
                       ),
                       textAlign: TextAlign.center,
                       decoration: InputDecoration(
-                        hintText: 'XXXX-XXXX-XXXX',
+                        hintText: '------',
                         hintStyle: TextStyle(
                           color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
-                          letterSpacing: 1,
+                          letterSpacing: 4,
                         ),
                         filled: true,
                         fillColor: isDarkMode ? const Color(0xFF2A2A2A) : const Color(0xFFF8F9FA),

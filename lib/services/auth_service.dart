@@ -12,6 +12,7 @@ import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/pairing_service.dart';
 import 'package:smart_sheet/services/kill_switch_service.dart';
 import 'package:smart_sheet/services/push_notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService extends ChangeNotifier {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
@@ -790,6 +791,10 @@ class AuthService extends ChangeNotifier {
       if (Hive.isBoxOpen('settings')) {
         await Hive.box('settings').put('is_user_logged_in', false);
       }
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('is_user_logged_in', false);
+      } catch (_) {}
 
       // مسح الصناديق المحلية بالكامل عند تسجيل الخروج لحماية البيانات
       await KillSwitchService.instance.forceLogout(

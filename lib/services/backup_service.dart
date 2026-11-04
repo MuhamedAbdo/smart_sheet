@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/utils/data_normalization_helper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -255,25 +257,186 @@ class BackupService {
     }
   }
 
+  static void _cleanTablesDirectory(Directory dir) {
+    if (!dir.existsSync()) return;
+    for (final entity in dir.listSync(recursive: false)) {
+      final name = p.basename(entity.path);
+      // حماية مطلقة لصندوق الارتباط وتجاوز البوابة pairing_vault
+      if (name.startsWith('pairing_vault')) {
+        continue;
+      }
+      if (entity is Directory) {
+        if (name == 'SmartSheet_Data') {
+          _cleanTablesDirectory(entity);
+        } else {
+          try {
+            entity.deleteSync(recursive: true);
+          } catch (e) {
+            debugPrint('Error deleting dir $name: $e');
+          }
+        }
+      } else if (entity is File) {
+        try {
+          entity.deleteSync();
+        } catch (e) {
+          debugPrint('Error deleting file $name: $e');
+        }
+      }
+    }
+  }
+
   Future<String?> _restoreFromZipPath(String zipPath) async {
     try {
+      // ─── 1. أخذ لقطة شاملة وحماية فورية لكافة بيانات المصادقة وتجاوز البوابة ───
+      final prefs = await SharedPreferences.getInstance();
+      const storage = SafeSecureStorage();
+
+      Map<dynamic, dynamic> vaultMap = {};
+      if (Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)) {
+        vaultMap = Map<dynamic, dynamic>.from(
+            Hive.box(SafeSecureStorage.pairingVaultBoxName).toMap());
+      }
+
+      Map<dynamic, dynamic> settingsMap = {};
+      if (Hive.isBoxOpen('settings')) {
+        settingsMap =
+            Map<dynamic, dynamic>.from(Hive.box('settings').toMap());
+      }
+
+      final bool isUnlocked = prefs.getBool('is_device_unlocked') == true ||
+          prefs.getBool('has_valid_code') == true ||
+          prefs.getBool('is_device_unlocked_temp') == true ||
+          vaultMap['is_device_unlocked'] == true ||
+          vaultMap['has_valid_code'] == true ||
+          settingsMap['is_device_unlocked'] == true;
+
+      final bool isDeviceLinked = prefs.getBool('is_device_linked') == true ||
+          vaultMap['is_device_linked'] == true ||
+          settingsMap['is_device_linked'] == true;
+
+      final String? factoryId = vaultMap['factory_id']?.toString() ??
+          settingsMap['factory_id']?.toString() ??
+          prefs.getString('factory_id');
+
+      final String? deviceId = vaultMap['device_id']?.toString() ??
+          settingsMap['device_id']?.toString() ??
+          prefs.getString('device_id');
+
+      final String? userRole = vaultMap['user_role']?.toString() ??
+          settingsMap['user_role']?.toString() ??
+          prefs.getString('user_role');
+
+      final String? linkedWorkerId =
+          vaultMap['linked_worker_id']?.toString() ??
+              settingsMap['linked_worker_id']?.toString() ??
+              prefs.getString('linked_worker_id');
+
+      final bool isUserLoggedIn = settingsMap['is_user_logged_in'] == true ||
+          prefs.getBool('is_user_logged_in') == true;
+
+      // ─── 2. الحفظ الإلزامي في SharedPreferences و SafeSecureStorage ───
+      if (isUnlocked) {
+        await prefs.setBool('is_device_unlocked', true);
+        await prefs.setBool('has_valid_code', true);
+        await storage.write(key: 'is_device_unlocked', value: 'true');
+        await storage.write(key: 'has_valid_code', value: 'true');
+      }
+      if (isDeviceLinked) {
+        await prefs.setBool('is_device_linked', true);
+        await storage.write(key: 'is_device_linked', value: 'true');
+      }
+      if (factoryId != null && factoryId.isNotEmpty) {
+        await prefs.setString('factory_id', factoryId);
+        await storage.write(key: 'factory_id', value: factoryId);
+      }
+      if (deviceId != null && deviceId.isNotEmpty) {
+        await prefs.setString('device_id', deviceId);
+        await storage.write(key: 'device_id', value: deviceId);
+      }
+      if (userRole != null && userRole.isNotEmpty) {
+        await prefs.setString('user_role', userRole);
+        await storage.write(key: 'user_role', value: userRole);
+      }
+      if (linkedWorkerId != null && linkedWorkerId.isNotEmpty) {
+        await prefs.setString('linked_worker_id', linkedWorkerId);
+        await storage.write(key: 'linked_worker_id', value: linkedWorkerId);
+      }
+      if (isUserLoggedIn) {
+        await prefs.setBool('is_user_logged_in', true);
+      }
+
       await Hive.close();
       final appDir = await getApplicationDocumentsDirectory();
       final appDirInstance = Directory(appDir.path);
 
-      // حذف البيانات الحالية لاستبدالها بالنسخة المستعادة
+      // حذف البيانات الحالية لاستبدالها بالنسخة المستعادة (الجداول فقط)
       if (appDirInstance.existsSync()) {
-        final entities = appDirInstance.listSync();
-        for (var entity in entities) {
-          try {
-            entity.deleteSync(recursive: true);
-          } catch (e) {
-            debugPrint('Error deleting file: $e');
-          }
-        }
+        _cleanTablesDirectory(appDirInstance);
       }
 
+      // ─── 4. فك ضغط النسخة الاحتياطية (مع استثناء pairing_vault) ───
       await compute(_restoreBackupInternal, [zipPath, appDir.path]);
+
+      // ─── 5. إعادة فتح Hive وتثبيت بيانات المصادقة والارتباط الدائمة ───
+      if (Platform.isWindows) {
+        await Hive.initFlutter('SmartSheet_Data');
+      } else {
+        await Hive.initFlutter();
+      }
+
+      final vaultBox =
+          await Hive.openBox(SafeSecureStorage.pairingVaultBoxName);
+      if (vaultMap.isNotEmpty) {
+        await vaultBox.putAll(vaultMap);
+      }
+      if (isUnlocked) {
+        await vaultBox.put('is_device_unlocked', true);
+        await vaultBox.put('has_valid_code', true);
+      }
+      if (isDeviceLinked) {
+        await vaultBox.put('is_device_linked', true);
+      }
+      if (factoryId != null && factoryId.isNotEmpty) {
+        await vaultBox.put('factory_id', factoryId);
+      }
+      if (deviceId != null && deviceId.isNotEmpty) {
+        await vaultBox.put('device_id', deviceId);
+      }
+      if (userRole != null && userRole.isNotEmpty) {
+        await vaultBox.put('user_role', userRole);
+      }
+      if (linkedWorkerId != null && linkedWorkerId.isNotEmpty) {
+        await vaultBox.put('linked_worker_id', linkedWorkerId);
+      }
+
+      final settingsBox = await Hive.openBox('settings');
+      if (settingsMap.isNotEmpty) {
+        await settingsBox.putAll(settingsMap);
+      }
+      if (isUserLoggedIn) {
+        await settingsBox.put('is_user_logged_in', true);
+      }
+      if (isUnlocked) {
+        await settingsBox.put('is_device_unlocked', true);
+        await settingsBox.put('has_valid_code', true);
+      }
+      if (isDeviceLinked) {
+        await settingsBox.put('is_device_linked', true);
+      }
+      if (factoryId != null && factoryId.isNotEmpty) {
+        await settingsBox.put('factory_id', factoryId);
+      }
+      if (deviceId != null && deviceId.isNotEmpty) {
+        await settingsBox.put('device_id', deviceId);
+      }
+      if (userRole != null && userRole.isNotEmpty) {
+        await settingsBox.put('user_role', userRole);
+      }
+      if (linkedWorkerId != null && linkedWorkerId.isNotEmpty) {
+        await settingsBox.put('linked_worker_id', linkedWorkerId);
+      }
+
+      debugPrint('✅ _restoreFromZipPath: تم استرجاع البيانات بنجاح مع صون حالة المصادقة والـ Gatekeeper.');
       return 'SUCCESS_RESTORE';
     } catch (e) {
       return '❌ فشل فك الضغط: $e';
@@ -361,7 +524,8 @@ class BackupService {
         if (entity is File) {
           // استثناء ملفات القفل أو الملفات المؤقتة لتجنب الأخطاء
           if (entity.path.endsWith('.lock') ||
-              entity.path.contains('temp_backup')) {
+              entity.path.contains('temp_backup') ||
+              p.basename(entity.path).startsWith('pairing_vault')) {
             continue;
           }
 
@@ -382,6 +546,10 @@ class BackupService {
     final archive = ZipDecoder().decodeBytes(bytes);
 
     for (final file in archive) {
+      // حماية مطلقة: عدم استخراج أو استبدال pairing_vault من ملف النسخة الاحتياطية
+      if (file.name.contains('pairing_vault')) {
+        continue;
+      }
       final outputPath = p.join(args[1], file.name);
       if (file.isFile) {
         File(outputPath)
