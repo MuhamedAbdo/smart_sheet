@@ -1336,7 +1336,8 @@ mixin ProductionSync on SyncServiceBase {
       'notes': r['notes'],
       'isSheet': r['isSheet'] ?? r['is_sheet'] ?? false,
       'factory_id': r['factory_id'],
-      'colors': r['colors'] ?? [],
+      if (!(dept == 'crushing' || dept == 'die_cutting'))
+        'colors': r['colors'] ?? [],
       'dimensions': dims,
     };
   }
@@ -1481,8 +1482,12 @@ mixin ProductionSync on SyncServiceBase {
       if (crushingArchivedReports.isNotEmpty) {
         debugPrint(
             '📤 [directPushAllReports] جاري رفع ${crushingArchivedReports.length} تقرير أرشيف إلى die_cutting_archived_reports...');
+        final cleanCrushingReports = crushingArchivedReports.map((r) {
+          final reportObj = DieCuttingProductionReport.fromJson(r);
+          return reportObj.toSupabaseMap();
+        }).toList();
         await _safeUpsertReports(
-            'die_cutting_archived_reports', crushingArchivedReports);
+            'die_cutting_archived_reports', cleanCrushingReports);
       }
 
       // ─── 4. تنظيف طابور المزامنة من السجلات التي رُفعت بالفعل ───
@@ -1541,6 +1546,16 @@ mixin ProductionSync on SyncServiceBase {
     dims['weight'] = weightVal;
     dims['paperLayers'] = layersList;
 
+    final resolvedDept = r['department']?.toString() ??
+        ((r['machine_name']?.toString() == 'خط الإنتاج' ||
+                r['machineName']?.toString() == 'خط الإنتاج')
+            ? 'production_line'
+            : 'flexo');
+    final bool isCrushing = (resolvedDept == 'crushing' ||
+        resolvedDept == 'die_cutting' ||
+        r['machine_name']?.toString().contains('تكسير') == true ||
+        r['machineName']?.toString().contains('تكسير') == true);
+
     final payload = <String, dynamic>{
       'sync_id': syncId,
       'factory_id': r['factory_id']?.toString().trim().isNotEmpty == true
@@ -1554,7 +1569,8 @@ mixin ProductionSync on SyncServiceBase {
       'product_code':
           r['product_code']?.toString() ?? r['productCode']?.toString() ?? '',
       'dimensions': dims,
-      'colors': (r['colors'] is List) ? List<dynamic>.from(r['colors']) : [],
+      if (!isCrushing)
+        'colors': (r['colors'] is List) ? List<dynamic>.from(r['colors']) : [],
       'quantity': int.tryParse(r['quantity']?.toString() ?? '') ?? 0,
       'notes': r['notes']?.toString(),
       'order_number':
@@ -1577,11 +1593,7 @@ mixin ProductionSync on SyncServiceBase {
           r['technician_name']?.toString() ?? r['technicianName']?.toString(),
       'technician_id':
           r['technician_id']?.toString() ?? r['technicianId']?.toString(),
-      'department': r['department']?.toString() ??
-          ((r['machine_name']?.toString() == 'خط الإنتاج' ||
-                  r['machineName']?.toString() == 'خط الإنتاج')
-              ? 'production_line'
-              : 'flexo'),
+      'department': resolvedDept,
       'paper_layers': layersList,
       'weight': weightVal,
       'is_sheet': r['is_sheet'] == true ||
@@ -1605,6 +1617,23 @@ mixin ProductionSync on SyncServiceBase {
       String table, List<Map<String, dynamic>> records) async {
     if (records.isEmpty) return;
 
+    // إزالة الحقول غير الموجودة في جداول التكسير وتأكيد استخدام report_date بدلاً من date
+    if (table == 'die_cutting_archived_reports' ||
+        table == 'die_cutting_production_reports') {
+      for (var r in records) {
+        if (r.containsKey('date') && !r.containsKey('report_date')) {
+          r['report_date'] = r.remove('date');
+        } else {
+          r.remove('date');
+        }
+        r.remove('colors');
+        r.remove('department');
+        r.remove('shift_name');
+        r.remove('shift');
+        r.remove('status');
+      }
+    }
+
     // Ensure all records have an id if we need to fallback
     for (var r in records) {
       if (r['id'] == null && r['sync_id'] != null) {
@@ -1626,6 +1655,8 @@ mixin ProductionSync on SyncServiceBase {
         debugPrint(
             '⚠️ [directPushAllReports] حقل غير موجود في جدول $table (${e.message})، جاري إزالة الأعمدة الاختيارية وإعادة الرفع...');
         for (var r in records) {
+          if (e.message.contains('colors')) r.remove('colors');
+          if (e.message.contains('department')) r.remove('department');
           if (e.message.contains('technician_id')) r.remove('technician_id');
           if (e.message.contains('is_sheet')) r.remove('is_sheet');
           if (e.message.contains('paperLayers') ||

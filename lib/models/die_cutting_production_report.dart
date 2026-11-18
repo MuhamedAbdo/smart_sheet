@@ -29,7 +29,7 @@ class DieCuttingProductionReport extends HiveObject {
   final String formNumber;
 
   @HiveField(8)
-  final String orderNumber;
+  final String? orderNumber;
 
   @HiveField(9)
   final DateTime? runTimeStart;
@@ -67,6 +67,9 @@ class DieCuttingProductionReport extends HiveObject {
   @HiveField(20, defaultValue: 'approved')
   final String status;
 
+  @HiveField(21)
+  final DateTime? createdAt;
+
   DieCuttingProductionReport({
     required this.id,
     required this.machineName,
@@ -76,7 +79,7 @@ class DieCuttingProductionReport extends HiveObject {
     required this.itemName,
     required this.itemCode,
     required this.formNumber,
-    required this.orderNumber,
+    this.orderNumber,
     this.runTimeStart,
     this.runTimeEnd,
     this.downtimeStart,
@@ -89,6 +92,7 @@ class DieCuttingProductionReport extends HiveObject {
     this.crewMembers,
     this.shiftName,
     this.status = 'approved',
+    this.createdAt,
   });
 
   DieCuttingProductionReport copyWith({
@@ -113,6 +117,7 @@ class DieCuttingProductionReport extends HiveObject {
     List<String>? crewMembers,
     String? shiftName,
     String? status,
+    DateTime? createdAt,
   }) {
     return DieCuttingProductionReport(
       id: id ?? this.id,
@@ -136,11 +141,12 @@ class DieCuttingProductionReport extends HiveObject {
       crewMembers: crewMembers ?? this.crewMembers,
       shiftName: shiftName ?? this.shiftName,
       status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final map = {
       'id': id.toString(),
       'sync_id': id.toString(),
       'factory_id': factoryId,
@@ -163,29 +169,99 @@ class DieCuttingProductionReport extends HiveObject {
       'crew_members': crewMembers,
       'shift_name': shiftName,
       'status': status,
+      if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
     };
+    // قسم التكسير لا يتعامل مع الألوان ولا يحتوي جدوله على عمود colors
+    map.remove('colors');
+    return map;
+  }
+
+  Map<String, dynamic> toMap() => toJson();
+
+  /// إرجاع الحقول المتوافقة فقط مع جدول `die_cutting_archived_reports` على Supabase
+  /// واستبعاد أي حقول أخرى تماماً (مثل: shift_name, colors, department, status)
+  Map<String, dynamic> toSupabaseMap() {
+    final Map<String, dynamic> map = {
+      'id': id.toString(),
+      'sync_id': id.toString(),
+      'factory_id': factoryId,
+      'report_date': reportDate.toIso8601String(),
+      'machine_name': machineName,
+      'technician_name': technicianName,
+      'customer_name': customerName,
+      'item_name': itemName,
+      'item_code': itemCode,
+      'form_number': formNumber,
+      'run_time_start': runTimeStart?.toIso8601String(),
+      'run_time_end': runTimeEnd?.toIso8601String(),
+      'downtime_start': downtimeStart?.toIso8601String(),
+      'downtime_end': downtimeEnd?.toIso8601String(),
+      'production_quantity': productionQuantity,
+      'waste_quantity': wasteQuantity,
+      'notes': notes,
+      'created_at': (createdAt ?? DateTime.now()).toIso8601String(),
+      'dimensions': dimensions,
+      'crew_members': crewMembers,
+      'order_number': (orderNumber != null && orderNumber!.trim().isNotEmpty)
+          ? orderNumber!.trim()
+          : null,
+    };
+
+    // القائمة البيضاء الدقيقة المعتمدة لأعمدة جدول die_cutting_archived_reports على Supabase
+    const allowedKeys = {
+      'id',
+      'sync_id',
+      'factory_id',
+      'report_date',
+      'machine_name',
+      'technician_name',
+      'customer_name',
+      'item_name',
+      'item_code',
+      'form_number',
+      'run_time_start',
+      'run_time_end',
+      'downtime_start',
+      'downtime_end',
+      'production_quantity',
+      'waste_quantity',
+      'notes',
+      'created_at',
+      'dimensions',
+      'crew_members',
+      'order_number',
+    };
+
+    // حذف وتجاهل أي مفتاح غير موجود في القائمة البيضاء تماماً
+    map.removeWhere((key, _) => !allowedKeys.contains(key));
+
+    return map;
   }
 
   factory DieCuttingProductionReport.fromJson(Map<String, dynamic> map) {
     return DieCuttingProductionReport(
       id: map['sync_id']?.toString() ?? map['id']?.toString() ?? '',
-      factoryId: map['factory_id']?.toString(),
-      machineName: map['machine_name']?.toString() ?? '',
-      technicianName: map['technician_name']?.toString() ?? '',
-      reportDate: map['report_date'] != null 
-          ? DateTime.tryParse(map['report_date'].toString()) ?? DateTime.now()
+      factoryId: map['factory_id']?.toString() ?? map['factoryId']?.toString(),
+      machineName: map['machine_name']?.toString() ?? map['machineName']?.toString() ?? '',
+      technicianName: map['technician_name']?.toString() ?? map['technicianName']?.toString() ?? '',
+      reportDate: (map['report_date'] != null || map['date'] != null)
+          ? DateTime.tryParse((map['report_date'] ?? map['date']).toString()) ?? DateTime.now()
           : DateTime.now(),
-      customerName: map['customer_name']?.toString() ?? '',
-      itemName: map['item_name']?.toString() ?? '',
-      itemCode: map['item_code']?.toString() ?? '',
-      formNumber: map['form_number']?.toString() ?? '',
-      orderNumber: map['order_number']?.toString() ?? map['orderNumber']?.toString() ?? '',
+      customerName: map['customer_name']?.toString() ?? map['client_name']?.toString() ?? map['clientName']?.toString() ?? '',
+      itemName: map['item_name']?.toString() ?? map['product_name']?.toString() ?? map['product']?.toString() ?? '',
+      itemCode: map['item_code']?.toString() ?? map['product_code']?.toString() ?? map['productCode']?.toString() ?? '',
+      formNumber: map['form_number']?.toString() ?? map['formNumber']?.toString() ?? '',
+      orderNumber: map['order_number']?.toString() ?? map['orderNumber']?.toString() ?? map['work_order']?.toString(),
       runTimeStart: map['run_time_start'] != null 
           ? DateTime.tryParse(map['run_time_start'].toString()) 
-          : null,
+          : (map['start_time'] != null 
+              ? DateTime.tryParse(map['start_time'].toString()) 
+              : (map['startTime'] != null ? DateTime.tryParse(map['startTime'].toString()) : null)),
       runTimeEnd: map['run_time_end'] != null 
           ? DateTime.tryParse(map['run_time_end'].toString()) 
-          : null,
+          : (map['end_time'] != null 
+              ? DateTime.tryParse(map['end_time'].toString()) 
+              : (map['endTime'] != null ? DateTime.tryParse(map['endTime'].toString()) : null)),
       downtimeStart: map['downtime_start'] != null 
           ? DateTime.tryParse(map['downtime_start'].toString()) 
           : null,
@@ -196,10 +272,17 @@ class DieCuttingProductionReport extends HiveObject {
       wasteQuantity: (map['waste_quantity'] as num?)?.toDouble() ?? (map['line_waste'] as num?)?.toDouble() ?? double.tryParse(map['waste_quantity']?.toString() ?? '') ?? double.tryParse(map['line_waste']?.toString() ?? '') ?? 0.0,
       notes: map['notes']?.toString(),
       dimensions: map['dimensions'] is Map ? Map<String, dynamic>.from(map['dimensions']) : null,
-      crewMembers: map['crew_members'] is List ? List<String>.from(map['crew_members']) : null,
+      crewMembers: map['crew_members'] is List 
+          ? List<String>.from(map['crew_members']) 
+          : (map['crewMembers'] is List ? List<String>.from(map['crewMembers']) : null),
       shiftName: map['shift_name']?.toString() ?? map['shiftName']?.toString(),
       status: map['status']?.toString() ?? 'approved',
+      createdAt: map['created_at'] != null 
+          ? DateTime.tryParse(map['created_at'].toString()) 
+          : (map['createdAt'] != null ? DateTime.tryParse(map['createdAt'].toString()) : null),
     );
   }
 }
+
+typedef DieCuttingArchivedReport = DieCuttingProductionReport;
 

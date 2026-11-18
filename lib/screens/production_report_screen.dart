@@ -577,6 +577,7 @@ class _FlexoProductionReportScreenState
         if (widget.department == 'crushing' ||
             widget.department == 'die_cutting') {
           archiveTable = 'die_cutting_archived_reports';
+          r = DieCuttingProductionReport.fromJson(r).toSupabaseMap();
         }
 
         SyncService.instance.pushToQueue(archiveTable, r);

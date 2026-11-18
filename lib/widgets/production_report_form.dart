@@ -234,15 +234,16 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
         },
         'isSheet': isSheet,
 
-        'colors': (isProductionLine || isCrushing)
-            ? []
-            : colors
-                .map((c) => {
-                      'color': c.colorController.text.trim(),
-                      'quantity':
-                          double.tryParse(c.quantityController.text) ?? 0.0,
-                    })
-                .toList(),
+        if (!isCrushing)
+          'colors': isProductionLine
+              ? []
+              : colors
+                  .map((c) => {
+                        'color': c.colorController.text.trim(),
+                        'quantity':
+                            double.tryParse(c.quantityController.text) ?? 0.0,
+                      })
+                  .toList(),
         'quantity': int.tryParse(quantityController.text) ?? 0,
         'weight': wVal,
         'paperLayers': layersVal,

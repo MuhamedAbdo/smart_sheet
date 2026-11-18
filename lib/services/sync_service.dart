@@ -502,10 +502,26 @@ class SyncService extends SyncServiceBase
   }) async {
     try {
       final box = await _ensureQueueBox();
+      final cleanData = Map<String, dynamic>.from(data);
+      // جداول قسم التكسير تستخدم report_date بدلاً من date، ولا تحتوي على عمود colors أو department في Supabase
+      if (table == 'die_cutting_archived_reports' ||
+          table == 'die_cutting_production_reports' ||
+          table == 'die_cutting_forms') {
+        if (cleanData.containsKey('date') && !cleanData.containsKey('report_date')) {
+          cleanData['report_date'] = cleanData.remove('date');
+        } else {
+          cleanData.remove('date');
+        }
+        cleanData.remove('colors');
+        cleanData.remove('department');
+        cleanData.remove('shift_name');
+        cleanData.remove('shift');
+        cleanData.remove('status');
+      }
 
       await box.add({
         'table': table,
-        'data': Map<String, dynamic>.from(data),
+        'data': cleanData,
         'operation': operation,
         'timestamp': ServerTimeService.nowUtc.toIso8601String(),
         'retries': 0,
@@ -1009,6 +1025,11 @@ class SyncService extends SyncServiceBase
                 cleanPayload.remove('shift');
                 modified = true;
               }
+              if (cleanPayload.containsKey('shift_name') &&
+                  (missingCol == 'shift_name' || e.message.contains('shift_name'))) {
+                cleanPayload.remove('shift_name');
+                modified = true;
+              }
               if (cleanPayload.containsKey('technician_id') &&
                   (missingCol == 'technician_id' ||
                       e.message.contains('technician_id'))) {
@@ -1150,8 +1171,26 @@ class SyncService extends SyncServiceBase
     if (table != 'die_cutting_forms' &&
         table != 'worker_actions' &&
         table != 'line_archived_reports' &&
+        table != 'die_cutting_archived_reports' &&
+        table != 'die_cutting_production_reports' &&
         table != 'machines') {
       result.remove('id');
+    }
+
+    // جداول قسم التكسير تستخدم report_date بدلاً من date، ولا تحتوي على عمود colors أو department في Supabase
+    if (table == 'die_cutting_archived_reports' ||
+        table == 'die_cutting_production_reports' ||
+        table == 'die_cutting_forms') {
+      if (result.containsKey('date') && !result.containsKey('report_date')) {
+        result['report_date'] = result.remove('date');
+      } else {
+        result.remove('date');
+      }
+      result.remove('colors');
+      result.remove('department');
+      result.remove('shift_name');
+      result.remove('shift');
+      result.remove('status');
     }
 
     // تنظيف أي قيم null أخرى قد ترفضها السحابة إذا كانت الجداول لا تقبل Null

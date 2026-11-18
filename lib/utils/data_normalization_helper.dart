@@ -44,7 +44,8 @@ class DataNormalizationHelper {
                     cleanPayload = FlexoProductionReport.fromJson(rawPayload).toJson();
                     break;
                   case 'die_cutting_production_reports':
-                    cleanPayload = DieCuttingProductionReport.fromJson(rawPayload).toJson();
+                  case 'die_cutting_archived_reports':
+                    cleanPayload = DieCuttingProductionReport.fromJson(rawPayload).toSupabaseMap();
                     break;
                   case 'flexo_live_sessions':
                     cleanPayload = LiveSession.fromJson(rawPayload).toJson();
@@ -86,7 +87,9 @@ class DataNormalizationHelper {
       
       // 2. Normalize Archive Boxes (if they hold raw Maps)
       await _normalizeArchiveBox('flexoArchive', (map) => FlexoProductionReport.fromJson(map).toJson());
-      await _normalizeArchiveBox('crushingArchive', (map) => DieCuttingProductionReport.fromJson(map).toJson());
+      await _normalizeArchiveBox('crushingArchive', (map) {
+        return DieCuttingProductionReport.fromJson(map).toSupabaseMap();
+      });
       await _normalizeArchiveBox('lineArchive', (map) => FlexoProductionReport.fromJson(map).toJson());
       
       debugPrint('✅ DataNormalizationHelper: Normalization completed successfully.');

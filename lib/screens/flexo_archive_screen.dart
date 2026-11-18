@@ -188,9 +188,9 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               if (dept == 'crushing' || dept == 'die_cutting') {
                 final reportObj = DieCuttingProductionReport.fromJson(parsedData);
                 Hive.box<DieCuttingProductionReport>('die_cutting_production_reports_box').add(reportObj);
-                SyncService.instance.pushToQueue('die_cutting_production_reports', reportObj.toJson());
-                SyncService.instance.pushToQueue('die_cutting_archived_reports', reportObj.toJson());
-                dieCuttingArchiveToUpsert.add(reportObj.toJson());
+                SyncService.instance.pushToQueue('die_cutting_production_reports', reportObj.toSupabaseMap());
+                SyncService.instance.pushToQueue('die_cutting_archived_reports', reportObj.toSupabaseMap());
+                dieCuttingArchiveToUpsert.add(reportObj.toSupabaseMap());
                 continue;
               } else {
                 final reportObj = FlexoProductionReport.fromJson(parsedData);

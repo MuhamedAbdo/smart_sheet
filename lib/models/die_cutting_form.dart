@@ -134,4 +134,12 @@ class DieCuttingForm extends HiveObject {
       'item_code': itemCode,
     };
   }
+
+  Map<String, dynamic> toMap() => toJson();
+
+  Map<String, dynamic> toSupabaseMap() {
+    final map = toJson();
+    map.remove('colors');
+    return map;
+  }
 }
