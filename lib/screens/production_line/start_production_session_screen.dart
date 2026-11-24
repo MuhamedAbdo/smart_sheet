@@ -123,10 +123,9 @@ class _StartProductionSessionScreenState
       final liveBoxCheck = Hive.isBoxOpen('flexo_live_sessions')
           ? Hive.box<LiveSession>('flexo_live_sessions')
           : await Hive.openBox<LiveSession>('flexo_live_sessions');
-      
-      final isAlreadyRunning = liveBoxCheck.values.any((s) => 
-        s.machineName == _selectedMachine && s.isRunning
-      );
+
+      final isAlreadyRunning = liveBoxCheck.values
+          .any((s) => s.machineName == _selectedMachine && s.isRunning);
 
       if (isAlreadyRunning) {
         UIUtils.showInfoSnackBar(
@@ -143,11 +142,14 @@ class _StartProductionSessionScreenState
       String? techId = PermissionHelper.currentWorker?.id;
       if (techId == null && Hive.isBoxOpen('workers_production')) {
         try {
-          techId = Hive.box<Worker>('workers_production').values.firstWhere(
+          techId = Hive.box<Worker>('workers_production')
+              .values
+              .firstWhere(
                 (w) =>
                     w.name.trim().toLowerCase() ==
                     _techController.text.trim().toLowerCase(),
-              ).id;
+              )
+              .id;
         } catch (_) {}
       }
 
@@ -169,17 +171,21 @@ class _StartProductionSessionScreenState
         lastStateChange: ServerTimeService.nowUtc,
         isRunning: true,
         dimensions: () {
-          final d = Map<String, dynamic>.from(widget.initialData?['dimensions'] ?? {});
-          if (widget.initialData?['notes'] != null) d['notes'] = widget.initialData!['notes'];
-          if (widget.initialData?['product_state'] != null || widget.initialData?['productState'] != null) {
-            d['product_state'] = widget.initialData?['product_state'] ?? widget.initialData?['productState'];
+          final d = Map<String, dynamic>.from(
+              widget.initialData?['dimensions'] ?? {});
+          if (widget.initialData?['notes'] != null) {
+            d['notes'] = widget.initialData!['notes'];
+          }
+          if (widget.initialData?['product_state'] != null ||
+              widget.initialData?['productState'] != null) {
+            d['product_state'] = widget.initialData?['product_state'] ??
+                widget.initialData?['productState'];
             d['productState'] = d['product_state'];
           }
           return d;
         }(),
         isSheet: widget.initialData?['isSheet'] ?? false,
-        imagePaths:
-            List<String>.from(widget.initialData?['imagePaths'] ?? []),
+        imagePaths: List<String>.from(widget.initialData?['imagePaths'] ?? []),
         factoryId: fId,
         createdByDeviceId: deviceId,
         technicianId: techId,
@@ -331,8 +337,7 @@ class _StartProductionSessionScreenState
     );
   }
 
-  Widget _buildMachineSection(
-      ThemeData theme, List<FlexoMachine> machines) {
+  Widget _buildMachineSection(ThemeData theme, List<FlexoMachine> machines) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -343,8 +348,7 @@ class _StartProductionSessionScreenState
           children: [
             Row(
               children: [
-                Icon(Icons.factory,
-                    color: theme.colorScheme.primary, size: 20),
+                Icon(Icons.factory, color: theme.colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
                 const Text(
                   'اختيار خط الإنتاج / الماكينة',
@@ -452,9 +456,7 @@ class _StartProductionSessionScreenState
               : theme.cardColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? theme.colorScheme.primary
-                : theme.dividerColor,
+            color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -660,15 +662,13 @@ class _StartProductionSessionScreenState
       optionsBuilder: (TextEditingValue value) {
         if (value.text.isEmpty) return workersList;
         return workersList.where(
-          (option) =>
-              option.toLowerCase().contains(value.text.toLowerCase()),
+          (option) => option.toLowerCase().contains(value.text.toLowerCase()),
         );
       },
       onSelected: (selection) {
         _techController.text = selection;
       },
-      fieldViewBuilder:
-          (context, controller, focusNode, onEditingComplete) {
+      fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
         if (_techController.text.isNotEmpty && controller.text.isEmpty) {
           controller.text = _techController.text;
         }

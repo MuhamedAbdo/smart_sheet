@@ -54,7 +54,8 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
   List<Map<String, dynamic>> _historyList = [];
 
   /// فحص صلاحية التعديل والاستعادة للمستخدم الحالي
-  bool get _canRestore => widget.canEdit ?? PermissionHelper.canManageClientsEdit;
+  bool get _canRestore =>
+      widget.canEdit ?? PermissionHelper.canManageClientsEdit;
 
   @override
   void initState() {
@@ -64,7 +65,8 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
 
   Future<void> _loadHistory() async {
     // 1. قراءة السجل من الكاش المحلي وطابور المزامنة فوراً (حتى لو أوفلاين)
-    final localData = await ItemHistoryController.getLocalHistory(widget.itemId);
+    final localData =
+        await ItemHistoryController.getLocalHistory(widget.itemId);
     if (mounted) {
       setState(() {
         _historyList = localData;
@@ -76,7 +78,8 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
 
     // 2. عند وجود اتصال، جلب التعديلات الجديدة من Supabase وتحديث الـ UI
     try {
-      final remoteData = await ItemHistoryController.fetchRemoteHistory(widget.itemId);
+      final remoteData =
+          await ItemHistoryController.fetchRemoteHistory(widget.itemId);
       if (mounted) {
         setState(() {
           _historyList = remoteData;
@@ -84,7 +87,8 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
         });
       }
     } catch (e) {
-      debugPrint('ℹ️ [ItemEditHistorySheet] استمرار العمل بالكاش المحلي (أوفلاين): $e');
+      debugPrint(
+          'ℹ️ [ItemEditHistorySheet] استمرار العمل بالكاش المحلي (أوفلاين): $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -123,14 +127,16 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
       builder: (dialogCtx) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
               Icon(Icons.restore, color: Colors.amber.shade800),
               const SizedBox(width: 8),
               Text(
                 title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -264,7 +270,8 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
                           "${widget.productName.isNotEmpty ? widget.productName : 'صنف'} ${widget.productCode.isNotEmpty ? '(${widget.productCode})' : ''} — ${widget.clientName}",
                           style: TextStyle(
                             fontSize: 13,
-                            color: isDark ? Colors.white70 : Colors.grey.shade600,
+                            color:
+                                isDark ? Colors.white70 : Colors.grey.shade600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -449,7 +456,9 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
                             Icon(
                               Icons.access_time_rounded,
                               size: 15,
-                              color: isDark ? Colors.white60 : Colors.grey.shade600,
+                              color: isDark
+                                  ? Colors.white60
+                                  : Colors.grey.shade600,
                             ),
                             const SizedBox(width: 6),
                             Expanded(
@@ -458,7 +467,9 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
                                 style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.grey.shade700,
                                 ),
                               ),
                             ),
@@ -469,18 +480,23 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: (ItemHistoryController.getOperationType(oldData, newData) == 'تكسير'
+                                color: (ItemHistoryController.getOperationType(
+                                                oldData, newData) ==
+                                            'تكسير'
                                         ? Colors.orange
                                         : Colors.blue)
                                     .withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                ItemHistoryController.getOperationType(oldData, newData),
+                                ItemHistoryController.getOperationType(
+                                    oldData, newData),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: ItemHistoryController.getOperationType(oldData, newData) == 'تكسير'
+                                  color: ItemHistoryController.getOperationType(
+                                              oldData, newData) ==
+                                          'تكسير'
                                       ? Colors.orange.shade800
                                       : Colors.blue.shade700,
                                 ),
@@ -512,10 +528,14 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
                                 icon: const Icon(Icons.restore),
                                 tooltip: 'استعادة هذا التعديل',
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
+                                constraints: const BoxConstraints(
+                                    minWidth: 32, minHeight: 32),
+                                color: isDark
+                                    ? Colors.blue.shade300
+                                    : Colors.blue.shade700,
                                 onPressed: () => _showRestoreDialog(
-                                  targetData: newData.isNotEmpty ? newData : oldData,
+                                  targetData:
+                                      newData.isNotEmpty ? newData : oldData,
                                   title: "استعادة التعديل",
                                 ),
                               ),
@@ -543,7 +563,8 @@ class _ItemEditHistorySheetState extends State<ItemEditHistorySheet> {
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.amber.shade800,
-                        side: BorderSide(color: Colors.amber.shade700, width: 1.5),
+                        side: BorderSide(
+                            color: Colors.amber.shade700, width: 1.5),
                         padding: const EdgeInsets.symmetric(
                           vertical: 11,
                           horizontal: 16,

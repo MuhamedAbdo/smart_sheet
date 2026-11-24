@@ -59,14 +59,15 @@ class UIUtils {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: confirmColor,
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
               Navigator.pop(ctx);
               onConfirm();
             },
-            child: Text(confirmLabel, style: const TextStyle(color: Colors.white)),
+            child:
+                Text(confirmLabel, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -111,7 +112,8 @@ class UIUtils {
         elevation: 6,
         margin: const EdgeInsets.all(12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        backgroundColor: const Color(0xFF2C2C2C), // لون داكن بتباين ممتاز في كل الأوضاع
+        backgroundColor:
+            const Color(0xFF2C2C2C), // لون داكن بتباين ممتاز في كل الأوضاع
         action: SnackBarAction(
           label: 'تراجع',
           textColor: Colors.yellowAccent,
@@ -200,7 +202,8 @@ class UIUtils {
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(fontFamily: 'Cairo', color: Colors.white),
+                style:
+                    const TextStyle(fontFamily: 'Cairo', color: Colors.white),
               ),
             ),
           ],
@@ -262,9 +265,9 @@ class UIUtils {
     final messenger = scaffoldMessengerKey.currentState;
     final context = scaffoldMessengerKey.currentContext;
     if (messenger == null || context == null) return;
-    
+
     final mediaQuery = MediaQuery.of(context);
-    
+
     messenger.removeCurrentSnackBar();
 
     messenger.showSnackBar(
@@ -353,7 +356,8 @@ class UIUtils {
             );
             _isLocalNotifierSetup = true;
           } catch (e) {
-            debugPrint('⚠️ [showDesktopNotification] localNotifier auto-setup failed: $e');
+            debugPrint(
+                '⚠️ [showDesktopNotification] localNotifier auto-setup failed: $e');
           } finally {
             _isSetupInProgress = false;
           }
@@ -361,7 +365,8 @@ class UIUtils {
       }
 
       if (!_isLocalNotifierSetup) {
-        debugPrint('⚠️ [showDesktopNotification] تم إلغاء عرض الإشعار لأن تهيئة local_notifier لم تنجح (تأكد من إعادة بناء التطبيق بالكامل بالـ C++ وليس Hot Reload).');
+        debugPrint(
+            '⚠️ [showDesktopNotification] تم إلغاء عرض الإشعار لأن تهيئة local_notifier لم تنجح (تأكد من إعادة بناء التطبيق بالكامل بالـ C++ وليس Hot Reload).');
         return;
       }
 
@@ -385,7 +390,8 @@ class UIUtils {
       _isLocalNotifierSetup = true;
       debugPrint('🔔 [Windows Native Notification] Displayed: $title | $body');
     } catch (e) {
-      debugPrint('⚠️ [Windows Native Notification] Error showing notification: $e');
+      debugPrint(
+          '⚠️ [Windows Native Notification] Error showing notification: $e');
     }
   }
 }

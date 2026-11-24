@@ -45,126 +45,143 @@ class _DieCuttingFormsScreenState extends State<DieCuttingFormsScreen> {
         textDirection: TextDirection.rtl,
         child: Center(
           child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            margin:
+                const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
             decoration: BoxDecoration(
               color: Theme.of(context).brightness == Brightness.dark
                   ? const Color(0xFF1E293B)
-                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  : Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(24.0),
             ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: Column(
                 children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'ابحث برقم الفورمة أو اسم العميل أو اسم الصنف',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (val) =>
-                  setState(() => _searchQuery = val.toLowerCase()),
-            ),
-          ),
-          Expanded(
-            child: ValueListenableBuilder(
-              valueListenable: box.listenable(),
-              builder: (context, Box<DieCuttingForm> box, _) {
-                if (box.values.isEmpty) {
-                  return const Center(
-                      child: Text("لا توجد قوالب تكسير مسجلة",
-                          style: TextStyle(fontSize: 18)));
-                }
-                var forms = box.values.toList();
-                if (_searchQuery.isNotEmpty) {
-                  forms = forms.where((f) {
-                    return f.formNumber.toLowerCase().contains(_searchQuery) ||
-                        (f.customerName ?? '')
-                            .toLowerCase()
-                            .contains(_searchQuery) ||
-                        (f.itemName ?? '').toLowerCase().contains(_searchQuery);
-                  }).toList();
-                }
-                if (forms.isEmpty) {
-                  return const Center(
-                      child: Text("لا توجد قوالب تطابق البحث",
-                          style: TextStyle(fontSize: 18)));
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: forms.length,
-                  itemBuilder: (context, index) {
-                    final form = forms[index];
-                    return SmartSheetCard(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: InkWell(
-                        onTap: () => _viewFormDetails(context, form),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text("رقم الفورمة: ${form.formNumber}",
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16)),
-                                        const SizedBox(height: 4),
-                                        if (form.customerName != null &&
-                                            form.customerName!.isNotEmpty)
-                                          Text(
-                                              "العميل: ${form.customerName}${form.customerCode != null ? ' (${form.customerCode})' : ''}"),
-                                        if (form.itemName != null &&
-                                            form.itemName!.isNotEmpty)
-                                          Text(
-                                              "الصنف: ${form.itemName}${form.itemCode != null ? ' (${form.itemCode})' : ''}"),
-                                        Text(
-                                            "المقاس: ${_formatDimensions(form.length, form.width, form.height)}"),
-                                        Text(
-                                            "عدد العلب: ${form.numberOfBoxes % 1 == 0 ? form.numberOfBoxes.toInt() : form.numberOfBoxes}"),
-                                      ],
-                                    ),
-                                  ),
-                                  if (form.isSheet)
-                                    const Chip(
-                                        label: Text('شيت',
-                                            style: TextStyle(fontSize: 10))),
-                                ],
-                              ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  IconButton(
-                                      icon: const Icon(Icons.edit,
-                                          color: Colors.orange),
-                                      onPressed: () =>
-                                          _showFormDialog(context, form: form)),
-                                  IconButton(
-                                      icon: const Icon(Icons.delete,
-                                          color: Colors.red),
-                                      onPressed: () =>
-                                          _confirmDelete(context, form)),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        labelText:
+                            'ابحث برقم الفورمة أو اسم العميل أو اسم الصنف',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
                       ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
+                      onChanged: (val) =>
+                          setState(() => _searchQuery = val.toLowerCase()),
+                    ),
+                  ),
+                  Expanded(
+                    child: ValueListenableBuilder(
+                      valueListenable: box.listenable(),
+                      builder: (context, Box<DieCuttingForm> box, _) {
+                        if (box.values.isEmpty) {
+                          return const Center(
+                              child: Text("لا توجد قوالب تكسير مسجلة",
+                                  style: TextStyle(fontSize: 18)));
+                        }
+                        var forms = box.values.toList();
+                        if (_searchQuery.isNotEmpty) {
+                          forms = forms.where((f) {
+                            return f.formNumber
+                                    .toLowerCase()
+                                    .contains(_searchQuery) ||
+                                (f.customerName ?? '')
+                                    .toLowerCase()
+                                    .contains(_searchQuery) ||
+                                (f.itemName ?? '')
+                                    .toLowerCase()
+                                    .contains(_searchQuery);
+                          }).toList();
+                        }
+                        if (forms.isEmpty) {
+                          return const Center(
+                              child: Text("لا توجد قوالب تطابق البحث",
+                                  style: TextStyle(fontSize: 18)));
+                        }
+                        return ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: forms.length,
+                          itemBuilder: (context, index) {
+                            final form = forms[index];
+                            return SmartSheetCard(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: InkWell(
+                                onTap: () => _viewFormDetails(context, form),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                    "رقم الفورمة: ${form.formNumber}",
+                                                    style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 16)),
+                                                const SizedBox(height: 4),
+                                                if (form.customerName != null &&
+                                                    form.customerName!
+                                                        .isNotEmpty)
+                                                  Text(
+                                                      "العميل: ${form.customerName}${form.customerCode != null ? ' (${form.customerCode})' : ''}"),
+                                                if (form.itemName != null &&
+                                                    form.itemName!.isNotEmpty)
+                                                  Text(
+                                                      "الصنف: ${form.itemName}${form.itemCode != null ? ' (${form.itemCode})' : ''}"),
+                                                Text(
+                                                    "المقاس: ${_formatDimensions(form.length, form.width, form.height)}"),
+                                                Text(
+                                                    "عدد العلب: ${form.numberOfBoxes % 1 == 0 ? form.numberOfBoxes.toInt() : form.numberOfBoxes}"),
+                                              ],
+                                            ),
+                                          ),
+                                          if (form.isSheet)
+                                            const Chip(
+                                                label: Text('شيت',
+                                                    style: TextStyle(
+                                                        fontSize: 10))),
+                                        ],
+                                      ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          IconButton(
+                                              icon: const Icon(Icons.edit,
+                                                  color: Colors.orange),
+                                              onPressed: () => _showFormDialog(
+                                                  context,
+                                                  form: form)),
+                                          IconButton(
+                                              icon: const Icon(Icons.delete,
+                                                  color: Colors.red),
+                                              onPressed: () => _confirmDelete(
+                                                  context, form)),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -219,9 +236,12 @@ class _DieCuttingFormsScreenState extends State<DieCuttingFormsScreen> {
             if (form.itemName != null && form.itemName!.isNotEmpty)
               Text(
                   "الصنف: ${form.itemName}${form.itemCode != null ? ' (${form.itemCode})' : ''}"),
-            Text("المقاس: ${_formatDimensions(form.length, form.width, form.height)}"),
-            Text("مقاس الشيت: ${_formatSheet(form.sheetLength, form.sheetWidth)}"),
-            Text("عدد العلب: ${form.numberOfBoxes % 1 == 0 ? form.numberOfBoxes.toInt() : form.numberOfBoxes}"),
+            Text(
+                "المقاس: ${_formatDimensions(form.length, form.width, form.height)}"),
+            Text(
+                "مقاس الشيت: ${_formatSheet(form.sheetLength, form.sheetWidth)}"),
+            Text(
+                "عدد العلب: ${form.numberOfBoxes % 1 == 0 ? form.numberOfBoxes.toInt() : form.numberOfBoxes}"),
             Text("نوع القالب: ${form.isSheet ? 'شيت' : 'عادي'}"),
             if (form.shelfLocation != null && form.shelfLocation!.isNotEmpty)
               Text("مكان الرف: ${form.shelfLocation}"),
@@ -676,10 +696,10 @@ class _DieCuttingFormDialogState extends State<_DieCuttingFormDialog> {
 
       final pName = val['productName']?.toString().trim() ?? '';
       final pCode = val['productCode']?.toString().trim() ?? '';
-      final identifier = (pName.isNotEmpty || pCode.isNotEmpty) 
-          ? '${pName}_$pCode' 
+      final identifier = (pName.isNotEmpty || pCode.isNotEmpty)
+          ? '${pName}_$pCode'
           : entry.key.toString();
-      
+
       uniqueItems[identifier] = {
         ...Map<String, dynamic>.from(val),
         '__hiveKey': entry.key
@@ -703,10 +723,14 @@ class _DieCuttingFormDialogState extends State<_DieCuttingFormDialog> {
     if (item == null) return;
 
     String foundClientCode = item['clientCode']?.toString().trim() ?? '';
-    if (foundClientCode.isEmpty && item['clientName'] != null && Hive.isBoxOpen('savedSheetSizes')) {
+    if (foundClientCode.isEmpty &&
+        item['clientName'] != null &&
+        Hive.isBoxOpen('savedSheetSizes')) {
       final box = Hive.box('savedSheetSizes');
       for (var val in box.values) {
-        if (val is Map && val['clientName'] == item['clientName'] && val['isClientRecord'] == true) {
+        if (val is Map &&
+            val['clientName'] == item['clientName'] &&
+            val['isClientRecord'] == true) {
           foundClientCode = val['productCode']?.toString().trim() ?? '';
           break;
         }

@@ -33,9 +33,8 @@ class _SessionCardState extends State<SessionCard> {
   late Duration _displayDuration;
 
   bool get _checkIsOwner {
-    final bool isDesktop = !kIsWeb && (
-      Platform.isWindows || Platform.isMacOS || Platform.isLinux
-    );
+    final bool isDesktop =
+        !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
     if (isDesktop) return false;
 
     final String? currentWorkerId = PermissionHelper.currentWorker?.id;
@@ -105,10 +104,10 @@ class _SessionCardState extends State<SessionCard> {
   Widget build(BuildContext context) {
     final bool isPaused = !widget.session.isRunning;
     final bool isOwner = _checkIsOwner;
-    
+
     // ✅ حساب لون الإطار بناءً على التعارض
-    final Color borderColor = widget.hasConflict 
-        ? Colors.red 
+    final Color borderColor = widget.hasConflict
+        ? Colors.red
         : (isPaused ? Colors.orange : Colors.green);
 
     return Card(
@@ -121,7 +120,8 @@ class _SessionCardState extends State<SessionCard> {
           width: widget.hasConflict ? 3 : 2, // زيادة السُمك في حالة التعارض
         ),
       ),
-      color: widget.hasConflict ? Colors.red.shade50 : null, // خلفية حمراء خفيفة
+      color:
+          widget.hasConflict ? Colors.red.shade50 : null, // خلفية حمراء خفيفة
       child: Container(
         width: 300,
         padding: const EdgeInsets.all(12),
@@ -142,12 +142,16 @@ class _SessionCardState extends State<SessionCard> {
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.red, size: 18),
+                      Icon(Icons.warning_amber_rounded,
+                          color: Colors.red, size: 18),
                       SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'تعارض: الماكينة قيد التشغيل في جلسة أخرى',
-                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 11),
+                          style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11),
                         ),
                       ),
                     ],
@@ -185,7 +189,8 @@ class _SessionCardState extends State<SessionCard> {
                   const SizedBox(width: 4),
                   if (isOwner)
                     IconButton(
-                      icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 22),
+                      icon: const Icon(Icons.delete_forever,
+                          color: Colors.redAccent, size: 22),
                       tooltip: 'إلغاء الجلسة',
                       onPressed: widget.onCancel,
                       constraints: const BoxConstraints(),
@@ -194,8 +199,10 @@ class _SessionCardState extends State<SessionCard> {
                 ],
               ),
               const Divider(),
-              _buildInfoRow(Icons.person, "العميل: ${widget.session.clientName}"),
-              _buildInfoRow(Icons.category_outlined, "الصنف: ${widget.session.productName}"),
+              _buildInfoRow(
+                  Icons.person, "العميل: ${widget.session.clientName}"),
+              _buildInfoRow(Icons.category_outlined,
+                  "الصنف: ${widget.session.productName}"),
               _buildInfoRow(
                   Icons.numbers, "أمر: ${widget.session.orderNumber}"),
               InkWell(
@@ -277,11 +284,13 @@ class _SessionCardState extends State<SessionCard> {
                 Center(
                   child: Container(
                     margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.blue.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                      border:
+                          Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -351,7 +360,9 @@ class _SessionCardState extends State<SessionCard> {
   Future<void> _selectDowntimeTime(bool isStart) async {
     if (widget.session.downtimeIntervals.isEmpty) return;
     final last = widget.session.downtimeIntervals.last;
-    final currentTime = (isStart ? last.start : (last.end ?? ServerTimeService.nowUtc)).toLocal();
+    final currentTime =
+        (isStart ? last.start : (last.end ?? ServerTimeService.nowUtc))
+            .toLocal();
 
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -392,7 +403,8 @@ class _SessionCardState extends State<SessionCard> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text, {bool isEditable = false, Color? color}) {
+  Widget _buildInfoRow(IconData icon, String text,
+      {bool isEditable = false, Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(

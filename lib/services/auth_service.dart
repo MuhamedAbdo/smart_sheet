@@ -172,10 +172,12 @@ class AuthService extends ChangeNotifier {
               'role': 'admin',
               'status': 'active'
             });
-            debugPrint('✅ AuthService: User is a factory manager! Assigned admin role for factory $mfId.');
+            debugPrint(
+                '✅ AuthService: User is a factory manager! Assigned admin role for factory $mfId.');
           }
         } catch (e) {
-          debugPrint('⚠️ AuthService: Error checking/assigning manager role: $e');
+          debugPrint(
+              '⚠️ AuthService: Error checking/assigning manager role: $e');
         }
       }
 
@@ -186,7 +188,8 @@ class AuthService extends ChangeNotifier {
           .maybeSingle();
 
       if (response != null) {
-        final role = response['role']?.toString().trim().toLowerCase() ?? 'employee';
+        final role =
+            response['role']?.toString().trim().toLowerCase() ?? 'employee';
         await storage.write(key: 'user_role', value: role);
         if (Hive.isBoxOpen('settings')) {
           Hive.box('settings').put('user_role', role);
@@ -238,7 +241,8 @@ class AuthService extends ChangeNotifier {
             checkDeviceLink) {
           // تحقق إضافي: هل الحذف من الـ profile متعمد (ليس مجرد بيانات ناقصة)؟
           // نفعل ذلك بالتحقق من عدم وجود factory_id في profiles مرة ثانية بعد تأخير قصير
-          debugPrint('🚨 AuthService: factory_id = null من السيرفر وكان لدينا ارتباط قديم. جاري التحقق المزدوج...');
+          debugPrint(
+              '🚨 AuthService: factory_id = null من السيرفر وكان لدينا ارتباط قديم. جاري التحقق المزدوج...');
           await Future.delayed(const Duration(seconds: 1));
           try {
             final confirmResponse = await _supabaseClient
@@ -247,9 +251,11 @@ class AuthService extends ChangeNotifier {
                 .eq('id', userId)
                 .maybeSingle();
 
-            final confirmedFactoryId = confirmResponse?['factory_id']?.toString();
+            final confirmedFactoryId =
+                confirmResponse?['factory_id']?.toString();
             if (confirmedFactoryId == null) {
-              debugPrint('🚨 AuthService: تأكيد فك الارتباط. سيتم مسح البيانات.');
+              debugPrint(
+                  '🚨 AuthService: تأكيد فك الارتباط. سيتم مسح البيانات.');
               await KillSwitchService.instance.forceLogout(
                 reason:
                     'تم فك ارتباط حسابك بالمصنع. يرجى الانتظار حتى يتم ربطك بمصنع جديد.',
@@ -262,11 +268,13 @@ class AuthService extends ChangeNotifier {
               return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
             } else {
               // السيرفر أعاد قيمة صحيحة في التحقق الثاني — كان timeout أو race condition
-              debugPrint('ℹ️ AuthService: factory_id موجود في التحقق الثاني ($confirmedFactoryId). تجاهل false positive.');
+              debugPrint(
+                  'ℹ️ AuthService: factory_id موجود في التحقق الثاني ($confirmedFactoryId). تجاهل false positive.');
             }
           } catch (confirmErr) {
             // فشل التحقق المزدوج — الغالب أنه مشكلة شبكة. لا نمسح البيانات.
-            debugPrint('⚠️ AuthService: فشل التحقق المزدوج ($confirmErr). الإبقاء على بيانات الجهاز.');
+            debugPrint(
+                '⚠️ AuthService: فشل التحقق المزدوج ($confirmErr). الإبقاء على بيانات الجهاز.');
           }
         } // نهاية if (fetchedFactoryId == null)
 
@@ -535,7 +543,7 @@ class AuthService extends ChangeNotifier {
         // افتراضي للأنظمة الأخرى
         await _signInWithGoogleWindows();
       }
-      
+
       // في حالة الـ Android، إذا نجحنا ستكون الـ session موجودة هنا
       // أما في الويندوز (PKCE)، ستتغير الحالة لاحقاً عبر onAuthStateChange
       _state = _state.copyWith(isLoading: false);
@@ -586,7 +594,7 @@ class AuthService extends ChangeNotifier {
     // فتح متصفح الويندوز الافتراضي للتسجيل
     await _supabaseClient.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: 'smartsheet://login-callback/', 
+      redirectTo: 'smartsheet://login-callback/',
       authScreenLaunchMode: LaunchMode.externalApplication,
     );
   }

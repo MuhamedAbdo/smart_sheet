@@ -43,20 +43,20 @@ class MachineManagementScreen extends StatelessWidget {
                 final box = Hive.box<FlexoMachine>('flexo_machines');
                 final factoryId = await SupabaseManager.getFactoryId();
                 final List<Map<String, dynamic>> machinesData = [];
-                
+
                 for (var machine in box.values) {
                   if (machine.id == 'dummy_production_line') continue;
-                  
+
                   final json = machine.toJson();
                   if (factoryId != null) {
                     json['factory_id'] = factoryId;
                   }
-                  
+
                   // تعويض الحقل id المفقود لتجنب خطأ not-null constraint
                   if (json['id'] == null && json['sync_id'] != null) {
                     json['id'] = json['sync_id'];
                   }
-                  
+
                   machinesData.add(json);
                 }
 
@@ -64,10 +64,11 @@ class MachineManagementScreen extends StatelessWidget {
                   await Supabase.instance.client
                       .from('machines')
                       .upsert(machinesData, onConflict: 'sync_id');
-                      
+
                   if (context.mounted) {
                     UIUtils.showInfoSnackBar(
-                      message: 'تم رفع ${machinesData.length} ماكينة بنجاح إلى السيرفر',
+                      message:
+                          'تم رفع ${machinesData.length} ماكينة بنجاح إلى السيرفر',
                       backgroundColor: Colors.green,
                       icon: Icons.check_circle,
                     );
@@ -96,73 +97,85 @@ class MachineManagementScreen extends StatelessWidget {
         textDirection: TextDirection.rtl,
         child: Center(
           child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            margin:
+                const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
             decoration: BoxDecoration(
               color: Theme.of(context).brightness == Brightness.dark
                   ? const Color(0xFF1E293B)
-                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  : Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(24.0),
             ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: FutureBuilder<Box<FlexoMachine>>(
-        future: Hive.isBoxOpen('flexo_machines')
-            ? Future.value(Hive.box<FlexoMachine>('flexo_machines'))
-            : Hive.openBox<FlexoMachine>('flexo_machines'),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('خطأ في تحميل الماكينات: ${snapshot.error}'));
-          }
+                future: Hive.isBoxOpen('flexo_machines')
+                    ? Future.value(Hive.box<FlexoMachine>('flexo_machines'))
+                    : Hive.openBox<FlexoMachine>('flexo_machines'),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                        child:
+                            Text('خطأ في تحميل الماكينات: ${snapshot.error}'));
+                  }
 
-          final box = snapshot.data!;
-          return ValueListenableBuilder(
-            valueListenable: box.listenable(),
-            builder: (context, Box<FlexoMachine> box, _) {
-              final machines = box.values.where((m) {
-                final mDept = m.department;
-                if (department == 'flexo') {
-                  return mDept == 'flexo' || mDept.isEmpty;
-                }
-                return mDept == department;
-              }).toList();
+                  final box = snapshot.data!;
+                  return ValueListenableBuilder(
+                    valueListenable: box.listenable(),
+                    builder: (context, Box<FlexoMachine> box, _) {
+                      final machines = box.values.where((m) {
+                        final mDept = m.department;
+                        if (department == 'flexo') {
+                          return mDept == 'flexo' || mDept.isEmpty;
+                        }
+                        return mDept == department;
+                      }).toList();
 
-              if (machines.isEmpty) {
-                return const Center(
-                  child: Text('لا توجد ماكينات مسجلة حالياً لهذا القسم'),
-                );
-              }
+                      if (machines.isEmpty) {
+                        return const Center(
+                          child:
+                              Text('لا توجد ماكينات مسجلة حالياً لهذا القسم'),
+                        );
+                      }
 
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: machines.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final machine = machines[index];
-                  return SmartSheetCard(
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: Colors.blueAccent,
-                        child: Icon(Icons.settings, color: Colors.white),
-                      ),
-                      title: Text(
-                        machine.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
-                        onPressed: () => _deleteMachine(context, machine),
-                      ),
-                    ),
+                      return ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: machines.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final machine = machines[index];
+                          return SmartSheetCard(
+                            child: ListTile(
+                              leading: const CircleAvatar(
+                                backgroundColor: Colors.blueAccent,
+                                child:
+                                    Icon(Icons.settings, color: Colors.white),
+                              ),
+                              title: Text(
+                                machine.name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline,
+                                    color: Colors.red),
+                                onPressed: () =>
+                                    _deleteMachine(context, machine),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
                   );
                 },
-              );
-            },
-          );
-        },
-      ),
+              ),
             ),
           ),
         ),
@@ -267,7 +280,8 @@ class MachineManagementScreen extends StatelessWidget {
         final syncId = machine.id;
         final machineName = machine.name;
 
-        debugPrint('🗑️ [ماكينات] محاولة حذف: "$machineName" (sync_id=$syncId)');
+        debugPrint(
+            '🗑️ [ماكينات] محاولة حذف: "$machineName" (sync_id=$syncId)');
         await machine.delete();
 
         // حذف من Supabase عبر طابور المزامنة إذا كان عندنا sync_id

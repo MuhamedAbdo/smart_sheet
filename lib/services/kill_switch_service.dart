@@ -38,6 +38,7 @@ import 'package:smart_sheet/models/flexo_machine.dart';
 import 'package:smart_sheet/models/die_cutting_form.dart';
 import 'package:smart_sheet/models/finished_product_model.dart';
 import 'package:smart_sheet/models/day_schedule.dart';
+
 class KillSwitchService {
   // ─── Singleton ─────────────────────────────────────────────────────────────
   static final KillSwitchService instance = KillSwitchService._internal();
@@ -290,7 +291,8 @@ class KillSwitchService {
             .single();
 
         if (profileData['status'] == 'suspended') {
-          debugPrint('🚨 KillSwitch: تم إيقاف الحساب مؤقتاً من قبل الإدارة. (سحب الصلاحيات فقط)');
+          debugPrint(
+              '🚨 KillSwitch: تم إيقاف الحساب مؤقتاً من قبل الإدارة. (سحب الصلاحيات فقط)');
           PermissionHelper.isSuspended = true;
           await _storage.write(key: 'is_suspended', value: 'true');
           // لا نستدعي forceLogout هنا، نريده أن يبقى مسجلاً للدخول ولكن بدون صلاحيات
@@ -570,7 +572,8 @@ class KillSwitchService {
               await settingsBox.delete(key);
             } catch (_) {}
           }
-          debugPrint('✅ KillSwitch: تم مسح مفاتيح الجلسة من settings (انتقائي)');
+          debugPrint(
+              '✅ KillSwitch: تم مسح مفاتيح الجلسة من settings (انتقائي)');
         }
 
         // تفريغ صناديق البيانات الوظيفية (ليس الإعدادات أو التفعيل)
@@ -595,8 +598,10 @@ class KillSwitchService {
         await clearBoxSafely<LiveSession>('flexo_live_sessions');
         await clearBoxSafely<FlexoMachine>('flexo_machines');
         await clearBoxSafely<DieCuttingForm>('die_cutting_forms');
-        await clearBoxSafely<DieCuttingProductionReport>('die_cutting_production_reports');
-        await clearBoxSafely<FlexoProductionReport>('flexo_production_reports_box');
+        await clearBoxSafely<DieCuttingProductionReport>(
+            'die_cutting_production_reports');
+        await clearBoxSafely<FlexoProductionReport>(
+            'flexo_production_reports_box');
         await clearBoxSafely<MaintenanceRecord>('maintenance_records_main');
         await clearBoxSafely<MaintenanceRecord>('maintenance_flexo_v2');
         await clearBoxSafely<StoreEntry>('store_flexo');
@@ -606,7 +611,8 @@ class KillSwitchService {
         final appDir = await getApplicationDocumentsDirectory();
         Directory cacheDir;
         if (Platform.isWindows) {
-          cacheDir = Directory(p.join(appDir.path, 'SmartSheet_Data', 'smart_sheet_cache'));
+          cacheDir = Directory(
+              p.join(appDir.path, 'SmartSheet_Data', 'smart_sheet_cache'));
         } else {
           cacheDir = Directory(p.join(appDir.path, 'smart_sheet_cache'));
         }
@@ -616,7 +622,8 @@ class KillSwitchService {
           } catch (_) {}
         }
 
-        debugPrint('✅ KillSwitch: تم تفريغ صناديق البيانات المحلية بأمان! (pairing_vault محفوظ)');
+        debugPrint(
+            '✅ KillSwitch: تم تفريغ صناديق البيانات المحلية بأمان! (pairing_vault محفوظ)');
       } catch (e) {
         debugPrint('⚠️ KillSwitch: فشل تفريغ بعض الصناديق: $e');
       }

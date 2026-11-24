@@ -47,8 +47,12 @@ class DesktopImagePicker extends StatelessWidget {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: isProcessing ? null : onPickGallery,
-                          icon: isProcessing 
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                          icon: isProcessing
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.photo_library),
                           label: const Text("الاستوديو"),
                           style: ElevatedButton.styleFrom(
@@ -60,8 +64,12 @@ class DesktopImagePicker extends StatelessWidget {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: isProcessing ? null : onPickCamera,
-                          icon: isProcessing 
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                          icon: isProcessing
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.camera_alt),
                           label: const Text("الكاميرا"),
                           style: ElevatedButton.styleFrom(
@@ -83,8 +91,11 @@ class DesktopImagePicker extends StatelessWidget {
                   ),
                   ElevatedButton.icon(
                     onPressed: isProcessing ? null : onPickDesktop,
-                    icon: isProcessing 
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                    icon: isProcessing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.upload_file),
                     label: const Text("رفع صور من الجهاز"),
                   ),
@@ -125,7 +136,8 @@ class DesktopImagePicker extends StatelessWidget {
                                 color: Colors.red,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.close, size: 16, color: Colors.white),
+                              child: const Icon(Icons.close,
+                                  size: 16, color: Colors.white),
                             ),
                           ),
                         ),
@@ -157,7 +169,8 @@ class DesktopImagePicker extends StatelessWidget {
         ),
         errorWidget: (context, url, error) => Tooltip(
           message: 'تعذّر التحميل:\n$url\n$error',
-          child: const Center(child: Icon(Icons.broken_image, color: Colors.red)),
+          child:
+              const Center(child: Icon(Icons.broken_image, color: Colors.red)),
         ),
       );
     } else {

@@ -36,18 +36,46 @@ class ArchiveDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionHeader(Icons.event_note, "معلومات أساسية"),
-            _buildDetailRow(context, "📅 التاريخ:", (record['date'] ?? record['reportDate'] ?? record['report_date'] ?? '---').toString().split('T')[0].split(' ')[0]),
-            _buildDetailRow(context, "👤 العميل:", (record['clientName'] ?? record['client_name'] ?? record['customerName'] ?? record['customer_name'])?.toString() ?? '---'),
+            _buildDetailRow(
+                context,
+                "📅 التاريخ:",
+                (record['date'] ??
+                        record['reportDate'] ??
+                        record['report_date'] ??
+                        '---')
+                    .toString()
+                    .split('T')[0]
+                    .split(' ')[0]),
+            _buildDetailRow(
+                context,
+                "👤 العميل:",
+                (record['clientName'] ??
+                            record['client_name'] ??
+                            record['customerName'] ??
+                            record['customer_name'])
+                        ?.toString() ??
+                    '---'),
             Builder(builder: (context) {
-              final productCode = record['productCode'] ?? record['product_code'] ?? record['itemCode'] ?? record['item_code'];
-              final productName = record['product'] ?? record['product_name'] ?? record['itemName'] ?? record['item_name'] ?? '---';
+              final productCode = record['productCode'] ??
+                  record['product_code'] ??
+                  record['itemCode'] ??
+                  record['item_code'];
+              final productName = record['product'] ??
+                  record['product_name'] ??
+                  record['itemName'] ??
+                  record['item_name'] ??
+                  '---';
               return _buildDetailRow(context, "📦 الصنف:",
                   "$productName ${productCode != null && productCode.toString().isNotEmpty ? '[ $productCode ]' : ''}");
             }),
             Builder(builder: (context) {
-              final orderNumber = record['orderNumber'] ?? record['order_number'] ?? record['workOrder'] ?? record['work_order'];
+              final orderNumber = record['orderNumber'] ??
+                  record['order_number'] ??
+                  record['workOrder'] ??
+                  record['work_order'];
               if (orderNumber != null && orderNumber.toString().isNotEmpty) {
-                return _buildDetailRow(context, "🔢 أمر التشغيل:", orderNumber.toString());
+                return _buildDetailRow(
+                    context, "🔢 أمر التشغيل:", orderNumber.toString());
               }
               return const SizedBox.shrink();
             }),
@@ -58,51 +86,79 @@ class ArchiveDetailScreen extends StatelessWidget {
                       ? (record['dimensions'] as Map)['form_number']
                       : null);
               if (formNumber != null && formNumber.toString().isNotEmpty) {
-                return _buildDetailRow(context, "📄 رقم الفورمة:", formNumber.toString());
+                return _buildDetailRow(
+                    context, "📄 رقم الفورمة:", formNumber.toString());
               }
               return const SizedBox.shrink();
             }),
-            if (record['shift'] != null && record['shift'].toString().isNotEmpty && record['shift'] != 'null')
-              _buildDetailRow(context, "🔄 الوردية:", record['shift'].toString()),
+            if (record['shift'] != null &&
+                record['shift'].toString().isNotEmpty &&
+                record['shift'] != 'null')
+              _buildDetailRow(
+                  context, "🔄 الوردية:", record['shift'].toString()),
             const SizedBox(height: 20),
-
-            _buildSectionHeader(Icons.precision_manufacturing, "بيانات التشغيل والماكينة"),
-            _buildDetailRow(context, "⚙️ الماكينة:",
-                (record['machineName'] ?? record['machine_name'])?.toString() ?? '---'),
-            if ((record['technicianName'] ?? record['technician_name']) != null &&
-                (record['technicianName'] ?? record['technician_name']).toString().isNotEmpty)
-              _buildDetailRow(context, "👤 الفني المسؤول:",
-                  (record['technicianName'] ?? record['technician_name']).toString()),
+            _buildSectionHeader(
+                Icons.precision_manufacturing, "بيانات التشغيل والماكينة"),
+            _buildDetailRow(
+                context,
+                "⚙️ الماكينة:",
+                (record['machineName'] ?? record['machine_name'])?.toString() ??
+                    '---'),
+            if ((record['technicianName'] ?? record['technician_name']) !=
+                    null &&
+                (record['technicianName'] ?? record['technician_name'])
+                    .toString()
+                    .isNotEmpty)
+              _buildDetailRow(
+                  context,
+                  "👤 الفني المسؤول:",
+                  (record['technicianName'] ?? record['technician_name'])
+                      .toString()),
             Builder(builder: (context) {
               final crew = record['crewMembers'] ?? record['crew_members'];
               if (crew != null) {
                 if (crew is List && crew.isNotEmpty) {
-                  return _buildDetailRow(context, "👥 طاقم العمل:", crew.join('، '));
-                } else if (crew is String && crew.trim().isNotEmpty && crew != 'null' && crew != '[]') {
+                  return _buildDetailRow(
+                      context, "👥 طاقم العمل:", crew.join('، '));
+                } else if (crew is String &&
+                    crew.trim().isNotEmpty &&
+                    crew != 'null' &&
+                    crew != '[]') {
                   final displayStr = crew.replaceAll(RegExp(r'[\[\]"]'), '');
                   return _buildDetailRow(context, "👥 طاقم العمل:", displayStr);
-                } else if (crew.toString() != 'null' && crew.toString() != '[]' && crew.toString().trim().isNotEmpty) {
-                  return _buildDetailRow(context, "👥 طاقم العمل:", crew.toString());
+                } else if (crew.toString() != 'null' &&
+                    crew.toString() != '[]' &&
+                    crew.toString().trim().isNotEmpty) {
+                  return _buildDetailRow(
+                      context, "👥 طاقم العمل:", crew.toString());
                 }
               }
               return const SizedBox.shrink();
             }),
             Builder(builder: (context) {
-              final sTime = record['startTime'] ?? record['start_time'] ?? record['run_time_start'] ?? record['runTimeStart'];
-              final eTime = record['endTime'] ?? record['end_time'] ?? record['run_time_end'] ?? record['runTimeEnd'];
+              final sTime = record['startTime'] ??
+                  record['start_time'] ??
+                  record['run_time_start'] ??
+                  record['runTimeStart'];
+              final eTime = record['endTime'] ??
+                  record['end_time'] ??
+                  record['run_time_end'] ??
+                  record['runTimeEnd'];
               final sFormatted = _formatTime(sTime);
               final eFormatted = _formatTime(eTime);
               if (sFormatted != '--:--' || eFormatted != '--:--') {
-                return _buildDetailRow(context, "🕒 وقت التشغيل:",
-                    "$sFormatted  ◀  $eFormatted");
+                return _buildDetailRow(
+                    context, "🕒 وقت التشغيل:", "$sFormatted  ◀  $eFormatted");
               }
               return const SizedBox.shrink();
             }),
             Builder(
               builder: (context) {
-                final dStart = record['downtimeStart'] ?? record['downtime_start'];
+                final dStart =
+                    record['downtimeStart'] ?? record['downtime_start'];
                 final dEnd = record['downtimeEnd'] ?? record['downtime_end'];
-                final rawTotal = record['totalDowntime'] ?? record['total_downtime'];
+                final rawTotal =
+                    record['totalDowntime'] ?? record['total_downtime'];
                 final int totalDt = rawTotal is num
                     ? rawTotal.toInt()
                     : int.tryParse(rawTotal?.toString() ?? '0') ?? 0;
@@ -120,28 +176,34 @@ class ArchiveDetailScreen extends StatelessWidget {
                   }
                 }
                 if (dtDisplay.isEmpty) return const SizedBox.shrink();
-                return _buildDetailRow(context, "⏱️ وقت الأعطال:", dtDisplay.trim());
+                return _buildDetailRow(
+                    context, "⏱️ وقت الأعطال:", dtDisplay.trim());
               },
             ),
             const SizedBox(height: 20),
-
             _buildSectionHeader(Icons.straighten, "المقاسات والكميات والأوزان"),
             Builder(builder: (context) {
               final dept = record['department']?.toString();
-              final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
-              final isCrushingDept = dept == 'crushing' || dept == 'die_cutting' || mName.contains('كسارة');
-              final isProdLine = dept == 'production_line' || mName == 'خط الإنتاج';
-              return _buildDimensionsDetails(context, record['dimensions'], isCrushing: isCrushingDept || isProdLine);
+              final mName = (record['machineName'] ?? record['machine_name'])
+                      ?.toString() ??
+                  '';
+              final isCrushingDept = dept == 'crushing' ||
+                  dept == 'die_cutting' ||
+                  mName.contains('كسارة');
+              final isProdLine =
+                  dept == 'production_line' || mName == 'خط الإنتاج';
+              return _buildDimensionsDetails(context, record['dimensions'],
+                  isCrushing: isCrushingDept || isProdLine);
             }),
-            _buildDetailRow(context, "🔢 الكمية:", "${record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity'] ?? 0}"),
+            _buildDetailRow(context, "🔢 الكمية:",
+                "${record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity'] ?? 0}"),
             Builder(
               builder: (context) {
                 final dims = record['dimensions'] is Map
                     ? record['dimensions'] as Map
                     : {};
-                final w = record['weight'] ??
-                    record['weight_tons'] ??
-                    dims['weight'];
+                final w =
+                    record['weight'] ?? record['weight_tons'] ?? dims['weight'];
                 final double weightVal = w != null
                     ? (w is num
                         ? w.toDouble()
@@ -154,11 +216,21 @@ class ArchiveDetailScreen extends StatelessWidget {
             Builder(
               builder: (context) {
                 final dept = record['department']?.toString();
-                final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
-                final isProdLine = dept == 'production_line' || mName == 'خط الإنتاج';
-                final isCrushing = dept == 'crushing' || dept == 'die_cutting' || mName.contains('كسارة');
-                final lineWaste = record['lineWaste'] ?? record['line_waste'] ?? record['wasteQuantity'] ?? record['waste_quantity'] ?? 0;
-                final printWaste = record['printWaste'] ?? record['print_waste'] ?? 0;
+                final mName = (record['machineName'] ?? record['machine_name'])
+                        ?.toString() ??
+                    '';
+                final isProdLine =
+                    dept == 'production_line' || mName == 'خط الإنتاج';
+                final isCrushing = dept == 'crushing' ||
+                    dept == 'die_cutting' ||
+                    mName.contains('كسارة');
+                final lineWaste = record['lineWaste'] ??
+                    record['line_waste'] ??
+                    record['wasteQuantity'] ??
+                    record['waste_quantity'] ??
+                    0;
+                final printWaste =
+                    record['printWaste'] ?? record['print_waste'] ?? 0;
                 return _buildDetailRow(
                   context,
                   "📉 الهالك:",
@@ -169,7 +241,6 @@ class ArchiveDetailScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: 20),
-
             Builder(
               builder: (context) {
                 final dims = record['dimensions'] is Map
@@ -197,7 +268,8 @@ class ArchiveDetailScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.brown.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.brown.withValues(alpha: 0.2)),
+                        border: Border.all(
+                            color: Colors.brown.withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,11 +277,13 @@ class ArchiveDetailScreen extends StatelessWidget {
                             .asMap()
                             .entries
                             .map((e) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 4),
                                   child: Text(
                                     " • الطبقة ${e.key + 1}: ${e.value}",
                                     style: const TextStyle(
-                                        fontWeight: FontWeight.bold, fontSize: 15),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15),
                                   ),
                                 ))
                             .toList(),
@@ -219,15 +293,19 @@ class ArchiveDetailScreen extends StatelessWidget {
                 );
               },
             ),
-
             Builder(
               builder: (context) {
                 final dept = record['department']?.toString();
-                final mName = (record['machineName'] ?? record['machine_name'])?.toString() ?? '';
-                final isProdLine = dept == 'production_line' || mName == 'خط الإنتاج';
+                final mName = (record['machineName'] ?? record['machine_name'])
+                        ?.toString() ??
+                    '';
+                final isProdLine =
+                    dept == 'production_line' || mName == 'خط الإنتاج';
                 // إخفاء الألوان لقسم التكسير (سواء بالقسم أو اسم الماكينة)
-                final isCrushing = dept == 'crushing' || dept == 'die_cutting' ||
-                    mName.contains('كسارة') || mName.contains('تكسير');
+                final isCrushing = dept == 'crushing' ||
+                    dept == 'die_cutting' ||
+                    mName.contains('كسارة') ||
+                    mName.contains('تكسير');
                 if (isProdLine || isCrushing) return const SizedBox.shrink();
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,8 +317,8 @@ class ArchiveDetailScreen extends StatelessWidget {
                 );
               },
             ),
-
-            if (record['notes'] != null && record['notes'].toString().trim().isNotEmpty) ...[
+            if (record['notes'] != null &&
+                record['notes'].toString().trim().isNotEmpty) ...[
               _buildSectionHeader(Icons.description, "ملاحظات إضافية"),
               Container(
                 width: double.infinity,
@@ -261,7 +339,6 @@ class ArchiveDetailScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
             ],
-
             const SizedBox(height: 10),
             Center(
               child: Text(
@@ -326,7 +403,8 @@ class ArchiveDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDimensionsDetails(BuildContext context, Map? d, {bool isCrushing = false}) {
+  Widget _buildDimensionsDetails(BuildContext context, Map? d,
+      {bool isCrushing = false}) {
     final String length = d?['length']?.toString() ?? '0';
     final String width = d?['width']?.toString() ?? '0';
     final String height = d?['height']?.toString() ?? '0';
@@ -346,10 +424,12 @@ class ArchiveDetailScreen extends StatelessWidget {
             ? [
                 _buildDimItem(context, "طول", length),
                 _buildDimItem(context, "عرض", width),
-                if (height != '0' && height != '0.0' && height.isNotEmpty) _buildDimItem(context, "ارتفاع", height),
+                if (height != '0' && height != '0.0' && height.isNotEmpty)
+                  _buildDimItem(context, "ارتفاع", height),
               ]
             : [
-                if (height != '0' && height != '0.0' && height.isNotEmpty) _buildDimItem(context, "ارتفاع", height),
+                if (height != '0' && height != '0.0' && height.isNotEmpty)
+                  _buildDimItem(context, "ارتفاع", height),
                 _buildDimItem(context, "عرض", width),
                 _buildDimItem(context, "طول", length),
               ],
@@ -378,14 +458,16 @@ class ArchiveDetailScreen extends StatelessWidget {
   Widget _buildColorsList(List c) {
     if (c.isEmpty) return const Text("لا توجد ألوان مسجلة");
     return Column(
-      children: c.map((i) => Card(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        child: ListTile(
-          leading: const Icon(Icons.circle, color: Colors.blue),
-          title: Text(i['color']?.toString() ?? ''),
-          trailing: Text("${i['quantity']} لتر"),
-        ),
-      )).toList(),
+      children: c
+          .map((i) => Card(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                child: ListTile(
+                  leading: const Icon(Icons.circle, color: Colors.blue),
+                  title: Text(i['color']?.toString() ?? ''),
+                  trailing: Text("${i['quantity']} لتر"),
+                ),
+              ))
+          .toList(),
     );
   }
 }

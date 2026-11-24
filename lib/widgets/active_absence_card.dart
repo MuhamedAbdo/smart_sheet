@@ -33,7 +33,8 @@ class ActiveAbsenceCard extends StatelessWidget {
   double get elapsedWorkingDays {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final startDay = DateTime(action.date.year, action.date.month, action.date.day);
+    final startDay =
+        DateTime(action.date.year, action.date.month, action.date.day);
 
     // إذا لم يبدأ بعد أو نفس اليوم → 0
     if (!startDay.isBefore(today)) return 0.0;
@@ -70,7 +71,8 @@ class ActiveAbsenceCard extends StatelessWidget {
     };
 
     // لون الإطار الخارجي: أحمر عند التأخر، طبيعي عند عدمه
-    final Color borderColor = isOverdue ? Colors.red.shade600 : primaryColor.withValues(alpha: 0.3);
+    final Color borderColor =
+        isOverdue ? Colors.red.shade600 : primaryColor.withValues(alpha: 0.3);
     final double borderWidth = isOverdue ? 2.0 : 1.0;
 
     // حساب المدة المعروضة
@@ -114,10 +116,7 @@ class ActiveAbsenceCard extends StatelessWidget {
                           primaryColor.withValues(alpha: 0.1),
                           Colors.transparent
                         ]
-                      : [
-                          primaryColor.withValues(alpha: 0.05),
-                          Colors.white
-                        ],
+                      : [primaryColor.withValues(alpha: 0.05), Colors.white],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -129,7 +128,8 @@ class ActiveAbsenceCard extends StatelessWidget {
             if (isOverdue)
               Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.red.shade600,
                   borderRadius: BorderRadius.circular(20),
@@ -137,7 +137,8 @@ class ActiveAbsenceCard extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.white),
+                    const Icon(Icons.warning_amber_rounded,
+                        size: 14, color: Colors.white),
                     const SizedBox(width: 4),
                     Text(
                       "⚠️ تأخر عن العودة ($delayDays ${delayDays == 1 ? 'يوم' : 'أيام'})",
@@ -173,8 +174,8 @@ class ActiveAbsenceCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        action.shiftName != null && action.shiftName!.isNotEmpty 
-                            ? "${action.type} | ${action.shiftName}" 
+                        action.shiftName != null && action.shiftName!.isNotEmpty
+                            ? "${action.type} | ${action.shiftName}"
                             : action.type,
                         style: TextStyle(
                           fontSize: 11,
@@ -281,7 +282,8 @@ class ActiveAbsenceCard extends StatelessWidget {
                   label: const Text("تسجيل العودة ✅",
                       style: TextStyle(fontSize: 13)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isOverdue ? Colors.red.shade600 : primaryColor,
+                    backgroundColor:
+                        isOverdue ? Colors.red.shade600 : primaryColor,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -449,13 +451,15 @@ class ActiveAbsenceCard extends StatelessWidget {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: const Row(
               children: [
                 Icon(Icons.assignment_turned_in, color: Colors.green, size: 26),
                 SizedBox(width: 10),
                 Text("تأكيد تسجيل العودة",
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
               ],
             ),
             content: SingleChildScrollView(
@@ -477,12 +481,15 @@ class ActiveAbsenceCard extends StatelessWidget {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text("📅 تاريخ العودة الفعلي",
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
                     subtitle: Text(
                       _formatDate(returnDateNotifier.value),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16),
                     ),
-                    trailing: const Icon(Icons.calendar_month, color: Colors.blue),
+                    trailing:
+                        const Icon(Icons.calendar_month, color: Colors.blue),
                     onTap: () async {
                       final picked = await showDatePicker(
                         context: context,
@@ -500,15 +507,18 @@ class ActiveAbsenceCard extends StatelessWidget {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text("⏰ وقت العودة الفعلي",
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
                     subtitle: ValueListenableBuilder<TimeOfDay>(
                       valueListenable: returnTimeNotifier,
                       builder: (context, t, _) => Text(
                         t.format(context),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                     ),
-                    trailing: const Icon(Icons.access_time, color: Colors.green),
+                    trailing:
+                        const Icon(Icons.access_time, color: Colors.green),
                     onTap: () async {
                       final picked = await showTimePicker(
                         context: context,
@@ -524,7 +534,8 @@ class ActiveAbsenceCard extends StatelessWidget {
                   // ملخص الأيام المحسوبة
                   ValueListenableBuilder<DateTime>(
                     valueListenable: returnDateNotifier,
-                    builder: (context, _, __) => ValueListenableBuilder<TimeOfDay>(
+                    builder: (context, _, __) =>
+                        ValueListenableBuilder<TimeOfDay>(
                       valueListenable: returnTimeNotifier,
                       builder: (context, _, __) {
                         final days = calcDays();
@@ -573,7 +584,8 @@ class ActiveAbsenceCard extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -656,10 +668,12 @@ class ActiveAbsenceCard extends StatelessWidget {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 26),
+                Icon(Icons.warning_amber_rounded,
+                    color: Colors.orange, size: 26),
                 SizedBox(width: 8),
                 Text(
                   "تأخر عن موعد العودة",
@@ -693,7 +707,8 @@ class ActiveAbsenceCard extends StatelessWidget {
                     value: OverdueLeaveAction.absenceWithoutPermission,
                     groupValue: selectedOption,
                     title: "غياب بدون إذن:",
-                    subtitle: "(احتساب مدة الإجازة الأصلية كإجازة، واحتساب أيام التأخير فقط كغياب).",
+                    subtitle:
+                        "(احتساب مدة الإجازة الأصلية كإجازة، واحتساب أيام التأخير فقط كغياب).",
                     onChanged: (val) {
                       if (val != null) {
                         setDialogState(() => selectedOption = val);
@@ -705,7 +720,8 @@ class ActiveAbsenceCard extends StatelessWidget {
                     value: OverdueLeaveAction.convertAllToAbsence,
                     groupValue: selectedOption,
                     title: "تحويل كامل المدة إلى غياب:",
-                    subtitle: "(إلغاء الإجازة واحتساب المدة من يوم المغادرة حتى اليوم كغياب).",
+                    subtitle:
+                        "(إلغاء الإجازة واحتساب المدة من يوم المغادرة حتى اليوم كغياب).",
                     onChanged: (val) {
                       if (val != null) {
                         setDialogState(() => selectedOption = val);
@@ -724,7 +740,8 @@ class ActiveAbsenceCard extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -798,10 +815,13 @@ class ActiveAbsenceCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.withValues(alpha: 0.08) : Colors.transparent,
+          color: isSelected
+              ? Colors.blue.withValues(alpha: 0.08)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey.withValues(alpha: 0.3),
+            color:
+                isSelected ? Colors.blue : Colors.grey.withValues(alpha: 0.3),
             width: isSelected ? 1.5 : 1.0,
           ),
         ),

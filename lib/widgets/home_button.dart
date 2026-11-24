@@ -45,11 +45,9 @@ class _HomeButtonState extends State<HomeButton> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  widget.icon, 
-                  size: 48, 
-                  color: _isHovered ? Colors.blueAccent : Colors.blue
-                ),
+                Icon(widget.icon,
+                    size: 48,
+                    color: _isHovered ? Colors.blueAccent : Colors.blue),
                 const SizedBox(height: 12),
                 Text(
                   widget.label,

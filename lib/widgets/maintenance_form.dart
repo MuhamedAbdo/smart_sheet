@@ -40,18 +40,14 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
   bool _isUploading = false;
   bool _isProcessing = false;
 
-
-
   @override
   void initState() {
     super.initState();
     _initializeControllers();
-
   }
 
   @override
   void dispose() {
-
     _disposeControllers();
     super.dispose();
   }
@@ -109,16 +105,19 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
           final List<XFile> images = await picker.pickMultiImage();
           if (images.isNotEmpty) {
             for (var img in images) {
-              final String fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}_${img.name}';
+              final String fileName =
+                  'IMG_${DateTime.now().millisecondsSinceEpoch}_${img.name}';
               final targetPath = '${imageDir.path}/$fileName';
               final savedFile = await File(img.path).copy(targetPath);
               setState(() => _imagePaths.add(savedFile.path));
             }
           }
         } else {
-          final XFile? image = await picker.pickImage(source: ImageSource.camera);
+          final XFile? image =
+              await picker.pickImage(source: ImageSource.camera);
           if (image != null) {
-            final String fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+            final String fileName =
+                'IMG_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
             final targetPath = '${imageDir.path}/$fileName';
             final savedFile = await File(image.path).copy(targetPath);
             setState(() => _imagePaths.add(savedFile.path));
@@ -133,7 +132,8 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
         if (result != null) {
           for (var file in result.files) {
             if (file.path != null) {
-              final String fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+              final String fileName =
+                  'IMG_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
               final targetPath = '${imageDir.path}/$fileName';
               final savedFile = await File(file.path!).copy(targetPath);
               setState(() => _imagePaths.add(savedFile.path));
@@ -247,11 +247,14 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
                   const SizedBox(height: 20),
                   DesktopImagePicker(
                     isProcessing: _isProcessing,
-                    capturedImages: _imagePaths.map((p) => p.startsWith('http') ? p : File(p)).toList(),
+                    capturedImages: _imagePaths
+                        .map((p) => p.startsWith('http') ? p : File(p))
+                        .toList(),
                     onPickDesktop: () => _pickImages(),
                     onPickCamera: () => _pickImages(ImageSource.camera),
                     onPickGallery: () => _pickImages(ImageSource.gallery),
-                    onRemoveImage: (index) => setState(() => _imagePaths.removeAt(index)),
+                    onRemoveImage: (index) =>
+                        setState(() => _imagePaths.removeAt(index)),
                   ),
                   const SizedBox(height: 100),
                 ],
@@ -272,11 +275,13 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
       maxLines: maxLines,
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           labelText: label,
           labelStyle: const TextStyle(fontSize: 13),
           prefixIcon: Icon(icon, size: 20),
-          prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          prefixIconConstraints:
+              const BoxConstraints(minWidth: 36, minHeight: 36),
           border: const OutlineInputBorder()),
     );
   }
@@ -287,11 +292,13 @@ class _MaintenanceFormState extends State<MaintenanceForm> {
       readOnly: true,
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           labelText: label,
           labelStyle: const TextStyle(fontSize: 13),
           prefixIcon: const Icon(Icons.calendar_today, size: 20),
-          prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          prefixIconConstraints:
+              const BoxConstraints(minWidth: 36, minHeight: 36),
           border: const OutlineInputBorder()),
       onTap: () async {
         DateTime? picked = await showDatePicker(

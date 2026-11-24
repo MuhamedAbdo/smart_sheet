@@ -27,16 +27,32 @@ class _StapleReportDrawerState extends State<StapleReportDrawer> {
       String dayName = '';
       final dt = DateTime.now();
       switch (dt.weekday) {
-        case DateTime.monday: dayName = 'Monday'; break;
-        case DateTime.tuesday: dayName = 'Tuesday'; break;
-        case DateTime.wednesday: dayName = 'Wednesday'; break;
-        case DateTime.thursday: dayName = 'Thursday'; break;
-        case DateTime.friday: dayName = 'Friday'; break;
-        case DateTime.saturday: dayName = 'Saturday'; break;
-        case DateTime.sunday: dayName = 'Sunday'; break;
+        case DateTime.monday:
+          dayName = 'Monday';
+          break;
+        case DateTime.tuesday:
+          dayName = 'Tuesday';
+          break;
+        case DateTime.wednesday:
+          dayName = 'Wednesday';
+          break;
+        case DateTime.thursday:
+          dayName = 'Thursday';
+          break;
+        case DateTime.friday:
+          dayName = 'Friday';
+          break;
+        case DateTime.saturday:
+          dayName = 'Saturday';
+          break;
+        case DateTime.sunday:
+          dayName = 'Sunday';
+          break;
       }
       final schedule = scheduleBox.get(dayName);
-      if (schedule != null && schedule.isWorkingDay && (schedule.shifts?.isNotEmpty ?? false)) {
+      if (schedule != null &&
+          schedule.isWorkingDay &&
+          (schedule.shifts?.isNotEmpty ?? false)) {
         return ['كل الورديات', ...schedule.shifts!.map((s) => s.name)];
       }
     } catch (_) {}
@@ -53,7 +69,8 @@ class _StapleReportDrawerState extends State<StapleReportDrawer> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Drawer(
-      backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+      backgroundColor:
+          isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
       child: Column(
         children: [
           Container(
@@ -64,7 +81,10 @@ class _StapleReportDrawerState extends State<StapleReportDrawer> {
             width: double.infinity,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [theme.colorScheme.primary, theme.colorScheme.secondary],
+                colors: [
+                  theme.colorScheme.primary,
+                  theme.colorScheme.secondary
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -78,43 +98,51 @@ class _StapleReportDrawerState extends State<StapleReportDrawer> {
             ),
             child: Column(
               children: [
-                Icon(Icons.picture_as_pdf, size: 48, color: Colors.white.withValues(alpha: 0.9)),
+                Icon(Icons.picture_as_pdf,
+                    size: 48, color: Colors.white.withValues(alpha: 0.9)),
                 const SizedBox(height: 12),
                 const Text(
                   'تقارير ماكينات الدبوس',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold),
                 ),
               ],
             ),
           ),
-          
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: DropdownButtonFormField<String>(
               decoration: InputDecoration(
                 labelText: 'اختر الوردية',
                 labelStyle: TextStyle(color: theme.colorScheme.primary),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
                 fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               initialValue: _selectedShift,
-              items: _shifts.map((shift) => DropdownMenuItem(value: shift, child: Text(shift))).toList(),
+              items: _shifts
+                  .map((shift) =>
+                      DropdownMenuItem(value: shift, child: Text(shift)))
+                  .toList(),
               onChanged: (val) {
                 if (val != null) setState(() => _selectedShift = val);
               },
             ),
           ),
-          
           const Divider(height: 1),
-          
           Expanded(
             child: ValueListenableBuilder(
-              valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
+              valueListenable:
+                  Hive.box<FlexoMachine>('flexo_machines').listenable(),
               builder: (context, Box<FlexoMachine> box, _) {
-                final machines = FlexoMachine.getMachinesForDepartment(widget.department);
-                
+                final machines =
+                    FlexoMachine.getMachinesForDepartment(widget.department);
+
                 if (machines.isEmpty) {
                   return const Center(child: Text('لا توجد ماكينات مسجلة'));
                 }
@@ -126,26 +154,34 @@ class _StapleReportDrawerState extends State<StapleReportDrawer> {
                   itemBuilder: (context, index) {
                     final mName = machines[index].name;
                     return ExpansionTile(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-                      collapsedBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-                      leading: Icon(Icons.settings, color: theme.colorScheme.primary),
-                      title: Text(mName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      collapsedShape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      backgroundColor:
+                          isDark ? const Color(0xFF0F172A) : Colors.white,
+                      collapsedBackgroundColor:
+                          isDark ? const Color(0xFF0F172A) : Colors.white,
+                      leading: Icon(Icons.settings,
+                          color: theme.colorScheme.primary),
+                      title: Text(mName,
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
                       children: [
                         _buildReportTile(
                           context,
                           label: "عرض تقرير الإنتاج",
                           icon: Icons.picture_as_pdf,
                           color: theme.colorScheme.primary,
-                          onTap: () => _handlePdfAction(context, mName, isSave: false),
+                          onTap: () =>
+                              _handlePdfAction(context, mName, isSave: false),
                         ),
                         _buildReportTile(
                           context,
                           label: "حفظ تقرير الإنتاج",
                           icon: Icons.download,
                           color: Colors.green,
-                          onTap: () => _handlePdfAction(context, mName, isSave: true),
+                          onTap: () =>
+                              _handlePdfAction(context, mName, isSave: true),
                         ),
                       ],
                     );
@@ -159,7 +195,11 @@ class _StapleReportDrawerState extends State<StapleReportDrawer> {
     );
   }
 
-  Widget _buildReportTile(BuildContext context, {required String label, required IconData icon, required VoidCallback onTap, Color? color}) {
+  Widget _buildReportTile(BuildContext context,
+      {required String label,
+      required IconData icon,
+      required VoidCallback onTap,
+      Color? color}) {
     return ListTile(
       leading: Icon(icon, color: color ?? Colors.blue, size: 18),
       title: Text(label, style: const TextStyle(fontSize: 12)),
@@ -170,30 +210,35 @@ class _StapleReportDrawerState extends State<StapleReportDrawer> {
     );
   }
 
-  Future<void> _handlePdfAction(BuildContext context, String machineName, {required bool isSave}) async {
+  Future<void> _handlePdfAction(BuildContext context, String machineName,
+      {required bool isSave}) async {
     const boxName = 'staple_production_reports_box';
-    final box = Hive.isBoxOpen(boxName) 
+    final box = Hive.isBoxOpen(boxName)
         ? Hive.box<StapleProductionReport>(boxName)
         : await Hive.openBox<StapleProductionReport>(boxName);
 
     bool filterByShift(StapleProductionReport record) {
       if (_selectedShift == 'كل الورديات') return true;
       final shift = record.shiftName?.toString().trim() ?? '';
-      final normalizedShift = (shift.isEmpty || shift == 'null') ? 'الوردية الأولى' : shift;
+      final normalizedShift =
+          (shift.isEmpty || shift == 'null') ? 'الوردية الأولى' : shift;
       return normalizedShift == _selectedShift;
     }
 
     final records = box.values
-        .where((r) => _normalizeString(r.machineName) == _normalizeString(machineName) && filterByShift(r))
+        .where((r) =>
+            _normalizeString(r.machineName) == _normalizeString(machineName) &&
+            filterByShift(r))
         .map((e) {
-          final json = e.toJson();
-          json['department'] = 'staples';
-          return json;
-        })
-        .toList();
+      final json = e.toJson();
+      json['department'] = 'staples';
+      return json;
+    }).toList();
 
     if (records.isEmpty) {
-      UIUtils.showInfoSnackBar(message: "لا توجد تقارير لهذه الماكينة", backgroundColor: Colors.orange);
+      UIUtils.showInfoSnackBar(
+          message: "لا توجد تقارير لهذه الماكينة",
+          backgroundColor: Colors.orange);
       return;
     }
 
@@ -206,7 +251,8 @@ class _StapleReportDrawerState extends State<StapleReportDrawer> {
 
     if (approvedRecords.isEmpty) {
       UIUtils.showInfoSnackBar(
-        message: "لا توجد تقارير معتمدة لهذه الماكينة. جميع التقارير قيد المراجعة.",
+        message:
+            "لا توجد تقارير معتمدة لهذه الماكينة. جميع التقارير قيد المراجعة.",
         backgroundColor: Colors.orange,
         icon: Icons.pending_actions,
       );
@@ -215,7 +261,8 @@ class _StapleReportDrawerState extends State<StapleReportDrawer> {
 
     if (excludedCount > 0 && context.mounted) {
       UIUtils.showInfoSnackBar(
-        message: "تم استثناء $excludedCount تقرير قيد المراجعة من ملف الـ PDF لضمان دقة البيانات.",
+        message:
+            "تم استثناء $excludedCount تقرير قيد المراجعة من ملف الـ PDF لضمان دقة البيانات.",
         backgroundColor: Colors.orange.shade700,
         icon: Icons.info_outline,
       );
@@ -236,13 +283,8 @@ class _StapleReportDrawerState extends State<StapleReportDrawer> {
       }
     } else {
       if (context.mounted) {
-        await exportFlexoProductionReportsToPdf(
-          context,
-          approvedRecords,
-          title: title,
-          department: 'staples',
-          shiftName: _selectedShift
-        );
+        await exportFlexoProductionReportsToPdf(context, approvedRecords,
+            title: title, department: 'staples', shiftName: _selectedShift);
       }
     }
   }

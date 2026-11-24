@@ -10,7 +10,7 @@ import 'package:smart_sheet/services/supabase_manager.dart'; // استيراد �
 import 'package:smart_sheet/services/server_time_service.dart'; // خدمة الوقت الخادمي
 import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/utils/device_manager.dart'; // استيراد DeviceManager
-import 'package:smart_sheet/utils/worker_utils.dart'; 
+import 'package:smart_sheet/utils/worker_utils.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:uuid/uuid.dart'; // استيراد مكتبة الـ UUID
 
@@ -18,7 +18,8 @@ class StartSessionDialog extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final String department;
 
-  const StartSessionDialog({super.key, this.initialData, this.department = 'flexo'});
+  const StartSessionDialog(
+      {super.key, this.initialData, this.department = 'flexo'});
 
   @override
   State<StartSessionDialog> createState() => _StartSessionDialogState();
@@ -86,21 +87,26 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
             top: 16,
           ),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            color: isDark
+                ? const Color(0xFF1E293B)
+                : theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(24.0),
           ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
             child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 24.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
                       '🚀 بدء تشغيل أوردر جديد',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
@@ -110,37 +116,62 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                       builder: (context, Box<FlexoMachine> box, _) {
                         final machines = box.values
                             .where((m) =>
-                                m.department == widget.department || (widget.department == 'flexo' && m.department.isEmpty))
+                                m.department == widget.department ||
+                                (widget.department == 'flexo' &&
+                                    m.department.isEmpty))
                             .toList();
                         return DropdownButtonFormField<String>(
                           initialValue: selectedMachine,
                           decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-                              labelText: 'اختر الماكينة',
-                              labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
-                              prefixIcon: const Icon(Icons.precision_manufacturing, color: Colors.blueAccent, size: 20),
-                              prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 14),
+                            labelText: 'اختر الماكينة',
+                            labelStyle: TextStyle(
+                                color: Colors.blueGrey.shade400, fontSize: 13),
+                            prefixIcon: const Icon(
+                                Icons.precision_manufacturing,
+                                color: Colors.blueAccent,
+                                size: 20),
+                            prefixIconConstraints: const BoxConstraints(
+                                minWidth: 36, minHeight: 36),
                             filled: true,
-                            fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+                            fillColor:
+                                isDark ? const Color(0xFF0F172A) : Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+                              borderSide: BorderSide(
+                                  color:
+                                      Colors.blueGrey.withValues(alpha: 0.3)),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+                              borderSide: BorderSide(
+                                  color:
+                                      Colors.blueGrey.withValues(alpha: 0.3)),
                             ),
                           ),
                           isExpanded: true,
-                          dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          dropdownColor:
+                              isDark ? const Color(0xFF1E293B) : Colors.white,
                           items: [
-                            ...machines.map((m) => DropdownMenuItem(value: m.name, child: Text(m.name, style: TextStyle(color: isDark ? Colors.white : Colors.black87)))),
-                            const DropdownMenuItem(value: 'MANUAL', child: Text('➕ إضافة يدوي', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold))),
+                            ...machines.map((m) => DropdownMenuItem(
+                                value: m.name,
+                                child: Text(m.name,
+                                    style: TextStyle(
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black87)))),
+                            const DropdownMenuItem(
+                                value: 'MANUAL',
+                                child: Text('➕ إضافة يدوي',
+                                    style: TextStyle(
+                                        color: Colors.blueAccent,
+                                        fontWeight: FontWeight.bold))),
                           ],
                           onChanged: (val) async {
                             if (val == 'MANUAL') {
-                              final name =
-                                  await _showSimplePrompt('اسم الماكينة الجديدة');
+                              final name = await _showSimplePrompt(
+                                  'اسم الماكينة الجديدة');
                               if (name != null && name.isNotEmpty) {
                                 box.add(FlexoMachine(
                                     id: const Uuid().v4(),
@@ -158,154 +189,199 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Expanded(child: _buildSimpleField(clientController, 'اسم العميل', Icons.person)),
+                        Expanded(
+                            child: _buildSimpleField(
+                                clientController, 'اسم العميل', Icons.person)),
                         const SizedBox(width: 4),
-                        Expanded(child: _buildSimpleField(orderNumberController, 'أمر التشغيل', Icons.numbers, keyboardType: TextInputType.number)),
+                        Expanded(
+                            child: _buildSimpleField(orderNumberController,
+                                'أمر التشغيل', Icons.numbers,
+                                keyboardType: TextInputType.number)),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Expanded(flex: 2, child: _buildSimpleField(productController, 'الصنف', Icons.inventory)),
+                        Expanded(
+                            flex: 2,
+                            child: _buildSimpleField(
+                                productController, 'الصنف', Icons.inventory)),
                         const SizedBox(width: 4),
-                        Expanded(flex: 1, child: _buildSimpleField(productCodeController, 'كود الصنف', Icons.qr_code, keyboardType: TextInputType.number)),
+                        Expanded(
+                            flex: 1,
+                            child: _buildSimpleField(productCodeController,
+                                'كود الصنف', Icons.qr_code,
+                                keyboardType: TextInputType.number)),
                       ],
                     ),
                     const SizedBox(height: 8),
                     if (widget.department == 'crushing') ...[
-                      _buildSimpleField(formNumberController, 'رقم الفورمة (اختياري)', Icons.grid_3x3, keyboardType: TextInputType.number),
+                      _buildSimpleField(formNumberController,
+                          'رقم الفورمة (اختياري)', Icons.grid_3x3,
+                          keyboardType: TextInputType.number),
                       const SizedBox(height: 8),
                     ],
                     // اختيار حالة المنتج: سادة أو مطبوع
                     Row(
                       children: [
-                        const Text("حالة المنتج:", style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text("حالة المنتج:",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(width: 8),
                         ChoiceChip(
-                          avatar: const Icon(Icons.crop_square_rounded, size: 16),
+                          avatar:
+                              const Icon(Icons.crop_square_rounded, size: 16),
                           label: const Text("سادة"),
                           selected: _productState == "سادة",
-                          onSelected: (v) => setState(() => _productState = "سادة"),
+                          onSelected: (v) =>
+                              setState(() => _productState = "سادة"),
                         ),
                         const SizedBox(width: 8),
                         ChoiceChip(
                           avatar: const Icon(Icons.print_rounded, size: 16),
                           label: const Text("مطبوع"),
                           selected: _productState == "مطبوع",
-                          onSelected: (v) => setState(() => _productState = "مطبوع"),
+                          onSelected: (v) =>
+                              setState(() => _productState = "مطبوع"),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    _buildSimpleField(notesController, 'الملاحظات', Icons.notes_rounded, maxLines: 2),
+                    _buildSimpleField(
+                        notesController, 'الملاحظات', Icons.notes_rounded,
+                        maxLines: 2),
                     const SizedBox(height: 8),
                     _buildWorkerSuggestField(techController),
-                    if (widget.department == 'die_cutting' || widget.department == 'crushing' || widget.department == 'production_line') ...[
+                    if (widget.department == 'die_cutting' ||
+                        widget.department == 'crushing' ||
+                        widget.department == 'production_line') ...[
                       const SizedBox(height: 8),
                       _buildCrewMembersSelector(),
                     ],
-            const SizedBox(height: 24),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              onPressed: () async {
-                if (selectedMachine == null || clientController.text.isEmpty) {
-                  UIUtils.showInfoSnackBar(
-                      message: 'يرجى ملء البيانات الأساسية',
-                      backgroundColor: Colors.orange);
-                  return;
-                }
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () async {
+                        if (selectedMachine == null ||
+                            clientController.text.isEmpty) {
+                          UIUtils.showInfoSnackBar(
+                              message: 'يرجى ملء البيانات الأساسية',
+                              backgroundColor: Colors.orange);
+                          return;
+                        }
 
-                // ✅ التحقق من عدم وجود جلسة قيد التشغيل لنفس الماكينة
-                final liveBoxCheck = Hive.isBoxOpen('flexo_live_sessions')
-                    ? Hive.box<LiveSession>('flexo_live_sessions')
-                    : await Hive.openBox<LiveSession>('flexo_live_sessions');
-                
-                final isAlreadyRunning = liveBoxCheck.values.any((s) => 
-                  s.machineName == selectedMachine && s.isRunning
-                );
+                        // ✅ التحقق من عدم وجود جلسة قيد التشغيل لنفس الماكينة
+                        final liveBoxCheck =
+                            Hive.isBoxOpen('flexo_live_sessions')
+                                ? Hive.box<LiveSession>('flexo_live_sessions')
+                                : await Hive.openBox<LiveSession>(
+                                    'flexo_live_sessions');
 
-                if (isAlreadyRunning) {
-                  UIUtils.showInfoSnackBar(
-                      message: 'لا يمكن البدء: الماكينة قيد التشغيل حالياً في جلسة أخرى',
-                      backgroundColor: Colors.red);
-                  return;
-                }
+                        final isAlreadyRunning = liveBoxCheck.values.any((s) =>
+                            s.machineName == selectedMachine && s.isRunning);
 
-                // 1. توليد ID فريد للمزامنة
-                final sessionId = const Uuid().v4();
-                final fId = await SupabaseManager.getFactoryId();
-                final deviceId = await DeviceManager.getDeviceId();
+                        if (isAlreadyRunning) {
+                          UIUtils.showInfoSnackBar(
+                              message:
+                                  'لا يمكن البدء: الماكينة قيد التشغيل حالياً في جلسة أخرى',
+                              backgroundColor: Colors.red);
+                          return;
+                        }
 
-                String? techId = PermissionHelper.currentWorker?.id;
-                if (techId == null && Hive.isBoxOpen('workers')) {
-                  try {
-                    techId = Hive.box<Worker>('workers').values.firstWhere(
-                      (w) => w.name.trim().toLowerCase() == techController.text.trim().toLowerCase(),
-                    ).id;
-                  } catch (_) {}
-                }
-                if (techId == null && Hive.isBoxOpen('workers_flexo')) {
-                  try {
-                    techId = Hive.box<Worker>('workers_flexo').values.firstWhere(
-                      (w) => w.name.trim().toLowerCase() == techController.text.trim().toLowerCase(),
-                    ).id;
-                  } catch (_) {}
-                }
+                        // 1. توليد ID فريد للمزامنة
+                        final sessionId = const Uuid().v4();
+                        final fId = await SupabaseManager.getFactoryId();
+                        final deviceId = await DeviceManager.getDeviceId();
 
-                // 2. إنشاء كائن الجلسة الحية
-                final session = LiveSession(
-                  id: sessionId,
-                  machineName: selectedMachine!,
-                  clientName: clientController.text.trim(),
-                  productName: productController.text.trim(),
-                  productCode: productCodeController.text.trim(),
-                  orderNumber: orderNumberController.text.trim(),
-                  technicianName: techController.text.trim(),
-                  startTime: ServerTimeService.nowUtc,
-                  downtimeIntervals: [],
-                  lastStateChange: ServerTimeService.nowUtc,
-                  dimensions: () {
-                    final d = Map<String, dynamic>.from(widget.initialData?['dimensions'] ?? {});
-                    d['notes'] = notesController.text.trim();
-                    d['product_state'] = _productState;
-                    d['productState'] = _productState;
-                    return d;
-                  }(),
-                  isSheet: widget.initialData?['isSheet'] ?? false,
-                  imagePaths: List<String>.from(
-                      widget.initialData?['imagePaths'] ?? []),
-                  factoryId: fId, // استخدام معرف المصنع الحقيقي
-                  createdByDeviceId: deviceId,
-                  technicianId: techId,
-                  department: widget.department,
-                  formNumber: formNumberController.text.trim().isNotEmpty ? formNumberController.text.trim() : null,
-                  crewMembers: selectedCrewMembers.isNotEmpty ? selectedCrewMembers : null,
-                );
+                        String? techId = PermissionHelper.currentWorker?.id;
+                        if (techId == null && Hive.isBoxOpen('workers')) {
+                          try {
+                            techId = Hive.box<Worker>('workers')
+                                .values
+                                .firstWhere(
+                                  (w) =>
+                                      w.name.trim().toLowerCase() ==
+                                      techController.text.trim().toLowerCase(),
+                                )
+                                .id;
+                          } catch (_) {}
+                        }
+                        if (techId == null && Hive.isBoxOpen('workers_flexo')) {
+                          try {
+                            techId = Hive.box<Worker>('workers_flexo')
+                                .values
+                                .firstWhere(
+                                  (w) =>
+                                      w.name.trim().toLowerCase() ==
+                                      techController.text.trim().toLowerCase(),
+                                )
+                                .id;
+                          } catch (_) {}
+                        }
 
-                // 3. الحفظ المحلي في Hive (لتحديث الواجهة فوراً)
-                final liveBox = Hive.isBoxOpen('flexo_live_sessions')
-                    ? Hive.box<LiveSession>('flexo_live_sessions')
-                    : await Hive.openBox<LiveSession>('flexo_live_sessions');
-                await liveBox.put(sessionId, session);
+                        // 2. إنشاء كائن الجلسة الحية
+                        final session = LiveSession(
+                          id: sessionId,
+                          machineName: selectedMachine!,
+                          clientName: clientController.text.trim(),
+                          productName: productController.text.trim(),
+                          productCode: productCodeController.text.trim(),
+                          orderNumber: orderNumberController.text.trim(),
+                          technicianName: techController.text.trim(),
+                          startTime: ServerTimeService.nowUtc,
+                          downtimeIntervals: [],
+                          lastStateChange: ServerTimeService.nowUtc,
+                          dimensions: () {
+                            final d = Map<String, dynamic>.from(
+                                widget.initialData?['dimensions'] ?? {});
+                            d['notes'] = notesController.text.trim();
+                            d['product_state'] = _productState;
+                            d['productState'] = _productState;
+                            return d;
+                          }(),
+                          isSheet: widget.initialData?['isSheet'] ?? false,
+                          imagePaths: List<String>.from(
+                              widget.initialData?['imagePaths'] ?? []),
+                          factoryId: fId, // استخدام معرف المصنع الحقيقي
+                          createdByDeviceId: deviceId,
+                          technicianId: techId,
+                          department: widget.department,
+                          formNumber:
+                              formNumberController.text.trim().isNotEmpty
+                                  ? formNumberController.text.trim()
+                                  : null,
+                          crewMembers: selectedCrewMembers.isNotEmpty
+                              ? selectedCrewMembers
+                              : null,
+                        );
 
-                // 4. الإرسال لقائمة المزامنة (ليرسل للسحابة والديسك توب)
-                await SyncService.instance.pushToQueue(
-                  'live_sessions',
-                  session.toJson(),
-                  operation: 'upsert',
-                );
+                        // 3. الحفظ المحلي في Hive (لتحديث الواجهة فوراً)
+                        final liveBox = Hive.isBoxOpen('flexo_live_sessions')
+                            ? Hive.box<LiveSession>('flexo_live_sessions')
+                            : await Hive.openBox<LiveSession>(
+                                'flexo_live_sessions');
+                        await liveBox.put(sessionId, session);
 
-                if (context.mounted) Navigator.pop(context, true);
-              },
-              child: const Text('ابدأ التشغيل الآن ⚡', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
+                        // 4. الإرسال لقائمة المزامنة (ليرسل للسحابة والديسك توب)
+                        await SyncService.instance.pushToQueue(
+                          'live_sessions',
+                          session.toJson(),
+                          operation: 'upsert',
+                        );
+
+                        if (context.mounted) Navigator.pop(context, true);
+                      },
+                      child: const Text('ابدأ التشغيل الآن ⚡',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -353,14 +429,15 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
     return InkWell(
       onTap: () async {
         final sortedWorkers = WorkerUtils.getSortedWorkers(widget.department);
-        
+
         await showDialog(
           context: context,
           builder: (context) {
             return StatefulBuilder(
               builder: (context, setStateDialog) {
                 return AlertDialog(
-                  title: const Text('اختر طاقم الماكينة', style: TextStyle(fontFamily: 'Cairo')),
+                  title: const Text('اختر طاقم الماكينة',
+                      style: TextStyle(fontFamily: 'Cairo')),
                   content: SizedBox(
                     width: double.maxFinite,
                     child: ListView.builder(
@@ -372,15 +449,20 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                         bool showDivider = false;
                         if (index > 0) {
                           final prevWorker = sortedWorkers[index - 1];
-                          String normDept = widget.department == 'crushing' ? 'die_cutting' : widget.department;
-                          if (prevWorker.department == normDept && worker.department != normDept) {
+                          String normDept = widget.department == 'crushing'
+                              ? 'die_cutting'
+                              : widget.department;
+                          if (prevWorker.department == normDept &&
+                              worker.department != normDept) {
                             showDivider = true;
                           }
                         }
 
-                        final isSelected = selectedCrewMembers.contains(worker.name);
+                        final isSelected =
+                            selectedCrewMembers.contains(worker.name);
                         final tile = CheckboxListTile(
-                          title: Text('${worker.name} (${worker.job})', style: const TextStyle(fontFamily: 'Cairo')),
+                          title: Text('${worker.name} (${worker.job})',
+                              style: const TextStyle(fontFamily: 'Cairo')),
                           value: isSelected,
                           onChanged: (bool? value) {
                             setStateDialog(() {
@@ -400,7 +482,10 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                               const Divider(thickness: 2),
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 8.0),
-                                child: Text('باقي أقسام المصنع', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                                child: Text('باقي أقسام المصنع',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey)),
                               ),
                               tile,
                             ],
@@ -413,7 +498,8 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('موافق', style: TextStyle(fontFamily: 'Cairo')),
+                      child: const Text('موافق',
+                          style: TextStyle(fontFamily: 'Cairo')),
                     ),
                   ],
                 );
@@ -430,8 +516,8 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
           prefixIcon: Icon(Icons.group),
         ),
         child: Text(
-          selectedCrewMembers.isEmpty 
-              ? 'اضغط لاختيار الطاقم' 
+          selectedCrewMembers.isEmpty
+              ? 'اضغط لاختيار الطاقم'
               : 'تم اختيار ${selectedCrewMembers.length} عمال',
           style: const TextStyle(fontSize: 16),
         ),
@@ -444,19 +530,22 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
       {TextInputType? keyboardType, FocusNode? focusNode, int maxLines = 1}) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return TextField(
       controller: controller,
       focusNode: focusNode,
       keyboardType: maxLines > 1 ? TextInputType.multiline : keyboardType,
       maxLines: maxLines,
-      style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
+      style: TextStyle(
+          color: isDark ? Colors.white : Colors.black87, fontSize: 14),
       decoration: InputDecoration(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
         labelText: label,
         labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
         prefixIcon: Icon(icon, color: Colors.blueAccent, size: 20),
-        prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        prefixIconConstraints:
+            const BoxConstraints(minWidth: 36, minHeight: 36),
         filled: true,
         fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
         border: OutlineInputBorder(
@@ -485,7 +574,8 @@ class _StartSessionDialogState extends State<StartSessionDialog> {
           title: Text(title),
           content: SingleChildScrollView(
             child: Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

@@ -352,90 +352,90 @@ class _OrderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-              // ── الصف الأول: الأيقونة + اسم العميل + زر الحذف ──────────────
-              Row(
-                children: [
-                  // زر الحذف
-                  if (canDelete)
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      tooltip: 'حذف',
-                      onPressed: onDelete,
-                    ),
-                  const Spacer(),
-                  // اسم العميل
-                  Expanded(
-                    flex: 5,
-                    child: Text(
-                      data.customerName.isNotEmpty
-                          ? data.customerName
-                          : 'عميل غير مسمى',
-                      textAlign: TextAlign.right,
-                      textDirection: TextDirection.rtl,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // الأيقونة
-                  CircleAvatar(
-                    backgroundColor:
-                        const Color(0xFF1a3a6e).withValues(alpha: 0.12),
-                    child: const Icon(Icons.assignment,
-                        color: Color(0xFF1a3a6e), size: 22),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Divider(height: 1),
-              const SizedBox(height: 10),
-
-              // ── الصف الثاني: تفاصيل الأمر ─────────────────────────────────
-              Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 16,
-                runSpacing: 6,
-                children: [
-                  if (hasOrderNum)
-                    _InfoChip(
-                      icon: Icons.work_outline,
-                      label: 'أمر تشغيل: ${data.orderNumber}',
-                    ),
-                  if (hasJobNum)
-                    _InfoChip(
-                      icon: Icons.tag,
-                      label: 'طلبية رقم: ${data.jobNumber}',
-                    ),
-                  if (data.orderDate.isNotEmpty)
-                    _InfoChip(
-                      icon: Icons.calendar_today_outlined,
-                      label: data.orderDate,
-                    ),
-                  if (data.items.isNotEmpty)
-                    _InfoChip(
-                      icon: Icons.inventory_2_outlined,
-                      label: '${data.items.length} صنف',
-                    ),
-                ],
-              ),
-
-              // ── زر المعاينة ───────────────────────────────────────────────
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: onTap,
-                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                  label: const Text('معاينة / طباعة PDF'),
+          // ── الصف الأول: الأيقونة + اسم العميل + زر الحذف ──────────────
+          Row(
+            children: [
+              // زر الحذف
+              if (canDelete)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  tooltip: 'حذف',
+                  onPressed: onDelete,
                 ),
+              const Spacer(),
+              // اسم العميل
+              Expanded(
+                flex: 5,
+                child: Text(
+                  data.customerName.isNotEmpty
+                      ? data.customerName
+                      : 'عميل غير مسمى',
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 10),
+              // الأيقونة
+              CircleAvatar(
+                backgroundColor:
+                    const Color(0xFF1a3a6e).withValues(alpha: 0.12),
+                child: const Icon(Icons.assignment,
+                    color: Color(0xFF1a3a6e), size: 22),
               ),
             ],
           ),
-      );
+          const SizedBox(height: 8),
+          const Divider(height: 1),
+          const SizedBox(height: 10),
+
+          // ── الصف الثاني: تفاصيل الأمر ─────────────────────────────────
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 16,
+            runSpacing: 6,
+            children: [
+              if (hasOrderNum)
+                _InfoChip(
+                  icon: Icons.work_outline,
+                  label: 'أمر تشغيل: ${data.orderNumber}',
+                ),
+              if (hasJobNum)
+                _InfoChip(
+                  icon: Icons.tag,
+                  label: 'طلبية رقم: ${data.jobNumber}',
+                ),
+              if (data.orderDate.isNotEmpty)
+                _InfoChip(
+                  icon: Icons.calendar_today_outlined,
+                  label: data.orderDate,
+                ),
+              if (data.items.isNotEmpty)
+                _InfoChip(
+                  icon: Icons.inventory_2_outlined,
+                  label: '${data.items.length} صنف',
+                ),
+            ],
+          ),
+
+          // ── زر المعاينة ───────────────────────────────────────────────
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: onTap,
+              icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+              label: const Text('معاينة / طباعة PDF'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

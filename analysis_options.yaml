@@ -28,6 +28,7 @@ analyzer:
   errors:
     # HiveList مُعلَّمة بـ @experimental في hive — تحذير لا يؤثر على الأداء
     experimental_member_use: ignore
+    deprecated_member_use: ignore
 
 linter:
   rules:

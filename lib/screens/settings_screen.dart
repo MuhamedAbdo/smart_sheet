@@ -49,7 +49,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           decoration: BoxDecoration(
             color: themeProvider.isDarkTheme
                 ? const Color(0xFF1E293B)
-                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                : Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(24.0),
           ),
           child: ConstrainedBox(
@@ -64,7 +67,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(child: _buildAppearanceCard(themeProvider)),
+                            Expanded(
+                                child: _buildAppearanceCard(themeProvider)),
                             const SizedBox(width: 16),
                             Expanded(child: _buildDataCard(context)),
                             const SizedBox(width: 16),
@@ -204,7 +208,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ListTile(
                 leading: const Icon(Icons.vpn_key, color: Colors.orange),
                 title: const Text("توليد كود دخول للأجهزة"),
-                subtitle: const Text("إنشاء كود بوابة دخول جديد بصلاحية ساعة كاملة"),
+                subtitle:
+                    const Text("إنشاء كود بوابة دخول جديد بصلاحية ساعة كاملة"),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () => _generateInvitationCode(context),
               ),
@@ -220,7 +225,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random();
     final String generatedCode = String.fromCharCodes(
-      Iterable.generate(6, (_) => chars.codeUnitAt(random.nextInt(chars.length))),
+      Iterable.generate(
+          6, (_) => chars.codeUnitAt(random.nextInt(chars.length))),
     );
 
     // Show loading dialog
@@ -235,7 +241,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'create_invitation',
         params: {'new_code': generatedCode},
       );
-      
+
       // Close loading dialog
       if (context.mounted) Navigator.pop(context);
 
@@ -260,7 +266,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.grey.withAlpha(50),
                     borderRadius: BorderRadius.circular(8),
@@ -280,7 +287,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('إغلاق', style: TextStyle(color: Colors.grey)),
+                child:
+                    const Text('إغلاق', style: TextStyle(color: Colors.grey)),
               ),
               ElevatedButton.icon(
                 onPressed: () async {
@@ -309,7 +317,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       // Close loading dialog
       if (context.mounted) Navigator.pop(context);
-      
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

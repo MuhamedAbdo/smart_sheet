@@ -24,7 +24,10 @@ class AboutScreen extends StatelessWidget {
           decoration: BoxDecoration(
             color: isDark
                 ? const Color(0xFF1E293B)
-                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                : Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(24.0),
           ),
           child: ConstrainedBox(
@@ -72,21 +75,22 @@ class AboutScreen extends StatelessWidget {
                         const SizedBox(height: 16),
                         const Text(
                           'Smart Sheet',
-                          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 26, fontWeight: FontWeight.bold),
                           textDirection: TextDirection.ltr,
                         ),
                         const SizedBox(height: 4),
                         Container(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
                             color: accent.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
                             'الإصدار: Version 1.0.0',
-                            style:
-                                TextStyle(color: accent, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                                color: accent, fontWeight: FontWeight.w600),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -107,21 +111,23 @@ class AboutScreen extends StatelessWidget {
                           style: TextStyle(
                               fontSize: 14,
                               height: 1.7,
-                              color: isDark ? Colors.grey[300] : Colors.grey[800]),
+                              color:
+                                  isDark ? Colors.grey[300] : Colors.grey[800]),
                         ),
                       ],
                     ),
                   ),
-      
+
                   const SizedBox(height: 20),
-      
+
                   // ─── قسم عن المطور ────────────────────────────────────────────
                   _SectionCard(
                     isDark: isDark,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const _SectionHeader(icon: Icons.person, label: 'عن المطور'),
+                        const _SectionHeader(
+                            icon: Icons.person, label: 'عن المطور'),
                         const SizedBox(height: 16),
                         _InfoRow(
                           isDark: isDark,
@@ -153,9 +159,9 @@ class AboutScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-      
+
                   const SizedBox(height: 12),
-      
+
                   // ─── حقوق النسخ ───────────────────────────────────────────────
                   Text(
                     '© ${DateTime.now().year} Smart Sheet — جميع الحقوق محفوظة',

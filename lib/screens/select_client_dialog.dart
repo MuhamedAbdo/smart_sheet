@@ -22,7 +22,7 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
   Future<void> _loadClients() async {
     final box = await Hive.openBox('savedSheetSizes');
     final Map<String, List<Map>> clientRecords = {};
-    
+
     // تجميع السجلات حسب اسم العميل
     for (var val in box.values) {
       if (val is Map) {
@@ -37,30 +37,30 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
     }
 
     final List<Map<String, dynamic>> clientsData = [];
-    
+
     for (var entry in clientRecords.entries) {
       final cName = entry.key;
       final records = entry.value;
-      
+
       // استخراج الأصناف فقط (تجاهل سجل العميل الرئيسي)
       final rawItems = records.where((e) => e['isClientRecord'] != true);
-      
+
       // تصفية الأصناف المكررة
       final Set<String> uniqueProductCodes = {};
       int itemCount = 0;
-      
+
       for (var item in rawItems) {
         final productCode = item['productCode']?.toString().trim() ?? '';
         final uniqueId = productCode.isNotEmpty
             ? productCode
             : (item['sync_id'] ?? item['id'] ?? item.hashCode).toString();
-            
+
         if (!uniqueProductCodes.contains(uniqueId)) {
           uniqueProductCodes.add(uniqueId);
           itemCount++;
         }
       }
-      
+
       clientsData.add({
         'name': cName,
         'itemCount': itemCount,
@@ -68,7 +68,8 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
     }
 
     // ترتيب العملاء أبجدياً
-    clientsData.sort((a, b) => a['name'].toString().compareTo(b['name'].toString()));
+    clientsData
+        .sort((a, b) => a['name'].toString().compareTo(b['name'].toString()));
 
     setState(() {
       _clients = clientsData;
@@ -79,15 +80,17 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
   void _onClientSelected(String clientName) async {
     Navigator.of(context).pop(); // إغلاق نافذة الاختيار
     final box = await Hive.openBox('savedSheetSizes');
-    
+
     // جلب بيانات العميل والأصناف
     final allClientRecords = box.values
-        .where((e) => e is Map && (e['clientName']?.toString().trim() ?? '') == clientName)
+        .where((e) =>
+            e is Map &&
+            (e['clientName']?.toString().trim() ?? '') == clientName)
         .toList();
-        
-    final rawItems = allClientRecords
-        .where((e) => e is Map && e['isClientRecord'] != true);
-    
+
+    final rawItems =
+        allClientRecords.where((e) => e is Map && e['isClientRecord'] != true);
+
     final Map<String, Map<String, dynamic>> uniqueItemsMap = {};
     for (var entry in rawItems) {
       final val = Map<String, dynamic>.from(entry as Map);
@@ -97,7 +100,7 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
           : (val['sync_id'] ?? val['id'] ?? val.hashCode).toString();
       uniqueItemsMap[uniqueId] = val;
     }
-    
+
     final items = uniqueItemsMap.values.toList();
     items.sort((a, b) {
       final codeA = int.tryParse(a['productCode']?.toString() ?? '') ?? 0;
@@ -118,7 +121,9 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
       clientAddress = data['address']?.toString() ?? '';
       clientSupervisor = data['supervisor']?.toString() ?? '';
       clientPhone = data['phone']?.toString() ?? '';
-      clientCode = data['productCode']?.toString() ?? data['clientCode']?.toString() ?? '';
+      clientCode = data['productCode']?.toString() ??
+          data['clientCode']?.toString() ??
+          '';
     } catch (_) {}
 
     if (mounted) {
@@ -142,7 +147,8 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: AlertDialog(
-        title: const Text('اختر عميلاً', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('اختر عميلاً',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         content: SizedBox(
           width: double.maxFinite,
           height: 400,
@@ -155,7 +161,8 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
                         // شريط إجمالي العملاء
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 16),
                           decoration: BoxDecoration(
                             color: const Color(0xFF1a3a6e),
                             borderRadius: BorderRadius.circular(8),
@@ -188,22 +195,26 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 elevation: 2,
-                                margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+                                margin: const EdgeInsets.symmetric(
+                                    vertical: 6, horizontal: 2),
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(12),
-                                  onTap: () => _onClientSelected(client['name']),
+                                  onTap: () =>
+                                      _onClientSelected(client['name']),
                                   child: Padding(
                                     padding: const EdgeInsets.all(12.0),
                                     child: Row(
                                       children: [
                                         const CircleAvatar(
                                           backgroundColor: Color(0xFF1a3a6e),
-                                          child: Icon(Icons.person, color: Colors.white),
+                                          child: Icon(Icons.person,
+                                              color: Colors.white),
                                         ),
                                         const SizedBox(width: 16),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 client['name'],

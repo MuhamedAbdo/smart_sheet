@@ -31,12 +31,13 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
 
   void _selectAll() {
     if (_archiveBox == null) return;
-    
+
     final filteredEntries = _getFilteredEntries(_archiveBox!);
     final currentFilteredKeys = filteredEntries.map((e) => e.key).toSet();
-    
+
     setState(() {
-      if (_selectedArchiveKeys.containsAll(currentFilteredKeys) && currentFilteredKeys.isNotEmpty) {
+      if (_selectedArchiveKeys.containsAll(currentFilteredKeys) &&
+          currentFilteredKeys.isNotEmpty) {
         _selectedArchiveKeys.removeAll(currentFilteredKeys);
       } else {
         _selectedArchiveKeys.addAll(currentFilteredKeys);
@@ -135,13 +136,18 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
 
       if (dept == 'crushing' || dept == 'die_cutting') {
         final reportObj = DieCuttingProductionReport.fromJson(parsedData);
-        Hive.box<DieCuttingProductionReport>('die_cutting_production_reports_box').add(reportObj);
-        SyncService.instance.pushToQueue('die_cutting_production_reports', reportObj.toJson());
+        Hive.box<DieCuttingProductionReport>(
+                'die_cutting_production_reports_box')
+            .add(reportObj);
+        SyncService.instance
+            .pushToQueue('die_cutting_production_reports', reportObj.toJson());
       } else {
         final reportObj = FlexoProductionReport.fromJson(parsedData);
         await reportsBox.add(reportObj);
-        
-        final targetProdTable = (dept == 'production_line') ? 'line_production_reports' : 'flexo_production_reports';
+
+        final targetProdTable = (dept == 'production_line')
+            ? 'line_production_reports'
+            : 'flexo_production_reports';
         SyncService.instance.pushToQueue(targetProdTable, reportObj.toJson());
       }
 
@@ -183,29 +189,42 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
               final data = entry.value as Map;
               final reportData = data['data'] ?? data;
               final parsedData = Map<String, dynamic>.from(reportData);
-              final dept = parsedData['department']?.toString() ?? widget.department;
+              final dept =
+                  parsedData['department']?.toString() ?? widget.department;
 
               if (dept == 'crushing' || dept == 'die_cutting') {
-                final reportObj = DieCuttingProductionReport.fromJson(parsedData);
-                Hive.box<DieCuttingProductionReport>('die_cutting_production_reports_box').add(reportObj);
-                SyncService.instance.pushToQueue('die_cutting_production_reports', reportObj.toSupabaseMap());
-                SyncService.instance.pushToQueue('die_cutting_archived_reports', reportObj.toSupabaseMap());
+                final reportObj =
+                    DieCuttingProductionReport.fromJson(parsedData);
+                Hive.box<DieCuttingProductionReport>(
+                        'die_cutting_production_reports_box')
+                    .add(reportObj);
+                SyncService.instance.pushToQueue(
+                    'die_cutting_production_reports',
+                    reportObj.toSupabaseMap());
+                SyncService.instance.pushToQueue(
+                    'die_cutting_archived_reports', reportObj.toSupabaseMap());
                 dieCuttingArchiveToUpsert.add(reportObj.toSupabaseMap());
                 continue;
               } else {
                 final reportObj = FlexoProductionReport.fromJson(parsedData);
                 await reportsBox.add(reportObj);
 
-                final targetProdTable = (dept == 'production_line') ? 'line_production_reports' : 'flexo_production_reports';
-                final targetArchTable = (dept == 'production_line') ? 'line_archived_reports' : 'flexo_archived_reports';
+                final targetProdTable = (dept == 'production_line')
+                    ? 'line_production_reports'
+                    : 'flexo_production_reports';
+                final targetArchTable = (dept == 'production_line')
+                    ? 'line_archived_reports'
+                    : 'flexo_archived_reports';
 
-                SyncService.instance.pushToQueue(targetProdTable, reportObj.toJson());
-                SyncService.instance.pushToQueue(targetArchTable, reportObj.toJson());
-                
-                // Add to flexoArchiveToUpsert, but we should probably separate line_archived_reports if needed. 
+                SyncService.instance
+                    .pushToQueue(targetProdTable, reportObj.toJson());
+                SyncService.instance
+                    .pushToQueue(targetArchTable, reportObj.toJson());
+
+                // Add to flexoArchiveToUpsert, but we should probably separate line_archived_reports if needed.
                 // Since there is only one array for direct upsert in this function, let's just rely on the Queue.
                 if (targetArchTable == 'flexo_archived_reports') {
-                    flexoArchiveToUpsert.add(reportObj.toJson());
+                  flexoArchiveToUpsert.add(reportObj.toJson());
                 }
               }
             } catch (e) {
@@ -217,15 +236,22 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
 
           try {
             if (flexoArchiveToUpsert.isNotEmpty) {
-              await supabase.from('flexo_archived_reports').upsert(flexoArchiveToUpsert);
-              debugPrint('✅ تم الرفع المباشر لـ ${flexoArchiveToUpsert.length} تسجيلة أرشيف (فلكسو).');
+              await supabase
+                  .from('flexo_archived_reports')
+                  .upsert(flexoArchiveToUpsert);
+              debugPrint(
+                  '✅ تم الرفع المباشر لـ ${flexoArchiveToUpsert.length} تسجيلة أرشيف (فلكسو).');
             }
             if (dieCuttingArchiveToUpsert.isNotEmpty) {
-              await supabase.from('die_cutting_archived_reports').upsert(dieCuttingArchiveToUpsert);
-              debugPrint('✅ تم الرفع المباشر لـ ${dieCuttingArchiveToUpsert.length} تسجيلة أرشيف (تكسير).');
+              await supabase
+                  .from('die_cutting_archived_reports')
+                  .upsert(dieCuttingArchiveToUpsert);
+              debugPrint(
+                  '✅ تم الرفع المباشر لـ ${dieCuttingArchiveToUpsert.length} تسجيلة أرشيف (تكسير).');
             }
           } catch (e) {
-             debugPrint('⚠️ فشل الرفع المباشر للأرشيف، سيتم الاعتماد على طابور المزامنة: $e');
+            debugPrint(
+                '⚠️ فشل الرفع المباشر للأرشيف، سيتم الاعتماد على طابور المزامنة: $e');
           }
           // تم إزالة عملية التفريغ (clear) بناءً على طلب المستخدم لإبقاء الأرشيف كنسخة دائمة
 
@@ -325,11 +351,11 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     return entries;
   }
 
-
-
   void _showDateFilterDialog() async {
     if (_archiveBox == null || _archiveBox!.isEmpty) {
-      UIUtils.showInfoSnackBar(message: "لا توجد تقارير مسجلة لعرض تواريخها", backgroundColor: Colors.orange);
+      UIUtils.showInfoSnackBar(
+          message: "لا توجد تقارير مسجلة لعرض تواريخها",
+          backgroundColor: Colors.orange);
       return;
     }
 
@@ -347,17 +373,22 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     }
 
     if (uniqueDates.isEmpty) {
-      UIUtils.showInfoSnackBar(message: "لا توجد تواريخ مسجلة لعرضها", backgroundColor: Colors.orange);
+      UIUtils.showInfoSnackBar(
+          message: "لا توجد تواريخ مسجلة لعرضها",
+          backgroundColor: Colors.orange);
       return;
     }
 
-    final List<String> sortedDates = uniqueDates.toList()..sort((a, b) => b.compareTo(a));
+    final List<String> sortedDates = uniqueDates.toList()
+      ..sort((a, b) => b.compareTo(a));
 
     final String? pickedDate = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('اختر التاريخ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+          title: const Text('اختر التاريخ',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, color: Colors.blueAccent)),
           content: SizedBox(
             width: double.maxFinite,
             height: 300,
@@ -368,7 +399,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                 final date = sortedDates[index];
                 return ListTile(
                   title: Text(date, style: const TextStyle(fontSize: 16)),
-                  trailing: const Icon(Icons.calendar_today, size: 16, color: Colors.blueAccent),
+                  trailing: const Icon(Icons.calendar_today,
+                      size: 16, color: Colors.blueAccent),
                   onTap: () {
                     Navigator.pop(context, date);
                   },
@@ -423,7 +455,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                   ? IconButton(
                       icon: const Icon(Icons.close),
                       tooltip: 'إلغاء التحديد',
-                      onPressed: () => setState(() => _selectedArchiveKeys.clear()),
+                      onPressed: () =>
+                          setState(() => _selectedArchiveKeys.clear()),
                     )
                   : Navigator.canPop(context)
                       ? IconButton(
@@ -485,65 +518,72 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                     onPressed: _showAggregationDialog,
                   ),
                   if (PermissionHelper.isSuperAdmin ||
-                      (PermissionHelper.currentWorker?.canDeleteArchive ?? false))
+                      (PermissionHelper.currentWorker?.canDeleteArchive ??
+                          false))
                     IconButton(
-                      icon: Icon(Icons.delete_sweep, color: Colors.red.shade400),
+                      icon:
+                          Icon(Icons.delete_sweep, color: Colors.red.shade400),
                       tooltip: 'حذف المحدد',
                       onPressed: _deleteSelectedEntries,
                     ),
                 ],
                 // ─── القائمة العادية ───
                 if (!_isSelectionMode)
-                // ✅ تم نقل مسح الكل إلى القائمة المنسدلة
-                PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert, color: appBarIconColor),
-                  tooltip: "خيارات الأرشيف",
-                  onSelected: (value) async {
-                    if (value == 'search') {
-                      setState(() => _isSearching = true);
-                    } else if (value == 'filter') {
-                      _showDateFilterDialog();
-                    } else if (value == 'archive') {
-                      _showDateFilterDialog();
-                    } else if (value == 'restore') {
-                      _restoreAllEntries();
-                    } else if (value == 'clear_all') {
-                      _clearArchive();
-                    } else if (value == 'open_archive') {
-                      // no-op
-                    } else if (value == 'sort') {
-                      // no-op
-                    }
-                  },
-                  itemBuilder: (context) {
-                    final bool showRestoreAll = PermissionHelper.isSuperAdmin ||
-                        ArchiveRbacService.canRestore(cw, normalizedDept);
+                  // ✅ تم نقل مسح الكل إلى القائمة المنسدلة
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert, color: appBarIconColor),
+                    tooltip: "خيارات الأرشيف",
+                    onSelected: (value) async {
+                      if (value == 'search') {
+                        setState(() => _isSearching = true);
+                      } else if (value == 'filter') {
+                        _showDateFilterDialog();
+                      } else if (value == 'archive') {
+                        _showDateFilterDialog();
+                      } else if (value == 'restore') {
+                        _restoreAllEntries();
+                      } else if (value == 'clear_all') {
+                        _clearArchive();
+                      } else if (value == 'open_archive') {
+                        // no-op
+                      } else if (value == 'sort') {
+                        // no-op
+                      }
+                    },
+                    itemBuilder: (context) {
+                      final bool showRestoreAll =
+                          PermissionHelper.isSuperAdmin ||
+                              ArchiveRbacService.canRestore(cw, normalizedDept);
 
-                    return [
-                      const PopupMenuItem(
-                          value: 'search',
-                          child: ListTile(
-                              leading: Icon(Icons.search), title: Text('بحث'))),
-                      const PopupMenuItem(
-                          value: 'filter',
-                          child: ListTile(
-                              leading: Icon(Icons.calendar_month),
-                              title: Text('تصفية بالتاريخ'))),
-                      if (showRestoreAll)
+                      return [
                         const PopupMenuItem(
-                            value: 'restore',
+                            value: 'search',
                             child: ListTile(
-                                leading: Icon(Icons.settings_backup_restore),
-                                title: Text('استعادة الكل'))),
-                      if (PermissionHelper.isSuperAdmin || (cw?.canDeleteArchive ?? false))
+                                leading: Icon(Icons.search),
+                                title: Text('بحث'))),
                         const PopupMenuItem(
-                            value: 'clear_all',
+                            value: 'filter',
                             child: ListTile(
-                                leading: Icon(Icons.delete_sweep, color: Colors.red),
-                                title: Text('مسح الأرشيف بالكامل', style: TextStyle(color: Colors.red)))),
-                    ];
-                  },
-                ),
+                                leading: Icon(Icons.calendar_month),
+                                title: Text('تصفية بالتاريخ'))),
+                        if (showRestoreAll)
+                          const PopupMenuItem(
+                              value: 'restore',
+                              child: ListTile(
+                                  leading: Icon(Icons.settings_backup_restore),
+                                  title: Text('استعادة الكل'))),
+                        if (PermissionHelper.isSuperAdmin ||
+                            (cw?.canDeleteArchive ?? false))
+                          const PopupMenuItem(
+                              value: 'clear_all',
+                              child: ListTile(
+                                  leading: Icon(Icons.delete_sweep,
+                                      color: Colors.red),
+                                  title: Text('مسح الأرشيف بالكامل',
+                                      style: TextStyle(color: Colors.red)))),
+                      ];
+                    },
+                  ),
               ],
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(40.0),
@@ -781,28 +821,37 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
     final bool isProdLine = dept == 'production_line' ||
         machineName == 'خط الإنتاج' ||
         widget.department == 'production_line';
-    final bool isCrushing =
-        dept == 'crushing' || dept == 'die_cutting' ||
-        widget.department == 'crushing' || widget.department == 'die_cutting';
+    final bool isCrushing = dept == 'crushing' ||
+        dept == 'die_cutting' ||
+        widget.department == 'crushing' ||
+        widget.department == 'die_cutting';
 
     final dims = report['dimensions'];
     final String length = dims?['length']?.toString() ?? '0';
     final String width = dims?['width']?.toString() ?? '0';
     final String height = dims?['height']?.toString() ?? '0';
-    final String dimStr =
-        dims != null && (dims['length'] != 0 || dims['width'] != 0)
-            ? (isCrushing || isProdLine)
-                // قسمي التكسير وخط الإنتاج: طول / عرض / ارتفاع (إذا كان الارتفاع غير صفري)
-                ? (height == '0' || height == '0.0' || height.isEmpty ? "$length / $width" : "$length / $width / $height")
-                // الفلكسو: طول / عرض / إرتفاع (يُقرأ من اليمين لليسار)
-                : (height == '0' || height == '0.0' || height.isEmpty ? "$length / $width" : "$length / $width / $height")
-            : "";
+    final String dimStr = dims != null &&
+            (dims['length'] != 0 || dims['width'] != 0)
+        ? (isCrushing || isProdLine)
+            // قسمي التكسير وخط الإنتاج: طول / عرض / ارتفاع (إذا كان الارتفاع غير صفري)
+            ? (height == '0' || height == '0.0' || height.isEmpty
+                ? "$length / $width"
+                : "$length / $width / $height")
+            // الفلكسو: طول / عرض / إرتفاع (يُقرأ من اليمين لليسار)
+            : (height == '0' || height == '0.0' || height.isEmpty
+                ? "$length / $width"
+                : "$length / $width / $height")
+        : "";
 
     final quantity = report['quantity'] ??
         report['production_quantity'] ??
         report['productionQuantity'] ??
         0;
-    final lineWaste = report['lineWaste'] ?? report['line_waste'] ?? report['waste_quantity'] ?? report['wasteQuantity'] ?? 0;
+    final lineWaste = report['lineWaste'] ??
+        report['line_waste'] ??
+        report['waste_quantity'] ??
+        report['wasteQuantity'] ??
+        0;
     final printWaste = report['printWaste'] ?? report['print_waste'] ?? 0;
 
     final w = report['weight'];
@@ -822,13 +871,13 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       if (raw == null) return '';
       final s = raw.toString().trim();
       if (s.isEmpty || s == 'null' || s == '--:--') return '';
-      
+
       // استخراج الوقت مباشرة من نص ISO 8601 لتجنب تغيير المنطقة الزمنية (toLocal)
       final isoMatch = RegExp(r'T(\d{2}:\d{2})').firstMatch(s);
       if (isoMatch != null) {
         return isoMatch.group(1)!;
       }
-      
+
       final dt = DateTime.tryParse(s);
       if (dt != null) {
         return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
@@ -837,7 +886,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       return s;
     }
 
-    final startFormatted = formatCardTime(startTime.isNotEmpty ? startTime : null);
+    final startFormatted =
+        formatCardTime(startTime.isNotEmpty ? startTime : null);
     final endFormatted = formatCardTime(endTime.isNotEmpty ? endTime : null);
 
     final downtimeStart = report['downtimeStart'] ?? report['downtime_start'];
@@ -854,7 +904,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
       if (downtimeStart != null && downtimeStart.toString().isNotEmpty) {
         final ds = formatCardTime(downtimeStart);
         final de = formatCardTime(downtimeEnd);
-        downtimeDisplay += "${ds.isNotEmpty ? ds : downtimeStart}  ◀  ${de.isNotEmpty ? de : (downtimeEnd ?? '')}";
+        downtimeDisplay +=
+            "${ds.isNotEmpty ? ds : downtimeStart}  ◀  ${de.isNotEmpty ? de : (downtimeEnd ?? '')}";
       }
       if (totalDowntime > 0) {
         downtimeDisplay += " (إجمالي: $totalDowntime دقيقة)";
@@ -886,17 +937,18 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                 });
               }
             : () {
-            Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ArchiveDetailScreen(
-                record: {
-                  ...Map<String, dynamic>.from(report),
-                  'archiveDate': data['archiveDate'] ?? '---',
-                },
-              ),
-            ),
-          );},
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ArchiveDetailScreen(
+                      record: {
+                        ...Map<String, dynamic>.from(report),
+                        'archiveDate': data['archiveDate'] ?? '---',
+                      },
+                    ),
+                  ),
+                );
+              },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           decoration: BoxDecoration(
@@ -909,88 +961,117 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                 : null,
           ),
           child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isNarrow = constraints.maxWidth < 420;
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 420;
 
-                  // ─── الأزرار (مشتركة بين الحالتين) ───────────────
-                  final Worker? cw = PermissionHelper.currentWorker;
-                  final String currentScreenDept = widget.department ?? 'flexo';
-                  final String normalizedDept =
-                      (currentScreenDept == 'crushing' &&
-                              cw?.department == 'die_cutting')
-                          ? 'die_cutting'
-                          : currentScreenDept;
+                    // ─── الأزرار (مشتركة بين الحالتين) ───────────────
+                    final Worker? cw = PermissionHelper.currentWorker;
+                    final String currentScreenDept =
+                        widget.department ?? 'flexo';
+                    final String normalizedDept =
+                        (currentScreenDept == 'crushing' &&
+                                cw?.department == 'die_cutting')
+                            ? 'die_cutting'
+                            : currentScreenDept;
 
-                  final bool showRestore = PermissionHelper.isSuperAdmin ||
-                      ArchiveRbacService.canRestore(cw, normalizedDept);
-                  final bool showDelete = PermissionHelper.isSuperAdmin ||
-                      (cw?.canDeleteArchive ?? false);
+                    final bool showRestore = PermissionHelper.isSuperAdmin ||
+                        ArchiveRbacService.canRestore(cw, normalizedDept);
+                    final bool showDelete = PermissionHelper.isSuperAdmin ||
+                        (cw?.canDeleteArchive ?? false);
 
-                  final actionButtons = Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showRestore)
-                        IconButton(
-                          constraints: const BoxConstraints(),
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.settings_backup_restore,
-                              color: Colors.green),
-                          onPressed: () => _restoreEntry(key, data),
-                          tooltip: "إستعادة للرئيسية",
-                        ),
-                      if (showRestore && showDelete) const SizedBox(width: 12),
-                      if (showDelete)
-                        IconButton(
-                          constraints: const BoxConstraints(),
-                          padding: EdgeInsets.zero,
-                          icon: Icon(Icons.delete_outline,
-                              color: Colors.red.shade300),
-                          onPressed: () => _deleteEntry(key),
-                          tooltip: "حذف من الأرشيف",
-                        ),
-                    ],
-                  );
-
-                  final dateText = Text(
-                    displayDate.split('T')[0].split(' ')[0],
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[600],
-                    ),
-                  );
-
-                  final clientText = Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          clientName,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blueAccent,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      UIUtils.buildOrderNumberBadge(orderNumber),
-                    ],
-                  );
-
-                  if (isNarrow) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    final actionButtons = Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (showRestore)
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.settings_backup_restore,
+                                color: Colors.green),
+                            onPressed: () => _restoreEntry(key, data),
+                            tooltip: "إستعادة للرئيسية",
+                          ),
+                        if (showRestore && showDelete)
+                          const SizedBox(width: 12),
+                        if (showDelete)
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            icon: Icon(Icons.delete_outline,
+                                color: Colors.red.shade300),
+                            onPressed: () => _deleteEntry(key),
+                            tooltip: "حذف من الأرشيف",
+                          ),
+                      ],
+                    );
+
+                    final dateText = Text(
+                      displayDate.split('T')[0].split(' ')[0],
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[600],
+                      ),
+                    );
+
+                    final clientText = Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            clientName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueAccent,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        UIUtils.buildOrderNumberBadge(orderNumber),
+                      ],
+                    );
+
+                    if (isNarrow) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(child: clientText),
+                              if (_isSelectionMode)
+                                Icon(
+                                  _selectedArchiveKeys.contains(key)
+                                      ? Icons.check_circle
+                                      : Icons.radio_button_unchecked,
+                                  color: Colors.blue,
+                                  size: 22,
+                                )
+                              else
+                                actionButtons,
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          dateText,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: clientText),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(child: clientText),
+                            dateText,
+                            const SizedBox(width: 8),
                             if (_isSelectionMode)
                               Icon(
                                 _selectedArchiveKeys.contains(key)
@@ -1003,204 +1084,190 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
                               actionButtons,
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        dateText,
                       ],
                     );
-                  }
-
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(child: clientText),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          dateText,
-                          const SizedBox(width: 8),
-                          if (_isSelectionMode)
-                            Icon(
-                              _selectedArchiveKeys.contains(key)
-                                  ? Icons.check_circle
-                                  : Icons.radio_button_unchecked,
-                              color: Colors.blue,
-                              size: 22,
-                            )
-                          else
-                            actionButtons,
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              ),
-              const Divider(height: 24, thickness: 1),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.inventory_2_outlined,
-                      size: 18, color: Colors.blueGrey),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white70
-                              : Colors.black87,
-                          fontSize: 15,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: product.replaceAll("\n", " "),
-                            style: const TextStyle(fontWeight: FontWeight.w700),
+                  },
+                ),
+                const Divider(height: 24, thickness: 1),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.inventory_2_outlined,
+                        size: 18, color: Colors.blueGrey),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white70
+                                    : Colors.black87,
+                            fontSize: 15,
                           ),
-                          if (productCode.isNotEmpty)
+                          children: [
                             TextSpan(
-                              text: " [ $productCode ]",
-                              style: const TextStyle(
-                                color: Colors.blueAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                              text: product.replaceAll("\n", " "),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            if (productCode.isNotEmpty)
+                              TextSpan(
+                                text: " [ $productCode ]",
+                                style: const TextStyle(
+                                  color: Colors.blueAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (formNumber.isNotEmpty)
+                  _buildArchiveInfoRow(
+                      Icons.description, "رقم الفورمة:", formNumber),
+
+                // --- Shift Display ---
+                _buildArchiveInfoRow(
+                    Icons.work_history,
+                    "الوردية:",
+                    report['shiftName']?.toString() ??
+                        report['shift_name']?.toString() ??
+                        'الوردية الأولى',
+                    valueColor: Colors.deepPurple),
+
+                if (startFormatted.isNotEmpty || endFormatted.isNotEmpty)
+                  _buildArchiveInfoRow(Icons.schedule, "وقت التشغيل:",
+                      "${startFormatted.isNotEmpty ? startFormatted : '--:--'}  ◀  ${endFormatted.isNotEmpty ? endFormatted : '--:--'}"),
+                if (dimStr.isNotEmpty)
+                  _buildArchiveInfoRow(Icons.straighten, "المقاس:", dimStr,
+                      valueColor: Colors.blueAccent),
+                _buildArchiveInfoRow(
+                    Icons.format_list_numbered, "الكمية:", "$quantity"),
+                if (weightVal > 0)
+                  _buildArchiveInfoRow(Icons.scale, "الوزن:", "$weightVal طن",
+                      valueColor: Colors.teal),
+                if (layers.isNotEmpty)
+                  _buildArchiveInfoRow(
+                      Icons.layers, "طبقات الورق:", layers.join('  |  '),
+                      valueColor: Colors.brown),
+                _buildArchiveInfoRow(
+                  Icons.trending_down,
+                  "الهالك:",
+                  (isProdLine || isCrushing)
+                      ? "$lineWaste"
+                      : "إنتاج: $lineWaste | طباعة: $printWaste",
+                ),
+                if (machineName.isNotEmpty)
+                  _buildArchiveInfoRow(
+                      Icons.precision_manufacturing, "الماكينة:", machineName),
+                if (technicianName.isNotEmpty)
+                  _buildArchiveInfoRow(
+                      Icons.person, "الفني المسؤول:", technicianName),
+                Builder(
+                  builder: (context) {
+                    final crew =
+                        report['crewMembers'] ?? report['crew_members'];
+                    if (crew != null) {
+                      if (crew is List && crew.isNotEmpty) {
+                        return _buildArchiveInfoRow(Icons.group, "طاقم العمل:",
+                            "عرض (${crew.length} عمال)",
+                            valueColor: Colors.blue);
+                      } else if (crew is String &&
+                          crew.trim().isNotEmpty &&
+                          crew != 'null' &&
+                          crew != '[]') {
+                        return _buildArchiveInfoRow(
+                            Icons.group, "طاقم العمل:", "عرض (عمال)",
+                            valueColor: Colors.blue);
+                      }
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                if (downtimeDisplay.isNotEmpty)
+                  _buildArchiveInfoRow(
+                      Icons.timer_off, "وقت الأعطال:", downtimeDisplay,
+                      valueColor: Colors.redAccent),
+                if (report['notes'] != null &&
+                    report['notes'].toString().trim().isNotEmpty &&
+                    !report['notes'].toString().contains("مستورد"))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: Colors.orange.withValues(alpha: 0.1)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.sticky_note_2_outlined,
+                              size: 16, color: Colors.orange),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              report['notes'].toString(),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontStyle: FontStyle.italic,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.orange.shade100
+                                    : Colors.black87,
                               ),
                             ),
+                          ),
                         ],
                       ),
+                    ),
+                  ),
+                if (!isProdLine && !isCrushing && colors.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: colors.map((c) {
+                        final name = c['color'] ?? '---';
+                        final qty = c['quantity'] ?? '0';
+                        return Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: Colors.blue.withValues(alpha: 0.15)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.circle,
+                                  size: 10, color: Colors.blueAccent),
+                              const SizedBox(width: 6),
+                              Text(
+                                "$name: $qty ل",
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 6),
-              if (formNumber.isNotEmpty)
-                _buildArchiveInfoRow(
-                    Icons.description, "رقم الفورمة:", formNumber),
-              
-              // --- Shift Display ---
-              _buildArchiveInfoRow(
-                  Icons.work_history, "الوردية:", 
-                  report['shiftName']?.toString() ?? report['shift_name']?.toString() ?? 'الوردية الأولى',
-                  valueColor: Colors.deepPurple),
-
-              if (startFormatted.isNotEmpty || endFormatted.isNotEmpty)
-                _buildArchiveInfoRow(Icons.schedule, "وقت التشغيل:",
-                    "${startFormatted.isNotEmpty ? startFormatted : '--:--'}  ◀  ${endFormatted.isNotEmpty ? endFormatted : '--:--'}"),
-              if (dimStr.isNotEmpty)
-                _buildArchiveInfoRow(Icons.straighten, "المقاس:", dimStr,
-                    valueColor: Colors.blueAccent),
-              _buildArchiveInfoRow(
-                  Icons.format_list_numbered, "الكمية:", "$quantity"),
-              if (weightVal > 0)
-                _buildArchiveInfoRow(Icons.scale, "الوزن:", "$weightVal طن",
-                    valueColor: Colors.teal),
-              if (layers.isNotEmpty)
-                _buildArchiveInfoRow(
-                    Icons.layers, "طبقات الورق:", layers.join('  |  '),
-                    valueColor: Colors.brown),
-              _buildArchiveInfoRow(
-                Icons.trending_down,
-                "الهالك:",
-                (isProdLine || isCrushing)
-                    ? "$lineWaste"
-                    : "إنتاج: $lineWaste | طباعة: $printWaste",
-              ),
-              if (machineName.isNotEmpty)
-                _buildArchiveInfoRow(
-                    Icons.precision_manufacturing, "الماكينة:", machineName),
-              if (technicianName.isNotEmpty)
-                _buildArchiveInfoRow(
-                    Icons.person, "الفني المسؤول:", technicianName),
-              Builder(
-                builder: (context) {
-                  final crew = report['crewMembers'] ?? report['crew_members'];
-                  if (crew != null) {
-                    if (crew is List && crew.isNotEmpty) {
-                      return _buildArchiveInfoRow(Icons.group, "طاقم العمل:", "عرض (${crew.length} عمال)", valueColor: Colors.blue);
-                    } else if (crew is String && crew.trim().isNotEmpty && crew != 'null' && crew != '[]') {
-                      return _buildArchiveInfoRow(Icons.group, "طاقم العمل:", "عرض (عمال)", valueColor: Colors.blue);
-                    }
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              if (downtimeDisplay.isNotEmpty)
-                _buildArchiveInfoRow(
-                    Icons.timer_off, "وقت الأعطال:", downtimeDisplay,
-                    valueColor: Colors.redAccent),
-              if (report['notes'] != null &&
-                  report['notes'].toString().trim().isNotEmpty &&
-                  !report['notes'].toString().contains("مستورد"))
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: Colors.orange.withValues(alpha: 0.1)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.sticky_note_2_outlined,
-                            size: 16, color: Colors.orange),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            report['notes'].toString(),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontStyle: FontStyle.italic,
-                              color: Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? Colors.orange.shade100
-                                  : Colors.black87,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (!isProdLine && !isCrushing && colors.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: colors.map((c) {
-                      final name = c['color'] ?? '---';
-                      final qty = c['quantity'] ?? '0';
-                      return Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: Colors.blue.withValues(alpha: 0.15)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.circle,
-                                size: 10, color: Colors.blueAccent),
-                            const SizedBox(width: 6),
-                            Text(
-                              "$name: $qty ل",
-                              style: const TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
               ],
-            ],
+            ),
           ),
-        ),
-        ),  // AnimatedContainer
+        ), // AnimatedContainer
       ),
     );
   }
@@ -1234,7 +1301,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
           report['production_quantity'] ??
           report['productionQuantity'] ??
           0;
-      totalQty += (qty is num ? qty.toDouble() : double.tryParse(qty.toString()) ?? 0);
+      totalQty +=
+          (qty is num ? qty.toDouble() : double.tryParse(qty.toString()) ?? 0);
 
       final lineWaste = report['lineWaste'] ??
           report['line_waste'] ??
@@ -1294,9 +1362,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
             const SizedBox(height: 10),
             _buildAggregationRow(
               icon: Icons.trending_down,
-              label: isFlexo
-                  ? 'إجمالي الهالك (إنتاج + طباعة)'
-                  : 'إجمالي الهالك',
+              label:
+                  isFlexo ? 'إجمالي الهالك (إنتاج + طباعة)' : 'إجمالي الهالك',
               value: wasteDisplay,
               color: Colors.orange.shade700,
             ),
@@ -1331,8 +1398,8 @@ class _FlexoArchiveScreenState extends State<FlexoArchiveScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(label,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w600)),
+                style:
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           ),
           Text(
             value,

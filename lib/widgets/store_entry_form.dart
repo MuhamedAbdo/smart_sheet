@@ -107,7 +107,8 @@ class _StoreEntryFormState extends State<StoreEntryForm> {
       title: Text(widget.index == null ? "➕ إضافة وارد" : "✏️ تعديل وارد"),
       content: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

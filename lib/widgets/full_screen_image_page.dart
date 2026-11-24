@@ -111,10 +111,13 @@ class _FullScreenImagePageState extends State<FullScreenImagePage> {
             } else {
               // ─── فحص متزامن فوري (0 ثانية) ───
               // إذا كانت الصورة موجودة في الكاش، نعرضها فوراً بدون أي FutureBuilder
-              final File? cachedFile = CacheHelper.getLocalCachedImageSync(path);
+              final File? cachedFile =
+                  CacheHelper.getLocalCachedImageSync(path);
               if (cachedFile != null) {
-                debugPrint('🎯 [CacheHelper] تم العثور على الصورة محلياً في القرص، جاري الفتح الفوري بدون إنترنت');
-                return _buildPhotoView(_makeResizedFileImage(context, cachedFile));
+                debugPrint(
+                    '🎯 [CacheHelper] تم العثور على الصورة محلياً في القرص، جاري الفتح الفوري بدون إنترنت');
+                return _buildPhotoView(
+                    _makeResizedFileImage(context, cachedFile));
               }
 
               // ─── تحميل أول مرة عبر FutureBuilder ───
@@ -139,7 +142,8 @@ class _FullScreenImagePageState extends State<FullScreenImagePage> {
                     );
                   }
                   if (snapshot.hasData && snapshot.data != null) {
-                    debugPrint('🎯 [CacheHelper] تم العثور على الصورة محلياً في القرص، جاري الفتح الفوري بدون إنترنت');
+                    debugPrint(
+                        '🎯 [CacheHelper] تم العثور على الصورة محلياً في القرص، جاري الفتح الفوري بدون إنترنت');
                     return _buildPhotoView(
                       _makeResizedFileImage(context, snapshot.data!),
                     );
@@ -217,7 +221,8 @@ class _FullScreenImagePageState extends State<FullScreenImagePage> {
     try {
       if (currentImagePath.startsWith('http')) {
         // فحص ما إذا كان الملف منزلاً في الكاش مسبقاً
-        final cachedFile = CacheHelper.getLocalCachedImageSync(currentImagePath);
+        final cachedFile =
+            CacheHelper.getLocalCachedImageSync(currentImagePath);
         if (cachedFile != null && cachedFile.existsSync()) {
           await _copyLocalFile(context, cachedFile.path);
         } else {

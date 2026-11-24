@@ -410,42 +410,45 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         ],
       ),
       body: Center(
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF1E293B)
-                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(24.0),
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: SafeArea(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Column(
-                    children: [
-                      // 1. قسم الشاشة (Display Area)
-                      Expanded(
-                        flex: 3,
-                        child: _buildDisplayArea(isDark),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF1E293B)
+                : Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(24.0),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: SafeArea(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Column(
+                  children: [
+                    // 1. قسم الشاشة (Display Area)
+                    Expanded(
+                      flex: 3,
+                      child: _buildDisplayArea(isDark),
+                    ),
+                    const SizedBox(height: 8),
+                    // 2. قسم الأزرار (Keypad Area)
+                    Expanded(
+                      flex: _isScientificMode ? 5 : 4,
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: _buildKeypadArea(isDark),
                       ),
-                      const SizedBox(height: 8),
-                      // 2. قسم الأزرار (Keypad Area)
-                      Expanded(
-                        flex: _isScientificMode ? 5 : 4,
-                        child: Directionality(
-                          textDirection: TextDirection.ltr,
-                          child: _buildKeypadArea(isDark),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
+        ),
       ),
     );
   }
@@ -611,9 +614,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             color: isDark
                 ? Colors.black.withValues(alpha: 0.8)
                 : Colors.grey.shade300,
-            offset: _isScientificMode
-                ? const Offset(2.5, 2.5)
-                : const Offset(4, 4),
+            offset:
+                _isScientificMode ? const Offset(2.5, 2.5) : const Offset(4, 4),
             blurRadius: _isScientificMode ? 4 : 8,
           ),
         ],

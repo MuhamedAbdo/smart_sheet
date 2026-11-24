@@ -58,13 +58,16 @@ class FlexoScreen extends StatelessWidget {
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
-            color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface,
+            color:
+                isDark ? Colors.white : Theme.of(context).colorScheme.onSurface,
           ),
         ),
         trailing: Icon(
           Icons.arrow_back_ios,
           size: 16,
-          color: isDark ? Colors.white54 : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+          color: isDark
+              ? Colors.white54
+              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
         ),
       ),
     );
@@ -73,7 +76,7 @@ class FlexoScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -98,157 +101,157 @@ class FlexoScreen extends StatelessWidget {
         textDirection: TextDirection.rtl,
         child: Center(
           child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            margin:
+                const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
             decoration: BoxDecoration(
-              color: theme.brightness == Brightness.dark 
-                  ? const Color(0xFF1E293B) 
-                  : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              color: theme.brightness == Brightness.dark
+                  ? const Color(0xFF1E293B)
+                  : theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(24.0),
             ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
-              child: Builder(
-                builder: (innerContext) {
-                  return ListView(
-                    padding: const EdgeInsets.all(24.0),
-                    children: [
-                      _buildSectionTitle('الإنتاج والمخازن', theme),
+              child: Builder(builder: (innerContext) {
+                return ListView(
+                  padding: const EdgeInsets.all(24.0),
+                  children: [
+                    _buildSectionTitle('الإنتاج والمخازن', theme),
+                    _buildDepartmentCard(
+                      context: innerContext,
+                      title: 'تقرير الإنتاج',
+                      icon: Icons.receipt,
+                      onTap: () {
+                        Navigator.push(
+                          innerContext,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const FlexoProductionReportScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDepartmentCard(
+                      context: innerContext,
+                      title: 'وارد المخزن',
+                      icon: Icons.inventory,
+                      onTap: () {
+                        Navigator.push(
+                          innerContext,
+                          MaterialPageRoute(
+                            builder: (context) => const StoreEntryScreen(
+                              boxName: 'store_flexo',
+                              title: 'وارد مخزن الفلكسو',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDepartmentCard(
+                      context: innerContext,
+                      title: 'تقارير الماكينات',
+                      icon: Icons.print_outlined,
+                      onTap: () {
+                        Scaffold.of(innerContext).openEndDrawer();
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('الإدارة والصيانة', theme),
+                    _buildDepartmentCard(
+                      context: innerContext,
+                      title: 'طاقم الفلكسو',
+                      icon: Icons.group,
+                      onTap: () {
+                        Navigator.push(
+                          innerContext,
+                          MaterialPageRoute(
+                            builder: (context) => const WorkersScreen(
+                              departmentBoxName: 'workers_flexo',
+                              departmentTitle: 'طاقم الفلكسو',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDepartmentCard(
+                      context: innerContext,
+                      title: 'الصيانة',
+                      icon: Icons.settings,
+                      onTap: () {
+                        Navigator.push(
+                          innerContext,
+                          MaterialPageRoute(
+                            builder: (context) => const MaintenanceScreen(
+                              boxName: 'maintenance_flexo_v2',
+                              title: 'صيانة الفلكسو',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDepartmentCard(
+                      context: innerContext,
+                      title: 'إدارة الماكينات',
+                      icon: Icons.precision_manufacturing,
+                      onTap: () {
+                        Navigator.push(
+                          innerContext,
+                          MaterialPageRoute(
+                            builder: (context) => const MachineManagementScreen(
+                              department: 'flexo',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('أدوات مساعدة', theme),
+                    _buildDepartmentCard(
+                      context: innerContext,
+                      title: 'الآلة الحاسبة',
+                      icon: Icons.calculate,
+                      onTap: () {
+                        Navigator.push(
+                          innerContext,
+                          MaterialPageRoute(
+                            builder: (context) => const CalculatorScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDepartmentCard(
+                      context: innerContext,
+                      title: 'بالتة الألوان',
+                      icon: Icons.palette,
+                      onTap: () {
+                        Navigator.push(
+                          innerContext,
+                          MaterialPageRoute(
+                            builder: (context) => const ColorPaletteScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    if (kIsWeb ||
+                        (!Platform.isWindows &&
+                            !Platform.isLinux &&
+                            !Platform.isMacOS))
                       _buildDepartmentCard(
                         context: innerContext,
-                        title: 'تقرير الإنتاج',
-                        icon: Icons.receipt,
+                        title: 'تركيب السيريل',
+                        icon: Icons.build_circle,
                         onTap: () {
                           Navigator.push(
                             innerContext,
                             MaterialPageRoute(
-                              builder: (context) => const FlexoProductionReportScreen(),
+                              builder: (context) => const SerialSetupScreen(),
                             ),
                           );
                         },
                       ),
-                      _buildDepartmentCard(
-                        context: innerContext,
-                        title: 'وارد المخزن',
-                        icon: Icons.inventory,
-                        onTap: () {
-                          Navigator.push(
-                            innerContext,
-                            MaterialPageRoute(
-                              builder: (context) => const StoreEntryScreen(
-                                boxName: 'store_flexo',
-                                title: 'وارد مخزن الفلكسو',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildDepartmentCard(
-                        context: innerContext,
-                        title: 'تقارير الماكينات',
-                        icon: Icons.print_outlined,
-                        onTap: () {
-                          Scaffold.of(innerContext).openEndDrawer();
-                        },
-                      ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      _buildSectionTitle('الإدارة والصيانة', theme),
-                      _buildDepartmentCard(
-                        context: innerContext,
-                        title: 'طاقم الفلكسو',
-                        icon: Icons.group,
-                        onTap: () {
-                          Navigator.push(
-                            innerContext,
-                            MaterialPageRoute(
-                              builder: (context) => const WorkersScreen(
-                                departmentBoxName: 'workers_flexo',
-                                departmentTitle: 'طاقم الفلكسو',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildDepartmentCard(
-                        context: innerContext,
-                        title: 'الصيانة',
-                        icon: Icons.settings,
-                        onTap: () {
-                          Navigator.push(
-                            innerContext,
-                            MaterialPageRoute(
-                              builder: (context) => const MaintenanceScreen(
-                                boxName: 'maintenance_flexo_v2',
-                                title: 'صيانة الفلكسو',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildDepartmentCard(
-                        context: innerContext,
-                        title: 'إدارة الماكينات',
-                        icon: Icons.precision_manufacturing,
-                        onTap: () {
-                          Navigator.push(
-                            innerContext,
-                            MaterialPageRoute(
-                              builder: (context) => const MachineManagementScreen(
-                                department: 'flexo',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: 24),
-                      
-                      _buildSectionTitle('أدوات مساعدة', theme),
-                      _buildDepartmentCard(
-                        context: innerContext,
-                        title: 'الآلة الحاسبة',
-                        icon: Icons.calculate,
-                        onTap: () {
-                          Navigator.push(
-                            innerContext,
-                            MaterialPageRoute(
-                              builder: (context) => const CalculatorScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildDepartmentCard(
-                        context: innerContext,
-                        title: 'بالتة الألوان',
-                        icon: Icons.palette,
-                        onTap: () {
-                          Navigator.push(
-                            innerContext,
-                            MaterialPageRoute(
-                              builder: (context) => const ColorPaletteScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      if (kIsWeb || (!Platform.isWindows && !Platform.isLinux && !Platform.isMacOS))
-                        _buildDepartmentCard(
-                          context: innerContext,
-                          title: 'تركيب السيريل',
-                          icon: Icons.build_circle,
-                          onTap: () {
-                            Navigator.push(
-                              innerContext,
-                              MaterialPageRoute(
-                                builder: (context) => const SerialSetupScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                    ],
-                  );
-                }
-              ),
+                  ],
+                );
+              }),
             ),
           ),
         ),
@@ -256,5 +259,3 @@ class FlexoScreen extends StatelessWidget {
     );
   }
 }
-
-

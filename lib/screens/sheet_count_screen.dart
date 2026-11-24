@@ -98,11 +98,15 @@ class _SheetCountScreenState extends State<SheetCountScreen> {
           textDirection: TextDirection.rtl,
           child: Center(
             child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+              margin:
+                  const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
               decoration: BoxDecoration(
                 color: isDarkMode
                     ? const Color(0xFF1E293B)
-                    : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                    : Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(24.0),
               ),
               child: ConstrainedBox(
@@ -115,7 +119,8 @@ class _SheetCountScreenState extends State<SheetCountScreen> {
                         controller: firstSheetLengthController,
                         decoration: InputDecoration(
                           labelText: 'طول الشيت الأول (سم)',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           filled: true,
                           fillColor: fillColor,
                           prefixIcon: const Icon(Icons.straighten),
@@ -127,7 +132,8 @@ class _SheetCountScreenState extends State<SheetCountScreen> {
                         controller: firstSheetCountController,
                         decoration: InputDecoration(
                           labelText: 'عدد الشيتات الأول',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           filled: true,
                           fillColor: fillColor,
                           prefixIcon: const Icon(Icons.inventory),
@@ -139,7 +145,8 @@ class _SheetCountScreenState extends State<SheetCountScreen> {
                         controller: secondSheetLengthController,
                         decoration: InputDecoration(
                           labelText: 'طول الشيت الثاني (سم)',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           filled: true,
                           fillColor: fillColor,
                           prefixIcon: const Icon(Icons.straighten),
@@ -153,8 +160,8 @@ class _SheetCountScreenState extends State<SheetCountScreen> {
                         child: ElevatedButton.icon(
                           onPressed: _calculateSheetCount,
                           icon: const Icon(Icons.calculate),
-                          label:
-                              const Text('احسب العدد', style: TextStyle(fontSize: 18)),
+                          label: const Text('احسب العدد',
+                              style: TextStyle(fontSize: 18)),
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),

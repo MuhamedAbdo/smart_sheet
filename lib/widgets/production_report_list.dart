@@ -74,14 +74,18 @@ class FlexoProductionReportList extends StatelessWidget {
                         ),
                         if (record['status'] == 'pending')
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.orange.shade100,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
                               'قيد المراجعة',
-                              style: TextStyle(color: Colors.deepOrange, fontSize: 12, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  color: Colors.deepOrange,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
                       ],
@@ -101,16 +105,21 @@ class FlexoProductionReportList extends StatelessWidget {
                             final pState = record['productState']?.toString() ??
                                 record['product_state']?.toString() ??
                                 (record['dimensions'] is Map
-                                    ? (record['dimensions']['product_state']?.toString() ??
-                                        record['dimensions']['productState']?.toString())
+                                    ? (record['dimensions']['product_state']
+                                            ?.toString() ??
+                                        record['dimensions']['productState']
+                                            ?.toString())
                                     : null) ??
                                 'مطبوع';
                             final isPr = pState == 'مطبوع';
                             return Container(
                               margin: const EdgeInsets.only(bottom: 2),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: isPr ? Colors.purple.shade700 : Colors.teal.shade700,
+                                color: isPr
+                                    ? Colors.purple.shade700
+                                    : Colors.teal.shade700,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -126,20 +135,20 @@ class FlexoProductionReportList extends StatelessWidget {
                         ),
                       ],
                     ),
-                    
                     if (record['productCode'] != null &&
                         record['productCode'].toString().isNotEmpty)
                       _buildInfoRow(
                           "🔢 كود الصنف:", record['productCode'].toString()),
-                    
                     if (record['orderNumber'] != null &&
                         record['orderNumber'].toString().isNotEmpty)
-                      _buildInfoRow("🔢 رقم أمر التشغيل:", record['orderNumber'].toString()),
-                    
-                    if ((record['startTime'] != null && record['startTime'].toString().isNotEmpty) || 
-                        (record['endTime'] != null && record['endTime'].toString().isNotEmpty))
-                      _buildInfoRow("🕒 وقت التشغيل:", "${record['startTime'] ?? '--:--'} إلى ${record['endTime'] ?? '--:--'}"),
-
+                      _buildInfoRow("🔢 رقم أمر التشغيل:",
+                          record['orderNumber'].toString()),
+                    if ((record['startTime'] != null &&
+                            record['startTime'].toString().isNotEmpty) ||
+                        (record['endTime'] != null &&
+                            record['endTime'].toString().isNotEmpty))
+                      _buildInfoRow("🕒 وقت التشغيل:",
+                          "${record['startTime'] ?? '--:--'} إلى ${record['endTime'] ?? '--:--'}"),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -152,22 +161,25 @@ class FlexoProductionReportList extends StatelessWidget {
                     Text("🔢 عدد الشيتات: ${record['quantity'] ?? 0}"),
                     const SizedBox(height: 8),
                     _buildColorsList(record['colors'] ?? []),
-                    
-                    if (record['lineWaste'] != null || record['printWaste'] != null)
+                    if (record['lineWaste'] != null ||
+                        record['printWaste'] != null)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           children: [
-                            const Text("📉 الهالك: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text("إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
+                            const Text("📉 الهالك: ",
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                                "إنتاج: ${record['lineWaste'] ?? 0} | طباعة: ${record['printWaste'] ?? 0}"),
                           ],
                         ),
                       ),
-                    
-                    if ((record['downtimeStart'] != null && record['downtimeStart'].toString().isNotEmpty) || 
-                        (record['downtimeEnd'] != null && record['downtimeEnd'].toString().isNotEmpty))
-                      _buildInfoRow("⏱️ وقت الأعطال:", "${record['downtimeStart'] ?? '--:--'} إلى ${record['downtimeEnd'] ?? '--:--'}"),
-
+                    if ((record['downtimeStart'] != null &&
+                            record['downtimeStart'].toString().isNotEmpty) ||
+                        (record['downtimeEnd'] != null &&
+                            record['downtimeEnd'].toString().isNotEmpty))
+                      _buildInfoRow("⏱️ وقت الأعطال:",
+                          "${record['downtimeStart'] ?? '--:--'} إلى ${record['downtimeEnd'] ?? '--:--'}"),
                     const SizedBox(height: 8),
                     _buildNotesText(record['notes']),
                     const SizedBox(height: 12),
@@ -197,20 +209,24 @@ class FlexoProductionReportList extends StatelessWidget {
                                 style: TextStyle(color: Colors.green)),
                           ),
                         ),
-                        if (record['status'] == 'pending' && PermissionHelper.canApproveReports)
+                        if (record['status'] == 'pending' &&
+                            PermissionHelper.canApproveReports)
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 4.0),
                             child: OutlinedButton.icon(
                               onPressed: () {
                                 _approveReport(key, record);
                               },
-                              icon: const Icon(Icons.check_circle, size: 18, color: Colors.orange),
-                              label: const Text('اعتماد', style: TextStyle(color: Colors.orange)),
+                              icon: const Icon(Icons.check_circle,
+                                  size: 18, color: Colors.orange),
+                              label: const Text('اعتماد',
+                                  style: TextStyle(color: Colors.orange)),
                             ),
                           ),
                         IconButton(
                           onPressed: () =>
-                          onEdit(key, _convertValuesToString(record)),
+                              onEdit(key, _convertValuesToString(record)),
                           icon: const Icon(Icons.edit, color: Colors.blue),
                           tooltip: 'تعديل',
                         ),
@@ -294,7 +310,8 @@ class FlexoProductionReportList extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   notes.toString(),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w500),
                 ),
               ],
             ),
@@ -338,7 +355,8 @@ class FlexoProductionReportList extends StatelessWidget {
       } else if (originalRecord is Map) {
         originalRecord['status'] = 'approved';
         box.put(key, originalRecord);
-        final syncId = originalRecord['sync_id']?.toString() ?? originalRecord['id']?.toString();
+        final syncId = originalRecord['sync_id']?.toString() ??
+            originalRecord['id']?.toString();
         if (syncId != null) {
           SyncService.instance.pushToQueue('flexo_production_reports', {
             'id': syncId,

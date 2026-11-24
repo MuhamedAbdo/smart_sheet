@@ -65,9 +65,10 @@ class _AuthScreenState extends State<AuthScreen> {
         _showSnackBar(
             _isSignIn ? 'تم تسجيل الدخول بنجاح' : 'تم إنشاء الحساب بنجاح',
             Colors.green);
-            
+
         // الانتقال للصفحة الرئيسية آلياً بعد النجاح
-        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil('/home', (route) => false);
       }
     }
   }
@@ -75,7 +76,8 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _handleGoogleSignIn() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final error = await authService.signInWithGoogle(
-      webClientId: '796371999925-g50g04ggemls59llp3eja5g2qfui7t6a.apps.googleusercontent.com',
+      webClientId:
+          '796371999925-g50g04ggemls59llp3eja5g2qfui7t6a.apps.googleusercontent.com',
     );
 
     if (!mounted) return;
@@ -86,10 +88,11 @@ class _AuthScreenState extends State<AuthScreen> {
       // في حالة الويندوز (PKCE) قد يتأخر تسجيل الدخول حتى عودة المستخدم من المتصفح
       // لكن يمكننا عرض رسالة توجيهية أو النجاح المبدئي
       _showSnackBar('جاري تسجيل الدخول...', Colors.green);
-      
+
       // في الأندرويد، الدخول يتم فوراً، لذلك يمكن التوجيه
       if (authService.state.user != null) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil('/home', (route) => false);
       }
     }
   }
@@ -98,7 +101,9 @@ class _AuthScreenState extends State<AuthScreen> {
     UIUtils.showInfoSnackBar(
       message: message,
       backgroundColor: color,
-      icon: color == Colors.red ? Icons.error_outline : Icons.check_circle_outline,
+      icon: color == Colors.red
+          ? Icons.error_outline
+          : Icons.check_circle_outline,
     );
   }
 
@@ -109,9 +114,11 @@ class _AuthScreenState extends State<AuthScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isResetPassword 
-            ? 'إعادة تعيين كلمة المرور' 
-            : _isSignIn ? 'تسجيل الدخول' : 'إنشاء حساب'),
+        title: Text(_isResetPassword
+            ? 'إعادة تعيين كلمة المرور'
+            : _isSignIn
+                ? 'تسجيل الدخول'
+                : 'إنشاء حساب'),
         centerTitle: true,
       ),
       body: Center(
@@ -133,9 +140,10 @@ class _AuthScreenState extends State<AuthScreen> {
                         prefixIcon: Icon(Icons.email)),
                     enabled: !authLoading,
                     onFieldSubmitted: (_) => _handleAuthAction(),
-                    validator: (value) => (value == null || !value.contains('@'))
-                        ? 'بريد إلكتروني غير صالح'
-                        : null,
+                    validator: (value) =>
+                        (value == null || !value.contains('@'))
+                            ? 'بريد إلكتروني غير صالح'
+                            : null,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -156,9 +164,10 @@ class _AuthScreenState extends State<AuthScreen> {
                         prefixIcon: Icon(Icons.email)),
                     enabled: !authLoading,
                     onFieldSubmitted: (_) => _handleAuthAction(),
-                    validator: (value) => (value == null || !value.contains('@'))
-                        ? 'بريد إلكتروني غير صالح'
-                        : null,
+                    validator: (value) =>
+                        (value == null || !value.contains('@'))
+                            ? 'بريد إلكتروني غير صالح'
+                            : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -212,16 +221,20 @@ class _AuthScreenState extends State<AuthScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 3))
-                      : Text(_isResetPassword 
-                          ? 'إرسال رابط إعادة التعيين' 
-                          : _isSignIn ? 'تسجيل الدخول' : 'إنشاء حساب',
+                      : Text(
+                          _isResetPassword
+                              ? 'إرسال رابط إعادة التعيين'
+                              : _isSignIn
+                                  ? 'تسجيل الدخول'
+                                  : 'إنشاء حساب',
                           style: const TextStyle(fontSize: 18)),
                 ),
                 const SizedBox(height: 16),
                 if (!_isResetPassword) ...[
                   OutlinedButton.icon(
                     onPressed: authLoading ? null : _handleGoogleSignIn,
-                    icon: const Icon(Icons.g_mobiledata, size: 32, color: Colors.red),
+                    icon: const Icon(Icons.g_mobiledata,
+                        size: 32, color: Colors.red),
                     label: const Text(
                       'المتابعة باستخدام Google',
                       style: TextStyle(fontSize: 18, color: Colors.red),

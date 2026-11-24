@@ -56,19 +56,22 @@ class HomeScreen extends StatelessWidget {
               return LayoutBuilder(
                 builder: (context, constraints) {
                   final isDesktop = constraints.maxWidth >= 900;
-                  
+
                   return Center(
                     child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                      margin: const EdgeInsets.symmetric(
+                          vertical: 24.0, horizontal: 16.0),
                       decoration: BoxDecoration(
-                        color: theme.brightness == Brightness.dark 
+                        color: theme.brightness == Brightness.dark
                             ? const Color(0xFF1E293B) // Slate 800
-                            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                            : theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(24.0),
                       ),
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: isDesktop ? 1200 : 600),
-                        child: isDesktop 
+                        constraints:
+                            BoxConstraints(maxWidth: isDesktop ? 1200 : 600),
+                        child: isDesktop
                             ? _buildDesktopLayout(context, theme)
                             : _buildMobileLayout(context, theme),
                       ),
@@ -164,7 +167,8 @@ class HomeScreen extends StatelessWidget {
         icon: Icons.push_pin,
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const StapleDepartmentScreen()),
+          MaterialPageRoute(
+              builder: (context) => const StapleDepartmentScreen()),
         ),
       ),
       _buildCard(
@@ -190,7 +194,8 @@ class HomeScreen extends StatelessWidget {
         icon: Icons.assignment,
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const IssuedWorkOrdersScreen()),
+          MaterialPageRoute(
+              builder: (context) => const IssuedWorkOrdersScreen()),
         ),
       ),
       _buildCard(
@@ -240,7 +245,8 @@ class HomeScreen extends StatelessWidget {
           icon: Icons.manage_accounts,
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const LinkedAccountsScreen()),
+            MaterialPageRoute(
+                builder: (context) => const LinkedAccountsScreen()),
           ),
         ),
     ];
@@ -267,7 +273,7 @@ class HomeScreen extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return SmartSheetCard(
       onTap: onTap,
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -283,13 +289,16 @@ class HomeScreen extends StatelessWidget {
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
-            color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface,
+            color:
+                isDark ? Colors.white : Theme.of(context).colorScheme.onSurface,
           ),
         ),
         trailing: Icon(
-          Icons.arrow_back_ios, 
+          Icons.arrow_back_ios,
           size: 16,
-          color: isDark ? Colors.white54 : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+          color: isDark
+              ? Colors.white54
+              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
         ),
       ),
     );

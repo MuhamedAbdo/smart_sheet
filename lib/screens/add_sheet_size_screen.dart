@@ -148,7 +148,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
             _normalizeString((record['clientName'] ?? '').toString());
         final existingCode =
             _normalizeString((record['productCode'] ?? '').toString());
-        
+
         // سجل العميل الأساسي يستخدم حقل productCode لتخزين كود العميل، لذا يجب تجاهله عند البحث عن تكرار كود الصنف
         final isClientRecord = record['isClientRecord'] == true;
         if (isClientRecord) continue;
@@ -177,293 +177,315 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       // حساب المقاسات أوتوماتيكياً قبل الحفظ لتجنب نسيان المستخدم الضغط على "احسب"
       _calculateSheet();
 
-    final clientName = clientNameController.text.trim();
-    final productCode = productCodeController.text.trim();
+      final clientName = clientNameController.text.trim();
+      final productCode = productCodeController.text.trim();
 
-    // ① التحقق من أن اسم العميل غير فارغ
-    if (clientName.isEmpty) {
-      UIUtils.showInfoSnackBar(
-        message: 'يرجى إدخال اسم العميل أولاً.',
-        backgroundColor: Colors.redAccent,
-        icon: Icons.warning_amber_rounded,
-      );
-      return;
-    }
-
-    // ② التحقق من تكرار اسم العميل (في وضع الإضافة فقط)
-    if (widget.existingDataKey == null && widget.clientName == null) {
-      final String newClientNormalized = _normalizeString(clientName);
-      bool clientAlreadyExists = false;
-
-      for (var i = 0; i < _savedSheetSizesBox.length; i++) {
-        final record = _savedSheetSizesBox.getAt(i);
-        if (record is Map) {
-          final existingClient =
-              _normalizeString((record['clientName'] ?? '').toString());
-          if (existingClient == newClientNormalized) {
-            clientAlreadyExists = true;
-            break;
-          }
-        }
-      }
-
-      if (clientAlreadyExists) {
+      // ① التحقق من أن اسم العميل غير فارغ
+      if (clientName.isEmpty) {
         UIUtils.showInfoSnackBar(
-          message: 'عذراً، هذا العميل مسجل بالفعل في النظام.',
-          backgroundColor: Colors.orange,
-          icon: Icons.error_outline,
+          message: 'يرجى إدخال اسم العميل أولاً.',
+          backgroundColor: Colors.redAccent,
+          icon: Icons.warning_amber_rounded,
         );
         return;
       }
-    }
 
-    // ③ رفع الصور الجديدة (File محلي) إلى Supabase Storage والحصول على Public URLs
-    //    هذه هي الخطوة الحاسمة: نخزن فقط الـ URL وليس مسار الجهاز المحلي
-    List<String> finalImageUrls = [];
-    if (!kIsWeb && _capturedImages.isNotEmpty) {
-      if (mounted) setState(() => _isUploading = true);
-      try {
-        final localPaths = _capturedImages.map((item) {
-          if (item is File) return item.path;
-          if (item is String) return item; // URL موجود مسبقاً
-          return item.toString();
-        }).toList();
+      // ② التحقق من تكرار اسم العميل (في وضع الإضافة فقط)
+      if (widget.existingDataKey == null && widget.clientName == null) {
+        final String newClientNormalized = _normalizeString(clientName);
+        bool clientAlreadyExists = false;
 
-        // StorageService.uploadMultipleImages: يُعيد الروابط الجاهزة مباشرة،
-        // ويتجاهل المسارات التي تبدأ بـ http (مرفوعة مسبقاً)
-        finalImageUrls = await StorageService.uploadMultipleImages(
-          localPaths, 'images',
-        );
-        debugPrint('✅ تم رفع ${finalImageUrls.length} صورة إلى Supabase Storage');
-        for (final url in finalImageUrls) {
-          debugPrint('  🔗 $url');
-        }
-      } catch (e) {
-        debugPrint('⚠️ فشل رفع الصور: $e — سيتم الحفظ بدون صور');
-        finalImageUrls = [];
-      } finally {
-        if (mounted) setState(() => _isUploading = false);
-      }
-    }
-
-    final String syncId = widget.existingData?['sync_id']?.toString() ??
-        widget.existingData?['id']?.toString() ??
-        const Uuid().v4();
-
-    final newRecord = <String, dynamic>{
-      'sync_id': syncId,
-      'processType': _processType,
-      'clientName': clientName,
-      'productName': productNameController.text.trim(),
-      'productCode': productCode,
-      'length': lengthController.text,
-      'width': widthController.text,
-      'height': heightController.text,
-      // ✅ نخزن فقط Public URLs — لا مسارات محلية تصل إلى الهاتف
-      'imagePaths': finalImageUrls,
-      'date': DateTime.now().toIso8601String(),
-      'isSheet': isSheet,
-      'isClientRecord': isAddingClientOnly,
-      'productState': _productState,
-      'product_state': _productState,
-      'notes': notesController.text.trim(),
-      'factoryId': '', // سيُملأ بواسطة SyncService
-      'formNumber': _processType == 'تكسير' ? formNumberController.text.trim() : null,
-      'form_number': _processType == 'تكسير' ? formNumberController.text.trim() : null,
-      'numberOfBoxes': _processType == 'تكسير' ? double.tryParse(numberOfBoxesController.text.trim()) : null,
-      'number_of_boxes': _processType == 'تكسير' ? double.tryParse(numberOfBoxesController.text.trim()) : null,
-    };
-
-    if (_processType == "تفصيل") {
-      newRecord.addAll({
-        'isOverFlap': isOverFlap,
-        'isFlap': isFlap,
-        'isOneFlap': isOneFlap,
-        'isTwoFlap': isTwoFlap,
-        'addTwoMm': addTwoMm,
-        'isFullSize': isFullSize,
-        'isQuarterSize': isQuarterSize,
-        'isQuarterWidth': isQuarterWidth,
-        'sheetLengthResult': sheetLengthResult,
-        'sheetWidthResult': sheetWidthResult,
-        'productionWidth1': productionWidth1,
-        'productionHeight': productionHeight,
-        'productionWidth2': productionWidth2,
-      });
-    } else {
-      newRecord.addAll({
-        'sheetLengthManual': sheetLengthManualController.text,
-        'sheetWidthManual': sheetWidthManualController.text,
-        'cuttingType': _cuttingType,
-        'formNumber': formNumberController.text.trim(),
-        'form_number': formNumberController.text.trim(),
-        'numberOfBoxes': numberOfBoxesController.text.trim(),
-        'number_of_boxes': double.tryParse(numberOfBoxesController.text.trim()),
-      });
-    }
-
-    // --- ميزة "الحفظ العكسي" (Two-Way Sync to Forms Storage) ---
-    if (_processType == 'تكسير' && formNumberController.text.trim().isNotEmpty) {
-      if (Hive.isBoxOpen('die_cutting_forms')) {
-        final formsBox = Hive.box<DieCuttingForm>('die_cutting_forms');
-        final currentFormNumber = formNumberController.text.trim();
-        
-        // البحث عن قالب بنفس رقم الفورمة
-        DieCuttingForm? existingForm;
-        for (var form in formsBox.values) {
-          if (form.formNumber.toLowerCase() == currentFormNumber.toLowerCase()) {
-            existingForm = form;
-            break;
+        for (var i = 0; i < _savedSheetSizesBox.length; i++) {
+          final record = _savedSheetSizesBox.getAt(i);
+          if (record is Map) {
+            final existingClient =
+                _normalizeString((record['clientName'] ?? '').toString());
+            if (existingClient == newClientNormalized) {
+              clientAlreadyExists = true;
+              break;
+            }
           }
         }
-        
-        final double currentLength = double.tryParse(lengthController.text.trim()) ?? 0;
-        final double currentWidth = double.tryParse(widthController.text.trim()) ?? 0;
-        final double currentHeight = double.tryParse(heightController.text.trim()) ?? 0;
-        final double currentSheetLength = double.tryParse(sheetLengthManualController.text.trim()) ?? 0;
-        final double currentSheetWidth = double.tryParse(sheetWidthManualController.text.trim()) ?? 0;
-        final double currentBoxes = double.tryParse(numberOfBoxesController.text.trim()) ?? 0;
-        
-        if (existingForm == null) {
-          // لم يكن موجوداً: قم بإنشاء كائن جديد
-          final newForm = DieCuttingForm(
-            id: const Uuid().v4(),
-            formNumber: currentFormNumber,
-            length: currentLength,
-            width: currentWidth,
-            height: currentHeight,
-            sheetLength: currentSheetLength,
-            sheetWidth: currentSheetWidth,
-            numberOfBoxes: currentBoxes,
-            isSheet: isSheet,
-            customerName: clientName,
-            itemName: productNameController.text.trim(),
-            itemCode: productCode,
+
+        if (clientAlreadyExists) {
+          UIUtils.showInfoSnackBar(
+            message: 'عذراً، هذا العميل مسجل بالفعل في النظام.',
+            backgroundColor: Colors.orange,
+            icon: Icons.error_outline,
           );
-          await formsBox.put(newForm.id, newForm);
-          SyncService.instance.pushToQueue('die_cutting_forms', newForm.toJson(), operation: 'upsert');
-        } else {
-          // إذا كان موجوداً: تحديث مقاساته لضمان التحديث التلقائي
-          existingForm.length = currentLength;
-          existingForm.width = currentWidth;
-          existingForm.height = currentHeight;
-          existingForm.sheetLength = currentSheetLength;
-          existingForm.sheetWidth = currentSheetWidth;
-          existingForm.numberOfBoxes = currentBoxes;
-          existingForm.isSheet = isSheet;
-          existingForm.customerName = clientName;
-          existingForm.itemName = productNameController.text.trim();
-          existingForm.itemCode = productCode;
-          await existingForm.save();
-          SyncService.instance.pushToQueue('die_cutting_forms', existingForm.toJson(), operation: 'upsert');
+          return;
         }
       }
-    }
 
-    // --- المنطق المطور للطلب (Hybrid Logic) ---
-    if (duplicateKey != null) {
-      // 1. حالة الإستبدال: نحدث السجل الذي كان مكرراً بالبيانات الجديدة
-      await _savedSheetSizesBox.put(duplicateKey, newRecord);
-      // وحذف السجل الأصلي (القديم) إذا لزم الأمر لضمان نظافة البيانات
-      if (shouldDeleteOriginal &&
-          widget.existingDataKey != null &&
-          widget.existingDataKey != duplicateKey) {
-        await _savedSheetSizesBox.delete(widget.existingDataKey);
+      // ③ رفع الصور الجديدة (File محلي) إلى Supabase Storage والحصول على Public URLs
+      //    هذه هي الخطوة الحاسمة: نخزن فقط الـ URL وليس مسار الجهاز المحلي
+      List<String> finalImageUrls = [];
+      if (!kIsWeb && _capturedImages.isNotEmpty) {
+        if (mounted) setState(() => _isUploading = true);
+        try {
+          final localPaths = _capturedImages.map((item) {
+            if (item is File) return item.path;
+            if (item is String) return item; // URL موجود مسبقاً
+            return item.toString();
+          }).toList();
+
+          // StorageService.uploadMultipleImages: يُعيد الروابط الجاهزة مباشرة،
+          // ويتجاهل المسارات التي تبدأ بـ http (مرفوعة مسبقاً)
+          finalImageUrls = await StorageService.uploadMultipleImages(
+            localPaths,
+            'images',
+          );
+          debugPrint(
+              '✅ تم رفع ${finalImageUrls.length} صورة إلى Supabase Storage');
+          for (final url in finalImageUrls) {
+            debugPrint('  🔗 $url');
+          }
+        } catch (e) {
+          debugPrint('⚠️ فشل رفع الصور: $e — سيتم الحفظ بدون صور');
+          finalImageUrls = [];
+        } finally {
+          if (mounted) setState(() => _isUploading = false);
+        }
       }
-    } else {
-      // 2. الفحص الأولي قبل الحفظ
-      if (widget.existingDataKey != null) {
-        // وضع التعديل (Edit Mode)
-        if (productCode == _originalClientCode) {
-          // لم يتغير الكود: تحديث السجل الحالي مباشرة
-          await _savedSheetSizesBox.put(widget.existingDataKey, newRecord);
+
+      final String syncId = widget.existingData?['sync_id']?.toString() ??
+          widget.existingData?['id']?.toString() ??
+          const Uuid().v4();
+
+      final newRecord = <String, dynamic>{
+        'sync_id': syncId,
+        'processType': _processType,
+        'clientName': clientName,
+        'productName': productNameController.text.trim(),
+        'productCode': productCode,
+        'length': lengthController.text,
+        'width': widthController.text,
+        'height': heightController.text,
+        // ✅ نخزن فقط Public URLs — لا مسارات محلية تصل إلى الهاتف
+        'imagePaths': finalImageUrls,
+        'date': DateTime.now().toIso8601String(),
+        'isSheet': isSheet,
+        'isClientRecord': isAddingClientOnly,
+        'productState': _productState,
+        'product_state': _productState,
+        'notes': notesController.text.trim(),
+        'factoryId': '', // سيُملأ بواسطة SyncService
+        'formNumber':
+            _processType == 'تكسير' ? formNumberController.text.trim() : null,
+        'form_number':
+            _processType == 'تكسير' ? formNumberController.text.trim() : null,
+        'numberOfBoxes': _processType == 'تكسير'
+            ? double.tryParse(numberOfBoxesController.text.trim())
+            : null,
+        'number_of_boxes': _processType == 'تكسير'
+            ? double.tryParse(numberOfBoxesController.text.trim())
+            : null,
+      };
+
+      if (_processType == "تفصيل") {
+        newRecord.addAll({
+          'isOverFlap': isOverFlap,
+          'isFlap': isFlap,
+          'isOneFlap': isOneFlap,
+          'isTwoFlap': isTwoFlap,
+          'addTwoMm': addTwoMm,
+          'isFullSize': isFullSize,
+          'isQuarterSize': isQuarterSize,
+          'isQuarterWidth': isQuarterWidth,
+          'sheetLengthResult': sheetLengthResult,
+          'sheetWidthResult': sheetWidthResult,
+          'productionWidth1': productionWidth1,
+          'productionHeight': productionHeight,
+          'productionWidth2': productionWidth2,
+        });
+      } else {
+        newRecord.addAll({
+          'sheetLengthManual': sheetLengthManualController.text,
+          'sheetWidthManual': sheetWidthManualController.text,
+          'cuttingType': _cuttingType,
+          'formNumber': formNumberController.text.trim(),
+          'form_number': formNumberController.text.trim(),
+          'numberOfBoxes': numberOfBoxesController.text.trim(),
+          'number_of_boxes':
+              double.tryParse(numberOfBoxesController.text.trim()),
+        });
+      }
+
+      // --- ميزة "الحفظ العكسي" (Two-Way Sync to Forms Storage) ---
+      if (_processType == 'تكسير' &&
+          formNumberController.text.trim().isNotEmpty) {
+        if (Hive.isBoxOpen('die_cutting_forms')) {
+          final formsBox = Hive.box<DieCuttingForm>('die_cutting_forms');
+          final currentFormNumber = formNumberController.text.trim();
+
+          // البحث عن قالب بنفس رقم الفورمة
+          DieCuttingForm? existingForm;
+          for (var form in formsBox.values) {
+            if (form.formNumber.toLowerCase() ==
+                currentFormNumber.toLowerCase()) {
+              existingForm = form;
+              break;
+            }
+          }
+
+          final double currentLength =
+              double.tryParse(lengthController.text.trim()) ?? 0;
+          final double currentWidth =
+              double.tryParse(widthController.text.trim()) ?? 0;
+          final double currentHeight =
+              double.tryParse(heightController.text.trim()) ?? 0;
+          final double currentSheetLength =
+              double.tryParse(sheetLengthManualController.text.trim()) ?? 0;
+          final double currentSheetWidth =
+              double.tryParse(sheetWidthManualController.text.trim()) ?? 0;
+          final double currentBoxes =
+              double.tryParse(numberOfBoxesController.text.trim()) ?? 0;
+
+          if (existingForm == null) {
+            // لم يكن موجوداً: قم بإنشاء كائن جديد
+            final newForm = DieCuttingForm(
+              id: const Uuid().v4(),
+              formNumber: currentFormNumber,
+              length: currentLength,
+              width: currentWidth,
+              height: currentHeight,
+              sheetLength: currentSheetLength,
+              sheetWidth: currentSheetWidth,
+              numberOfBoxes: currentBoxes,
+              isSheet: isSheet,
+              customerName: clientName,
+              itemName: productNameController.text.trim(),
+              itemCode: productCode,
+            );
+            await formsBox.put(newForm.id, newForm);
+            SyncService.instance.pushToQueue(
+                'die_cutting_forms', newForm.toJson(),
+                operation: 'upsert');
+          } else {
+            // إذا كان موجوداً: تحديث مقاساته لضمان التحديث التلقائي
+            existingForm.length = currentLength;
+            existingForm.width = currentWidth;
+            existingForm.height = currentHeight;
+            existingForm.sheetLength = currentSheetLength;
+            existingForm.sheetWidth = currentSheetWidth;
+            existingForm.numberOfBoxes = currentBoxes;
+            existingForm.isSheet = isSheet;
+            existingForm.customerName = clientName;
+            existingForm.itemName = productNameController.text.trim();
+            existingForm.itemCode = productCode;
+            await existingForm.save();
+            SyncService.instance.pushToQueue(
+                'die_cutting_forms', existingForm.toJson(),
+                operation: 'upsert');
+          }
+        }
+      }
+
+      // --- المنطق المطور للطلب (Hybrid Logic) ---
+      if (duplicateKey != null) {
+        // 1. حالة الإستبدال: نحدث السجل الذي كان مكرراً بالبيانات الجديدة
+        await _savedSheetSizesBox.put(duplicateKey, newRecord);
+        // وحذف السجل الأصلي (القديم) إذا لزم الأمر لضمان نظافة البيانات
+        if (shouldDeleteOriginal &&
+            widget.existingDataKey != null &&
+            widget.existingDataKey != duplicateKey) {
+          await _savedSheetSizesBox.delete(widget.existingDataKey);
+        }
+      } else {
+        // 2. الفحص الأولي قبل الحفظ
+        if (widget.existingDataKey != null) {
+          // وضع التعديل (Edit Mode)
+          if (productCode == _originalClientCode) {
+            // لم يتغير الكود: تحديث السجل الحالي مباشرة
+            await _savedSheetSizesBox.put(widget.existingDataKey, newRecord);
+          } else {
+            // تغير الكود: نفحص هل الكود الجديد مكرر عند نفس العميل؟
+            final foundKey = _getDuplicateKey(clientName, productCode);
+            if (foundKey != null) {
+              // كود مكرر: نظهر ديالوج الاستبدال
+              _showReplaceDialog(foundKey);
+              return;
+            }
+            // كود فريد: نحفظ كـ صنف جديد (Template) ونبقي على القديم
+            await _savedSheetSizesBox.add(newRecord);
+          }
         } else {
-          // تغير الكود: نفحص هل الكود الجديد مكرر عند نفس العميل؟
+          // وضع الإضافة (Add Mode) - نفحص التكرار أولاً
           final foundKey = _getDuplicateKey(clientName, productCode);
           if (foundKey != null) {
-            // كود مكرر: نظهر ديالوج الاستبدال
             _showReplaceDialog(foundKey);
             return;
           }
-          // كود فريد: نحفظ كـ صنف جديد (Template) ونبقي على القديم
           await _savedSheetSizesBox.add(newRecord);
         }
-      } else {
-        // وضع الإضافة (Add Mode) - نفحص التكرار أولاً
-        final foundKey = _getDuplicateKey(clientName, productCode);
-        if (foundKey != null) {
-          _showReplaceDialog(foundKey);
-          return;
-        }
-        await _savedSheetSizesBox.add(newRecord);
       }
-    }
 
-    // ④ المرحلة 3: تحديث متتالي (Cascading Update) إذا تغير اسم العميل أو كوده
-    // يتم هذا فقط إذا كنا في وضع "تعديل بيانات العميل" (isClientOnlyMode)
-    if (widget.isClientOnlyMode && _originalClientName != null) {
-      final newName = clientName;
-      final newCode = productCode;
+      // ④ المرحلة 3: تحديث متتالي (Cascading Update) إذا تغير اسم العميل أو كوده
+      // يتم هذا فقط إذا كنا في وضع "تعديل بيانات العميل" (isClientOnlyMode)
+      if (widget.isClientOnlyMode && _originalClientName != null) {
+        final newName = clientName;
+        final newCode = productCode;
 
-      if (newName != _originalClientName || newCode != _originalClientCode) {
-        final box = _savedSheetSizesBox;
-        for (var i = 0; i < box.length; i++) {
-          final key = box.keyAt(i);
-          final record = box.getAt(i);
-          if (record is Map &&
-              (record['clientName']?.toString().trim() ?? '') ==
-                  _originalClientName) {
-            final updatedRecord = Map<String, dynamic>.from(record);
-            updatedRecord['clientName'] = newName;
-            // لا نحدث الكود هنا للحفاظ على استقلالية أكواد الأصناف كما طلب المستخدم
+        if (newName != _originalClientName || newCode != _originalClientCode) {
+          final box = _savedSheetSizesBox;
+          for (var i = 0; i < box.length; i++) {
+            final key = box.keyAt(i);
+            final record = box.getAt(i);
+            if (record is Map &&
+                (record['clientName']?.toString().trim() ?? '') ==
+                    _originalClientName) {
+              final updatedRecord = Map<String, dynamic>.from(record);
+              updatedRecord['clientName'] = newName;
+              // لا نحدث الكود هنا للحفاظ على استقلالية أكواد الأصناف كما طلب المستخدم
 
-            await box.put(key, updatedRecord);
+              await box.put(key, updatedRecord);
+            }
           }
         }
       }
-    }
 
-    if (mounted) {
-      // مزامنة سحابية عبر Queue (تعمل offline أيضاً)
-      SyncService.instance.pushToQueue('customers', _buildCustomerPayload(newRecord));
+      if (mounted) {
+        // مزامنة سحابية عبر Queue (تعمل offline أيضاً)
+        SyncService.instance
+            .pushToQueue('customers', _buildCustomerPayload(newRecord));
 
-      // تسجيل التعديل في سجل التعديلات (Edit History) عند تعديل صنف موجود (استثناء تام للصور)
-      if (widget.existingData != null && !widget.isClientOnlyMode) {
-        final originalMap = Map<String, dynamic>.from(widget.existingData!);
-        unawaited(
-          ItemHistoryController.recordHistory(
-            itemId: syncId,
-            oldData: originalMap,
-            newData: newRecord,
-          ),
-        );
-      }
-
-      UIUtils.showInfoSnackBar(
-        message: "تم حفظ البيانات وتحديث السجلات",
-        backgroundColor: Colors.green,
-        icon: Icons.check_circle_outline,
-      );
-      final nav = Navigator.of(context);
-      bool isClientScreenInStack = false;
-      nav.popUntil((route) {
-        if (route.settings.name == 'ClientItemsScreen_$clientName') {
-          isClientScreenInStack = true;
-          return true;
+        // تسجيل التعديل في سجل التعديلات (Edit History) عند تعديل صنف موجود (استثناء تام للصور)
+        if (widget.existingData != null && !widget.isClientOnlyMode) {
+          final originalMap = Map<String, dynamic>.from(widget.existingData!);
+          unawaited(
+            ItemHistoryController.recordHistory(
+              itemId: syncId,
+              oldData: originalMap,
+              newData: newRecord,
+            ),
+          );
         }
-        if (route.isFirst) return true;
-        return false;
-      });
 
-      if (!isClientScreenInStack) {
-        nav.push(
-          MaterialPageRoute(
-            settings: RouteSettings(name: 'ClientItemsScreen_$clientName'),
-            builder: (_) => ClientItemsScreen(clientName: clientName),
-          ),
+        UIUtils.showInfoSnackBar(
+          message: "تم حفظ البيانات وتحديث السجلات",
+          backgroundColor: Colors.green,
+          icon: Icons.check_circle_outline,
         );
+        final nav = Navigator.of(context);
+        bool isClientScreenInStack = false;
+        nav.popUntil((route) {
+          if (route.settings.name == 'ClientItemsScreen_$clientName') {
+            isClientScreenInStack = true;
+            return true;
+          }
+          if (route.isFirst) return true;
+          return false;
+        });
+
+        if (!isClientScreenInStack) {
+          nav.push(
+            MaterialPageRoute(
+              settings: RouteSettings(name: 'ClientItemsScreen_$clientName'),
+              builder: (_) => ClientItemsScreen(clientName: clientName),
+            ),
+          );
+        }
       }
-    }
     } finally {
       if (mounted) {
         setState(() => _isProcessing = false);
@@ -489,7 +511,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'product_state': r['product_state'] ?? r['productState'] ?? 'مطبوع',
       'notes': r['notes'] ?? '',
       'form_number': r['form_number'] ?? r['formNumber'],
-      'number_of_boxes': r['number_of_boxes'] ?? double.tryParse(r['numberOfBoxes']?.toString() ?? ''),
+      'number_of_boxes': r['number_of_boxes'] ??
+          double.tryParse(r['numberOfBoxes']?.toString() ?? ''),
       'sheet_details': {
         'isOverFlap': r['isOverFlap'],
         'isFlap': r['isFlap'],
@@ -579,8 +602,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       widthController.text = data['width']?.toString() ?? '';
       heightController.text = data['height']?.toString() ?? '';
       isSheet = data['isSheet'] ?? false;
-      final loadedState = (data['productState'] ?? data['product_state'])?.toString().trim();
-      _productState = (loadedState != null && loadedState.isNotEmpty && loadedState != 'null')
+      final loadedState =
+          (data['productState'] ?? data['product_state'])?.toString().trim();
+      _productState = (loadedState != null &&
+              loadedState.isNotEmpty &&
+              loadedState != 'null')
           ? loadedState
           : 'مطبوع';
       notesController.text = data['notes']?.toString() ?? '';
@@ -598,12 +624,20 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       }
 
       sheetLengthManualController.text =
-          data['sheetLengthManual']?.toString() ?? data['sheet_length']?.toString() ?? data['sheetLength']?.toString() ?? '';
-      sheetWidthManualController.text =
-          data['sheetWidthManual']?.toString() ?? data['sheet_width']?.toString() ?? data['sheetWidth']?.toString() ?? '';
-      formNumberController.text =
-          data['formNumber']?.toString() ?? data['form_number']?.toString() ?? '';
-      numberOfBoxesController.text = data['numberOfBoxes']?.toString() ?? data['number_of_boxes']?.toString() ?? '';
+          data['sheetLengthManual']?.toString() ??
+              data['sheet_length']?.toString() ??
+              data['sheetLength']?.toString() ??
+              '';
+      sheetWidthManualController.text = data['sheetWidthManual']?.toString() ??
+          data['sheet_width']?.toString() ??
+          data['sheetWidth']?.toString() ??
+          '';
+      formNumberController.text = data['formNumber']?.toString() ??
+          data['form_number']?.toString() ??
+          '';
+      numberOfBoxesController.text = data['numberOfBoxes']?.toString() ??
+          data['number_of_boxes']?.toString() ??
+          '';
       isOverFlap = data['isOverFlap'] ?? false;
       isFlap = data['isFlap'] ?? true;
       isOneFlap = data['isOneFlap'] ?? false;
@@ -635,7 +669,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
             }
           }
         } else {
-          final XFile? image = await picker.pickImage(source: ImageSource.camera);
+          final XFile? image =
+              await picker.pickImage(source: ImageSource.camera);
           if (image != null) {
             setState(() => _capturedImages.add(File(image.path)));
           }
@@ -653,7 +688,8 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
               setState(() => _capturedImages.add(File(file.path!)));
             }
           }
-          debugPrint('📂 تم اختيار ${result.files.length} صورة — سيتم رفعها عند الحفظ');
+          debugPrint(
+              '📂 تم اختيار ${result.files.length} صورة — سيتم رفعها عند الحفظ');
         }
       }
     } catch (e) {
@@ -744,9 +780,11 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isEditingItem = widget.existingDataKey != null && !widget.isClientOnlyMode;
+    final bool isEditingItem =
+        widget.existingDataKey != null && !widget.isClientOnlyMode;
     final bool isLockedMode =
-        (widget.clientName != null && widget.existingDataKey == null) || isEditingItem;
+        (widget.clientName != null && widget.existingDataKey == null) ||
+            isEditingItem;
 
     return Scaffold(
       appBar: AppBar(
@@ -763,14 +801,15 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
               ),
             )
           else
-          IconButton(
-              icon: const Icon(Icons.check_circle),
-              onPressed: _saveSheetSize)
+            IconButton(
+                icon: const Icon(Icons.check_circle), onPressed: _saveSheetSize)
         ],
       ),
       resizeToAvoidBottomInset: false, // منع الفراغ الأبيض عند ظهور الكيبورد
@@ -780,177 +819,187 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
           textDirection: TextDirection.rtl,
           child: Center(
             child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+              margin:
+                  const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
               decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.dark
                     ? const Color(0xFF1E293B)
-                    : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                    : Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(24.0),
               ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),
                 child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(
-                    16, 16, 16,
+                    16,
+                    16,
+                    16,
                     16 + MediaQuery.of(context).viewInsets.bottom,
                   ),
                   child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // --- نموذج الحقول الأساسية ---
-              SheetSizeForm(
-                clientNameController: clientNameController,
-                productNameController: productNameController,
-                productCodeController: productCodeController,
-                lengthController: lengthController,
-                widthController: widthController,
-                heightController: heightController,
-                sheetLengthManualController: sheetLengthManualController,
-                sheetWidthManualController: sheetWidthManualController,
-                formNumberController: formNumberController,
-                numberOfBoxesController: numberOfBoxesController,
-                onImportForm: _showImportFormDialog,
-                cuttingType: _cuttingType,
-                onCuttingTypeChanged: (v) =>
-                    setState(() => _cuttingType = v ?? 'دوبل'),
-                processType: _processType,
-                onProcessTypeChanged: (v) => setState(() => _processType = v),
-                isSheet: isSheet,
-                onSheetChanged: (v) {
-                  setState(() {
-                    isSheet = v ?? false;
-                    if (isSheet) {
-                      heightController.text = "0";
-                    }
-                  });
-                },
-                clientNameEnabled: !isLockedMode,
-                clientNameLocked: isLockedMode,
-                isAddingClientOnly: isAddingClientOnly,
-                productState: _productState,
-                onProductStateChanged: (v) => setState(() => _productState = v),
-                notesController: notesController,
-              ),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // --- نموذج الحقول الأساسية ---
+                      SheetSizeForm(
+                        clientNameController: clientNameController,
+                        productNameController: productNameController,
+                        productCodeController: productCodeController,
+                        lengthController: lengthController,
+                        widthController: widthController,
+                        heightController: heightController,
+                        sheetLengthManualController:
+                            sheetLengthManualController,
+                        sheetWidthManualController: sheetWidthManualController,
+                        formNumberController: formNumberController,
+                        numberOfBoxesController: numberOfBoxesController,
+                        onImportForm: _showImportFormDialog,
+                        cuttingType: _cuttingType,
+                        onCuttingTypeChanged: (v) =>
+                            setState(() => _cuttingType = v ?? 'دوبل'),
+                        processType: _processType,
+                        onProcessTypeChanged: (v) =>
+                            setState(() => _processType = v),
+                        isSheet: isSheet,
+                        onSheetChanged: (v) {
+                          setState(() {
+                            isSheet = v ?? false;
+                            if (isSheet) {
+                              heightController.text = "0";
+                            }
+                          });
+                        },
+                        clientNameEnabled: !isLockedMode,
+                        clientNameLocked: isLockedMode,
+                        isAddingClientOnly: isAddingClientOnly,
+                        productState: _productState,
+                        onProductStateChanged: (v) =>
+                            setState(() => _productState = v),
+                        notesController: notesController,
+                      ),
 
-              const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-              // في وضع إضافة عميل فقط، لا نعرض بقية الأقسام (كاميرا، خيارات، إلخ)
-              if (!isAddingClientOnly) ...[
-                // --- مرفقات سطح المكتب والموبايل ---
-                DesktopImagePicker(
-                  isProcessing: _isProcessing,
-                  capturedImages: _capturedImages,
-                  onPickDesktop: () => _pickImages(),
-                  onPickCamera: () => _pickImages(ImageSource.camera),
-                  onPickGallery: () => _pickImages(ImageSource.gallery),
-                  onRemoveImage: (index) {
-                    final removedImage = _capturedImages[index];
-                    UIUtils.showDeleteConfirmation(
-                      context: context,
-                      title: "حذف الصورة",
-                      content: "هل أنت متأكد من حذف هذه الصورة؟",
-                      onConfirm: () {
-                        final messenger = ScaffoldMessenger.of(context);
-                        setState(() => _capturedImages.removeAt(index));
-                        
-                        if (removedImage is String && removedImage.startsWith('http')) {
-                          CacheHelper.deleteImageCache(removedImage);
-                        }
+                      // في وضع إضافة عميل فقط، لا نعرض بقية الأقسام (كاميرا، خيارات، إلخ)
+                      if (!isAddingClientOnly) ...[
+                        // --- مرفقات سطح المكتب والموبايل ---
+                        DesktopImagePicker(
+                          isProcessing: _isProcessing,
+                          capturedImages: _capturedImages,
+                          onPickDesktop: () => _pickImages(),
+                          onPickCamera: () => _pickImages(ImageSource.camera),
+                          onPickGallery: () => _pickImages(ImageSource.gallery),
+                          onRemoveImage: (index) {
+                            final removedImage = _capturedImages[index];
+                            UIUtils.showDeleteConfirmation(
+                              context: context,
+                              title: "حذف الصورة",
+                              content: "هل أنت متأكد من حذف هذه الصورة؟",
+                              onConfirm: () {
+                                final messenger = ScaffoldMessenger.of(context);
+                                setState(() => _capturedImages.removeAt(index));
 
-                        messenger.clearSnackBars();
-                        UIUtils.showUndoSnackBar(
-                          context: context,
-                          message: "تم حذف الصورة",
-                          onUndo: () {
-                            messenger.clearSnackBars();
-                            setState(() =>
-                                _capturedImages.insert(index, removedImage));
+                                if (removedImage is String &&
+                                    removedImage.startsWith('http')) {
+                                  CacheHelper.deleteImageCache(removedImage);
+                                }
+
+                                messenger.clearSnackBars();
+                                UIUtils.showUndoSnackBar(
+                                  context: context,
+                                  message: "تم حذف الصورة",
+                                  onUndo: () {
+                                    messenger.clearSnackBars();
+                                    setState(() => _capturedImages.insert(
+                                        index, removedImage));
+                                  },
+                                );
+                              },
+                            );
                           },
-                        );
-                      },
-                    );
-                  },
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // --- خيارات التفصيل (مرئية فقط عند نوع "تفصيل") ---
+                        if (_processType == 'تفصيل') ...[
+                          SheetSizeCheckboxes(
+                            isOverFlap: isOverFlap,
+                            isFlap: isFlap,
+                            isOneFlap: isOneFlap,
+                            isTwoFlap: isTwoFlap,
+                            addTwoMm: addTwoMm,
+                            isFullSize: isFullSize,
+                            isQuarterSize: isQuarterSize,
+                            isQuarterWidth: isQuarterWidth,
+                            onOverFlapChanged: (v) => setState(() {
+                              isOverFlap = v!;
+                              isFlap = !v;
+                            }),
+                            onFlapChanged: (v) => setState(() {
+                              isFlap = v!;
+                              isOverFlap = !v;
+                            }),
+                            onOneFlapChanged: (v) => setState(() {
+                              isOneFlap = v!;
+                              isTwoFlap = !v;
+                            }),
+                            onTwoFlapChanged: (v) => setState(() {
+                              isTwoFlap = v!;
+                              isOneFlap = !v;
+                            }),
+                            onAddTwoMmChanged: (v) =>
+                                setState(() => addTwoMm = v ?? false),
+                            onFullSizeChanged: (v) => setState(() {
+                              isFullSize = v!;
+                              isQuarterSize = false;
+                            }),
+                            onQuarterSizeChanged: (v) => setState(() {
+                              isQuarterSize = v ?? false;
+                              isFullSize = false;
+                            }),
+                            onQuarterWidthChanged: (v) =>
+                                setState(() => isQuarterWidth = v!),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // --- زر الحساب (يأتي من ويدجت منفصل) ---
+                          SheetSizeButtons(
+                            onCalculate: _calculateSheet,
+                            onSave: _saveSheetSize,
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // --- نتائج الحساب ---
+                          if (sheetLengthResult.isNotEmpty)
+                            SheetSizeCalculations(
+                              sheetLengthResult: sheetLengthResult,
+                              sheetWidthResult: sheetWidthResult,
+                            ),
+
+                          const SizedBox(height: 12),
+
+                          // --- جدول مقاسات الإنتاج ---
+                          if (productionWidth1.isNotEmpty)
+                            SheetSizeProductionTable(
+                              productionWidth1: productionWidth1,
+                              productionHeight: productionHeight,
+                              productionWidth2: productionWidth2,
+                            ),
+                        ],
+                      ],
+
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
-
-                const SizedBox(height: 16),
-
-                // --- خيارات التفصيل (مرئية فقط عند نوع "تفصيل") ---
-                if (_processType == 'تفصيل') ...[
-                  SheetSizeCheckboxes(
-                    isOverFlap: isOverFlap,
-                    isFlap: isFlap,
-                    isOneFlap: isOneFlap,
-                    isTwoFlap: isTwoFlap,
-                    addTwoMm: addTwoMm,
-                    isFullSize: isFullSize,
-                    isQuarterSize: isQuarterSize,
-                    isQuarterWidth: isQuarterWidth,
-                    onOverFlapChanged: (v) => setState(() {
-                      isOverFlap = v!;
-                      isFlap = !v;
-                    }),
-                    onFlapChanged: (v) => setState(() {
-                      isFlap = v!;
-                      isOverFlap = !v;
-                    }),
-                    onOneFlapChanged: (v) => setState(() {
-                      isOneFlap = v!;
-                      isTwoFlap = !v;
-                    }),
-                    onTwoFlapChanged: (v) => setState(() {
-                      isTwoFlap = v!;
-                      isOneFlap = !v;
-                    }),
-                    onAddTwoMmChanged: (v) =>
-                        setState(() => addTwoMm = v ?? false),
-                    onFullSizeChanged: (v) => setState(() {
-                      isFullSize = v!;
-                      isQuarterSize = false;
-                    }),
-                    onQuarterSizeChanged: (v) => setState(() {
-                      isQuarterSize = v ?? false;
-                      isFullSize = false;
-                    }),
-                    onQuarterWidthChanged: (v) =>
-                        setState(() => isQuarterWidth = v!),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // --- زر الحساب (يأتي من ويدجت منفصل) ---
-                  SheetSizeButtons(
-                    onCalculate: _calculateSheet,
-                    onSave: _saveSheetSize,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // --- نتائج الحساب ---
-                  if (sheetLengthResult.isNotEmpty)
-                    SheetSizeCalculations(
-                      sheetLengthResult: sheetLengthResult,
-                      sheetWidthResult: sheetWidthResult,
-                    ),
-
-                  const SizedBox(height: 12),
-
-                  // --- جدول مقاسات الإنتاج ---
-                  if (productionWidth1.isNotEmpty)
-                    SheetSizeProductionTable(
-                      productionWidth1: productionWidth1,
-                      productionHeight: productionHeight,
-                      productionWidth2: productionWidth2,
-                    ),
-                ],
-              ],
-
-              const SizedBox(height: 40),
-            ],
+              ),
+            ),
           ),
-        ),
-        ),
-        ),
-        ),
         ),
       ),
     );
@@ -958,7 +1007,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
 
   void _showImportFormDialog() {
     if (!Hive.isBoxOpen('die_cutting_forms')) return;
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -971,7 +1020,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
           builder: (context, scrollController) {
             final box = Hive.box<DieCuttingForm>('die_cutting_forms');
             final forms = box.values.toList();
-            
+
             return StatefulBuilder(
               builder: (context, setStateSB) {
                 String searchQuery = "";
@@ -993,39 +1042,53 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
                       ),
                     ),
                     Expanded(
-                      child: forms.isEmpty 
-                        ? const Center(child: Text("لا توجد قوالب تكسير محفوظة"))
-                        : ListView.builder(
-                        controller: scrollController,
-                        itemCount: forms.length,
-                        itemBuilder: (context, index) {
-                          final form = forms[index];
-                          if (searchQuery.isNotEmpty && !form.formNumber.toLowerCase().contains(searchQuery)) {
-                            return const SizedBox.shrink();
-                          }
-                          return ListTile(
-                            title: Text('رقم الفورمة: ${form.formNumber}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('المقاس: ${form.length}×${form.width}×${form.height} | مقاس الشيت: ${form.sheetLength}×${form.sheetWidth} | عدد العلب: ${form.numberOfBoxes.toStringAsFixed(0)}'),
-                            onTap: () {
-                              Navigator.pop(context);
-                              setState(() {
-                                formNumberController.text = form.formNumber;
-                                lengthController.text = form.length.toString();
-                                widthController.text = form.width.toString();
-                                if (!form.isSheet) {
-                                  heightController.text = form.height.toString();
-                                } else {
-                                  heightController.text = "0";
+                      child: forms.isEmpty
+                          ? const Center(
+                              child: Text("لا توجد قوالب تكسير محفوظة"))
+                          : ListView.builder(
+                              controller: scrollController,
+                              itemCount: forms.length,
+                              itemBuilder: (context, index) {
+                                final form = forms[index];
+                                if (searchQuery.isNotEmpty &&
+                                    !form.formNumber
+                                        .toLowerCase()
+                                        .contains(searchQuery)) {
+                                  return const SizedBox.shrink();
                                 }
-                                sheetLengthManualController.text = form.sheetLength.toString();
-                                sheetWidthManualController.text = form.sheetWidth.toString();
-                                numberOfBoxesController.text = form.numberOfBoxes.toString();
-                                isSheet = form.isSheet;
-                              });
-                            },
-                          );
-                        },
-                      ),
+                                return ListTile(
+                                  title: Text('رقم الفورمة: ${form.formNumber}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  subtitle: Text(
+                                      'المقاس: ${form.length}×${form.width}×${form.height} | مقاس الشيت: ${form.sheetLength}×${form.sheetWidth} | عدد العلب: ${form.numberOfBoxes.toStringAsFixed(0)}'),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    setState(() {
+                                      formNumberController.text =
+                                          form.formNumber;
+                                      lengthController.text =
+                                          form.length.toString();
+                                      widthController.text =
+                                          form.width.toString();
+                                      if (!form.isSheet) {
+                                        heightController.text =
+                                            form.height.toString();
+                                      } else {
+                                        heightController.text = "0";
+                                      }
+                                      sheetLengthManualController.text =
+                                          form.sheetLength.toString();
+                                      sheetWidthManualController.text =
+                                          form.sheetWidth.toString();
+                                      numberOfBoxesController.text =
+                                          form.numberOfBoxes.toString();
+                                      isSheet = form.isSheet;
+                                    });
+                                  },
+                                );
+                              },
+                            ),
                     ),
                   ],
                 );

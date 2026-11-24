@@ -44,8 +44,8 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
   final Map<int, List<String>> _itemSelectedCorrugations = {};
   final Map<int, TextEditingController> _itemCustomCorrugationCtrl = {};
   final Map<int, TextEditingController> _itemSamplesCtrl = {};
-  final Map<int, TextEditingController> _itemSheetLenCtrl = {};  // طول الشريحة
-  final Map<int, TextEditingController> _itemSheetWidCtrl = {};  // عرض الشريحة
+  final Map<int, TextEditingController> _itemSheetLenCtrl = {}; // طول الشريحة
+  final Map<int, TextEditingController> _itemSheetWidCtrl = {}; // عرض الشريحة
   final Map<int, TextEditingController> _itemSheetCountCtrl = {};
 
   // عرض البكر وطبقات الورق
@@ -60,7 +60,8 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
 
   void _addItem() {
     if (_selectedIndices.length >= 3) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الحد الأقصى 3 أصناف')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('الحد الأقصى 3 أصناف')));
       return;
     }
     setState(() {
@@ -91,7 +92,7 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
     final now = DateTime.now();
     final dateStr =
         '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
-    
+
     _orderNumberCtrl.clear();
     _jobNumberCtrl.clear();
     _issueDateCtrl.text = dateStr;
@@ -146,8 +147,9 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
   // ── Item Selection ───────────────────────────────────────────────────────────
   void _toggleItem(int index) {
     if (_selectedIndices.length <= 1) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يجب إضافة صنف واحد على الأقل')));
-       return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('يجب إضافة صنف واحد على الأقل')));
+      return;
     }
     setState(() {
       _selectedIndices.remove(index);
@@ -183,8 +185,6 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
     _itemPaperLayerCtrls[idx] = current;
   }
 
-
-
   // ── Save to Hive ──────────────────────────────────────────────────────────────
   /// يحفظ بيانات العميل وأصنافه في Hive كعميل دائم
   Future<void> _saveClientToHive() async {
@@ -206,7 +206,8 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
     for (var i = 0; i < box.length; i++) {
       final record = box.getAt(i);
       if (record is Map) {
-        final existingName = (record['clientName'] ?? '').toString().trim().toLowerCase();
+        final existingName =
+            (record['clientName'] ?? '').toString().trim().toLowerCase();
         final isClientRec = record['isClientRecord'] == true;
         if (isClientRec && existingName == clientName.toLowerCase()) {
           clientExists = true;
@@ -247,7 +248,8 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
       };
       await box.add(clientRecord);
       // دفع سجل العميل للمزامنة السحابية فوراً
-      SyncService.instance.pushToQueue('customers', _buildCustomerSyncPayload(clientRecord));
+      SyncService.instance
+          .pushToQueue('customers', _buildCustomerSyncPayload(clientRecord));
     }
 
     // ② تسجيل كل صنف من الأصناف المُدخلة
@@ -291,7 +293,8 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
       };
       await box.add(itemRecord);
       // دفع سجل الصنف للمزامنة السحابية فوراً
-      SyncService.instance.pushToQueue('customers', _buildCustomerSyncPayload(itemRecord));
+      SyncService.instance
+          .pushToQueue('customers', _buildCustomerSyncPayload(itemRecord));
     }
 
     _showSnack('✅ تم حفظ العميل والأصناف في سجل العملاء بنجاح.');
@@ -356,7 +359,8 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
       // مقاس الشريحة من الخانتين المنفصلتين
       final sheetLen = _itemSheetLenCtrl[idx]?.text.trim() ?? '';
       final sheetWid = _itemSheetWidCtrl[idx]?.text.trim() ?? '';
-      final sheetSize = [sheetLen, sheetWid].where((x) => x.isNotEmpty).join(' / ');
+      final sheetSize =
+          [sheetLen, sheetWid].where((x) => x.isNotEmpty).join(' / ');
 
       return JobOrderItem(
         productName: _itemNameCtrl[idx]?.text ?? '',
@@ -430,7 +434,8 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+  Future<void> _selectDate(
+      BuildContext context, TextEditingController controller) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -507,9 +512,7 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
                       // Divider
                       VerticalDivider(
                         width: 1,
-                        color: isDark
-                            ? Colors.white12
-                            : Colors.grey.shade200,
+                        color: isDark ? Colors.white12 : Colors.grey.shade200,
                       ),
                       // Left side (in RTL) — item selection & specifications
                       Expanded(
@@ -603,7 +606,8 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
         children: [
           _sectionTitle('بيانات أمر التشغيل', Icons.article_outlined, isDark),
           const SizedBox(height: 12),
-          _field('اسم العميل', _clientNameCtrl, isDark, hint: 'أدخل اسم العميل'),
+          _field('اسم العميل', _clientNameCtrl, isDark,
+              hint: 'أدخل اسم العميل'),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -720,7 +724,9 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
           Material(
             color: _saveToDatabase
                 ? const Color(0xFF1a3a6e).withValues(alpha: 0.08)
-                : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50),
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.04)
+                    : Colors.grey.shade50),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
               side: BorderSide(
@@ -734,8 +740,10 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
               value: _saveToDatabase,
               onChanged: (v) => setState(() => _saveToDatabase = v ?? false),
               activeColor: const Color(0xFF1a3a6e),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
               title: Text(
                 'حفظ العميل والأصناف في سجل العملاء',
                 style: TextStyle(
@@ -788,7 +796,8 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
                 InkWell(
                   onTap: _addItem,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.green.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
@@ -798,7 +807,11 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
                       children: [
                         Icon(Icons.add, size: 14, color: Colors.green.shade700),
                         const SizedBox(width: 4),
-                        Text('إضافة صنف', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade700)),
+                        Text('إضافة صنف',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade700)),
                       ],
                     ),
                   ),
@@ -813,345 +826,408 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
             itemBuilder: (_, i) {
               final idx = _selectedIndices[i];
 
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: isDark ? 0.25 : 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: accent.withValues(alpha: 0.6),
-                      width: 1.5,
-                    ),
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: isDark ? 0.25 : 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: accent.withValues(alpha: 0.6),
+                    width: 1.5,
                   ),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        child: Row(
-                          children: [
-                            InkWell(
-                              onTap: () => _toggleItem(idx),
-                              child: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(flex: 2, child: _miniField('بيان الصنف *', _itemNameCtrl[idx]!, isDark)),
-                                      const SizedBox(width: 8),
-                                      Expanded(child: _miniField('الكود', _itemCodeCtrl[idx]!, isDark)),
-                                    ]
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Expanded(child: _miniField('طول', _itemDimLCtrl[idx]!, isDark, keyboard: TextInputType.number)),
-                                      const SizedBox(width: 8),
-                                      Expanded(child: _miniField('عرض', _itemDimWCtrl[idx]!, isDark, keyboard: TextInputType.number)),
-                                      const SizedBox(width: 8),
-                                      Expanded(child: _miniField('ارتفاع', _itemDimHCtrl[idx]!, isDark, keyboard: TextInputType.number)),
-                                    ]
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Divider(height: 12),
-                            // ── صف: الكمية + ملاحظات + عرض البكر
-                            Row(
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: [
+                          InkWell(
+                            onTap: () => _toggleItem(idx),
+                            child: const Icon(Icons.delete_outline,
+                                color: Colors.red, size: 22),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
                               children: [
+                                Row(children: [
                                   Expanded(
-                                    flex: 2,
-                                    child: _miniField(
-                                      'العدد (الكمية)',
-                                      _qtyCtrl[idx]!,
-                                      isDark,
-                                      keyboard: TextInputType.number,
-                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                    ),
-                                  ),
+                                      flex: 2,
+                                      child: _miniField('بيان الصنف *',
+                                          _itemNameCtrl[idx]!, isDark)),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    flex: 2,
-                                    child: _miniField(
-                                      'عرض البكر (سم)',
-                                      _itemRollWidthCtrl[idx]!,
-                                      isDark,
-                                      keyboard: const TextInputType.numberWithOptions(decimal: true),
-                                      hint: 'مثال: 120',
-                                    ),
-                                  ),
+                                      child: _miniField('الكود',
+                                          _itemCodeCtrl[idx]!, isDark)),
+                                ]),
+                                const SizedBox(height: 8),
+                                Row(children: [
+                                  Expanded(
+                                      child: _miniField(
+                                          'طول', _itemDimLCtrl[idx]!, isDark,
+                                          keyboard: TextInputType.number)),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    flex: 3,
-                                    child: _miniField(
-                                      'ملاحظات التشغيل',
-                                      _itemNotesCtrl[idx]!,
-                                      isDark,
-                                    ),
-                                  ),
-                                ],
+                                      child: _miniField(
+                                          'عرض', _itemDimWCtrl[idx]!, isDark,
+                                          keyboard: TextInputType.number)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                      child: _miniField(
+                                          'ارتفاع', _itemDimHCtrl[idx]!, isDark,
+                                          keyboard: TextInputType.number)),
+                                ]),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Divider(height: 12),
+                          // ── صف: الكمية + ملاحظات + عرض البكر
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: _miniField(
+                                  'العدد (الكمية)',
+                                  _qtyCtrl[idx]!,
+                                  isDark,
+                                  keyboard: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: 12),
-                              
-                              // --- Corrugation Section Header
-                              Row(
-                                children: [
-                                  const Icon(Icons.waves, size: 14, color: Color(0xFF1a3a6e)),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'مواصفات التضليع',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark ? Colors.white70 : const Color(0xFF1a3a6e),
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 2,
+                                child: _miniField(
+                                  'عرض البكر (سم)',
+                                  _itemRollWidthCtrl[idx]!,
+                                  isDark,
+                                  keyboard:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
+                                  hint: 'مثال: 120',
+                                ),
                               ),
-                              const SizedBox(height: 6),
-                              
-                              // --- Checkboxes Wrap
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: ['E', 'C', 'E/E', 'C/C', 'C/E'].map((type) {
-                                  final isChecked = _itemSelectedCorrugations[idx]?.contains(type) ?? false;
-                                  return InkWell(
-                                    onTap: () {
-                                      setState(() {
-                                        if (isChecked) {
-                                          _itemSelectedCorrugations[idx]?.clear();
-                                          _syncLayerControllers(idx, 0);
-                                        } else {
-                                          _itemSelectedCorrugations[idx] = [type];
-                                          _itemCustomCorrugationCtrl[idx]?.clear();
-                                          final count = _getDefaultLayerCount(idx);
-                                          _syncLayerControllers(idx, count);
-                                        }
-                                      });
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: Checkbox(
-                                              value: _itemSelectedCorrugations[idx]?.isNotEmpty == true && 
-                                                     _itemSelectedCorrugations[idx]!.first == type,
-                                              activeColor: const Color(0xFF1a3a6e),
-                                              onChanged: (v) {
-                                                setState(() {
-                                                  if (v == true) {
-                                                    _itemSelectedCorrugations[idx] = [type];
-                                                    _itemCustomCorrugationCtrl[idx]?.clear();
-                                                    final count = _getDefaultLayerCount(idx);
-                                                    _syncLayerControllers(idx, count);
-                                                  } else {
-                                                    _itemSelectedCorrugations[idx]?.clear();
-                                                    _syncLayerControllers(idx, 0);
-                                                  }
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            type,
-                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                          ),
-                                        ],
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 3,
+                                child: _miniField(
+                                  'ملاحظات التشغيل',
+                                  _itemNotesCtrl[idx]!,
+                                  isDark,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // --- Corrugation Section Header
+                          Row(
+                            children: [
+                              const Icon(Icons.waves,
+                                  size: 14, color: Color(0xFF1a3a6e)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'مواصفات التضليع',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : const Color(0xFF1a3a6e),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+
+                          // --- Checkboxes Wrap
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children:
+                                ['E', 'C', 'E/E', 'C/C', 'C/E'].map((type) {
+                              final isChecked = _itemSelectedCorrugations[idx]
+                                      ?.contains(type) ??
+                                  false;
+                              return InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    if (isChecked) {
+                                      _itemSelectedCorrugations[idx]?.clear();
+                                      _syncLayerControllers(idx, 0);
+                                    } else {
+                                      _itemSelectedCorrugations[idx] = [type];
+                                      _itemCustomCorrugationCtrl[idx]?.clear();
+                                      final count = _getDefaultLayerCount(idx);
+                                      _syncLayerControllers(idx, count);
+                                    }
+                                  });
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 2),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: Checkbox(
+                                          value: _itemSelectedCorrugations[idx]
+                                                      ?.isNotEmpty ==
+                                                  true &&
+                                              _itemSelectedCorrugations[idx]!
+                                                      .first ==
+                                                  type,
+                                          activeColor: const Color(0xFF1a3a6e),
+                                          onChanged: (v) {
+                                            setState(() {
+                                              if (v == true) {
+                                                _itemSelectedCorrugations[idx] =
+                                                    [type];
+                                                _itemCustomCorrugationCtrl[idx]
+                                                    ?.clear();
+                                                final count =
+                                                    _getDefaultLayerCount(idx);
+                                                _syncLayerControllers(
+                                                    idx, count);
+                                              } else {
+                                                _itemSelectedCorrugations[idx]
+                                                    ?.clear();
+                                                _syncLayerControllers(idx, 0);
+                                              }
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        type,
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // --- Custom Corrugation
+                          _miniField(
+                            'تضليع مخصص / أخرى (مثل E/E + C)',
+                            _itemCustomCorrugationCtrl[idx]!,
+                            isDark,
+                            hint: 'أكتب نوع التضليع إذا لم يكن بالقائمة أعلاه',
+                            readOnly:
+                                _itemSelectedCorrugations[idx]?.isNotEmpty ==
+                                    true,
+                            onChanged: (v) {
+                              if (v.isNotEmpty) {
+                                final count = _getDefaultLayerCount(idx);
+                                _syncLayerControllers(
+                                    idx, count == 0 ? 3 : count);
+                                setState(() {});
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 8),
+
+                          // --- Samples & Sheet Count Row
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _miniField(
+                                  'عينات',
+                                  _itemSamplesCtrl[idx]!,
+                                  isDark,
+                                  hint: 'مثال: معتمدة / مطابقة',
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _miniField(
+                                  'عدد الشرائح',
+                                  _itemSheetCountCtrl[idx]!,
+                                  isDark,
+                                  keyboard: TextInputType.number,
+                                  hint: 'أرقام فقط',
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // --- Sheet Size Row (two separate fields)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _miniField(
+                                  'طول الشريحة',
+                                  _itemSheetLenCtrl[idx]!,
+                                  isDark,
+                                  keyboard:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
+                                  hint: 'مثال: 80',
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _miniField(
+                                  'عرض الشريحة',
+                                  _itemSheetWidCtrl[idx]!,
+                                  isDark,
+                                  keyboard:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
+                                  hint: 'مثال: 36',
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // ── قسم أنواع الورق (الطبقات الديناميكية)
+                          Builder(builder: (context) {
+                            final layers = _itemPaperLayerCtrls[idx] ?? [];
+                            if (layers.isEmpty) return const SizedBox.shrink();
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.layers_outlined,
+                                        size: 14, color: Color(0xFF1a3a6e)),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'أنواع الورق (الطبقات)',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark
+                                            ? Colors.white70
+                                            : const Color(0xFF1a3a6e),
                                       ),
                                     ),
-                                  );
-                                }).toList(),
-                              ),
-                              const SizedBox(height: 8),
-                              
-                              // --- Custom Corrugation
-                              _miniField(
-                                'تضليع مخصص / أخرى (مثل E/E + C)',
-                                _itemCustomCorrugationCtrl[idx]!,
-                                isDark,
-                                hint: 'أكتب نوع التضليع إذا لم يكن بالقائمة أعلاه',
-                                readOnly: _itemSelectedCorrugations[idx]?.isNotEmpty == true,
-                                onChanged: (v) {
-                                  if (v.isNotEmpty) {
-                                    final count = _getDefaultLayerCount(idx);
-                                    _syncLayerControllers(idx, count == 0 ? 3 : count);
-                                    setState(() {});
-                                  }
-                                },
-                              ),
-                              const SizedBox(height: 8),
-                              
-                              // --- Samples & Sheet Count Row
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _miniField(
-                                      'عينات',
-                                      _itemSamplesCtrl[idx]!,
-                                      isDark,
-                                      hint: 'مثال: معتمدة / مطابقة',
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _miniField(
-                                      'عدد الشرائح',
-                                      _itemSheetCountCtrl[idx]!,
-                                      isDark,
-                                      keyboard: TextInputType.number,
-                                      hint: 'أرقام فقط',
-                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              
-                              // --- Sheet Size Row (two separate fields)
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _miniField(
-                                      'طول الشريحة',
-                                      _itemSheetLenCtrl[idx]!,
-                                      isDark,
-                                      keyboard: const TextInputType.numberWithOptions(decimal: true),
-                                      hint: 'مثال: 80',
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _miniField(
-                                      'عرض الشريحة',
-                                      _itemSheetWidCtrl[idx]!,
-                                      isDark,
-                                      keyboard: const TextInputType.numberWithOptions(decimal: true),
-                                      hint: 'مثال: 36',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              
-                              // ── قسم أنواع الورق (الطبقات الديناميكية)
-                              Builder(builder: (context) {
-                                final layers = _itemPaperLayerCtrls[idx] ?? [];
-                                if (layers.isEmpty) return const SizedBox.shrink();
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.layers_outlined, size: 14, color: Color(0xFF1a3a6e)),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'أنواع الورق (الطبقات)',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            color: isDark ? Colors.white70 : const Color(0xFF1a3a6e),
+                                    const Spacer(),
+                                    // زر إضافة طبقة
+                                    Tooltip(
+                                      message: 'إضافة طبقة',
+                                      child: InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            _itemPaperLayerCtrls[idx]!
+                                                .add(TextEditingController());
+                                          });
+                                        },
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF1a3a6e)
+                                                .withValues(alpha: 0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                            border: Border.all(
+                                                color: const Color(0xFF1a3a6e)
+                                                    .withValues(alpha: 0.3)),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.add,
+                                                  size: 13,
+                                                  color: Color(0xFF1a3a6e)),
+                                              SizedBox(width: 3),
+                                              Text(
+                                                'إضافة طبقة',
+                                                style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: Color(0xFF1a3a6e),
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        const Spacer(),
-                                        // زر إضافة طبقة
-                                        Tooltip(
-                                          message: 'إضافة طبقة',
-                                          child: InkWell(
-                                            onTap: () {
-                                              setState(() {
-                                                _itemPaperLayerCtrls[idx]!.add(TextEditingController());
-                                              });
-                                            },
-                                            borderRadius: BorderRadius.circular(6),
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF1a3a6e).withValues(alpha: 0.12),
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: const Color(0xFF1a3a6e).withValues(alpha: 0.3)),
-                                              ),
-                                              child: const Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(Icons.add, size: 13, color: Color(0xFF1a3a6e)),
-                                                  SizedBox(width: 3),
-                                                  Text(
-                                                    'إضافة طبقة',
-                                                    style: TextStyle(fontSize: 10, color: Color(0xFF1a3a6e), fontWeight: FontWeight.bold),
-                                                  ),
-                                                ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                ...List.generate(layers.length, (layerIdx) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: _miniField(
+                                            'طبقة ${layerIdx + 1}',
+                                            layers[layerIdx],
+                                            isDark,
+                                            hint: 'نوع الورق (مثال: فلوت عادي)',
+                                          ),
+                                        ),
+                                        // زر حذف الطبقة (يظهر فقط للطبقات الإضافية)
+                                        if (layerIdx >=
+                                            _getDefaultLayerCount(idx))
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.only(right: 4),
+                                            child: InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  layers[layerIdx].dispose();
+                                                  layers.removeAt(layerIdx);
+                                                });
+                                              },
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              child: const Padding(
+                                                padding: EdgeInsets.all(4),
+                                                child: Icon(
+                                                    Icons.remove_circle_outline,
+                                                    size: 16,
+                                                    color: Colors.redAccent),
                                               ),
                                             ),
                                           ),
-                                        ),
                                       ],
                                     ),
-                                    const SizedBox(height: 6),
-                                    ...List.generate(layers.length, (layerIdx) {
-                                      return Padding(
-                                        padding: const EdgeInsets.only(bottom: 6),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: _miniField(
-                                                'طبقة ${layerIdx + 1}',
-                                                layers[layerIdx],
-                                                isDark,
-                                                hint: 'نوع الورق (مثال: فلوت عادي)',
-                                              ),
-                                            ),
-                                            // زر حذف الطبقة (يظهر فقط للطبقات الإضافية)
-                                            if (layerIdx >= _getDefaultLayerCount(idx))
-                                              Padding(
-                                                padding: const EdgeInsets.only(right: 4),
-                                                child: InkWell(
-                                                  onTap: () {
-                                                    setState(() {
-                                                      layers[layerIdx].dispose();
-                                                      layers.removeAt(layerIdx);
-                                                    });
-                                                  },
-                                                  borderRadius: BorderRadius.circular(4),
-                                                  child: const Padding(
-                                                    padding: EdgeInsets.all(4),
-                                                    child: Icon(Icons.remove_circle_outline, size: 16, color: Colors.redAccent),
-                                                  ),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      );
-                                    }),
-                                  ],
-                                );
+                                  );
                                 }),
-
-                            ],           // end Column children
-                          ),           // end Column
-                        ),             // end Padding
-                    ],                 // end item children
-                  ),                   // end AnimatedContainer child Column
-                );                     // end AnimatedContainer
-              },
-            ),
+                              ],
+                            );
+                          }),
+                        ], // end Column children
+                      ), // end Column
+                    ), // end Padding
+                  ], // end item children
+                ), // end AnimatedContainer child Column
+              ); // end AnimatedContainer
+            },
           ),
+        ),
       ],
     );
   }
@@ -1241,8 +1317,6 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
     );
   }
 
-
-
   Widget _field(
     String label,
     TextEditingController ctrl,
@@ -1289,9 +1363,7 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
               vertical: 10,
             ),
             filled: true,
-            fillColor: isDark
-                ? const Color(0xFF252B3B)
-                : Colors.grey.shade100,
+            fillColor: isDark ? const Color(0xFF252B3B) : Colors.grey.shade100,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,
@@ -1352,9 +1424,7 @@ class _ManualJobOrderDialogState extends State<ManualJobOrderDialog> {
               vertical: 8,
             ),
             filled: true,
-            fillColor: isDark
-                ? const Color(0xFF1E2535)
-                : Colors.white,
+            fillColor: isDark ? const Color(0xFF1E2535) : Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide(

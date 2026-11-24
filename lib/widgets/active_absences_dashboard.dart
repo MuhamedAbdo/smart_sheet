@@ -9,45 +9,48 @@ class ActiveAbsencesDashboard extends StatelessWidget {
   final Box<Worker> workerBox;
   final String? filterDepartment; // ✅ تصفية حية حسب القسم
 
-  const ActiveAbsencesDashboard({super.key, required this.workerBox, this.filterDepartment});
+  const ActiveAbsencesDashboard(
+      {super.key, required this.workerBox, this.filterDepartment});
 
   /// Resets all worker statuses from 'غياب' to 'متواجد' and clears old sessions
-  static Future<void> resetAllWorkerStatuses(BuildContext context, Box<Worker> workerBox, String? filterDept) async {
+  static Future<void> resetAllWorkerStatuses(
+      BuildContext context, Box<Worker> workerBox, String? filterDept) async {
     try {
       int updatedCount = 0;
-      
+
       // نستخدم toMap().entries عشان نوصل للـ key والـ worker مع بعض لازم تستخدم workerBox.toMap().entries
       for (var entry in workerBox.toMap().entries) {
         final worker = entry.value;
         final key = entry.key;
-        
+
         if (filterDept != null && worker.department != filterDept) {
           continue;
         }
-        
+
         List<WorkerAction> actions = List<WorkerAction>.from(worker.actions);
-        
+
         // تنظيف الغيابات القديمة
         bool hasChanged = false;
         final filteredActions = actions.where((action) {
           if (action.type == 'غياب') {
-            final daysSinceAbsence = DateTime.now().difference(action.date).inDays;
+            final daysSinceAbsence =
+                DateTime.now().difference(action.date).inDays;
             if (daysSinceAbsence > 30) {
               hasChanged = true;
-              return false; 
+              return false;
             }
           }
           return true;
         }).toList();
-        
+
         // التحقق من الحالة النشطة
-        final hasActiveStatus = filteredActions.any((action) => 
-            action.isActive && action.returnDate == null);
-        
+        final hasActiveStatus = filteredActions
+            .any((action) => action.isActive && action.returnDate == null);
+
         // التحقق من وجود تاريخ عودة - يجب أن تكون حالة العامل (حضور)
-        final hasReturnDate = filteredActions.any((action) => 
-            action.returnDate != null);
-        
+        final hasReturnDate =
+            filteredActions.any((action) => action.returnDate != null);
+
         // Add new 'حضور' status if worker has return date or no active status
         if (hasReturnDate || !hasActiveStatus) {
           final presentAction = WorkerAction(
@@ -61,7 +64,7 @@ class ActiveAbsencesDashboard extends StatelessWidget {
           hasChanged = true;
           updatedCount++;
         }
-        
+
         if (hasChanged) {
           final updatedWorker = Worker(
             name: worker.name,
@@ -78,11 +81,12 @@ class ActiveAbsencesDashboard extends StatelessWidget {
           await workerBox.put(key, updatedWorker);
         }
       }
-      
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('تم تصفير حالات العمال بنجاح: $updatedCount عامل تم تحديث حالته'),
+            content: Text(
+                'تم تصفير حالات العمال بنجاح: $updatedCount عامل تم تحديث حالته'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
@@ -108,9 +112,10 @@ class ActiveAbsencesDashboard extends StatelessWidget {
       builder: (context, Box<Worker> box, _) {
         // Find workers with active absence actions
         final activeAbsences = <MapEntry<Worker, WorkerAction>>[];
-        
+
         for (var worker in box.values) {
-          if (filterDepartment != null && worker.department != filterDepartment) {
+          if (filterDepartment != null &&
+              worker.department != filterDepartment) {
             continue;
           }
           try {
@@ -135,9 +140,10 @@ class ActiveAbsencesDashboard extends StatelessWidget {
         bool canEditWorker(Worker targetWorker) {
           if (isSuperAdmin) return true;
           if (currentWorker == null) return false;
-          final bool isSupervisor = currentWorker.job == 'مشرف' ||
-              currentWorker.job == 'رئيس قسم';
-          final bool sameDept = currentWorker.department == targetWorker.department;
+          final bool isSupervisor =
+              currentWorker.job == 'مشرف' || currentWorker.job == 'رئيس قسم';
+          final bool sameDept =
+              currentWorker.department == targetWorker.department;
           return isSupervisor && sameDept && currentWorker.canEdit;
         }
 
@@ -148,10 +154,12 @@ class ActiveAbsencesDashboard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Row(
                   children: [
-                    const Icon(Icons.history_toggle_off, color: Colors.red, size: 20),
+                    const Icon(Icons.history_toggle_off,
+                        color: Colors.red, size: 20),
                     const SizedBox(width: 8),
                     const Text(
                       'الجلسات الحية',
@@ -162,7 +170,8 @@ class ActiveAbsencesDashboard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.red.shade100,
                         borderRadius: BorderRadius.circular(10),
@@ -181,14 +190,16 @@ class ActiveAbsencesDashboard extends StatelessWidget {
                     if (isSuperAdmin)
                       ElevatedButton.icon(
                         onPressed: () async {
-                          await resetAllWorkerStatuses(context, workerBox, filterDepartment);
+                          await resetAllWorkerStatuses(
+                              context, workerBox, filterDepartment);
                         },
                         icon: const Icon(Icons.refresh, size: 16),
                         label: const Text('تصفير الحالات'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                         ),
                       ),
                   ],

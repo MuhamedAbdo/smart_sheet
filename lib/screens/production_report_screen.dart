@@ -1304,8 +1304,11 @@ class _FlexoProductionReportScreenState
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: _buildInfoRow("👤 العميل:", record['clientName']?.toString() ?? '---')),
-                        UIUtils.buildOrderNumberBadge(record['orderNumber']?.toString()),
+                        Expanded(
+                            child: _buildInfoRow("👤 العميل:",
+                                record['clientName']?.toString() ?? '---')),
+                        UIUtils.buildOrderNumberBadge(
+                            record['orderNumber']?.toString()),
                       ],
                     ),
                     Row(
@@ -1313,23 +1316,28 @@ class _FlexoProductionReportScreenState
                       children: [
                         Expanded(
                           child: _buildInfoRow("📦 الصنف:",
-                        "${record['product']?.toString() ?? '---'} [ ${record['productCode']?.toString() ?? '---'} ]"),
+                              "${record['product']?.toString() ?? '---'} [ ${record['productCode']?.toString() ?? '---'} ]"),
                         ),
                         Builder(
                           builder: (_) {
                             final pState = record['productState']?.toString() ??
                                 record['product_state']?.toString() ??
                                 (record['dimensions'] is Map
-                                    ? (record['dimensions']['product_state']?.toString() ??
-                                        record['dimensions']['productState']?.toString())
+                                    ? (record['dimensions']['product_state']
+                                            ?.toString() ??
+                                        record['dimensions']['productState']
+                                            ?.toString())
                                     : null) ??
                                 'مطبوع';
                             final isPr = pState == 'مطبوع';
                             return Container(
                               margin: const EdgeInsets.only(bottom: 2),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: isPr ? Colors.purple.shade700 : Colors.teal.shade700,
+                                color: isPr
+                                    ? Colors.purple.shade700
+                                    : Colors.teal.shade700,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -1956,8 +1964,7 @@ class _FlexoProductionReportScreenState
       );
 
   // ✅ التعديل الثاني: عرض المقاسات بشكل صحيح (طول × عرض × ارتفاع) بجانب النص العربي
-  Widget _buildDimensionsText(Map<dynamic, dynamic>? d,
-      {bool isSheet = false}) {
+  Widget _buildDimensionsText(Map<dynamic, dynamic>? d, {bool isSheet = false}) {
     final String length = d?['length']?.toString() ?? '0';
     final String width = d?['width']?.toString() ?? '0';
     final String height = d?['height']?.toString() ?? '0';
@@ -1966,7 +1973,7 @@ class _FlexoProductionReportScreenState
         widget.department == 'crushing' || widget.department == 'die_cutting';
     final bool isProdLine = widget.department == 'production_line';
 
-    final String displayText = (isCrushing || isProdLine)
+    final String displayText = (isSheet || isCrushing || isProdLine)
         ? (height == '0' || height == '0.0' || height.isEmpty
             ? "$length / $width"
             : "$length / $width / $height")
@@ -1996,7 +2003,9 @@ class _FlexoProductionReportScreenState
           ...c.map((i) => Text(" • ${i['color']} (${i['quantity']} لتر)"))
         ]);
   Widget _buildNotesText(dynamic n) {
-    if (n == null || n.toString().trim().isEmpty) return const SizedBox.shrink();
+    if (n == null || n.toString().trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -2025,7 +2034,8 @@ class _FlexoProductionReportScreenState
                 const SizedBox(height: 2),
                 Text(
                   n.toString(),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w500),
                 ),
               ],
             ),
@@ -2050,7 +2060,8 @@ class _FlexoProductionReportScreenState
 
               final currentUser = PermissionHelper.currentWorker;
               final isAdmin = PermissionHelper.isSuperAdmin;
-              if (isAdmin || (currentUser != null && currentUser.job == 'رئيس القسم')) {
+              if (isAdmin ||
+                  (currentUser != null && currentUser.job == 'رئيس القسم')) {
                 r['status'] = 'approved';
               } else {
                 r['status'] = 'pending';
@@ -2552,9 +2563,14 @@ class _FlexoProductionReportScreenState
       'paper_layers': session.paperLayers ?? [],
       'crewMembers': session.crewMembers,
       'crew_members': session.crewMembers,
-      'notes': session.dimensions?['notes'] ?? session.dimensions?['note'] ?? "",
-      'productState': session.dimensions?['productState'] ?? session.dimensions?['product_state'] ?? 'مطبوع',
-      'product_state': session.dimensions?['product_state'] ?? session.dimensions?['productState'] ?? 'مطبوع',
+      'notes':
+          session.dimensions?['notes'] ?? session.dimensions?['note'] ?? "",
+      'productState': session.dimensions?['productState'] ??
+          session.dimensions?['product_state'] ??
+          'مطبوع',
+      'product_state': session.dimensions?['product_state'] ??
+          session.dimensions?['productState'] ??
+          'مطبوع',
     };
 
     // ─── الترتيب الجديد: فتح نموذج التقرير أولاً وحذف الجلسة فقط عند الحفظ بنجاح ───

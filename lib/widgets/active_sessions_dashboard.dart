@@ -26,31 +26,39 @@ class ActiveSessionsDashboard extends StatelessWidget {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done &&
               Hive.isBoxOpen('flexo_live_sessions')) {
-            return _buildDashboardContent(context, Hive.box<LiveSession>('flexo_live_sessions'));
+            return _buildDashboardContent(
+                context, Hive.box<LiveSession>('flexo_live_sessions'));
           }
           return const SizedBox.shrink();
         },
       );
     }
-    return _buildDashboardContent(context, Hive.box<LiveSession>('flexo_live_sessions'));
+    return _buildDashboardContent(
+        context, Hive.box<LiveSession>('flexo_live_sessions'));
   }
 
   Widget _buildDashboardContent(BuildContext context, Box<LiveSession> box) {
     return ValueListenableBuilder(
       valueListenable: box.listenable(),
       builder: (context, Box<LiveSession> openBox, _) {
-        final sessions = openBox.values.where((s) {
-          if (department == 'production_line') {
-            return s.department == 'production_line';
-          } else if (department == 'crushing' || department == 'die_cutting') {
-            return s.department == 'crushing' || s.department == 'die_cutting';
-          } else if (department == 'flexo' || department == null) {
-            // ✅ FIX: null يُعامَل كـ 'flexo' (الحالة الافتراضية لشاشة تقرير الإنتاج)
-            return s.department == 'flexo' || s.department == null;
-          } else {
-            return s.department == department;
-          }
-        }).toList().reversed.toList();
+        final sessions = openBox.values
+            .where((s) {
+              if (department == 'production_line') {
+                return s.department == 'production_line';
+              } else if (department == 'crushing' ||
+                  department == 'die_cutting') {
+                return s.department == 'crushing' ||
+                    s.department == 'die_cutting';
+              } else if (department == 'flexo' || department == null) {
+                // ✅ FIX: null يُعامَل كـ 'flexo' (الحالة الافتراضية لشاشة تقرير الإنتاج)
+                return s.department == 'flexo' || s.department == null;
+              } else {
+                return s.department == department;
+              }
+            })
+            .toList()
+            .reversed
+            .toList();
 
         if (sessions.isEmpty) {
           return const SizedBox.shrink();
@@ -86,13 +94,18 @@ class ActiveSessionsDashboard extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final session = sessions[index];
                     // ✅ التحقق من وجود تعارض (أكثر من جلسة نشطة لنفس الماكينة)
-                    final hasConflict = sessions.where((s) => s.machineName == session.machineName).length > 1;
+                    final hasConflict = sessions
+                            .where((s) => s.machineName == session.machineName)
+                            .length >
+                        1;
 
                     return SessionCard(
                       session: session,
                       onFinish: () => onFinishSession(session),
-                      onCancel: () => onCancelSession(session), // ✅ تمرير الدالة للبطاقة
-                      onToggleDowntime: (shouldResume) => _toggleDowntime(session, shouldResume),
+                      onCancel: () =>
+                          onCancelSession(session), // ✅ تمرير الدالة للبطاقة
+                      onToggleDowntime: (shouldResume) =>
+                          _toggleDowntime(session, shouldResume),
                       hasConflict: hasConflict, // ✅ تمرير حالة التعارض
                     );
                   },
@@ -115,7 +128,8 @@ class ActiveSessionsDashboard extends StatelessWidget {
       session.isRunning = true;
     } else {
       // Start a new downtime interval
-      session.downtimeIntervals.add(DowntimeInterval(start: ServerTimeService.nowUtc));
+      session.downtimeIntervals
+          .add(DowntimeInterval(start: ServerTimeService.nowUtc));
       session.isRunning = false;
     }
     session.lastStateChange = ServerTimeService.nowUtc;

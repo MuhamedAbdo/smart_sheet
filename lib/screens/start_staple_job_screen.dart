@@ -21,23 +21,27 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
 
   String? _selectedMachine;
   String? _selectedTechnician;
-  
+
   final TextEditingController _customerController = TextEditingController();
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _itemCodeController = TextEditingController();
   final TextEditingController _orderNumberController = TextEditingController();
-  
+
   final List<String> _selectedCrewMembers = [];
 
   @override
   void initState() {
     super.initState();
     if (widget.initialData != null) {
-      _customerController.text = widget.initialData!['clientName']?.toString() ?? '';
-      _itemController.text = widget.initialData!['productName']?.toString() ?? '';
-      _itemCodeController.text = widget.initialData!['productCode']?.toString() ?? '';
+      _customerController.text =
+          widget.initialData!['clientName']?.toString() ?? '';
+      _itemController.text =
+          widget.initialData!['productName']?.toString() ?? '';
+      _itemCodeController.text =
+          widget.initialData!['productCode']?.toString() ?? '';
     }
   }
+
   @override
   void dispose() {
     _customerController.dispose();
@@ -49,7 +53,7 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
 
   Future<void> _startJob() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() {
       _isLoading = true;
     });
@@ -59,17 +63,19 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
       final liveBoxCheck = Hive.isBoxOpen('flexo_live_sessions')
           ? Hive.box<LiveSession>('flexo_live_sessions')
           : await Hive.openBox<LiveSession>('flexo_live_sessions');
-      
-      final isAlreadyRunning = liveBoxCheck.values.any((s) => 
-        s.machineName == _selectedMachine && s.isRunning && s.department == 'staples'
-      );
+
+      final isAlreadyRunning = liveBoxCheck.values.any((s) =>
+          s.machineName == _selectedMachine &&
+          s.isRunning &&
+          s.department == 'staples');
 
       if (isAlreadyRunning) {
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('لا يمكن البدء: الماكينة قيد التشغيل حالياً في جلسة أخرى'),
+              content: Text(
+                  'لا يمكن البدء: الماكينة قيد التشغيل حالياً في جلسة أخرى'),
               backgroundColor: Colors.red,
             ),
           );
@@ -77,8 +83,12 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
         return;
       }
 
-      final String? deviceId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('device_id') : null;
-      final String? factoryId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('factory_id') : null;
+      final String? deviceId = Hive.isBoxOpen('settings')
+          ? Hive.box('settings').get('device_id')
+          : null;
+      final String? factoryId = Hive.isBoxOpen('settings')
+          ? Hive.box('settings').get('factory_id')
+          : null;
 
       final session = LiveSession(
         id: const Uuid().v4(),
@@ -94,10 +104,15 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
         crewMembers: _selectedCrewMembers,
         department: 'staples',
         dimensions: () {
-          final d = Map<String, dynamic>.from(widget.initialData?['dimensions'] ?? {});
-          if (widget.initialData?['notes'] != null) d['notes'] = widget.initialData!['notes'];
-          if (widget.initialData?['product_state'] != null || widget.initialData?['productState'] != null) {
-            d['product_state'] = widget.initialData?['product_state'] ?? widget.initialData?['productState'];
+          final d = Map<String, dynamic>.from(
+              widget.initialData?['dimensions'] ?? {});
+          if (widget.initialData?['notes'] != null) {
+            d['notes'] = widget.initialData!['notes'];
+          }
+          if (widget.initialData?['product_state'] != null ||
+              widget.initialData?['productState'] != null) {
+            d['product_state'] = widget.initialData?['product_state'] ??
+                widget.initialData?['productState'];
             d['productState'] = d['product_state'];
           }
           return d;
@@ -148,7 +163,7 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
   Future<void> _saveNewMachineIfNeeded(String machineName) async {
     if (machineName.isEmpty) return;
     if (!Hive.isBoxOpen('flexo_machines')) return;
-    
+
     final machinesBox = Hive.box<FlexoMachine>('flexo_machines');
     bool exists = false;
     for (var m in machinesBox.values) {
@@ -157,7 +172,7 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
         break;
       }
     }
-    
+
     if (!exists) {
       final newMachineId = const Uuid().v4();
       final newMachine = FlexoMachine(
@@ -166,8 +181,10 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
         department: 'staples',
       );
       await machinesBox.put(newMachineId, newMachine);
-      
-      final String? factoryId = Hive.isBoxOpen('settings') ? Hive.box('settings').get('factory_id') : null;
+
+      final String? factoryId = Hive.isBoxOpen('settings')
+          ? Hive.box('settings').get('factory_id')
+          : null;
       await SyncService.instance.pushToQueue(
         'machines',
         {
@@ -182,12 +199,14 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
   }
 
   Future<void> _showAddMachineDialog() async {
-    final TextEditingController customMachineController = TextEditingController();
+    final TextEditingController customMachineController =
+        TextEditingController();
     await showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('إضافة ماكينة يدوياً', style: TextStyle(fontFamily: 'Cairo')),
+          title: const Text('إضافة ماكينة يدوياً',
+              style: TextStyle(fontFamily: 'Cairo')),
           content: TextField(
             controller: customMachineController,
             decoration: const InputDecoration(
@@ -235,16 +254,19 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(color: Colors.blueGrey.shade400),
-          prefixIcon: icon != null ? Icon(icon, color: Colors.blueAccent) : null,
+          prefixIcon:
+              icon != null ? Icon(icon, color: Colors.blueAccent) : null,
           filled: true,
           fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+            borderSide:
+                BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+            borderSide:
+                BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -281,16 +303,19 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(color: Colors.blueGrey.shade400),
-          prefixIcon: icon != null ? Icon(icon, color: Colors.blueAccent) : null,
+          prefixIcon:
+              icon != null ? Icon(icon, color: Colors.blueAccent) : null,
           filled: true,
           fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+            borderSide:
+                BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+            borderSide:
+                BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
           ),
         ),
         dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
@@ -299,7 +324,7 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
           return DropdownMenuItem(
             value: item,
             child: Text(
-              item, 
+              item,
               style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               overflow: TextOverflow.ellipsis,
             ),
@@ -319,14 +344,15 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
       child: InkWell(
         onTap: () async {
           final sortedWorkers = WorkerUtils.getSortedWorkers('staples');
-          
+
           await showDialog(
             context: context,
             builder: (context) {
               return StatefulBuilder(
                 builder: (context, setStateDialog) {
                   return AlertDialog(
-                    title: const Text('اختر طاقم الماكينة', style: TextStyle(fontFamily: 'Cairo')),
+                    title: const Text('اختر طاقم الماكينة',
+                        style: TextStyle(fontFamily: 'Cairo')),
                     content: SizedBox(
                       width: double.maxFinite,
                       child: ListView.builder(
@@ -337,14 +363,17 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
                           bool showDivider = false;
                           if (index > 0) {
                             final prevWorker = sortedWorkers[index - 1];
-                            if (prevWorker.department == 'staples' && worker.department != 'staples') {
+                            if (prevWorker.department == 'staples' &&
+                                worker.department != 'staples') {
                               showDivider = true;
                             }
                           }
 
-                          final isSelected = _selectedCrewMembers.contains(worker.name);
+                          final isSelected =
+                              _selectedCrewMembers.contains(worker.name);
                           final tile = CheckboxListTile(
-                            title: Text('${worker.name} (${worker.job})', style: const TextStyle(fontFamily: 'Cairo')),
+                            title: Text('${worker.name} (${worker.job})',
+                                style: const TextStyle(fontFamily: 'Cairo')),
                             value: isSelected,
                             onChanged: (bool? value) {
                               setStateDialog(() {
@@ -364,7 +393,10 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
                                 const Divider(thickness: 2),
                                 const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 8.0),
-                                  child: Text('باقي أقسام المصنع', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                                  child: Text('باقي أقسام المصنع',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey)),
                                 ),
                                 tile,
                               ],
@@ -377,7 +409,8 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('موافق', style: TextStyle(fontFamily: 'Cairo')),
+                        child: const Text('موافق',
+                            style: TextStyle(fontFamily: 'Cairo')),
                       ),
                     ],
                   );
@@ -385,7 +418,7 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
               );
             },
           );
-          setState(() {}); 
+          setState(() {});
         },
         child: InputDecorator(
           decoration: InputDecoration(
@@ -393,19 +426,23 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
             labelStyle: TextStyle(color: Colors.blueGrey.shade400),
             prefixIcon: const Icon(Icons.group, color: Colors.blueAccent),
             filled: true,
-            fillColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF0F172A) : Colors.white,
+            fillColor: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF0F172A)
+                : Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+              borderSide:
+                  BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+              borderSide:
+                  BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
             ),
           ),
           child: Text(
-            _selectedCrewMembers.isEmpty 
-                ? 'اضغط لاختيار الطاقم' 
+            _selectedCrewMembers.isEmpty
+                ? 'اضغط لاختيار الطاقم'
                 : 'تم اختيار ${_selectedCrewMembers.length} عمال',
             style: const TextStyle(fontSize: 16),
           ),
@@ -419,11 +456,12 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final sortedWorkers = WorkerUtils.getSortedWorkers('staples');
-    final technicianNames = sortedWorkers.map((e) => e.name).toSet().toList(); 
+    final technicianNames = sortedWorkers.map((e) => e.name).toSet().toList();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('بدء تشغيل — الدبوس', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('بدء تشغيل — الدبوس',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 1,
       ),
@@ -431,11 +469,13 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
         textDirection: TextDirection.rtl,
         child: Center(
           child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            margin:
+                const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
             decoration: BoxDecoration(
-              color: isDark 
-                  ? const Color(0xFF1E293B) 
-                  : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              color: isDark
+                  ? const Color(0xFF1E293B)
+                  : theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(24.0),
             ),
             child: ConstrainedBox(
@@ -455,62 +495,79 @@ class _StartStapleJobScreenState extends State<StartStapleJobScreen> {
                     ),
                     const SizedBox(height: 16),
                     ValueListenableBuilder<Box<FlexoMachine>>(
-                      valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
-                      builder: (context, box, _) {
-                        final machineNames = FlexoMachine.getMachinesForDepartment('staples').map((m) => m.name).toSet().toList();
-                        if (machineNames.isEmpty) machineNames.add('دباسة (افتراضي)');
-                        
-                        if (_selectedMachine != null && !machineNames.contains(_selectedMachine)) {
-                          machineNames.add(_selectedMachine!);
-                        }
-                        
-                        machineNames.add('+ إضافة ماكينة يدوياً');
-                        
-                        return _buildDropdown(
-                          label: 'الماكينة',
-                          value: _selectedMachine,
-                          items: machineNames,
-                          icon: Icons.precision_manufacturing,
-                          onChanged: (val) {
-                            if (val == '+ إضافة ماكينة يدوياً') {
-                              _showAddMachineDialog();
-                            } else {
-                              setState(() {
-                                _selectedMachine = val;
-                              });
-                            }
-                          },
-                        );
-                      }
-                    ),
-                    _buildTextField(_customerController, "👤 اسم العميل", icon: Icons.business),
-                    _buildTextField(_itemController, "📦 الصنف", icon: Icons.category),
-                    _buildTextField(_itemCodeController, "كود الصنف", icon: Icons.qr_code, isNumber: true, isRequired: false),
-                    _buildTextField(_orderNumberController, "رقم أمر التشغيل", icon: Icons.assignment, isNumber: true, isRequired: false),
+                        valueListenable:
+                            Hive.box<FlexoMachine>('flexo_machines')
+                                .listenable(),
+                        builder: (context, box, _) {
+                          final machineNames =
+                              FlexoMachine.getMachinesForDepartment('staples')
+                                  .map((m) => m.name)
+                                  .toSet()
+                                  .toList();
+                          if (machineNames.isEmpty) {
+                            machineNames.add('دباسة (افتراضي)');
+                          }
+
+                          if (_selectedMachine != null &&
+                              !machineNames.contains(_selectedMachine)) {
+                            machineNames.add(_selectedMachine!);
+                          }
+
+                          machineNames.add('+ إضافة ماكينة يدوياً');
+
+                          return _buildDropdown(
+                            label: 'الماكينة',
+                            value: _selectedMachine,
+                            items: machineNames,
+                            icon: Icons.precision_manufacturing,
+                            onChanged: (val) {
+                              if (val == '+ إضافة ماكينة يدوياً') {
+                                _showAddMachineDialog();
+                              } else {
+                                setState(() {
+                                  _selectedMachine = val;
+                                });
+                              }
+                            },
+                          );
+                        }),
+                    _buildTextField(_customerController, "👤 اسم العميل",
+                        icon: Icons.business),
+                    _buildTextField(_itemController, "📦 الصنف",
+                        icon: Icons.category),
+                    _buildTextField(_itemCodeController, "كود الصنف",
+                        icon: Icons.qr_code, isNumber: true, isRequired: false),
+                    _buildTextField(_orderNumberController, "رقم أمر التشغيل",
+                        icon: Icons.assignment,
+                        isNumber: true,
+                        isRequired: false),
                     _buildDropdown(
                       label: 'اسم الفني (رئيسي)',
                       value: _selectedTechnician,
                       items: technicianNames,
                       icon: Icons.person,
-                      onChanged: (val) => setState(() => _selectedTechnician = val),
+                      onChanged: (val) =>
+                          setState(() => _selectedTechnician = val),
                     ),
                     _buildCrewMembersSelector(),
                     SizedBox(
                       height: 55,
                       child: ElevatedButton.icon(
                         onPressed: _isLoading ? null : _startJob,
-                        icon: _isLoading 
-                          ? const SizedBox.shrink() 
-                          : const Icon(Icons.flash_on, size: 28),
+                        icon: _isLoading
+                            ? const SizedBox.shrink()
+                            : const Icon(Icons.flash_on, size: 28),
                         label: _isLoading
                             ? const SizedBox(
                                 width: 24,
                                 height: 24,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2),
                               )
                             : const Text(
                                 'ابدأ التشغيل الآن ⚡',
-                                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                    fontSize: 20, fontWeight: FontWeight.bold),
                               ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green.shade600,

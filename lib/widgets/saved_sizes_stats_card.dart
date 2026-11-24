@@ -38,7 +38,8 @@ class SavedSizesStatsCard extends StatelessWidget {
             label: "عدد العملاء",
             value: uniqueClients.toString(),
           ),
-          VerticalDivider(color: Colors.white.withValues(alpha: 0.3), thickness: 1),
+          VerticalDivider(
+              color: Colors.white.withValues(alpha: 0.3), thickness: 1),
           _buildStatItem(
             context,
             icon: Icons.inventory_2_rounded,

@@ -60,42 +60,42 @@ class JobOrderItem {
       corrugationTypes.isNotEmpty || customCorrugation.isNotEmpty;
 
   Map<String, dynamic> toJson() => {
-    'productName': productName,
-    'productCode': productCode,
-    'length': length,
-    'width': width,
-    'height': height,
-    'quantity': quantity,
-    'itemNotes': itemNotes,
-    'review': review,
-    'corrugationTypes': corrugationTypes,
-    'customCorrugation': customCorrugation,
-    'corrugationSamples': corrugationSamples,
-    'corrugationBoxSize': corrugationBoxSize,
-    'corrugationSheetSize': corrugationSheetSize,
-    'corrugationSheetCount': corrugationSheetCount,
-    'rollWidth': rollWidth,
-    'paperLayers': paperLayers,
-  };
+        'productName': productName,
+        'productCode': productCode,
+        'length': length,
+        'width': width,
+        'height': height,
+        'quantity': quantity,
+        'itemNotes': itemNotes,
+        'review': review,
+        'corrugationTypes': corrugationTypes,
+        'customCorrugation': customCorrugation,
+        'corrugationSamples': corrugationSamples,
+        'corrugationBoxSize': corrugationBoxSize,
+        'corrugationSheetSize': corrugationSheetSize,
+        'corrugationSheetCount': corrugationSheetCount,
+        'rollWidth': rollWidth,
+        'paperLayers': paperLayers,
+      };
 
   factory JobOrderItem.fromJson(Map<String, dynamic> json) => JobOrderItem(
-    productName: json['productName'] ?? '',
-    productCode: json['productCode'] ?? '',
-    length: json['length'] ?? '',
-    width: json['width'] ?? '',
-    height: json['height'] ?? '',
-    quantity: json['quantity'] ?? '',
-    itemNotes: json['itemNotes'] ?? '',
-    review: json['review'] ?? '',
-    corrugationTypes: List<String>.from(json['corrugationTypes'] ?? []),
-    customCorrugation: json['customCorrugation'] ?? '',
-    corrugationSamples: json['corrugationSamples'] ?? '',
-    corrugationBoxSize: json['corrugationBoxSize'] ?? '',
-    corrugationSheetSize: json['corrugationSheetSize'] ?? '',
-    corrugationSheetCount: json['corrugationSheetCount'] ?? '',
-    rollWidth: json['rollWidth'] ?? '',
-    paperLayers: List<String>.from(json['paperLayers'] ?? []),
-  );
+        productName: json['productName'] ?? '',
+        productCode: json['productCode'] ?? '',
+        length: json['length'] ?? '',
+        width: json['width'] ?? '',
+        height: json['height'] ?? '',
+        quantity: json['quantity'] ?? '',
+        itemNotes: json['itemNotes'] ?? '',
+        review: json['review'] ?? '',
+        corrugationTypes: List<String>.from(json['corrugationTypes'] ?? []),
+        customCorrugation: json['customCorrugation'] ?? '',
+        corrugationSamples: json['corrugationSamples'] ?? '',
+        corrugationBoxSize: json['corrugationBoxSize'] ?? '',
+        corrugationSheetSize: json['corrugationSheetSize'] ?? '',
+        corrugationSheetCount: json['corrugationSheetCount'] ?? '',
+        rollWidth: json['rollWidth'] ?? '',
+        paperLayers: List<String>.from(json['paperLayers'] ?? []),
+      );
 }
 
 /// بيانات أمر التشغيل الكامل
@@ -135,43 +135,43 @@ class JobOrderData {
   });
 
   Map<String, dynamic> toJson() => {
-    'orderNumber': orderNumber,
-    'jobNumber': jobNumber,
-    'orderDate': orderDate,
-    'createdBy': createdBy,
-    'customerName': customerName,
-    'clientCode': clientCode,
-    'address': address,
-    'startDate': startDate,
-    'supervisor': supervisor,
-    'deliveryDate': deliveryDate,
-    'phone': phone,
-    'receivedDate': receivedDate,
-    'generalNotes': generalNotes,
-    'creatorEmail': creatorEmail,
-    'items': items.map((i) => i.toJson()).toList(),
-    'savedAt': DateTime.now().toIso8601String(),
-  };
+        'orderNumber': orderNumber,
+        'jobNumber': jobNumber,
+        'orderDate': orderDate,
+        'createdBy': createdBy,
+        'customerName': customerName,
+        'clientCode': clientCode,
+        'address': address,
+        'startDate': startDate,
+        'supervisor': supervisor,
+        'deliveryDate': deliveryDate,
+        'phone': phone,
+        'receivedDate': receivedDate,
+        'generalNotes': generalNotes,
+        'creatorEmail': creatorEmail,
+        'items': items.map((i) => i.toJson()).toList(),
+        'savedAt': DateTime.now().toIso8601String(),
+      };
 
   factory JobOrderData.fromJson(Map<String, dynamic> json) => JobOrderData(
-    orderNumber: json['orderNumber'] ?? '',
-    jobNumber: json['jobNumber'] ?? '',
-    orderDate: json['orderDate'] ?? '',
-    createdBy: json['createdBy'] ?? '',
-    customerName: json['customerName'] ?? '',
-    clientCode: json['clientCode'] ?? '',
-    address: json['address'] ?? '',
-    startDate: json['startDate'] ?? '',
-    supervisor: json['supervisor'] ?? '',
-    deliveryDate: json['deliveryDate'] ?? '',
-    phone: json['phone'] ?? '',
-    receivedDate: json['receivedDate'] ?? '',
-    generalNotes: json['generalNotes'] ?? '',
-    creatorEmail: json['creatorEmail'] ?? '',
-    items: (json['items'] as List<dynamic>? ?? [])
-        .map((i) => JobOrderItem.fromJson(Map<String, dynamic>.from(i)))
-        .toList(),
-  );
+        orderNumber: json['orderNumber'] ?? '',
+        jobNumber: json['jobNumber'] ?? '',
+        orderDate: json['orderDate'] ?? '',
+        createdBy: json['createdBy'] ?? '',
+        customerName: json['customerName'] ?? '',
+        clientCode: json['clientCode'] ?? '',
+        address: json['address'] ?? '',
+        startDate: json['startDate'] ?? '',
+        supervisor: json['supervisor'] ?? '',
+        deliveryDate: json['deliveryDate'] ?? '',
+        phone: json['phone'] ?? '',
+        receivedDate: json['receivedDate'] ?? '',
+        generalNotes: json['generalNotes'] ?? '',
+        creatorEmail: json['creatorEmail'] ?? '',
+        items: (json['items'] as List<dynamic>? ?? [])
+            .map((i) => JobOrderItem.fromJson(Map<String, dynamic>.from(i)))
+            .toList(),
+      );
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -213,7 +213,8 @@ class JobOrderService {
         'factory_id': factoryId,
         'order_number': data.orderNumber,
         'job_number': data.jobNumber,
-        'client_name': data.customerName, // Fix: client_name instead of customer_name
+        'client_name':
+            data.customerName, // Fix: client_name instead of customer_name
         'order_data': jsonData, // حفظ كامل البيانات بصيغة JSON
         'created_at': DateTime.now().toIso8601String(),
       });
@@ -243,27 +244,33 @@ class JobOrderService {
             .eq('factory_id', factoryId)
             .order('created_at', ascending: false);
 
-      await box.clear(); // مسح الـ Cache القديم
-      for (var row in response) {
-        final map = row as Map<String, dynamic>;
-        final id = map['id'] as String;
-        final orderData = map['order_data'];
-        await box.put(id, jsonEncode(orderData));
-      }
-      debugPrint('Fetched ${response.length} issued job orders from Supabase.');
+        await box.clear(); // مسح الـ Cache القديم
+        for (var row in response) {
+          final map = row as Map<String, dynamic>;
+          final id = map['id'] as String;
+          final orderData = map['order_data'];
+          await box.put(id, jsonEncode(orderData));
+        }
+        debugPrint(
+            'Fetched ${response.length} issued job orders from Supabase.');
       } catch (e) {
-        debugPrint('Failed to fetch issued job orders from Supabase (using local cache): $e');
+        debugPrint(
+            'Failed to fetch issued job orders from Supabase (using local cache): $e');
       }
     }
 
-    final entries = box.keys.map((k) {
-      try {
-        final raw = jsonDecode(box.get(k) as String) as Map<String, dynamic>;
-        return MapEntry(k, JobOrderData.fromJson(raw));
-      } catch (_) {
-        return null;
-      }
-    }).whereType<MapEntry<dynamic, JobOrderData>>().toList();
+    final entries = box.keys
+        .map((k) {
+          try {
+            final raw =
+                jsonDecode(box.get(k) as String) as Map<String, dynamic>;
+            return MapEntry(k, JobOrderData.fromJson(raw));
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<MapEntry<dynamic, JobOrderData>>()
+        .toList();
 
     // ترتيب من الأحدث للأقدم بناءً على مفتاح الـ timestamp
     entries.sort((a, b) => b.key.toString().compareTo(a.key.toString()));
@@ -279,13 +286,14 @@ class JobOrderService {
       debugPrint('Failed to delete from Supabase: $e');
       throw Exception('فشل الحذف من السيرفر: $e');
     }
-    
+
     final box = await Hive.openBox('issued_job_orders');
     await box.delete(key);
   }
 
   /// يولد وثيقة PDF أصلية (Native) بدون الحاجة إلى HTML
-  static Future<Uint8List> generateNativePdf(JobOrderData data, {PdfPageFormat format = PdfPageFormat.a4}) async {
+  static Future<Uint8List> generateNativePdf(JobOrderData data,
+      {PdfPageFormat format = PdfPageFormat.a4}) async {
     debugPrint(
         "📄 generateNativePdf: start generating for job ${data.jobNumber} with format $format...");
     final doc = pw.Document();
@@ -293,7 +301,8 @@ class JobOrderService {
     final regularFontData =
         await rootBundle.load('assets/fonts/Amiri-Regular.ttf');
     final boldFontData = await rootBundle.load('assets/fonts/Amiri-Bold.ttf');
-    final classicFontData = await rootBundle.load('assets/fonts/traditional_arabic.ttf');
+    final classicFontData =
+        await rootBundle.load('assets/fonts/traditional_arabic.ttf');
 
     final regularFont = pw.Font.ttf(regularFontData);
     final boldFont = pw.Font.ttf(boldFontData);
@@ -309,8 +318,10 @@ class JobOrderService {
 
     // لوحة الرسم الثابتة: نرسم دائماً على أساس A4 ناقص الهوامش.
     // FittedBox ستقوم بتصغير/تكبير هذه اللوحة لتناسب أي مقاس (A5, A3, Legal...) بدون قص أو أخطاء رياضية.
-    const double canvasWidth  = 595.28 - 32; // A4 width - horizontal margins (16*2)
-    const double canvasHeight = 841.89 - 24; // A4 height - vertical margins (12*2)
+    const double canvasWidth =
+        595.28 - 32; // A4 width - horizontal margins (16*2)
+    const double canvasHeight =
+        841.89 - 24; // A4 height - vertical margins (12*2)
 
     // الصفحة الأولى: الترويسة، بيان الصنف، التضليع، تقرير قسم التضليع
     doc.addPage(
@@ -324,8 +335,8 @@ class JobOrderService {
           child: pw.SizedBox(
             width: canvasWidth,
             height: canvasHeight,
-            child: _buildPage1(
-              data, regularFont, boldFont, classicFont, printedFactoryName, factoryLogoBase64),
+            child: _buildPage1(data, regularFont, boldFont, classicFont,
+                printedFactoryName, factoryLogoBase64),
           ),
         ),
       ),
@@ -425,7 +436,8 @@ class JobOrderService {
                 ),
                 Expanded(
                   child: PdfPreview(
-                    build: (format) async => await generateNativePdf(data, format: format),
+                    build: (format) async =>
+                        await generateNativePdf(data, format: format),
                     allowPrinting: true,
                     allowSharing: true,
                     canChangePageFormat: false,
@@ -464,8 +476,13 @@ class JobOrderService {
 
   // ── Layout Builders ─────────────────────────────────────────────────────────
 
-  static pw.Widget _buildPage1(JobOrderData data, pw.Font regularFont,
-      pw.Font boldFont, pw.Font classicFont, String printedFactoryName, String? logoBase64) {
+  static pw.Widget _buildPage1(
+      JobOrderData data,
+      pw.Font regularFont,
+      pw.Font boldFont,
+      pw.Font classicFont,
+      String printedFactoryName,
+      String? logoBase64) {
     final regularStyle = pw.TextStyle(font: regularFont, fontSize: 7.5);
     final boldStyle = pw.TextStyle(
         font: boldFont, fontSize: 7.5, fontWeight: pw.FontWeight.bold);
@@ -490,8 +507,8 @@ class JobOrderService {
           ),
 
           // 1. Header (Company + Order Box)
-          _buildPage1Header(
-              data, boldStyle, regularStyle, classicStyle, printedFactoryName, logoBase64),
+          _buildPage1Header(data, boldStyle, regularStyle, classicStyle,
+              printedFactoryName, logoBase64),
 
           // Title
           pw.Container(
@@ -775,8 +792,10 @@ class JobOrderService {
                       fit: pw.BoxFit.scaleDown,
                       alignment: pw.Alignment.centerRight,
                       child: pw.Text(
-                          _ar("العميل : ${data.customerName.isEmpty ? '..........................................................................' : data.customerName}"),
-                          style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                          _ar(
+                              "العميل : ${data.customerName.isEmpty ? '..........................................................................' : data.customerName}"),
+                          style: boldStyle.copyWith(
+                              fontSize: 13, fontWeight: pw.FontWeight.bold)),
                     ))),
             pw.Container(width: 1, height: 22, color: PdfColors.black),
             pw.Expanded(
@@ -789,19 +808,23 @@ class JobOrderService {
                       fit: pw.BoxFit.scaleDown,
                       alignment: pw.Alignment.centerRight,
                       child: pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.start,
-                        children: [
-                          pw.Text(_ar("كود العميل : "),
-                              style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
-                          pw.Directionality(
-                            textDirection: pw.TextDirection.ltr,
-                            child: pw.Text(
-                                data.clientCode.isEmpty
-                                    ? '..........................'
-                                    : data.clientCode,
-                                style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
-                          ),
-                        ]),
+                          mainAxisAlignment: pw.MainAxisAlignment.start,
+                          children: [
+                            pw.Text(_ar("كود العميل : "),
+                                style: boldStyle.copyWith(
+                                    fontSize: 13,
+                                    fontWeight: pw.FontWeight.bold)),
+                            pw.Directionality(
+                              textDirection: pw.TextDirection.ltr,
+                              child: pw.Text(
+                                  data.clientCode.isEmpty
+                                      ? '..........................'
+                                      : data.clientCode,
+                                  style: boldStyle.copyWith(
+                                      fontSize: 13,
+                                      fontWeight: pw.FontWeight.bold)),
+                            ),
+                          ]),
                     ))),
           ]),
           pw.Container(height: 1, color: PdfColors.black),
@@ -818,14 +841,17 @@ class JobOrderService {
                       alignment: pw.Alignment.centerRight,
                       child: pw.Row(children: [
                         pw.Text(_ar("تاريخ بدء التشغيل : "),
-                            style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                            style: boldStyle.copyWith(
+                                fontSize: 13, fontWeight: pw.FontWeight.bold)),
                         pw.Directionality(
                             textDirection: pw.TextDirection.ltr,
                             child: pw.Text(
                                 data.startDate.isEmpty
                                     ? '.......................'
                                     : data.startDate,
-                                style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold))),
+                                style: boldStyle.copyWith(
+                                    fontSize: 13,
+                                    fontWeight: pw.FontWeight.bold))),
                       ]),
                     ))),
             pw.Container(width: 1, height: 22, color: PdfColors.black),
@@ -840,14 +866,17 @@ class JobOrderService {
                       alignment: pw.Alignment.centerRight,
                       child: pw.Row(children: [
                         pw.Text(_ar("ميعاد التسليم : "),
-                            style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                            style: boldStyle.copyWith(
+                                fontSize: 13, fontWeight: pw.FontWeight.bold)),
                         pw.Directionality(
                             textDirection: pw.TextDirection.ltr,
                             child: pw.Text(
                                 data.deliveryDate.isEmpty
                                     ? '.......................'
                                     : data.deliveryDate,
-                                style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold))),
+                                style: boldStyle.copyWith(
+                                    fontSize: 13,
+                                    fontWeight: pw.FontWeight.bold))),
                       ]),
                     ))),
             pw.Container(width: 1, height: 22, color: PdfColors.black),
@@ -862,14 +891,17 @@ class JobOrderService {
                       alignment: pw.Alignment.centerRight,
                       child: pw.Row(children: [
                         pw.Text(_ar("تاريخ الانتهاء : "),
-                            style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                            style: boldStyle.copyWith(
+                                fontSize: 13, fontWeight: pw.FontWeight.bold)),
                         pw.Directionality(
                             textDirection: pw.TextDirection.ltr,
                             child: pw.Text(
                                 data.receivedDate.isEmpty
                                     ? '.......................'
                                     : data.receivedDate,
-                                style: boldStyle.copyWith(fontSize: 13, fontWeight: pw.FontWeight.bold))),
+                                style: boldStyle.copyWith(
+                                    fontSize: 13,
+                                    fontWeight: pw.FontWeight.bold))),
                       ]),
                     ))),
           ]),
@@ -909,7 +941,8 @@ class JobOrderService {
       for (int i = 0; i < maxRows; i++)
         i < data.items.length
             ? data.items[i]
-            : JobOrderItem(productName: '', productCode: '', quantity: '', itemNotes: ''),
+            : JobOrderItem(
+                productName: '', productCode: '', quantity: '', itemNotes: ''),
     ];
 
     return pw.Table(
@@ -917,10 +950,10 @@ class JobOrderService {
       columnWidths: {
         0: const pw.FlexColumnWidth(22), // ملاحظات الصنف — زيادة
         1: const pw.FlexColumnWidth(18), // الأبعاد — تقليل طفيف
-        2: const pw.FlexColumnWidth(9),  // الكمية — تقليل
+        2: const pw.FlexColumnWidth(9), // الكمية — تقليل
         3: const pw.FlexColumnWidth(36), // بيان الصنف — زيادة
         4: const pw.FlexColumnWidth(10), // كود — تقليل
-        5: const pw.FlexColumnWidth(5),  // م
+        5: const pw.FlexColumnWidth(5), // م
       },
       children: [
         // صف الرأس
@@ -955,7 +988,8 @@ class JobOrderService {
                   boldStyle,
                   true,
                   true),
-              _itemBodyCell(displayItems[i].productName, boldStyle, false, false),
+              _itemBodyCell(
+                  displayItems[i].productName, boldStyle, false, false),
               _itemBodyCell(displayItems[i].productCode, boldStyle, true, true),
               _itemBodyCell(
                   i < _arabicNumerals.length ? _arabicNumerals[i] : "${i + 1}",
@@ -1392,7 +1426,8 @@ class JobOrderService {
       for (int i = 0; i < totalSlots; i++)
         i < data.items.length
             ? data.items[i]
-            : JobOrderItem(productName: '', productCode: '', quantity: '', itemNotes: ''),
+            : JobOrderItem(
+                productName: '', productCode: '', quantity: '', itemNotes: ''),
     ];
 
     return pw.Column(
@@ -1412,11 +1447,12 @@ class JobOrderService {
                 alignment: pw.Alignment.center,
                 child: pw.Text(_ar("التضليع"),
                     style: boldStyle.copyWith(
-                        color: PdfColors.white, fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                        color: PdfColors.white,
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold)),
               ),
               ...List.generate(totalSlots, (idx) {
-                return _buildSingleCorrugationItemBlock(
-                    corrugationItems[idx],
+                return _buildSingleCorrugationItemBlock(corrugationItems[idx],
                     isLast: idx == totalSlots - 1,
                     boldStyle: boldStyle,
                     regularStyle: regularStyle,
@@ -1482,7 +1518,8 @@ class JobOrderService {
                     ),
                     pw.Expanded(
                       child: pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        padding: const pw.EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
                         alignment: pw.Alignment.centerRight,
                         child: data.generalNotes.trim().isNotEmpty
                             ? pw.Text(_ar(data.generalNotes),
@@ -1530,8 +1567,10 @@ class JobOrderService {
                 : pw.FittedBox(
                     fit: pw.BoxFit.scaleDown,
                     alignment: pw.Alignment.center,
-                    child: pw.Text(_ar("${item.productName} - ${item.productCode}"),
-                        style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                    child: pw.Text(
+                        _ar("${item.productName} - ${item.productCode}"),
+                        style: boldStyle.copyWith(
+                            fontSize: 12, fontWeight: pw.FontWeight.bold)),
                   ),
           ),
           pw.Container(
@@ -1552,8 +1591,10 @@ class JobOrderService {
                       fit: pw.BoxFit.scaleDown,
                       alignment: pw.Alignment.centerRight,
                       child: pw.Text(
-                          _ar("عرض البكر : ${item.rollWidth.isEmpty ? '______' : item.rollWidth}"),
-                          style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                          _ar(
+                              "عرض البكر : ${item.rollWidth.isEmpty ? '______' : item.rollWidth}"),
+                          style: boldStyle.copyWith(
+                              fontSize: 12, fontWeight: pw.FontWeight.bold)),
                     ),
                   ),
                 ),
@@ -1569,7 +1610,9 @@ class JobOrderService {
                         mainAxisSize: pw.MainAxisSize.min,
                         children: [
                           pw.Text(_ar("التضليع : "),
-                              style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                              style: boldStyle.copyWith(
+                                  fontSize: 12,
+                                  fontWeight: pw.FontWeight.bold)),
                           pw.Row(
                             mainAxisSize: pw.MainAxisSize.min,
                             mainAxisAlignment: isEmptyItem
@@ -1645,8 +1688,10 @@ class JobOrderService {
                       fit: pw.BoxFit.scaleDown,
                       alignment: pw.Alignment.centerRight,
                       child: pw.Text(
-                          _ar("مقاس العلبة : ${item.corrugationBoxSize.isEmpty ? '______' : item.corrugationBoxSize}"),
-                          style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                          _ar(
+                              "مقاس العلبة : ${item.corrugationBoxSize.isEmpty ? '______' : item.corrugationBoxSize}"),
+                          style: boldStyle.copyWith(
+                              fontSize: 12, fontWeight: pw.FontWeight.bold)),
                     ),
                   ),
                 ),
@@ -1662,7 +1707,9 @@ class JobOrderService {
                         mainAxisSize: pw.MainAxisSize.min,
                         children: [
                           pw.Text(_ar("مقاس الشريحة : "),
-                              style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                              style: boldStyle.copyWith(
+                                  fontSize: 12,
+                                  fontWeight: pw.FontWeight.bold)),
                           pw.Directionality(
                             textDirection: pw.TextDirection.ltr,
                             child: pw.Text(
@@ -1674,7 +1721,9 @@ class JobOrderService {
                                         .toList()
                                         .reversed
                                         .join(' / '),
-                                style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                                style: boldStyle.copyWith(
+                                    fontSize: 12,
+                                    fontWeight: pw.FontWeight.bold)),
                           ),
                         ],
                       ),
@@ -1695,7 +1744,8 @@ class JobOrderService {
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   pw.Text(_ar("طبقات الورق : "),
-                      style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                      style: boldStyle.copyWith(
+                          fontSize: 12, fontWeight: pw.FontWeight.bold)),
                   pw.Row(
                     mainAxisSize: pw.MainAxisSize.min,
                     children: [
@@ -1707,17 +1757,23 @@ class JobOrderService {
                             if (i > 0) ...[
                               pw.SizedBox(width: 6),
                               pw.Text(_ar("/"),
-                                  style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                                  style: boldStyle.copyWith(
+                                      fontSize: 12,
+                                      fontWeight: pw.FontWeight.bold)),
                               pw.SizedBox(width: 6),
                             ],
                             pw.Directionality(
                               textDirection: pw.TextDirection.ltr,
                               child: pw.Text("L${i + 1}",
-                                  style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                                  style: boldStyle.copyWith(
+                                      fontSize: 12,
+                                      fontWeight: pw.FontWeight.bold)),
                             ),
                             pw.SizedBox(width: 8),
                             pw.Text(_ar(layer),
-                                style: boldStyle.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                                style: boldStyle.copyWith(
+                                    fontSize: 12,
+                                    fontWeight: pw.FontWeight.bold)),
                           ];
                         }),
                     ],
@@ -1779,7 +1835,8 @@ class JobOrderService {
                     alignment: pw.Alignment.center,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(left: pw.BorderSide(width: 1.0))),
-                    child: pw.Text(_ar("التاريخ"), style: boldStyle.copyWith(fontSize: 8.5)),
+                    child: pw.Text(_ar("التاريخ"),
+                        style: boldStyle.copyWith(fontSize: 8.5)),
                   ),
                 ),
                 pw.Expanded(
@@ -1788,7 +1845,8 @@ class JobOrderService {
                     alignment: pw.Alignment.center,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(left: pw.BorderSide(width: 1.0))),
-                    child: pw.Text(_ar("العدد"), style: boldStyle.copyWith(fontSize: 8.5)),
+                    child: pw.Text(_ar("العدد"),
+                        style: boldStyle.copyWith(fontSize: 8.5)),
                   ),
                 ),
                 pw.Expanded(
@@ -1797,7 +1855,8 @@ class JobOrderService {
                     alignment: pw.Alignment.center,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(left: pw.BorderSide(width: 1.0))),
-                    child: pw.Text(_ar("الهالك"), style: boldStyle.copyWith(fontSize: 8.5)),
+                    child: pw.Text(_ar("الهالك"),
+                        style: boldStyle.copyWith(fontSize: 8.5)),
                   ),
                 ),
                 pw.Expanded(
@@ -1806,14 +1865,16 @@ class JobOrderService {
                     alignment: pw.Alignment.center,
                     decoration: const pw.BoxDecoration(
                         border: pw.Border(left: pw.BorderSide(width: 1.0))),
-                    child: pw.Text(_ar("المقاس"), style: boldStyle.copyWith(fontSize: 8.5)),
+                    child: pw.Text(_ar("المقاس"),
+                        style: boldStyle.copyWith(fontSize: 8.5)),
                   ),
                 ),
                 pw.Expanded(
                   flex: 21,
                   child: pw.Container(
                     alignment: pw.Alignment.center,
-                    child: pw.Text(_ar("التوقيع"), style: boldStyle.copyWith(fontSize: 8.5)),
+                    child: pw.Text(_ar("التوقيع"),
+                        style: boldStyle.copyWith(fontSize: 8.5)),
                   ),
                 ),
               ],
@@ -1826,8 +1887,7 @@ class JobOrderService {
               decoration: index == rowCount - 1
                   ? null
                   : const pw.BoxDecoration(
-                      border:
-                          pw.Border(bottom: pw.BorderSide(width: 1.0))),
+                      border: pw.Border(bottom: pw.BorderSide(width: 1.0))),
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
@@ -1891,7 +1951,9 @@ class JobOrderService {
         children: [
           pw.Transform.translate(
             offset: const PdfPoint(0, 2.5),
-            child: pw.Text(_ar(label), style: style.copyWith(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+            child: pw.Text(_ar(label),
+                style: style.copyWith(
+                    fontSize: 12, fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(width: 4),
           pw.Container(
@@ -2337,6 +2399,4 @@ class JobOrderService {
           : null,
     );
   }
-
-
 }

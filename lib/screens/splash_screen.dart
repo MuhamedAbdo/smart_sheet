@@ -24,8 +24,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _navigateToHome() async {
     // 1. الانتظار المزدوج: نعطي مهلة للرسم (Splash) وفي نفس الوقت نحمّل البيانات الثقيلة
-    final minDelay = Future.delayed(const Duration(milliseconds: 2500)); // مدة أطول قليلاً لتناسب الديسكتوب
-    
+    final minDelay = Future.delayed(
+        const Duration(milliseconds: 2500)); // مدة أطول قليلاً لتناسب الديسكتوب
+
     // تشغيل التهيئة الثقيلة في الخلفية
     final heavyInit = initializeHeavyData();
 
@@ -67,7 +68,8 @@ class _SplashScreenState extends State<SplashScreen> {
       }
 
       // 3. pairing_vault في Hive
-      if (!isUnlocked && Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)) {
+      if (!isUnlocked &&
+          Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)) {
         final vaultBox = Hive.box(SafeSecureStorage.pairingVaultBoxName);
         if (vaultBox.get('is_device_unlocked', defaultValue: false) == true ||
             vaultBox.get('has_valid_code', defaultValue: false) == true) {
@@ -77,8 +79,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
       // 4. settings في Hive (Legacy)
       if (!isUnlocked && Hive.isBoxOpen('settings')) {
-        final legacyVal = Hive.box('settings').get('is_device_unlocked', defaultValue: false);
-        final legacyCode = Hive.box('settings').get('has_valid_code', defaultValue: false);
+        final legacyVal =
+            Hive.box('settings').get('is_device_unlocked', defaultValue: false);
+        final legacyCode =
+            Hive.box('settings').get('has_valid_code', defaultValue: false);
         if (legacyVal == true || legacyCode == true) {
           isUnlocked = true;
         }
@@ -106,21 +110,24 @@ class _SplashScreenState extends State<SplashScreen> {
             await Hive.box('settings').put('is_device_unlocked', true);
             await Hive.box('settings').put('has_valid_code', true);
           }
-          debugPrint('🔓 SplashScreen: تم تأكيد حالة فك القفل ومزامنتها بنجاح عبر جميع الطبقات');
+          debugPrint(
+              '🔓 SplashScreen: تم تأكيد حالة فك القفل ومزامنتها بنجاح عبر جميع الطبقات');
         } catch (syncErr) {
           debugPrint('⚠️ SplashScreen: sync error: $syncErr');
         }
       }
 
       // إذا كان الجهاز مفكوك القفل، يفتح التطبيق مباشرة على الشاشة الرئيسية (Home) كمتصفح عام
-      final Widget targetScreen = isUnlocked ? const HomeScreen() : const GatekeeperScreen();
+      final Widget targetScreen =
+          isUnlocked ? const HomeScreen() : const GatekeeperScreen();
 
       // انتقال سلس (Fade Transition) للواجهة الرئيسية
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          settings: RouteSettings(name: isUnlocked ? '/home' : GatekeeperScreen.routeName),
+          settings: RouteSettings(
+              name: isUnlocked ? '/home' : GatekeeperScreen.routeName),
           pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(
@@ -135,7 +142,8 @@ class _SplashScreenState extends State<SplashScreen> {
       debugPrint("Navigation Error: $e");
       // Fallback إلى الشاشة الرئيسية مباشرة
       if (!mounted) return;
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (_) => const HomeScreen()));
     }
   }
 
@@ -145,8 +153,8 @@ class _SplashScreenState extends State<SplashScreen> {
     final isDesktop = kIsWeb || (!kIsWeb && Platform.isWindows);
 
     if (isDesktop) {
-      final String desktopLogoPath = isDarkMode 
-          ? 'assets/images/disktop_logo_dark.png' 
+      final String desktopLogoPath = isDarkMode
+          ? 'assets/images/disktop_logo_dark.png'
           : 'assets/images/disktop_logo_light.png';
 
       return Scaffold(
@@ -163,7 +171,9 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     // الموبايل: عرض الـ Splash Screen الأصلية
-    final String logoPath = isDarkMode ? 'assets/images/logo_dark.jpg' : 'assets/images/logo_light.jpg';
+    final String logoPath = isDarkMode
+        ? 'assets/images/logo_dark.jpg'
+        : 'assets/images/logo_light.jpg';
 
     return Scaffold(
       backgroundColor: isDarkMode ? const Color(0xFF121212) : Colors.white,
@@ -175,7 +185,8 @@ class _SplashScreenState extends State<SplashScreen> {
             fit: BoxFit.cover,
           ),
           Positioned(
-            bottom: MediaQuery.of(context).size.height * 0.38, // تم الرفع مرة أخرى بناءً على طلب المستخدم
+            bottom: MediaQuery.of(context).size.height *
+                0.38, // تم الرفع مرة أخرى بناءً على طلب المستخدم
             left: 0,
             right: 0,
             child: Center(

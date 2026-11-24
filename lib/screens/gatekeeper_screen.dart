@@ -64,7 +64,8 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
           bool isExpired = false;
           if (res['expires_at'] != null) {
             final expiresAt = DateTime.tryParse(res['expires_at'].toString());
-            if (expiresAt != null && DateTime.now().toUtc().isAfter(expiresAt)) {
+            if (expiresAt != null &&
+                DateTime.now().toUtc().isAfter(expiresAt)) {
               isExpired = true;
             }
           }
@@ -75,8 +76,7 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
             try {
               await Supabase.instance.client
                   .from('pairing_codes')
-                  .update({'is_used': true})
-                  .eq('code', code);
+                  .update({'is_used': true}).eq('code', code);
             } catch (uErr) {
               debugPrint('⚠️ pairing_codes update error: $uErr');
             }
@@ -106,7 +106,8 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
           await box.put('is_device_unlocked', true);
           await box.put('has_valid_code', true);
         } else {
-          final vaultBox = await Hive.openBox(SafeSecureStorage.pairingVaultBoxName);
+          final vaultBox =
+              await Hive.openBox(SafeSecureStorage.pairingVaultBoxName);
           await vaultBox.put('is_device_unlocked', true);
           await vaultBox.put('has_valid_code', true);
         }
@@ -117,7 +118,8 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
           await Hive.box('settings').put('has_valid_code', true);
         }
 
-        debugPrint('✅ GatekeeperScreen: تم حفظ حالة التفعيل (is_device_unlocked) بنجاح في جميع طبقات التخزين الدائم.');
+        debugPrint(
+            '✅ GatekeeperScreen: تم حفظ حالة التفعيل (is_device_unlocked) بنجاح في جميع طبقات التخزين الدائم.');
 
         if (mounted) {
           // التوجيه مباشرة إلى الشاشة الرئيسية (Home) كمتصفح عام
@@ -125,8 +127,10 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
             context,
             PageRouteBuilder(
               settings: const RouteSettings(name: '/home'),
-              pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const HomeScreen(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
                 return FadeTransition(opacity: animation, child: child);
               },
               transitionDuration: const Duration(milliseconds: 800),
@@ -155,7 +159,8 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
       SnackBar(
         content: Text(
           message,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           textDirection: TextDirection.rtl,
         ),
         backgroundColor: const Color(0xFFD32F2F),
@@ -171,7 +176,8 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF5F7FA),
+      backgroundColor:
+          isDarkMode ? const Color(0xFF121212) : const Color(0xFFF5F7FA),
       body: Center(
         child: SingleChildScrollView(
           child: Padding(
@@ -184,7 +190,9 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: isDarkMode ? Colors.black.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.05),
+                    color: isDarkMode
+                        ? Colors.black.withValues(alpha: 0.5)
+                        : Colors.black.withValues(alpha: 0.05),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -197,7 +205,9 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isDarkMode ? const Color(0xFF2C2C2C) : const Color(0xFFE3F2FD),
+                      color: isDarkMode
+                          ? const Color(0xFF2C2C2C)
+                          : const Color(0xFFE3F2FD),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -207,18 +217,19 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Title
                   Text(
                     'بوابة الدخول',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: isDarkMode ? Colors.white : const Color(0xFF2C3E50),
+                      color:
+                          isDarkMode ? Colors.white : const Color(0xFF2C3E50),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  
+
                   // Subtitle
                   Text(
                     'الرجاء إدخال كود الدخول للوصول إلى التطبيق',
@@ -229,7 +240,7 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  
+
                   // TextField
                   Directionality(
                     textDirection: TextDirection.ltr,
@@ -245,11 +256,14 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
                       decoration: InputDecoration(
                         hintText: '------',
                         hintStyle: TextStyle(
-                          color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                          color:
+                              isDarkMode ? Colors.grey[600] : Colors.grey[400],
                           letterSpacing: 4,
                         ),
                         filled: true,
-                        fillColor: isDarkMode ? const Color(0xFF2A2A2A) : const Color(0xFFF8F9FA),
+                        fillColor: isDarkMode
+                            ? const Color(0xFF2A2A2A)
+                            : const Color(0xFFF8F9FA),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -261,13 +275,14 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
                             width: 2,
                           ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        contentPadding: const EdgeInsets.symmetric(
+                            vertical: 16, horizontal: 16),
                       ),
                       onSubmitted: (_) => _validateCode(),
                     ),
                   ),
                   const SizedBox(height: 32),
-                  
+
                   // Submit Button
                   SizedBox(
                     width: double.infinity,
@@ -275,7 +290,8 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _validateCode,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isDarkMode ? Colors.blue[600] : Colors.blue[700],
+                        backgroundColor:
+                            isDarkMode ? Colors.blue[600] : Colors.blue[700],
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),

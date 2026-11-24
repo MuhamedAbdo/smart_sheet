@@ -30,8 +30,10 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
   void _loadShifts() async {
     try {
       const boxName = 'factory_schedule';
-      final box = Hive.isBoxOpen(boxName) ? Hive.box<DaySchedule>(boxName) : await Hive.openBox<DaySchedule>(boxName);
-      
+      final box = Hive.isBoxOpen(boxName)
+          ? Hive.box<DaySchedule>(boxName)
+          : await Hive.openBox<DaySchedule>(boxName);
+
       final todayNames = {
         DateTime.monday: 'Monday',
         DateTime.tuesday: 'Tuesday',
@@ -41,12 +43,12 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
         DateTime.saturday: 'Saturday',
         DateTime.sunday: 'Sunday',
       };
-      
+
       final todayName = todayNames[DateTime.now().weekday] ?? 'Saturday';
       final schedule = box.get(todayName);
-      
+
       List<String> shifts = ['كل الورديات'];
-      
+
       if (schedule != null) {
         if (schedule.shiftNames != null && schedule.shiftNames!.isNotEmpty) {
           shifts.addAll(schedule.shiftNames!);
@@ -56,9 +58,9 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
           shifts.add('الوردية الأولى');
         }
       } else {
-         shifts.add('الوردية الأولى');
+        shifts.add('الوردية الأولى');
       }
-      
+
       if (mounted) {
         setState(() {
           _availableShifts = shifts.toSet().toList();
@@ -100,26 +102,37 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.picture_as_pdf, color: Colors.white, size: 40),
+                  const Icon(Icons.picture_as_pdf,
+                      color: Colors.white, size: 40),
                   const SizedBox(height: 10),
                   Text(
                     drawerTitle,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: DropdownButtonFormField<String>(
               decoration: InputDecoration(
                 labelText: "اختر الوردية",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
-              initialValue: _availableShifts.contains(_selectedShift) ? _selectedShift : _availableShifts.first,
-              items: _availableShifts.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              initialValue: _availableShifts.contains(_selectedShift)
+                  ? _selectedShift
+                  : _availableShifts.first,
+              items: _availableShifts
+                  .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                  .toList(),
               onChanged: (val) {
                 if (val != null) setState(() => _selectedShift = val);
               },
@@ -127,35 +140,40 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
           ),
           Expanded(
             child: ValueListenableBuilder(
-              valueListenable: Hive.box<FlexoMachine>('flexo_machines').listenable(),
+              valueListenable:
+                  Hive.box<FlexoMachine>('flexo_machines').listenable(),
               builder: (context, Box<FlexoMachine> machineBox, _) {
-                final machines = FlexoMachine.getMachinesForDepartment(department);
-                
+                final machines =
+                    FlexoMachine.getMachinesForDepartment(department);
+
                 if (machines.isEmpty) {
                   return const Center(child: Text("لا توجد ماكينات مسجلة"));
                 }
-                
+
                 return ListView.builder(
                   itemCount: machines.length,
                   itemBuilder: (context, index) {
                     final machine = machines[index];
                     final mName = machine.name;
-                    
+
                     return ExpansionTile(
                       leading: const Icon(Icons.settings),
-                      title: Text(mName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      title: Text(mName,
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
                       children: [
                         _buildReportTile(
                           context,
                           label: "عرض تقرير الإنتاج",
                           icon: Icons.picture_as_pdf,
-                          onTap: () => _handlePdfAction(context, mName, isPrinting: false, isSave: false),
+                          onTap: () => _handlePdfAction(context, mName,
+                              isPrinting: false, isSave: false),
                         ),
                         _buildReportTile(
                           context,
                           label: "حفظ تقرير إنتاج",
                           icon: Icons.save_alt,
-                          onTap: () => _handlePdfAction(context, mName, isPrinting: false, isSave: true),
+                          onTap: () => _handlePdfAction(context, mName,
+                              isPrinting: false, isSave: true),
                         ),
                         if (!isCrushing && !isProductionLine) ...[
                           _buildReportTile(
@@ -163,14 +181,16 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
                             label: "عرض تقرير طباعة",
                             icon: Icons.picture_as_pdf,
                             color: Colors.blueAccent,
-                            onTap: () => _handlePdfAction(context, mName, isPrinting: true, isSave: false),
+                            onTap: () => _handlePdfAction(context, mName,
+                                isPrinting: true, isSave: false),
                           ),
                           _buildReportTile(
                             context,
                             label: "حفظ تقرير طباعة",
                             icon: Icons.save_alt,
                             color: Colors.blueAccent,
-                            onTap: () => _handlePdfAction(context, mName, isPrinting: true, isSave: true),
+                            onTap: () => _handlePdfAction(context, mName,
+                                isPrinting: true, isSave: true),
                           ),
                         ],
                       ],
@@ -185,7 +205,11 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
     );
   }
 
-  Widget _buildReportTile(BuildContext context, {required String label, required IconData icon, required VoidCallback onTap, Color? color}) {
+  Widget _buildReportTile(BuildContext context,
+      {required String label,
+      required IconData icon,
+      required VoidCallback onTap,
+      Color? color}) {
     return ListTile(
       leading: Icon(icon, color: color ?? Colors.blue, size: 18),
       title: Text(label, style: const TextStyle(fontSize: 12)),
@@ -196,50 +220,59 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
     );
   }
 
-  Future<void> _handlePdfAction(BuildContext context, String machineName, {required bool isPrinting, required bool isSave}) async {
+  Future<void> _handlePdfAction(BuildContext context, String machineName,
+      {required bool isPrinting, required bool isSave}) async {
     final department = widget.department;
-    final bool isDieCutting = (department == 'crushing' || department == 'die_cutting');
+    final bool isDieCutting =
+        (department == 'crushing' || department == 'die_cutting');
     List<Map<String, dynamic>> records = [];
 
     bool filterByShift(dynamic record) {
       if (_selectedShift == 'كل الورديات') return true;
       final shift = record.shiftName?.toString().trim() ?? '';
-      final normalizedShift = (shift.isEmpty || shift == 'null') ? 'الوردية الأولى' : shift;
+      final normalizedShift =
+          (shift.isEmpty || shift == 'null') ? 'الوردية الأولى' : shift;
       return normalizedShift == _selectedShift;
     }
 
     if (isDieCutting) {
       const boxName = 'die_cutting_production_reports';
-      final box = Hive.isBoxOpen(boxName) 
+      final box = Hive.isBoxOpen(boxName)
           ? Hive.box<DieCuttingProductionReport>(boxName)
           : await Hive.openBox<DieCuttingProductionReport>(boxName);
-          
+
       final newRecords = box.values
-          .where((r) => _normalizeString(r.machineName) == _normalizeString(machineName) && filterByShift(r))
+          .where((r) =>
+              _normalizeString(r.machineName) ==
+                  _normalizeString(machineName) &&
+              filterByShift(r))
           .map((e) {
-            final json = e.toJson();
-            json['department'] = department;
-            return json;
-          })
-          .toList();
-          
+        final json = e.toJson();
+        json['department'] = department;
+        return json;
+      }).toList();
+
       const oldBoxName = 'flexo_production_reports_box';
-      final oldBox = Hive.isBoxOpen(oldBoxName) 
+      final oldBox = Hive.isBoxOpen(oldBoxName)
           ? Hive.box<FlexoProductionReport>(oldBoxName)
           : await Hive.openBox<FlexoProductionReport>(oldBoxName);
-          
+
       final oldRecords = oldBox.values
-          .where((r) => (r.department == 'crushing' || r.department == 'die_cutting') && _normalizeString(r.machineName ?? '') == _normalizeString(machineName) && filterByShift(r))
+          .where((r) =>
+              (r.department == 'crushing' || r.department == 'die_cutting') &&
+              _normalizeString(r.machineName ?? '') ==
+                  _normalizeString(machineName) &&
+              filterByShift(r))
           .map((e) => e.toJson())
           .toList();
 
       records = [...newRecords, ...oldRecords];
     } else {
       const boxName = 'flexo_production_reports_box';
-      final box = Hive.isBoxOpen(boxName) 
+      final box = Hive.isBoxOpen(boxName)
           ? Hive.box<FlexoProductionReport>(boxName)
           : await Hive.openBox<FlexoProductionReport>(boxName);
-          
+
       records = box.values
           .where((r) {
             final m = r.machineName ?? '';
@@ -247,16 +280,23 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
             if (department == 'production_line') {
               if (dept != 'production_line') return false;
             } else {
-              if (dept == 'crushing' || dept == 'die_cutting' || dept == 'production_line') return false;
+              if (dept == 'crushing' ||
+                  dept == 'die_cutting' ||
+                  dept == 'production_line') {
+                return false;
+              }
             }
-            return _normalizeString(m) == _normalizeString(machineName) && filterByShift(r);
+            return _normalizeString(m) == _normalizeString(machineName) &&
+                filterByShift(r);
           })
           .map((e) => e.toJson())
           .toList();
     }
 
     if (records.isEmpty) {
-      UIUtils.showInfoSnackBar(message: "لا توجد تقارير لهذه الماكينة", backgroundColor: Colors.orange);
+      UIUtils.showInfoSnackBar(
+          message: "لا توجد تقارير لهذه الماكينة",
+          backgroundColor: Colors.orange);
       return;
     }
 
@@ -269,7 +309,8 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
 
     if (records.isEmpty) {
       UIUtils.showInfoSnackBar(
-        message: "لا توجد تقارير معتمدة لهذه الماكينة. جميع التقارير قيد المراجعة.",
+        message:
+            "لا توجد تقارير معتمدة لهذه الماكينة. جميع التقارير قيد المراجعة.",
         backgroundColor: Colors.orange,
         icon: Icons.pending_actions,
       );
@@ -279,7 +320,8 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
     // إشعار المستخدم بالتقارير المستثناة
     if (excludedCount > 0 && context.mounted) {
       UIUtils.showInfoSnackBar(
-        message: "تم استثناء $excludedCount تقرير قيد المراجعة من ملف الـ PDF لضمان دقة البيانات.",
+        message:
+            "تم استثناء $excludedCount تقرير قيد المراجعة من ملف الـ PDF لضمان دقة البيانات.",
         backgroundColor: Colors.orange.shade700,
         icon: Icons.info_outline,
       );
@@ -298,14 +340,25 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
 
     if (isSave) {
       final Uint8List? pdfBytes = isPrinting
-          ? await generatePrintingReportPdfBytes({'records': records, 'title': title, 'department': department, 'shiftName': _selectedShift})
-          : await generateFlexoProductionReportPdfBytes({'records': records, 'title': title, 'department': department, 'shiftName': _selectedShift});
-      
+          ? await generatePrintingReportPdfBytes({
+              'records': records,
+              'title': title,
+              'department': department,
+              'shiftName': _selectedShift
+            })
+          : await generateFlexoProductionReportPdfBytes({
+              'records': records,
+              'title': title,
+              'department': department,
+              'shiftName': _selectedShift
+            });
+
       if (pdfBytes == null) return;
 
       await FilePicker.platform.saveFile(
         dialogTitle: 'حفظ PDF',
-        fileName: '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf',
+        fileName:
+            '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf',
         type: FileType.custom,
         allowedExtensions: ['pdf'],
         bytes: pdfBytes,
@@ -313,9 +366,11 @@ class _FlexoReportDrawerState extends State<FlexoReportDrawer> {
     } else {
       if (!context.mounted) return;
       if (isPrinting) {
-        await exportPrintingReportsToPdf(context, records, title: title, department: department, shiftName: _selectedShift);
+        await exportPrintingReportsToPdf(context, records,
+            title: title, department: department, shiftName: _selectedShift);
       } else {
-        await exportFlexoProductionReportsToPdf(context, records, title: title, department: department, shiftName: _selectedShift);
+        await exportFlexoProductionReportsToPdf(context, records,
+            title: title, department: department, shiftName: _selectedShift);
       }
     }
   }

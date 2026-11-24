@@ -70,11 +70,12 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     final now = DateTime.now();
     final dateStr =
         '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
-    
+
     _orderNumberCtrl.clear();
     _jobNumberCtrl.clear();
     _issueDateCtrl.text = dateStr;
-    _clientCodeCtrl.text = widget.clientCode == 'غير مسجل' ? '' : widget.clientCode;
+    _clientCodeCtrl.text =
+        widget.clientCode == 'غير مسجل' ? '' : widget.clientCode;
   }
 
   @override
@@ -144,7 +145,10 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
       } else {
         if (_selectedIndices.length >= 3) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('عفواً، الحد الأقصى لأمر التشغيل الواحد هو 3 أصناف فقط لمقاس A5.', style: TextStyle(fontFamily: 'Cairo'))),
+            const SnackBar(
+                content: Text(
+                    'عفواً، الحد الأقصى لأمر التشغيل الواحد هو 3 أصناف فقط لمقاس A5.',
+                    style: TextStyle(fontFamily: 'Cairo'))),
           );
           return;
         }
@@ -159,26 +163,32 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
         final h = raw['height']?.toString() ?? '';
 
         final defaultBoxSize = [l, w, h].where((x) => x.isNotEmpty).join(' / ');
-        
-        String sl = raw['sheet_length']?.toString() ?? raw['sheetLengthManual']?.toString() ?? '';
+
+        String sl = raw['sheet_length']?.toString() ??
+            raw['sheetLengthManual']?.toString() ??
+            '';
         if (sl.isEmpty || sl == 'null') {
           final res = raw['sheetLengthResult']?.toString() ?? '';
           final match = RegExp(r'\d+(\.\d+)?').firstMatch(res);
           sl = match?.group(0) ?? l;
         }
-        String sw = raw['sheet_width']?.toString() ?? raw['sheetWidthManual']?.toString() ?? '';
+        String sw = raw['sheet_width']?.toString() ??
+            raw['sheetWidthManual']?.toString() ??
+            '';
         if (sw.isEmpty || sw == 'null') {
           final res = raw['sheetWidthResult']?.toString() ?? '';
           final match = RegExp(r'\d+(\.\d+)?').firstMatch(res);
           sw = match?.group(0) ?? w;
         }
-        final defaultSheetSize = [sl, sw].where((x) => x.isNotEmpty).join(' / ');
+        final defaultSheetSize =
+            [sl, sw].where((x) => x.isNotEmpty).join(' / ');
 
         _itemSelectedCorrugations[index] = [];
         _itemCustomCorrugationCtrl[index] = TextEditingController();
         _itemSamplesCtrl[index] = TextEditingController();
         _itemBoxSizeCtrl[index] = TextEditingController(text: defaultBoxSize);
-        _itemSheetSizeCtrl[index] = TextEditingController(text: defaultSheetSize);
+        _itemSheetSizeCtrl[index] =
+            TextEditingController(text: defaultSheetSize);
         _itemSheetCountCtrl[index] = TextEditingController();
         _itemRollWidthCtrl[index] = TextEditingController();
         _itemPaperLayerCtrls[index] = [];
@@ -214,8 +224,6 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     }
     _itemPaperLayerCtrls[idx] = current;
   }
-
-
 
   // ── PDF Generation ───────────────────────────────────────────────────────────
   Future<void> _generate() async {
@@ -293,7 +301,8 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+  Future<void> _selectDate(
+      BuildContext context, TextEditingController controller) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -370,9 +379,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                       // Divider
                       VerticalDivider(
                         width: 1,
-                        color: isDark
-                            ? Colors.white12
-                            : Colors.grey.shade200,
+                        color: isDark ? Colors.white12 : Colors.grey.shade200,
                       ),
                       // Left side (in RTL) — item selection & specifications
                       Expanded(
@@ -657,9 +664,8 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                 width: 22,
                                 height: 22,
                                 decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? accent
-                                      : Colors.transparent,
+                                  color:
+                                      isSelected ? accent : Colors.transparent,
                                   border: Border.all(
                                     color: isSelected
                                         ? accent
@@ -681,8 +687,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       name,
@@ -732,7 +737,9 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                       _qtyCtrl[idx]!,
                                       isDark,
                                       keyboard: TextInputType.number,
-                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly
+                                      ],
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -742,7 +749,9 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                       'عرض البكر (سم)',
                                       _itemRollWidthCtrl[idx]!,
                                       isDark,
-                                      keyboard: const TextInputType.numberWithOptions(decimal: true),
+                                      keyboard:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
                                       hint: 'مثال: 120',
                                     ),
                                   ),
@@ -758,46 +767,59 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              
+
                               // --- Corrugation Section Header
                               Row(
                                 children: [
-                                  const Icon(Icons.waves, size: 14, color: Color(0xFF1a3a6e)),
+                                  const Icon(Icons.waves,
+                                      size: 14, color: Color(0xFF1a3a6e)),
                                   const SizedBox(width: 6),
                                   Text(
                                     'مواصفات التضليع',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
-                                      color: isDark ? Colors.white70 : const Color(0xFF1a3a6e),
+                                      color: isDark
+                                          ? Colors.white70
+                                          : const Color(0xFF1a3a6e),
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 6),
-                              
+
                               // --- Checkboxes Wrap
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 6,
-                                children: ['E', 'C', 'E/E', 'C/C', 'C/E'].map((type) {
-                                  final isChecked = _itemSelectedCorrugations[idx]?.contains(type) ?? false;
+                                children:
+                                    ['E', 'C', 'E/E', 'C/C', 'C/E'].map((type) {
+                                  final isChecked =
+                                      _itemSelectedCorrugations[idx]
+                                              ?.contains(type) ??
+                                          false;
                                   return InkWell(
                                     onTap: () {
                                       setState(() {
                                         if (isChecked) {
-                                          _itemSelectedCorrugations[idx]?.clear();
+                                          _itemSelectedCorrugations[idx]
+                                              ?.clear();
                                           _syncLayerControllers(idx, 0);
                                         } else {
-                                          _itemSelectedCorrugations[idx] = [type];
-                                          _itemCustomCorrugationCtrl[idx]?.clear();
-                                          final count = _getDefaultLayerCount(idx);
+                                          _itemSelectedCorrugations[idx] = [
+                                            type
+                                          ];
+                                          _itemCustomCorrugationCtrl[idx]
+                                              ?.clear();
+                                          final count =
+                                              _getDefaultLayerCount(idx);
                                           _syncLayerControllers(idx, count);
                                         }
                                       });
                                     },
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4, vertical: 2),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -805,19 +827,35 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                             width: 18,
                                             height: 18,
                                             child: Checkbox(
-                                              value: _itemSelectedCorrugations[idx]?.isNotEmpty == true && 
-                                                     _itemSelectedCorrugations[idx]!.first == type,
-                                              activeColor: const Color(0xFF1a3a6e),
+                                              value:
+                                                  _itemSelectedCorrugations[idx]
+                                                              ?.isNotEmpty ==
+                                                          true &&
+                                                      _itemSelectedCorrugations[
+                                                                  idx]!
+                                                              .first ==
+                                                          type,
+                                              activeColor:
+                                                  const Color(0xFF1a3a6e),
                                               onChanged: (v) {
                                                 setState(() {
                                                   if (v == true) {
-                                                    _itemSelectedCorrugations[idx] = [type];
-                                                    _itemCustomCorrugationCtrl[idx]?.clear();
-                                                    final count = _getDefaultLayerCount(idx);
-                                                    _syncLayerControllers(idx, count);
+                                                    _itemSelectedCorrugations[
+                                                        idx] = [type];
+                                                    _itemCustomCorrugationCtrl[
+                                                            idx]
+                                                        ?.clear();
+                                                    final count =
+                                                        _getDefaultLayerCount(
+                                                            idx);
+                                                    _syncLayerControllers(
+                                                        idx, count);
                                                   } else {
-                                                    _itemSelectedCorrugations[idx]?.clear();
-                                                    _syncLayerControllers(idx, 0);
+                                                    _itemSelectedCorrugations[
+                                                            idx]
+                                                        ?.clear();
+                                                    _syncLayerControllers(
+                                                        idx, 0);
                                                   }
                                                 });
                                               },
@@ -826,7 +864,9 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                           const SizedBox(width: 4),
                                           Text(
                                             type,
-                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold),
                                           ),
                                         ],
                                       ),
@@ -835,24 +875,28 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                 }).toList(),
                               ),
                               const SizedBox(height: 8),
-                              
+
                               // --- Custom Corrugation
                               _miniField(
                                 'تضليع مخصص / أخرى (مثل E/E + C)',
                                 _itemCustomCorrugationCtrl[idx]!,
                                 isDark,
-                                hint: 'أكتب نوع التضليع إذا لم يكن بالقائمة أعلاه',
-                                readOnly: _itemSelectedCorrugations[idx]?.isNotEmpty == true,
+                                hint:
+                                    'أكتب نوع التضليع إذا لم يكن بالقائمة أعلاه',
+                                readOnly: _itemSelectedCorrugations[idx]
+                                        ?.isNotEmpty ==
+                                    true,
                                 onChanged: (v) {
                                   if (v.isNotEmpty) {
                                     final count = _getDefaultLayerCount(idx);
-                                    _syncLayerControllers(idx, count == 0 ? 3 : count);
+                                    _syncLayerControllers(
+                                        idx, count == 0 ? 3 : count);
                                     setState(() {});
                                   }
                                 },
                               ),
                               const SizedBox(height: 8),
-                              
+
                               // --- Samples & Sheet Count Row
                               Row(
                                 children: [
@@ -872,13 +916,15 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                       isDark,
                                       keyboard: TextInputType.number,
                                       hint: 'أرقام فقط',
-                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              
+
                               // --- Box Size & Sheet Size Row
                               Row(
                                 children: [
@@ -901,25 +947,30 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                   ),
                                 ],
                               ),
-                              
+
                               // ── قسم أنواع الورق (الطبقات الديناميكية)
                               Builder(builder: (context) {
                                 final layers = _itemPaperLayerCtrls[idx] ?? [];
-                                if (layers.isEmpty) return const SizedBox.shrink();
+                                if (layers.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const SizedBox(height: 10),
                                     Row(
                                       children: [
-                                        const Icon(Icons.layers_outlined, size: 14, color: Color(0xFF1a3a6e)),
+                                        const Icon(Icons.layers_outlined,
+                                            size: 14, color: Color(0xFF1a3a6e)),
                                         const SizedBox(width: 6),
                                         Text(
                                           'أنواع الورق (الطبقات)',
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
-                                            color: isDark ? Colors.white70 : const Color(0xFF1a3a6e),
+                                            color: isDark
+                                                ? Colors.white70
+                                                : const Color(0xFF1a3a6e),
                                           ),
                                         ),
                                         const Spacer(),
@@ -929,25 +980,43 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                           child: InkWell(
                                             onTap: () {
                                               setState(() {
-                                                _itemPaperLayerCtrls[idx]!.add(TextEditingController());
+                                                _itemPaperLayerCtrls[idx]!.add(
+                                                    TextEditingController());
                                               });
                                             },
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 3),
                                               decoration: BoxDecoration(
-                                                color: const Color(0xFF1a3a6e).withValues(alpha: 0.12),
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: const Color(0xFF1a3a6e).withValues(alpha: 0.3)),
+                                                color: const Color(0xFF1a3a6e)
+                                                    .withValues(alpha: 0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                border: Border.all(
+                                                    color:
+                                                        const Color(0xFF1a3a6e)
+                                                            .withValues(
+                                                                alpha: 0.3)),
                                               ),
                                               child: const Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Icon(Icons.add, size: 13, color: Color(0xFF1a3a6e)),
+                                                  Icon(Icons.add,
+                                                      size: 13,
+                                                      color: Color(0xFF1a3a6e)),
                                                   SizedBox(width: 3),
                                                   Text(
                                                     'إضافة طبقة',
-                                                    style: TextStyle(fontSize: 10, color: Color(0xFF1a3a6e), fontWeight: FontWeight.bold),
+                                                    style: TextStyle(
+                                                        fontSize: 10,
+                                                        color:
+                                                            Color(0xFF1a3a6e),
+                                                        fontWeight:
+                                                            FontWeight.bold),
                                                   ),
                                                 ],
                                               ),
@@ -959,7 +1028,8 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                     const SizedBox(height: 6),
                                     ...List.generate(layers.length, (layerIdx) {
                                       return Padding(
-                                        padding: const EdgeInsets.only(bottom: 6),
+                                        padding:
+                                            const EdgeInsets.only(bottom: 6),
                                         child: Row(
                                           children: [
                                             Expanded(
@@ -967,24 +1037,34 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                                 'طبقة ${layerIdx + 1}',
                                                 layers[layerIdx],
                                                 isDark,
-                                                hint: 'نوع الورق (مثال: فلوت عادي)',
+                                                hint:
+                                                    'نوع الورق (مثال: فلوت عادي)',
                                               ),
                                             ),
                                             // زر حذف الطبقة (يظهر فقط للطبقات الإضافية)
-                                            if (layerIdx >= _getDefaultLayerCount(idx))
+                                            if (layerIdx >=
+                                                _getDefaultLayerCount(idx))
                                               Padding(
-                                                padding: const EdgeInsets.only(right: 4),
+                                                padding: const EdgeInsets.only(
+                                                    right: 4),
                                                 child: InkWell(
                                                   onTap: () {
                                                     setState(() {
-                                                      layers[layerIdx].dispose();
+                                                      layers[layerIdx]
+                                                          .dispose();
                                                       layers.removeAt(layerIdx);
                                                     });
                                                   },
-                                                  borderRadius: BorderRadius.circular(4),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
                                                   child: const Padding(
                                                     padding: EdgeInsets.all(4),
-                                                    child: Icon(Icons.remove_circle_outline, size: 16, color: Colors.redAccent),
+                                                    child: Icon(
+                                                        Icons
+                                                            .remove_circle_outline,
+                                                        size: 16,
+                                                        color:
+                                                            Colors.redAccent),
                                                   ),
                                                 ),
                                               ),
@@ -994,14 +1074,13 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
                                     }),
                                   ],
                                 );
-                                }),
-
-                            ],           // end Column children
-                          ),           // end Column
-                        ),             // end Padding
-                    ],                 // end item children
-                  ),                   // end AnimatedContainer child Column
-                );                     // end AnimatedContainer
+                              }),
+                            ], // end Column children
+                          ), // end Column
+                        ), // end Padding
+                    ], // end item children
+                  ), // end AnimatedContainer child Column
+                ); // end AnimatedContainer
               },
             ),
           ),
@@ -1094,8 +1173,6 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
     );
   }
 
-
-
   Widget _field(
     String label,
     TextEditingController ctrl,
@@ -1142,9 +1219,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
               vertical: 10,
             ),
             filled: true,
-            fillColor: isDark
-                ? const Color(0xFF252B3B)
-                : Colors.grey.shade100,
+            fillColor: isDark ? const Color(0xFF252B3B) : Colors.grey.shade100,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,
@@ -1205,9 +1280,7 @@ class _JobOrderDialogState extends State<JobOrderDialog> {
               vertical: 8,
             ),
             filled: true,
-            fillColor: isDark
-                ? const Color(0xFF1E2535)
-                : Colors.white,
+            fillColor: isDark ? const Color(0xFF1E2535) : Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide(

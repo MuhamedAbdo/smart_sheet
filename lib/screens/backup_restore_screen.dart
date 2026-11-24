@@ -186,13 +186,15 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
       final Map<dynamic, dynamic> currentSettings =
           Hive.box('settings').toMap();
-          
+
       // حفظ المفتاح مؤقتاً في SharedPreferences لتفادي فقدانه إذا حدث Restart مفاجئ
       final prefs = await SharedPreferences.getInstance();
       const storage = SafeSecureStorage();
-      final Map<dynamic, dynamic> currentVault = Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)
-          ? Map<dynamic, dynamic>.from(Hive.box(SafeSecureStorage.pairingVaultBoxName).toMap())
-          : {};
+      final Map<dynamic, dynamic> currentVault =
+          Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)
+              ? Map<dynamic, dynamic>.from(
+                  Hive.box(SafeSecureStorage.pairingVaultBoxName).toMap())
+              : {};
       final bool isUnlocked = prefs.getBool('is_device_unlocked') == true ||
           prefs.getBool('has_valid_code') == true ||
           currentVault['is_device_unlocked'] == true ||
@@ -235,7 +237,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           } else {
             await Hive.initFlutter();
           }
-          final vaultBox = await Hive.openBox(SafeSecureStorage.pairingVaultBoxName);
+          final vaultBox =
+              await Hive.openBox(SafeSecureStorage.pairingVaultBoxName);
           if (currentVault.isNotEmpty) {
             await vaultBox.putAll(currentVault);
           }
@@ -337,13 +340,15 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
       final Map<dynamic, dynamic> currentSettings =
           Hive.box('settings').toMap();
-          
+
       // حفظ المفتاح مؤقتاً في SharedPreferences لتفادي فقدانه إذا حدث Restart مفاجئ
       final prefs = await SharedPreferences.getInstance();
       const storage = SafeSecureStorage();
-      final Map<dynamic, dynamic> currentVault = Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)
-          ? Map<dynamic, dynamic>.from(Hive.box(SafeSecureStorage.pairingVaultBoxName).toMap())
-          : {};
+      final Map<dynamic, dynamic> currentVault =
+          Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)
+              ? Map<dynamic, dynamic>.from(
+                  Hive.box(SafeSecureStorage.pairingVaultBoxName).toMap())
+              : {};
       final bool isUnlocked = prefs.getBool('is_device_unlocked') == true ||
           prefs.getBool('has_valid_code') == true ||
           currentVault['is_device_unlocked'] == true ||
@@ -369,7 +374,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         await prefs.setString('factory_id', currentFactoryId);
         await storage.write(key: 'factory_id', value: currentFactoryId);
       }
-          
+
       final result = await _backupService.restoreBackup();
 
       if (mounted) {
@@ -384,7 +389,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           } else {
             await Hive.initFlutter();
           }
-          final vaultBox = await Hive.openBox(SafeSecureStorage.pairingVaultBoxName);
+          final vaultBox =
+              await Hive.openBox(SafeSecureStorage.pairingVaultBoxName);
           if (currentVault.isNotEmpty) {
             await vaultBox.putAll(currentVault);
           }
@@ -513,7 +519,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           decoration: BoxDecoration(
             color: isDark
                 ? const Color(0xFF1E293B)
-                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                : Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(24.0),
           ),
           child: ConstrainedBox(
@@ -524,29 +533,31 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                 children: [
                   // Status Card
                   if (_isLoading || _message != null) _buildStatusCard(),
-      
+
                   const SizedBox(height: 20),
-      
+
                   // Backup Status Indicator
                   _buildBackupStatusCard(),
-      
+
                   const SizedBox(height: 30),
-      
+
                   // Main Action Buttons (Cloud)
                   const Text("النسخ السحابي",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
                   _buildUploadButton(),
                   const SizedBox(height: 12),
                   _buildRestoreButton(),
-      
+
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 24),
-      
+
                   // Local Backup Buttons
                   const Text("النسخ المحلي",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -577,22 +588,24 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                       ),
                     ],
                   ),
-      
+
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 24),
-      
+
                   _buildQRActionSection(isAdmin),
-      
+
                   const SizedBox(height: 32),
-      
+
                   // Info Section
                   _buildInfoSection(),
-      
+
                   const SizedBox(height: 16),
                   Center(
                     child: Text(
-                      isAdmin ? '(صلاحية: مدير النظام)' : '(صلاحية: مستخدم مساعد)',
+                      isAdmin
+                          ? '(صلاحية: مدير النظام)'
+                          : '(صلاحية: مستخدم مساعد)',
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 13,

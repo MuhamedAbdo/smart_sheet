@@ -540,11 +540,15 @@ class _SerialSetupScreenState extends State<SerialSetupScreen> {
             textDirection: TextDirection.rtl,
             child: Center(
               child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                margin: const EdgeInsets.symmetric(
+                    vertical: 24.0, horizontal: 16.0),
                 decoration: BoxDecoration(
                   color: Theme.of(context).brightness == Brightness.dark
                       ? const Color(0xFF1E293B)
-                      : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                      : Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(24.0),
                 ),
                 child: ConstrainedBox(

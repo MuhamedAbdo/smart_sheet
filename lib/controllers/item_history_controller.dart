@@ -140,7 +140,9 @@ class ItemHistoryController {
         if (key == 'productName') value = data['product_name'];
         if (key == 'productCode') value = data['product_code'];
         if (key == 'clientName') value = data['client_name'];
-        if (key == 'processType') value = data['process_type'] ?? data['operation_type'];
+        if (key == 'processType') {
+          value = data['process_type'] ?? data['operation_type'];
+        }
         if (key == 'isSheet') value = data['is_sheet'];
         if (key == 'formNumber') value = data['form_number'];
         if (key == 'numberOfBoxes') value = data['number_of_boxes'];
@@ -200,7 +202,9 @@ class ItemHistoryController {
       ),
       '',
     );
-    str = str.replaceAll(RegExp(r'\s*(سم|cm|علبة)', caseSensitive: false), '').trim();
+    str = str
+        .replaceAll(RegExp(r'\s*(سم|cm|علبة)', caseSensitive: false), '')
+        .trim();
 
     final match = RegExp(r'[-+]?\d+(?:\.\d+)?').firstMatch(str);
     if (match != null) {
@@ -222,7 +226,8 @@ class ItemHistoryController {
       return 'ص';
     } else if (isQuarter) {
       return isQuarterWidth ? '1/4 ص (عرض)' : '1/4 ص (طول)';
-    } else if (data.containsKey('isFullSize') || data.containsKey('isQuarterSize')) {
+    } else if (data.containsKey('isFullSize') ||
+        data.containsKey('isQuarterSize')) {
       return '1/2 ص';
     }
     return '';
@@ -254,7 +259,8 @@ class ItemHistoryController {
     if (isDetailing) {
       final oldSlice = getSliceTypeLabel(oldData);
       final newSlice = getSliceTypeLabel(newData);
-      if (oldSlice != newSlice && (oldSlice.isNotEmpty || newSlice.isNotEmpty)) {
+      if (oldSlice != newSlice &&
+          (oldSlice.isNotEmpty || newSlice.isNotEmpty)) {
         diffs.add(
           ItemFieldDiff(
             key: 'sliceType',
@@ -304,7 +310,9 @@ class ItemHistoryController {
 
     for (final key in allKeys) {
       if (excludedKeys.contains(key)) continue;
-      if (key == 'productState' || key == 'product_state') continue; // ✅ استثناء تام لحالة المنتج من المقارنة (Diff)
+      if (key == 'productState' || key == 'product_state') {
+        continue; // ✅ استثناء تام لحالة المنتج من المقارنة (Diff)
+      }
 
       final oldValRaw = cleanOld[key];
       final newValRaw = cleanNew[key];
@@ -342,9 +350,15 @@ class ItemHistoryController {
   /// تحديد المسمى العربي الملائم للحقل حسب نوع العملية
   static String _getFieldLabel(String key, bool isDetailing) {
     if (isDetailing) {
-      if (key == 'productionWidth1' || key == 'production_width_1') return 'فلاب 1';
-      if (key == 'productionWidth2' || key == 'production_width_2') return 'فلاب 2';
-      if (key == 'productionHeight' || key == 'production_height') return 'ارتفاع التفصيل';
+      if (key == 'productionWidth1' || key == 'production_width_1') {
+        return 'فلاب 1';
+      }
+      if (key == 'productionWidth2' || key == 'production_width_2') {
+        return 'فلاب 2';
+      }
+      if (key == 'productionHeight' || key == 'production_height') {
+        return 'ارتفاع التفصيل';
+      }
       if (key == 'isOverFlap') return 'أوفر فلاب';
       if (key == 'addTwoMm') return 'إضافة 2 ملم للفلاب';
       if (key == 'isFlap') return 'فلاب';
@@ -353,7 +367,9 @@ class ItemHistoryController {
     } else {
       // في عمليات التكسير
       if (key == 'cuttingType') return 'نوع التضليع / الشريحة';
-      if (key == 'numberOfBoxes' || key == 'number_of_boxes') return 'عدد العلب';
+      if (key == 'numberOfBoxes' || key == 'number_of_boxes') {
+        return 'عدد العلب';
+      }
       if (key == 'formNumber' || key == 'form_number') return 'رقم الفورمة';
       if (key == 'sheetLengthManual') return 'طول الشيت';
       if (key == 'sheetWidthManual') return 'عرض الشيت';
@@ -448,7 +464,8 @@ class ItemHistoryController {
     );
 
     // 2. إزالة أي تواجد مكرر لوحدة "سم" أو "cm" أو مسافات زائدة
-    str = str.replaceAll(RegExp(r'\s*(سم|cm)', caseSensitive: false), '').trim();
+    str =
+        str.replaceAll(RegExp(r'\s*(سم|cm)', caseSensitive: false), '').trim();
 
     // 3. استخراج القيمة الرقمية النظيفة فقط لمنع أي تكرار أو تشوه
     final match = RegExp(r'[-+]?\d+(?:\.\d+)?').firstMatch(str);
@@ -519,7 +536,8 @@ class ItemHistoryController {
 
     // التحقق من وجود تغييرات حقيقية في البيانات النصية أو الرقمية
     if (!hasChanges(oldData, newData)) {
-      debugPrint('ℹ️ [ItemHistoryController] لم تطرأ أي تغييرات نصية أو رقمية على الصنف: $itemId');
+      debugPrint(
+          'ℹ️ [ItemHistoryController] لم تطرأ أي تغييرات نصية أو رقمية على الصنف: $itemId');
       return;
     }
 
@@ -559,9 +577,11 @@ class ItemHistoryController {
     // 2. الحفظ في Supabase (مباشر أو عبر طابور المزامنة عند انقطاع الإنترنت)
     try {
       await _supabase.from('item_edit_history').insert(payload);
-      debugPrint('✅ [ItemHistoryController] تم إدخال سجل التعديل في Supabase بنجاح للصنف: $itemId');
+      debugPrint(
+          '✅ [ItemHistoryController] تم إدخال سجل التعديل في Supabase بنجاح للصنف: $itemId');
     } catch (e) {
-      debugPrint('⚠️ [ItemHistoryController] فشل الرفع المباشر ($e) — سيتم الإضافة لطابور المزامنة');
+      debugPrint(
+          '⚠️ [ItemHistoryController] فشل الرفع المباشر ($e) — سيتم الإضافة لطابور المزامنة');
       await SyncService.instance.pushToQueue(
         'item_edit_history',
         payload,
@@ -571,7 +591,8 @@ class ItemHistoryController {
   }
 
   /// جلب السجلات المحلية من كاش Hive مع فحص طابور المزامنة (sync_queue) أولاً (Offline-First)
-  static Future<List<Map<String, dynamic>>> getLocalHistory(String itemId) async {
+  static Future<List<Map<String, dynamic>>> getLocalHistory(
+      String itemId) async {
     if (itemId.trim().isEmpty) return [];
 
     final recordsMap = <String, Map<String, dynamic>>{};
@@ -630,7 +651,8 @@ class ItemHistoryController {
   }
 
   /// جلب أحدث البيانات من Supabase وتحديث الكاش المحلي
-  static Future<List<Map<String, dynamic>>> fetchRemoteHistory(String itemId) async {
+  static Future<List<Map<String, dynamic>>> fetchRemoteHistory(
+      String itemId) async {
     if (itemId.trim().isEmpty) return [];
 
     final res = await _supabase
@@ -640,9 +662,8 @@ class ItemHistoryController {
         .order('edited_at', ascending: false)
         .timeout(const Duration(seconds: 4));
 
-    final serverRecords = (res as List)
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList();
+    final serverRecords =
+        (res as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
 
     // دمج السجلات المحلية المعلقة في sync_queue التي قد لا تكون رُفعت بعد
     final localRecords = await getLocalHistory(itemId);
@@ -687,7 +708,8 @@ class ItemHistoryController {
       final remoteRecords = await fetchRemoteHistory(itemId);
       if (remoteRecords.isNotEmpty) return remoteRecords;
     } catch (e) {
-      debugPrint('⚠️ [ItemHistoryController] فشل الجلب من Supabase ($e) — استخدام الكاش المحلي');
+      debugPrint(
+          '⚠️ [ItemHistoryController] فشل الجلب من Supabase ($e) — استخدام الكاش المحلي');
     }
 
     return localRecords;
@@ -699,10 +721,14 @@ class ItemHistoryController {
     if (value is num || value is bool) return value;
     final str = value.toString().trim();
     if (isDimensionKey(key)) {
-      return str.replaceAll(RegExp(r'\s*(سم|cm)', caseSensitive: false), '').trim();
+      return str
+          .replaceAll(RegExp(r'\s*(سم|cm)', caseSensitive: false), '')
+          .trim();
     }
     if (key == 'numberOfBoxes' || key == 'number_of_boxes') {
-      return str.replaceAll(RegExp(r'\s*علبة', caseSensitive: false), '').trim();
+      return str
+          .replaceAll(RegExp(r'\s*علبة', caseSensitive: false), '')
+          .trim();
     }
     return str;
   }
@@ -748,7 +774,8 @@ class ItemHistoryController {
       }
 
       if (currentItem == null || targetKey == null) {
-        debugPrint('⚠️ [restoreHistoryVersion] لم يتم العثور على الصنف في Hive: $itemId');
+        debugPrint(
+            '⚠️ [restoreHistoryVersion] لم يتم العثور على الصنف في Hive: $itemId');
         return false;
       }
 
@@ -767,10 +794,14 @@ class ItemHistoryController {
 
       // ── حماية حالة المنتج الحالية (حرج جداً - مثل الصور تماماً) ──
       // الاحتفاظ بحالة المنتج الحالية للصنف دون الكتابة فوقها من النسخة المستعادة
-      final currentProductState = (currentItem['product_state'] ?? currentItem['productState'])?.toString().trim();
-      final String preservedProductState = (currentProductState != null && currentProductState.isNotEmpty)
-          ? currentProductState
-          : 'مطبوع';
+      final currentProductState =
+          (currentItem['product_state'] ?? currentItem['productState'])
+              ?.toString()
+              .trim();
+      final String preservedProductState =
+          (currentProductState != null && currentProductState.isNotEmpty)
+              ? currentProductState
+              : 'مطبوع';
 
       // ── الدمج الذكي (Smart Merge) ──
       // استبدال جميع الحقول النصية والرقمية بالبيانات الموجودة في targetData
@@ -790,7 +821,9 @@ class ItemHistoryController {
           if (key == 'productName') val = targetData['product_name'];
           if (key == 'productCode') val = targetData['product_code'];
           if (key == 'clientName') val = targetData['client_name'];
-          if (key == 'processType') val = targetData['process_type'] ?? targetData['operation_type'];
+          if (key == 'processType') {
+            val = targetData['process_type'] ?? targetData['operation_type'];
+          }
           if (key == 'isSheet') val = targetData['is_sheet'];
           if (key == 'formNumber') val = targetData['form_number'];
           if (key == 'numberOfBoxes') val = targetData['number_of_boxes'];
@@ -828,7 +861,8 @@ class ItemHistoryController {
 
       // ── استخراج الملاحظات notes من targetData (مع الاحتفاظ التام بـ product_state الحالية) ──
       final dynamic rawNotes = targetData['notes'] ?? cleanTarget['notes'];
-      final String restoredNotes = (rawNotes != null) ? rawNotes.toString().trim() : '';
+      final String restoredNotes =
+          (rawNotes != null) ? rawNotes.toString().trim() : '';
 
       // الاحتفاظ بحالة المنتج الحالية للصنف دون الكتابة فوقها (تماما كما نفعل مع الصور)
       mergedItem['productState'] = preservedProductState;
@@ -839,7 +873,8 @@ class ItemHistoryController {
       mergedItem['formNumber'] = fNum;
       mergedItem['form_number'] = fNum;
 
-      final nBoxes = mergedItem['numberOfBoxes'] ?? mergedItem['number_of_boxes'];
+      final nBoxes =
+          mergedItem['numberOfBoxes'] ?? mergedItem['number_of_boxes'];
       mergedItem['numberOfBoxes'] = nBoxes;
       mergedItem['number_of_boxes'] = nBoxes;
 
@@ -886,21 +921,28 @@ class ItemHistoryController {
       // ── 3. الحفظ والتسجيل (Save & Sync) ──
       // أ) حفظ الكائن المدمج الجديد في Hive
       await box.put(targetKey, mergedItem);
-      debugPrint('✅ [restoreHistoryVersion] تم حفظ الصنف المستعاد في Hive بنجاح');
+      debugPrint(
+          '✅ [restoreHistoryVersion] تم حفظ الصنف المستعاد في Hive بنجاح');
 
       // ب) إضافة عملية الحفظ إلى طابور المزامنة sync_queue (كعملية update)
       final customerPayload = <String, dynamic>{
         'sync_id': mergedItem['sync_id'],
-        'client_name': mergedItem['clientName'] ?? mergedItem['client_name'] ?? '',
-        'product_name': mergedItem['productName'] ?? mergedItem['product_name'] ?? '',
-        'product_code': mergedItem['productCode'] ?? mergedItem['product_code'] ?? '',
-        'process_type': mergedItem['processType'] ?? mergedItem['process_type'] ?? 'تفصيل',
+        'client_name':
+            mergedItem['clientName'] ?? mergedItem['client_name'] ?? '',
+        'product_name':
+            mergedItem['productName'] ?? mergedItem['product_name'] ?? '',
+        'product_code':
+            mergedItem['productCode'] ?? mergedItem['product_code'] ?? '',
+        'process_type':
+            mergedItem['processType'] ?? mergedItem['process_type'] ?? 'تفصيل',
         'length': double.tryParse(mergedItem['length']?.toString() ?? ''),
         'width': double.tryParse(mergedItem['width']?.toString() ?? ''),
         'height': double.tryParse(mergedItem['height']?.toString() ?? ''),
-        'is_sheet': mergedItem['isSheet'] == true || mergedItem['is_sheet'] == true,
+        'is_sheet':
+            mergedItem['isSheet'] == true || mergedItem['is_sheet'] == true,
         'date': mergedItem['date'],
-        'is_client_record': mergedItem['isClientRecord'] == true || mergedItem['is_client_record'] == true,
+        'is_client_record': mergedItem['isClientRecord'] == true ||
+            mergedItem['is_client_record'] == true,
         'image_paths': preservedImages.map((e) => e.toString()).toList(),
         'form_number': fNum?.toString() ?? '',
         'number_of_boxes': double.tryParse(nBoxes?.toString() ?? ''),
@@ -914,7 +956,8 @@ class ItemHistoryController {
         customerPayload,
         operation: 'update',
       );
-      debugPrint('✅ [restoreHistoryVersion] تم إدراج عملية التحديث في sync_queue (update)');
+      debugPrint(
+          '✅ [restoreHistoryVersion] تم إدراج عملية التحديث في sync_queue (update)');
 
       // ج) تفعيل دالة recordHistory تلقائياً لتسجيل حركة الاستعادة كتعديل جديد في السجل
       await recordHistory(
@@ -922,11 +965,13 @@ class ItemHistoryController {
         oldData: currentItem,
         newData: mergedItem,
       );
-      debugPrint('✅ [restoreHistoryVersion] تم تسجيل حركة الاستعادة كتعديل جديد في السجل');
+      debugPrint(
+          '✅ [restoreHistoryVersion] تم تسجيل حركة الاستعادة كتعديل جديد في السجل');
 
       return true;
     } catch (e, stack) {
-      debugPrint('❌ [restoreHistoryVersion] خطأ أثناء استعادة التعديل: $e\n$stack');
+      debugPrint(
+          '❌ [restoreHistoryVersion] خطأ أثناء استعادة التعديل: $e\n$stack');
       return false;
     }
   }

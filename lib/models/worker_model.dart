@@ -35,10 +35,13 @@ class Worker extends HiveObject {
         // ignore: experimental_member_use
         _actions = HiveList(box);
       } else {
-        debugPrint('❌ Error: worker_actions box is closed. Returning temporary empty HiveList container.');
+        debugPrint(
+            '❌ Error: worker_actions box is closed. Returning temporary empty HiveList container.');
       }
     }
-    return _actions ?? (throw StateError('worker_actions box must be open to access actions.'));
+    return _actions ??
+        (throw StateError(
+            'worker_actions box must be open to access actions.'));
   }
 
   // ignore: experimental_member_use
@@ -54,7 +57,8 @@ class Worker extends HiveObject {
   late String? id; // Unique ID for Supabase sync
 
   @HiveField(7, defaultValue: 'flexo')
-  late String department; // flexo, production_line, die_cutting, staples, stores, silicates
+  late String
+      department; // flexo, production_line, die_cutting, staples, stores, silicates
 
   @HiveField(8, defaultValue: false)
   late bool canAdd;
@@ -221,27 +225,36 @@ class Worker extends HiveObject {
 
   /// Closes all active hourly actions (permissions, health insurance) that have passed their shift end time.
   static Future<void> autoCloseHourlyActionsGlobal() async {
-    if (!Hive.isBoxOpen('workers') || !Hive.isBoxOpen('factory_schedule') || !Hive.isBoxOpen('settings')) return;
-    
+    if (!Hive.isBoxOpen('workers') ||
+        !Hive.isBoxOpen('factory_schedule') ||
+        !Hive.isBoxOpen('settings')) {
+      return;
+    }
+
     final workersBox = Hive.box<Worker>('workers');
     final scheduleBox = Hive.box<DaySchedule>('factory_schedule');
     final settingsBox = Hive.box('settings');
 
-    final String defaultShiftEndStr = settingsBox.get('shift_end', defaultValue: '17:00');
+    final String defaultShiftEndStr =
+        settingsBox.get('shift_end', defaultValue: '17:00');
     final parts = defaultShiftEndStr.split(':');
     final defaultShiftEndHour = int.tryParse(parts[0]) ?? 17;
-    final defaultShiftEndMinute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
-    final TimeOfDay defaultShiftEnd = TimeOfDay(hour: defaultShiftEndHour, minute: defaultShiftEndMinute);
+    final defaultShiftEndMinute =
+        parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    final TimeOfDay defaultShiftEnd =
+        TimeOfDay(hour: defaultShiftEndHour, minute: defaultShiftEndMinute);
 
     final now = DateTime.now();
 
     for (final worker in workersBox.values) {
       final activeAction = worker.activeAction;
-      if (activeAction != null && activeAction.isTimeBased && activeAction.returnDate == null) {
+      if (activeAction != null &&
+          activeAction.isTimeBased &&
+          activeAction.returnDate == null) {
         // Find shift end for the action's date
         final dayName = _weekdayName(activeAction.date.weekday);
         final schedule = scheduleBox.get(dayName);
-        
+
         TimeOfDay shiftEnd = defaultShiftEnd;
         if (schedule != null) {
           shiftEnd = _parseTime(schedule.shiftEnd);
@@ -256,7 +269,8 @@ class Worker extends HiveObject {
         );
 
         if (now.isAfter(shiftEndDateTime)) {
-          debugPrint('🔄 Auto-closing action for ${worker.name} (action type: ${activeAction.type})');
+          debugPrint(
+              '🔄 Auto-closing action for ${worker.name} (action type: ${activeAction.type})');
           activeAction.returnDate = activeAction.date;
           activeAction.endTimeHour = shiftEnd.hour;
           activeAction.endTimeMinute = shiftEnd.minute;
@@ -272,8 +286,13 @@ class Worker extends HiveObject {
 
   static String _weekdayName(int weekday) {
     const map = {
-      1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday',
-      5: 'Friday', 6: 'Saturday', 7: 'Sunday',
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+      7: 'Sunday',
     };
     return map[weekday] ?? 'Monday';
   }
@@ -284,7 +303,7 @@ class Worker extends HiveObject {
       final timeParts = parts[0].split(':');
       int hour = int.parse(timeParts[0]);
       int minute = int.parse(timeParts[1]);
-      
+
       if (parts.length > 1) {
         final period = parts[1].toUpperCase();
         if (period == 'PM' && hour != 12) {
@@ -363,20 +382,30 @@ class Worker extends HiveObject {
       canEdit: map['can_edit'] ?? map['canEdit'] ?? false,
       canDelete: map['can_delete'] ?? map['canDelete'] ?? false,
       email: map['email']?.toString(),
-      canManageClientsAdd: map['can_manage_clients_add'] ?? map['canManageClientsAdd'] ?? false,
-      canManageClientsEdit: map['can_manage_clients_edit'] ?? map['canManageClientsEdit'] ?? false,
-      canManageClientsDelete: map['can_manage_clients_delete'] ?? map['canManageClientsDelete'] ?? false,
+      canManageClientsAdd:
+          map['can_manage_clients_add'] ?? map['canManageClientsAdd'] ?? false,
+      canManageClientsEdit: map['can_manage_clients_edit'] ??
+          map['canManageClientsEdit'] ??
+          false,
+      canManageClientsDelete: map['can_manage_clients_delete'] ??
+          map['canManageClientsDelete'] ??
+          false,
       deviceId: map['device_id']?.toString(),
       isDeviceLinked: map['is_device_linked'] ?? false,
       canAddWorker: map['can_add_worker'] ?? map['canAddWorker'] ?? false,
       canEditWorker: map['can_edit_worker'] ?? map['canEditWorker'] ?? false,
-      canDeleteWorker: map['can_delete_worker'] ?? map['canDeleteWorker'] ?? false,
+      canDeleteWorker:
+          map['can_delete_worker'] ?? map['canDeleteWorker'] ?? false,
       canReadArchive: map['can_read_archive'] ?? map['canReadArchive'] ?? false,
       canAddArchive: map['can_add_archive'] ?? map['canAddArchive'] ?? false,
-      canRestoreArchive: map['can_restore_archive'] ?? map['canRestoreArchive'] ?? false,
-      canDeleteArchive: map['can_delete_archive'] ?? map['canDeleteArchive'] ?? false,
-      canAddWorkerAction: map['can_add_worker_action'] ?? map['canAddWorkerAction'] ?? false,
-      canIssueJobOrders: map['can_issue_job_orders'] ?? map['canIssueJobOrders'] ?? false,
+      canRestoreArchive:
+          map['can_restore_archive'] ?? map['canRestoreArchive'] ?? false,
+      canDeleteArchive:
+          map['can_delete_archive'] ?? map['canDeleteArchive'] ?? false,
+      canAddWorkerAction:
+          map['can_add_worker_action'] ?? map['canAddWorkerAction'] ?? false,
+      canIssueJobOrders:
+          map['can_issue_job_orders'] ?? map['canIssueJobOrders'] ?? false,
     );
   }
 
@@ -431,7 +460,8 @@ class Worker extends HiveObject {
       email: email ?? this.email,
       canManageClientsAdd: canManageClientsAdd ?? this.canManageClientsAdd,
       canManageClientsEdit: canManageClientsEdit ?? this.canManageClientsEdit,
-      canManageClientsDelete: canManageClientsDelete ?? this.canManageClientsDelete,
+      canManageClientsDelete:
+          canManageClientsDelete ?? this.canManageClientsDelete,
       deviceId: deviceId ?? this.deviceId,
       isDeviceLinked: isDeviceLinked ?? this.isDeviceLinked,
       canAddWorker: canAddWorker ?? this.canAddWorker,

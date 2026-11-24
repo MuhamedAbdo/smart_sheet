@@ -360,7 +360,8 @@ class _FinishedProductScreenState extends State<FinishedProductScreen> {
 
                                       // تفريغ صور الصنف من الكاش المحلي
                                       if (productToRemove.imagePaths != null) {
-                                        for (var path in productToRemove.imagePaths!) {
+                                        for (var path
+                                            in productToRemove.imagePaths!) {
                                           if (path.startsWith('http')) {
                                             CacheHelper.deleteImageCache(path);
                                           }

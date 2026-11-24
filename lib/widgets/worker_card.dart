@@ -22,9 +22,6 @@ class WorkerCard extends StatefulWidget {
 }
 
 class _WorkerCardState extends State<WorkerCard> {
-
-
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -35,92 +32,92 @@ class _WorkerCardState extends State<WorkerCard> {
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       padding: const EdgeInsets.all(16),
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.person,
-                  color: colorScheme.primary,
-                  size: 24,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    "👤 ${widget.worker.name}",
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
-                    ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.person,
+                color: colorScheme.primary,
+                size: 24,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "👤 ${widget.worker.name}",
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
                   ),
                 ),
-                _buildStatusDot(),
-              ],
-            ),
-            
-            _buildInfoRow(
-              'الوظيفة:',
-              widget.worker.job,
-              labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-              textColor: textTheme.bodyMedium?.color,
-            ),
-            const SizedBox(height: 5),
-            _buildInfoRow(
-              'القسم:',
-              _getDepartmentArabicName(widget.worker.department),
-              labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-              textColor: colorScheme.secondary,
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
+              ),
+              _buildStatusDot(),
+            ],
+          ),
+          _buildInfoRow(
+            'الوظيفة:',
+            widget.worker.job,
+            labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+            textColor: textTheme.bodyMedium?.color,
+          ),
+          const SizedBox(height: 5),
+          _buildInfoRow(
+            'القسم:',
+            _getDepartmentArabicName(widget.worker.department),
+            labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+            textColor: colorScheme.secondary,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: widget.onTap,
+                  icon: Icon(Icons.list_alt,
+                      size: 18, color: colorScheme.primary),
+                  label: Text('التفاصيل',
+                      style: TextStyle(color: colorScheme.primary)),
+                  style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12)),
+                ),
+              ),
+              if (widget.onEdit != null) ...[
+                const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: widget.onTap,
-                    icon: Icon(Icons.list_alt,
-                        size: 18, color: colorScheme.primary),
-                    label: Text('التفاصيل',
+                    onPressed: widget.onEdit,
+                    icon:
+                        Icon(Icons.edit, size: 18, color: colorScheme.primary),
+                    label: Text('تعديل',
                         style: TextStyle(color: colorScheme.primary)),
                     style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12)),
                   ),
                 ),
-                if (widget.onEdit != null) ...[
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: widget.onEdit,
-                      icon: Icon(Icons.edit, size: 18, color: colorScheme.primary),
-                      label: Text('تعديل',
-                          style: TextStyle(color: colorScheme.primary)),
-                      style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12)),
-                    ),
-                  ),
-                ],
-                if (widget.onDelete != null) ...[
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: widget.onDelete,
-                      icon: const Icon(Icons.delete, size: 18, color: Colors.white),
-                      label: const Text('حذف',
-                          style: TextStyle(color: Colors.white)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
               ],
-            ),
-          ],
-        ),
+              if (widget.onDelete != null) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: widget.onDelete,
+                    icon:
+                        const Icon(Icons.delete, size: 18, color: Colors.white),
+                    label: const Text('حذف',
+                        style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
-
 
   Widget _buildInfoRow(
     String label,
@@ -152,7 +149,8 @@ class _WorkerCardState extends State<WorkerCard> {
             child: Text(
               value,
               textDirection: textDirection,
-              textAlign: textDirection == TextDirection.ltr ? TextAlign.right : null,
+              textAlign:
+                  textDirection == TextDirection.ltr ? TextAlign.right : null,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -182,7 +180,8 @@ class _WorkerCardState extends State<WorkerCard> {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: (isOut ? Colors.orange : Colors.green).withValues(alpha: 0.4),
+              color:
+                  (isOut ? Colors.orange : Colors.green).withValues(alpha: 0.4),
               blurRadius: 4,
               spreadRadius: 1,
             ),
@@ -227,5 +226,4 @@ class _WorkerCardState extends State<WorkerCard> {
         return dept.isNotEmpty ? '🏭 $dept' : '❓ غير محدد';
     }
   }
-
 }

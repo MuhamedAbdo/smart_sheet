@@ -14,10 +14,12 @@ class StapleArchivedReportsScreen extends StatefulWidget {
   const StapleArchivedReportsScreen({super.key});
 
   @override
-  State<StapleArchivedReportsScreen> createState() => _StapleArchivedReportsScreenState();
+  State<StapleArchivedReportsScreen> createState() =>
+      _StapleArchivedReportsScreenState();
 }
 
-class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScreen> {
+class _StapleArchivedReportsScreenState
+    extends State<StapleArchivedReportsScreen> {
   Box? _archiveBox;
   bool _isSearching = false;
   String _searchQuery = "";
@@ -29,12 +31,13 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
 
   void _selectAll() {
     if (_archiveBox == null) return;
-    
+
     final filteredEntries = _getFilteredEntries(_archiveBox!);
     final currentFilteredKeys = filteredEntries.map((e) => e.key).toSet();
-    
+
     setState(() {
-      if (_selectedArchiveKeys.containsAll(currentFilteredKeys) && currentFilteredKeys.isNotEmpty) {
+      if (_selectedArchiveKeys.containsAll(currentFilteredKeys) &&
+          currentFilteredKeys.isNotEmpty) {
         _selectedArchiveKeys.removeAll(currentFilteredKeys);
       } else {
         _selectedArchiveKeys.addAll(currentFilteredKeys);
@@ -115,7 +118,7 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
 
       final reportObj = StapleProductionReport.fromJson(parsedData);
       await reportsBox.put(reportObj.id, reportObj);
-      
+
       const targetProdTable = 'staple_production_reports';
       SyncService.instance.pushToQueue(targetProdTable, reportObj.toJson());
 
@@ -163,9 +166,11 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
               const targetProdTable = 'staple_production_reports';
               const targetArchTable = 'staple_archived_reports';
 
-              SyncService.instance.pushToQueue(targetProdTable, reportObj.toJson());
-              SyncService.instance.pushToQueue(targetArchTable, reportObj.toJson());
-              
+              SyncService.instance
+                  .pushToQueue(targetProdTable, reportObj.toJson());
+              SyncService.instance
+                  .pushToQueue(targetArchTable, reportObj.toJson());
+
               stapleArchiveToUpsert.add(reportObj.toJson());
             } catch (e) {
               debugPrint("❌ فشل استعادة تسجيلة (Exception: $e)");
@@ -175,11 +180,15 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
 
           try {
             if (stapleArchiveToUpsert.isNotEmpty) {
-              await supabase.from('staple_archived_reports').upsert(stapleArchiveToUpsert);
-              debugPrint('✅ تم الرفع المباشر لـ ${stapleArchiveToUpsert.length} تسجيلة أرشيف (دبوس).');
+              await supabase
+                  .from('staple_archived_reports')
+                  .upsert(stapleArchiveToUpsert);
+              debugPrint(
+                  '✅ تم الرفع المباشر لـ ${stapleArchiveToUpsert.length} تسجيلة أرشيف (دبوس).');
             }
           } catch (e) {
-             debugPrint('⚠️ فشل الرفع المباشر للأرشيف، سيتم الاعتماد على طابور المزامنة: $e');
+            debugPrint(
+                '⚠️ فشل الرفع المباشر للأرشيف، سيتم الاعتماد على طابور المزامنة: $e');
           }
 
           if (mounted) {
@@ -269,7 +278,9 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
 
   void _showDateFilterDialog() async {
     if (_archiveBox == null || _archiveBox!.isEmpty) {
-      UIUtils.showInfoSnackBar(message: "لا توجد تقارير مسجلة لعرض تواريخها", backgroundColor: Colors.orange);
+      UIUtils.showInfoSnackBar(
+          message: "لا توجد تقارير مسجلة لعرض تواريخها",
+          backgroundColor: Colors.orange);
       return;
     }
 
@@ -287,17 +298,22 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
     }
 
     if (uniqueDates.isEmpty) {
-      UIUtils.showInfoSnackBar(message: "لا توجد تواريخ مسجلة لعرضها", backgroundColor: Colors.orange);
+      UIUtils.showInfoSnackBar(
+          message: "لا توجد تواريخ مسجلة لعرضها",
+          backgroundColor: Colors.orange);
       return;
     }
 
-    final List<String> sortedDates = uniqueDates.toList()..sort((a, b) => b.compareTo(a));
+    final List<String> sortedDates = uniqueDates.toList()
+      ..sort((a, b) => b.compareTo(a));
 
     final String? pickedDate = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('اختر التاريخ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+          title: const Text('اختر التاريخ',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, color: Colors.blueAccent)),
           content: SizedBox(
             width: double.maxFinite,
             height: 300,
@@ -308,7 +324,8 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
                 final date = sortedDates[index];
                 return ListTile(
                   title: Text(date, style: const TextStyle(fontSize: 16)),
-                  trailing: const Icon(Icons.calendar_today, size: 16, color: Colors.blueAccent),
+                  trailing: const Icon(Icons.calendar_today,
+                      size: 16, color: Colors.blueAccent),
                   onTap: () {
                     Navigator.pop(context, date);
                   },
@@ -359,7 +376,8 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
                   ? IconButton(
                       icon: const Icon(Icons.close),
                       tooltip: 'إلغاء التحديد',
-                      onPressed: () => setState(() => _selectedArchiveKeys.clear()),
+                      onPressed: () =>
+                          setState(() => _selectedArchiveKeys.clear()),
                     )
                   : Navigator.canPop(context)
                       ? IconButton(
@@ -416,57 +434,64 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
                     onPressed: _showAggregationDialog,
                   ),
                   if (PermissionHelper.isSuperAdmin ||
-                      (PermissionHelper.currentWorker?.canDeleteArchive ?? false))
+                      (PermissionHelper.currentWorker?.canDeleteArchive ??
+                          false))
                     IconButton(
-                      icon: Icon(Icons.delete_sweep, color: Colors.red.shade400),
+                      icon:
+                          Icon(Icons.delete_sweep, color: Colors.red.shade400),
                       tooltip: 'حذف المحدد',
                       onPressed: _deleteSelectedEntries,
                     ),
                 ],
                 if (!_isSelectionMode)
-                PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert, color: appBarIconColor),
-                  tooltip: "خيارات الأرشيف",
-                  onSelected: (value) async {
-                    if (value == 'search') {
-                      setState(() => _isSearching = true);
-                    } else if (value == 'filter') {
-                      _showDateFilterDialog();
-                    } else if (value == 'restore') {
-                      _restoreAllEntries();
-                    } else if (value == 'clear_all') {
-                      _clearArchive();
-                    }
-                  },
-                  itemBuilder: (context) {
-                    final bool showRestoreAll = PermissionHelper.isSuperAdmin ||
-                        ArchiveRbacService.canRestore(cw, normalizedDept);
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert, color: appBarIconColor),
+                    tooltip: "خيارات الأرشيف",
+                    onSelected: (value) async {
+                      if (value == 'search') {
+                        setState(() => _isSearching = true);
+                      } else if (value == 'filter') {
+                        _showDateFilterDialog();
+                      } else if (value == 'restore') {
+                        _restoreAllEntries();
+                      } else if (value == 'clear_all') {
+                        _clearArchive();
+                      }
+                    },
+                    itemBuilder: (context) {
+                      final bool showRestoreAll =
+                          PermissionHelper.isSuperAdmin ||
+                              ArchiveRbacService.canRestore(cw, normalizedDept);
 
-                    return [
-                      const PopupMenuItem(
-                          value: 'search',
-                          child: ListTile(
-                              leading: Icon(Icons.search), title: Text('بحث'))),
-                      const PopupMenuItem(
-                          value: 'filter',
-                          child: ListTile(
-                              leading: Icon(Icons.calendar_month),
-                              title: Text('تصفية بالتاريخ'))),
-                      if (showRestoreAll)
+                      return [
                         const PopupMenuItem(
-                            value: 'restore',
+                            value: 'search',
                             child: ListTile(
-                                leading: Icon(Icons.settings_backup_restore),
-                                title: Text('استعادة الكل'))),
-                      if (PermissionHelper.isSuperAdmin || (cw?.canDeleteArchive ?? false))
+                                leading: Icon(Icons.search),
+                                title: Text('بحث'))),
                         const PopupMenuItem(
-                            value: 'clear_all',
+                            value: 'filter',
                             child: ListTile(
-                                leading: Icon(Icons.delete_sweep, color: Colors.red),
-                                title: Text('مسح الأرشيف بالكامل', style: TextStyle(color: Colors.red)))),
-                    ];
-                  },
-                ),
+                                leading: Icon(Icons.calendar_month),
+                                title: Text('تصفية بالتاريخ'))),
+                        if (showRestoreAll)
+                          const PopupMenuItem(
+                              value: 'restore',
+                              child: ListTile(
+                                  leading: Icon(Icons.settings_backup_restore),
+                                  title: Text('استعادة الكل'))),
+                        if (PermissionHelper.isSuperAdmin ||
+                            (cw?.canDeleteArchive ?? false))
+                          const PopupMenuItem(
+                              value: 'clear_all',
+                              child: ListTile(
+                                  leading: Icon(Icons.delete_sweep,
+                                      color: Colors.red),
+                                  title: Text('مسح الأرشيف بالكامل',
+                                      style: TextStyle(color: Colors.red)))),
+                      ];
+                    },
+                  ),
               ],
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(40.0),
@@ -590,8 +615,12 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
                   final reportA = dataA['data'] ?? dataA;
                   final reportB = dataB['data'] ?? dataB;
 
-                  final dateAStr = reportA['date']?.toString() ?? reportA['report_date']?.toString() ?? '2000-01-01';
-                  final dateBStr = reportB['date']?.toString() ?? reportB['report_date']?.toString() ?? '2000-01-01';
+                  final dateAStr = reportA['date']?.toString() ??
+                      reportA['report_date']?.toString() ??
+                      '2000-01-01';
+                  final dateBStr = reportB['date']?.toString() ??
+                      reportB['report_date']?.toString() ??
+                      '2000-01-01';
 
                   final dateA = DateTime.tryParse(dateAStr) ?? DateTime(2000);
                   final dateB = DateTime.tryParse(dateBStr) ?? DateTime(2000);
@@ -599,14 +628,20 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
                   int dateCompare = dateB.compareTo(dateA);
                   if (dateCompare != 0) return dateCompare;
 
-                  final nameA =
-                      (reportA['clientName'] ?? reportA['client_name'] ?? reportA['customerName'] ?? reportA['customer_name'] ?? '')
-                          .toString()
-                          .toLowerCase();
-                  final nameB =
-                      (reportB['clientName'] ?? reportB['client_name'] ?? reportB['customerName'] ?? reportB['customer_name'] ?? '')
-                          .toString()
-                          .toLowerCase();
+                  final nameA = (reportA['clientName'] ??
+                          reportA['client_name'] ??
+                          reportA['customerName'] ??
+                          reportA['customer_name'] ??
+                          '')
+                      .toString()
+                      .toLowerCase();
+                  final nameB = (reportB['clientName'] ??
+                          reportB['client_name'] ??
+                          reportB['customerName'] ??
+                          reportB['customer_name'] ??
+                          '')
+                      .toString()
+                      .toLowerCase();
 
                   return nameA.compareTo(nameB);
                 });
@@ -706,7 +741,11 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
         report['production_quantity'] ??
         report['productionQuantity'] ??
         0;
-    final lineWaste = report['lineWaste'] ?? report['line_waste'] ?? report['waste_quantity'] ?? report['wasteQuantity'] ?? 0;
+    final lineWaste = report['lineWaste'] ??
+        report['line_waste'] ??
+        report['waste_quantity'] ??
+        report['wasteQuantity'] ??
+        0;
 
     String formatCardTime(dynamic raw) {
       if (raw == null) return '';
@@ -724,7 +763,8 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
       return s;
     }
 
-    final startFormatted = formatCardTime(startTime.isNotEmpty ? startTime : null);
+    final startFormatted =
+        formatCardTime(startTime.isNotEmpty ? startTime : null);
     final endFormatted = formatCardTime(endTime.isNotEmpty ? endTime : null);
 
     final downtimeStart = report['downtimeStart'] ?? report['downtime_start'];
@@ -741,7 +781,8 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
       if (downtimeStart != null && downtimeStart.toString().isNotEmpty) {
         final ds = formatCardTime(downtimeStart);
         final de = formatCardTime(downtimeEnd);
-        downtimeDisplay += "${ds.isNotEmpty ? ds : downtimeStart}  ◀  ${de.isNotEmpty ? de : (downtimeEnd ?? '')}";
+        downtimeDisplay +=
+            "${ds.isNotEmpty ? ds : downtimeStart}  ◀  ${de.isNotEmpty ? de : (downtimeEnd ?? '')}";
       }
       if (totalDowntime > 0) {
         downtimeDisplay += " (إجمالي: $totalDowntime دقيقة)";
@@ -769,17 +810,18 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
                 });
               }
             : () {
-            Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ArchiveDetailScreen(
-                record: {
-                  ...Map<String, dynamic>.from(report),
-                  'archiveDate': data['archiveDate'] ?? '---',
-                },
-              ),
-            ),
-          );},
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ArchiveDetailScreen(
+                      record: {
+                        ...Map<String, dynamic>.from(report),
+                        'archiveDate': data['archiveDate'] ?? '---',
+                      },
+                    ),
+                  ),
+                );
+              },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           decoration: BoxDecoration(
@@ -792,82 +834,112 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
                 : null,
           ),
           child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isNarrow = constraints.maxWidth < 420;
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 420;
 
-                  final Worker? cw = PermissionHelper.currentWorker;
-                  const String normalizedDept = 'staples';
+                    final Worker? cw = PermissionHelper.currentWorker;
+                    const String normalizedDept = 'staples';
 
-                  final bool showRestore = PermissionHelper.isSuperAdmin ||
-                      ArchiveRbacService.canRestore(cw, normalizedDept);
-                  final bool showDelete = PermissionHelper.isSuperAdmin ||
-                      (cw?.canDeleteArchive ?? false);
+                    final bool showRestore = PermissionHelper.isSuperAdmin ||
+                        ArchiveRbacService.canRestore(cw, normalizedDept);
+                    final bool showDelete = PermissionHelper.isSuperAdmin ||
+                        (cw?.canDeleteArchive ?? false);
 
-                  final actionButtons = Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showRestore)
-                        IconButton(
-                          constraints: const BoxConstraints(),
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.settings_backup_restore,
-                              color: Colors.green),
-                          onPressed: () => _restoreEntry(key, data),
-                          tooltip: "إستعادة للرئيسية",
-                        ),
-                      if (showRestore && showDelete) const SizedBox(width: 12),
-                      if (showDelete)
-                        IconButton(
-                          constraints: const BoxConstraints(),
-                          padding: EdgeInsets.zero,
-                          icon: Icon(Icons.delete_outline,
-                              color: Colors.red.shade300),
-                          onPressed: () => _deleteEntry(key),
-                          tooltip: "حذف من الأرشيف",
-                        ),
-                    ],
-                  );
-
-                  final dateText = Text(
-                    displayDate != "---" ? displayDate.toString().split('T')[0].split(' ')[0] : "---",
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[600],
-                    ),
-                  );
-
-                  final clientText = Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          clientName,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blueAccent,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      UIUtils.buildOrderNumberBadge(orderNumber),
-                    ],
-                  );
-
-                  if (isNarrow) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    final actionButtons = Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (showRestore)
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.settings_backup_restore,
+                                color: Colors.green),
+                            onPressed: () => _restoreEntry(key, data),
+                            tooltip: "إستعادة للرئيسية",
+                          ),
+                        if (showRestore && showDelete)
+                          const SizedBox(width: 12),
+                        if (showDelete)
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            icon: Icon(Icons.delete_outline,
+                                color: Colors.red.shade300),
+                            onPressed: () => _deleteEntry(key),
+                            tooltip: "حذف من الأرشيف",
+                          ),
+                      ],
+                    );
+
+                    final dateText = Text(
+                      displayDate != "---"
+                          ? displayDate.toString().split('T')[0].split(' ')[0]
+                          : "---",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[600],
+                      ),
+                    );
+
+                    final clientText = Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            clientName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueAccent,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        UIUtils.buildOrderNumberBadge(orderNumber),
+                      ],
+                    );
+
+                    if (isNarrow) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(child: clientText),
+                              if (_isSelectionMode)
+                                Icon(
+                                  _selectedArchiveKeys.contains(key)
+                                      ? Icons.check_circle
+                                      : Icons.radio_button_unchecked,
+                                  color: Colors.blue,
+                                  size: 22,
+                                )
+                              else
+                                actionButtons,
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          dateText,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: clientText),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(child: clientText),
+                            dateText,
+                            const SizedBox(width: 8),
                             if (_isSelectionMode)
                               Icon(
                                 _selectedArchiveKeys.contains(key)
@@ -880,157 +952,141 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
                               actionButtons,
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        dateText,
                       ],
                     );
-                  }
-
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(child: clientText),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          dateText,
-                          const SizedBox(width: 8),
-                          if (_isSelectionMode)
-                            Icon(
-                              _selectedArchiveKeys.contains(key)
-                                  ? Icons.check_circle
-                                  : Icons.radio_button_unchecked,
-                              color: Colors.blue,
-                              size: 22,
-                            )
-                          else
-                            actionButtons,
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              ),
-              const Divider(height: 24, thickness: 1),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.inventory_2_outlined,
-                      size: 18, color: Colors.blueGrey),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white70
-                              : Colors.black87,
-                          fontSize: 15,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: product.replaceAll("\n", " "),
-                            style: const TextStyle(fontWeight: FontWeight.w700),
+                  },
+                ),
+                const Divider(height: 24, thickness: 1),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.inventory_2_outlined,
+                        size: 18, color: Colors.blueGrey),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white70
+                                    : Colors.black87,
+                            fontSize: 15,
                           ),
-                          if (productCode.isNotEmpty)
+                          children: [
                             TextSpan(
-                              text: " [ $productCode ]",
-                              style: const TextStyle(
-                                color: Colors.blueAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                              text: product.replaceAll("\n", " "),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            if (productCode.isNotEmpty)
+                              TextSpan(
+                                text: " [ $productCode ]",
+                                style: const TextStyle(
+                                  color: Colors.blueAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (orderNumber.isNotEmpty)
+                  _buildArchiveInfoRow(
+                      Icons.numbers, "أمر التشغيل:", orderNumber),
+                _buildArchiveInfoRow(
+                    Icons.work_history,
+                    "الوردية:",
+                    report['shiftName']?.toString() ??
+                        report['shift_name']?.toString() ??
+                        'الوردية الأولى',
+                    valueColor: Colors.deepPurple),
+                if (startFormatted.isNotEmpty || endFormatted.isNotEmpty)
+                  _buildArchiveInfoRow(Icons.schedule, "وقت التشغيل:",
+                      "${startFormatted.isNotEmpty ? startFormatted : '--:--'}  ◀  ${endFormatted.isNotEmpty ? endFormatted : '--:--'}"),
+                if (dimStr.isNotEmpty)
+                  _buildArchiveInfoRow(Icons.straighten, "المقاس:", dimStr,
+                      valueColor: Colors.blueAccent),
+                _buildArchiveInfoRow(
+                    Icons.format_list_numbered, "الكمية:", "$quantity"),
+                _buildArchiveInfoRow(
+                  Icons.trending_down,
+                  "الهالك:",
+                  "$lineWaste",
+                ),
+                if (machineName.isNotEmpty)
+                  _buildArchiveInfoRow(
+                      Icons.precision_manufacturing, "الماكينة:", machineName),
+                if (technicianName.isNotEmpty)
+                  _buildArchiveInfoRow(
+                      Icons.person, "الفني المسؤول:", technicianName),
+                Builder(
+                  builder: (context) {
+                    final crew =
+                        report['crewMembers'] ?? report['crew_members'];
+                    if (crew != null) {
+                      if (crew is List && crew.isNotEmpty) {
+                        return _buildArchiveInfoRow(Icons.group, "طاقم العمل:",
+                            "عرض (${crew.length} عمال)",
+                            valueColor: Colors.blue);
+                      } else if (crew is String &&
+                          crew.trim().isNotEmpty &&
+                          crew != 'null' &&
+                          crew != '[]') {
+                        return _buildArchiveInfoRow(
+                            Icons.group, "طاقم العمل:", "عرض (عمال)",
+                            valueColor: Colors.blue);
+                      }
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                if (downtimeDisplay.isNotEmpty)
+                  _buildArchiveInfoRow(
+                      Icons.timer_off, "وقت الأعطال:", downtimeDisplay,
+                      valueColor: Colors.redAccent),
+                if (report['notes'] != null &&
+                    report['notes'].toString().trim().isNotEmpty &&
+                    !report['notes'].toString().contains("مستورد"))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: Colors.orange.withValues(alpha: 0.1)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.sticky_note_2_outlined,
+                              size: 16, color: Colors.orange),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              report['notes'].toString(),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontStyle: FontStyle.italic,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.orange.shade100
+                                    : Colors.black87,
                               ),
                             ),
+                          ),
                         ],
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              if (orderNumber.isNotEmpty)
-                _buildArchiveInfoRow(
-                    Icons.numbers, "أمر التشغيل:", orderNumber),
-              
-              _buildArchiveInfoRow(
-                  Icons.work_history, "الوردية:", 
-                  report['shiftName']?.toString() ?? report['shift_name']?.toString() ?? 'الوردية الأولى',
-                  valueColor: Colors.deepPurple),
-
-              if (startFormatted.isNotEmpty || endFormatted.isNotEmpty)
-                _buildArchiveInfoRow(Icons.schedule, "وقت التشغيل:",
-                    "${startFormatted.isNotEmpty ? startFormatted : '--:--'}  ◀  ${endFormatted.isNotEmpty ? endFormatted : '--:--'}"),
-              if (dimStr.isNotEmpty)
-                _buildArchiveInfoRow(Icons.straighten, "المقاس:", dimStr,
-                    valueColor: Colors.blueAccent),
-              _buildArchiveInfoRow(
-                  Icons.format_list_numbered, "الكمية:", "$quantity"),
-              _buildArchiveInfoRow(
-                Icons.trending_down,
-                "الهالك:",
-                "$lineWaste",
-              ),
-              if (machineName.isNotEmpty)
-                _buildArchiveInfoRow(
-                    Icons.precision_manufacturing, "الماكينة:", machineName),
-              if (technicianName.isNotEmpty)
-                _buildArchiveInfoRow(
-                    Icons.person, "الفني المسؤول:", technicianName),
-              Builder(
-                builder: (context) {
-                  final crew = report['crewMembers'] ?? report['crew_members'];
-                  if (crew != null) {
-                    if (crew is List && crew.isNotEmpty) {
-                      return _buildArchiveInfoRow(Icons.group, "طاقم العمل:", "عرض (${crew.length} عمال)", valueColor: Colors.blue);
-                    } else if (crew is String && crew.trim().isNotEmpty && crew != 'null' && crew != '[]') {
-                      return _buildArchiveInfoRow(Icons.group, "طاقم العمل:", "عرض (عمال)", valueColor: Colors.blue);
-                    }
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              if (downtimeDisplay.isNotEmpty)
-                _buildArchiveInfoRow(
-                    Icons.timer_off, "وقت الأعطال:", downtimeDisplay,
-                    valueColor: Colors.redAccent),
-              if (report['notes'] != null &&
-                  report['notes'].toString().trim().isNotEmpty &&
-                  !report['notes'].toString().contains("مستورد"))
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: Colors.orange.withValues(alpha: 0.1)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.sticky_note_2_outlined,
-                            size: 16, color: Colors.orange),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            report['notes'].toString(),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontStyle: FontStyle.italic,
-                              color: Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? Colors.orange.shade100
-                                  : Colors.black87,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -1060,7 +1116,8 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
           report['production_quantity'] ??
           report['productionQuantity'] ??
           0;
-      totalQty += (qty is num ? qty.toDouble() : double.tryParse(qty.toString()) ?? 0);
+      totalQty +=
+          (qty is num ? qty.toDouble() : double.tryParse(qty.toString()) ?? 0);
 
       final lineWaste = report['lineWaste'] ??
           report['line_waste'] ??
@@ -1147,8 +1204,8 @@ class _StapleArchivedReportsScreenState extends State<StapleArchivedReportsScree
           const SizedBox(width: 10),
           Expanded(
             child: Text(label,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w600)),
+                style:
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           ),
           Text(
             value,

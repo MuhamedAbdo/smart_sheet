@@ -4,7 +4,6 @@ import '../screens/auth_screen.dart';
 import '../services/auth_service.dart';
 import '../utils/ui_utils.dart';
 
-
 class UpdatePasswordScreen extends StatefulWidget {
   static const routeName = '/update-password';
   const UpdatePasswordScreen({super.key});
@@ -57,7 +56,9 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
     UIUtils.showInfoSnackBar(
       message: message,
       backgroundColor: color,
-      icon: color == Colors.red ? Icons.error_outline : Icons.check_circle_outline,
+      icon: color == Colors.red
+          ? Icons.error_outline
+          : Icons.check_circle_outline,
     );
   }
 
@@ -113,7 +114,9 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                        _isPasswordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                       ),
                       onPressed: () {
                         setState(() {
@@ -178,9 +181,8 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: authLoading
-                      ? null
-                      : () => Navigator.of(context).pop(),
+                  onPressed:
+                      authLoading ? null : () => Navigator.of(context).pop(),
                   child: const Text('إلغاء'),
                 ),
               ],

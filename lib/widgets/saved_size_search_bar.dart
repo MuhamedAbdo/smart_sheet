@@ -8,7 +8,7 @@ class SavedSizeSearchBar extends StatelessWidget {
   final FocusNode? focusNode;
 
   const SavedSizeSearchBar({
-    super.key, 
+    super.key,
     required this.onChanged,
     this.controller,
     this.focusNode,

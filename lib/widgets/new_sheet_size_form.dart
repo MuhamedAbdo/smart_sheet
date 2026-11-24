@@ -287,7 +287,8 @@ class _NewSheetSizeFormState extends State<NewSheetSizeForm> {
       controller: controller,
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
         labelText: label,
         labelStyle: const TextStyle(fontSize: 13),
         border: const OutlineInputBorder(),

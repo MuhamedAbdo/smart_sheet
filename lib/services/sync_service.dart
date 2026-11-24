@@ -507,7 +507,8 @@ class SyncService extends SyncServiceBase
       if (table == 'die_cutting_archived_reports' ||
           table == 'die_cutting_production_reports' ||
           table == 'die_cutting_forms') {
-        if (cleanData.containsKey('date') && !cleanData.containsKey('report_date')) {
+        if (cleanData.containsKey('date') &&
+            !cleanData.containsKey('report_date')) {
           cleanData['report_date'] = cleanData.remove('date');
         } else {
           cleanData.remove('date');
@@ -1026,7 +1027,8 @@ class SyncService extends SyncServiceBase
                 modified = true;
               }
               if (cleanPayload.containsKey('shift_name') &&
-                  (missingCol == 'shift_name' || e.message.contains('shift_name'))) {
+                  (missingCol == 'shift_name' ||
+                      e.message.contains('shift_name'))) {
                 cleanPayload.remove('shift_name');
                 modified = true;
               }

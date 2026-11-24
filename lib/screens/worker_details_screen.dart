@@ -117,34 +117,43 @@ class ShiftTimeCalculator {
   }
 
   /// Get shift start time for a specific action, falling back to default if not found
-  static TimeOfDay getShiftStartForAction(String? shiftName, DateTime date, ThemeProvider themeProvider, [TimeOfDay? actionStartTime]) {
+  static TimeOfDay getShiftStartForAction(
+      String? shiftName, DateTime date, ThemeProvider themeProvider,
+      [TimeOfDay? actionStartTime]) {
     if (shiftName == null && actionStartTime != null) {
       shiftName = _guessShiftNameFromTime(actionStartTime, date);
     }
     if (shiftName == null || !Hive.isBoxOpen('factory_schedule')) {
       return themeProvider.shiftStart;
     }
-    
+
     return _parseShiftTime(shiftName, date, true, themeProvider.shiftStart);
   }
 
   /// Get shift end time for a specific action, falling back to default if not found
-  static TimeOfDay getShiftEndForAction(String? shiftName, DateTime date, ThemeProvider themeProvider, [TimeOfDay? actionStartTime]) {
+  static TimeOfDay getShiftEndForAction(
+      String? shiftName, DateTime date, ThemeProvider themeProvider,
+      [TimeOfDay? actionStartTime]) {
     if (shiftName == null && actionStartTime != null) {
       shiftName = _guessShiftNameFromTime(actionStartTime, date);
     }
     if (shiftName == null || !Hive.isBoxOpen('factory_schedule')) {
       return themeProvider.shiftEnd;
     }
-    
+
     return _parseShiftTime(shiftName, date, false, themeProvider.shiftEnd);
   }
 
   static String? _guessShiftNameFromTime(TimeOfDay time, DateTime date) {
     if (!Hive.isBoxOpen('factory_schedule')) return null;
     const map = {
-      1: 'Monday', 2: 'Tuesday', 3: 'Wednesday',
-      4: 'Thursday', 5: 'Friday', 6: 'Saturday', 7: 'Sunday',
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+      7: 'Sunday',
     };
     final dayName = map[date.weekday] ?? 'Monday';
     final schedule = Hive.box<DaySchedule>('factory_schedule').get(dayName);
@@ -169,7 +178,8 @@ class ShiftTimeCalculator {
     return null;
   }
 
-  static TimeOfDay _parseShiftTime(String shiftName, DateTime date, bool isStart, TimeOfDay fallback) {
+  static TimeOfDay _parseShiftTime(
+      String shiftName, DateTime date, bool isStart, TimeOfDay fallback) {
     const map = {
       1: 'Monday',
       2: 'Tuesday',
@@ -181,7 +191,7 @@ class ShiftTimeCalculator {
     };
     final dayName = map[date.weekday] ?? 'Monday';
     final schedule = Hive.box<DaySchedule>('factory_schedule').get(dayName);
-    
+
     if (schedule != null && schedule.shifts != null) {
       try {
         final shift = schedule.shifts!.firstWhere((s) => s.name == shiftName);
@@ -532,9 +542,12 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
           decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? const Color(0xFF1E293B) 
-                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF1E293B)
+                : Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(24.0),
           ),
           child: ConstrainedBox(
@@ -543,224 +556,236 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-            // Worker Header Card
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // الجانب الأيمن (بيانات العامل)
-                    Expanded(
+                  // Worker Header Card
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          CircleAvatar(
-                            radius: 22,
-                            backgroundColor: Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withValues(alpha: 0.12),
-                            child: Icon(
-                              Icons.person,
-                              size: 26,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
+                          // الجانب الأيمن (بيانات العامل)
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Text(
-                                  "🛠 ${_worker.job}",
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withValues(alpha: 0.12),
+                                  child: Icon(
+                                    Icons.person,
+                                    size: 26,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                _buildWorkerStatusChip(),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "🛠 ${_worker.job}",
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      _buildWorkerStatusChip(),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                const Icon(Icons.history, size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  "📜 سجل الحركات",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                Builder(builder: (context) {
-                  final rawActions =
-                      _worker.actions.whereType<WorkerAction>().toList();
-                  final uniqueCount =
-                      rawActions.map((a) => a.id).toSet().length;
-                  return Text(
-                    "$uniqueCount حركة",
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  );
-                }),
-              ],
-            ),
-            const Divider(),
-            _buildActiveAbsenceSection(),
-            Expanded(
-              child: Builder(
-                builder: (context) {
-                  // Filter out ghost keys (nulls) and ensure stability
-                  final rawActions =
-                      _worker.actions.whereType<WorkerAction>().toList();
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      const Icon(Icons.history, size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        "📜 سجل الحركات",
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const Spacer(),
+                      Builder(builder: (context) {
+                        final rawActions =
+                            _worker.actions.whereType<WorkerAction>().toList();
+                        final uniqueCount =
+                            rawActions.map((a) => a.id).toSet().length;
+                        return Text(
+                          "$uniqueCount حركة",
+                          style:
+                              const TextStyle(color: Colors.grey, fontSize: 12),
+                        );
+                      }),
+                    ],
+                  ),
+                  const Divider(),
+                  _buildActiveAbsenceSection(),
+                  Expanded(
+                    child: Builder(
+                      builder: (context) {
+                        // Filter out ghost keys (nulls) and ensure stability
+                        final rawActions =
+                            _worker.actions.whereType<WorkerAction>().toList();
 
-                  // تنظيف القائمة لمنع التكرار (Unique filter by ID)
-                  final uniqueActionsMap = <String, WorkerAction>{};
-                  for (var action in rawActions) {
-                    if (action.id != null) {
-                      uniqueActionsMap[action.id!] = action;
-                    }
-                  }
-                  final validActions = uniqueActionsMap.values.toList();
-
-                  if (validActions.isEmpty) {
-                    return const Center(
-                        child: Text("لا توجد حركات لهذا العامل بعد"));
-                  }
-
-                  // Sort actions by date descending
-                  final sortedActions = List<WorkerAction>.from(validActions)
-                    ..sort((a, b) => b.date.compareTo(a.date));
-
-                  return ListView.builder(
-                    itemCount: sortedActions.length,
-                    itemBuilder: (context, index) {
-                      if (index >= sortedActions.length) {
-                        return const SizedBox.shrink();
-                      }
-                      final displayedAction = sortedActions[index];
-
-                      // Find original index using ID for reliability
-                      int originalIndex = -1;
-                      if (displayedAction.id != null) {
-                        originalIndex = _worker.actions.indexWhere((a) =>
-                            (a as WorkerAction?)?.id == displayedAction.id);
-                      }
-                      if (originalIndex == -1) {
-                        originalIndex =
-                            _worker.actions.indexOf(displayedAction);
-                      }
-
-                      final bool isOwner = _isActionOwner(displayedAction);
-
-                      return WorkerActionCard(
-                        action: displayedAction,
-                        showEditButton: canManageActions || canEditThisWorker || isOwner,
-                        showDeleteButton:
-                            canManageActions || canDeleteThisWorker || isOwner,
-                        onRefresh: _refresh,
-                        onEdit: () async {
-                          if (originalIndex != -1) {
-                            _editAction(
-                                _worker.actions[originalIndex], originalIndex);
-                            _refresh();
+                        // تنظيف القائمة لمنع التكرار (Unique filter by ID)
+                        final uniqueActionsMap = <String, WorkerAction>{};
+                        for (var action in rawActions) {
+                          if (action.id != null) {
+                            uniqueActionsMap[action.id!] = action;
                           }
-                        },
-                        onDelete: () {
-                          UIUtils.showDeleteConfirmation(
-                            context: context,
-                            title: "حذف الحركة",
-                            content: "هل أنت متأكد من حذف هذه الحركة؟",
-                            onConfirm: () async {
-                              final messenger = ScaffoldMessenger.of(context);
+                        }
+                        final validActions = uniqueActionsMap.values.toList();
 
-                              // Safely capture action to delete before any awaits
-                              // Use ID search for maximum reliability in case of list shifts
-                              final String? targetId = displayedAction.id;
+                        if (validActions.isEmpty) {
+                          return const Center(
+                              child: Text("لا توجد حركات لهذا العامل بعد"));
+                        }
 
-                              if (targetId == null) return;
+                        // Sort actions by date descending
+                        final sortedActions =
+                            List<WorkerAction>.from(validActions)
+                              ..sort((a, b) => b.date.compareTo(a.date));
 
-                              // Re-locate the action safely
-                              final actionToDelete = _worker.actions
-                                  .cast<WorkerAction?>()
-                                  .firstWhere(
-                                    (a) => a?.id == targetId,
-                                    orElse: () => null,
-                                  );
+                        return ListView.builder(
+                          itemCount: sortedActions.length,
+                          itemBuilder: (context, index) {
+                            if (index >= sortedActions.length) {
+                              return const SizedBox.shrink();
+                            }
+                            final displayedAction = sortedActions[index];
 
-                              if (actionToDelete == null) {
-                                // Already deleted or shifted
-                                _refresh();
-                                return;
-                              }
+                            // Find original index using ID for reliability
+                            int originalIndex = -1;
+                            if (displayedAction.id != null) {
+                              originalIndex = _worker.actions.indexWhere((a) =>
+                                  (a as WorkerAction?)?.id ==
+                                  displayedAction.id);
+                            }
+                            if (originalIndex == -1) {
+                              originalIndex =
+                                  _worker.actions.indexOf(displayedAction);
+                            }
 
-                              final actionJson = actionToDelete.toJson();
+                            final bool isOwner =
+                                _isActionOwner(displayedAction);
 
-                              // Deleting from HiveList, HiveBox, and Syncing to Supabase
-                              _worker.actions.remove(actionToDelete);
-                              await _worker.save();
+                            return WorkerActionCard(
+                              action: displayedAction,
+                              showEditButton: canManageActions ||
+                                  canEditThisWorker ||
+                                  isOwner,
+                              showDeleteButton: canManageActions ||
+                                  canDeleteThisWorker ||
+                                  isOwner,
+                              onRefresh: _refresh,
+                              onEdit: () async {
+                                if (originalIndex != -1) {
+                                  _editAction(_worker.actions[originalIndex],
+                                      originalIndex);
+                                  _refresh();
+                                }
+                              },
+                              onDelete: () {
+                                UIUtils.showDeleteConfirmation(
+                                  context: context,
+                                  title: "حذف الحركة",
+                                  content: "هل أنت متأكد من حذف هذه الحركة؟",
+                                  onConfirm: () async {
+                                    final messenger =
+                                        ScaffoldMessenger.of(context);
 
-                              // Delete from box
-                              if (actionToDelete.isInBox) {
-                                await actionToDelete.delete();
-                              }
+                                    // Safely capture action to delete before any awaits
+                                    // Use ID search for maximum reliability in case of list shifts
+                                    final String? targetId = displayedAction.id;
 
-                              // Sync deletion to Supabase
-                              SyncService.instance.pushToQueue(
-                                  'worker_actions', actionJson,
-                                  operation: 'delete');
+                                    if (targetId == null) return;
 
-                              if (!context.mounted) return;
+                                    // Re-locate the action safely
+                                    final actionToDelete = _worker.actions
+                                        .cast<WorkerAction?>()
+                                        .firstWhere(
+                                          (a) => a?.id == targetId,
+                                          orElse: () => null,
+                                        );
 
-                              messenger.clearSnackBars();
-                              UIUtils.showUndoSnackBar(
-                                context: context,
-                                message: "تم حذف الحركة",
-                                onUndo: () async {
-                                  final actionBox =
-                                      Hive.box<WorkerAction>('worker_actions');
-                                  final restoredAction =
-                                      WorkerAction.fromJson(actionJson);
+                                    if (actionToDelete == null) {
+                                      // Already deleted or shifted
+                                      _refresh();
+                                      return;
+                                    }
 
-                                  // Use put with ID instead of add
-                                  await actionBox.put(
-                                      restoredAction.id, restoredAction);
-                                  final saved =
-                                      actionBox.get(restoredAction.id);
+                                    final actionJson = actionToDelete.toJson();
 
-                                  if (saved != null) {
-                                    _worker.actions.add(saved);
+                                    // Deleting from HiveList, HiveBox, and Syncing to Supabase
+                                    _worker.actions.remove(actionToDelete);
                                     await _worker.save();
-                                    // Sync back to Supabase
-                                    SyncService.instance.pushToQueue(
-                                        'worker_actions', saved.toJson());
-                                    _refresh();
-                                  }
-                                },
-                              );
 
-                              _refresh();
-                            },
-                          );
-                        },
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
+                                    // Delete from box
+                                    if (actionToDelete.isInBox) {
+                                      await actionToDelete.delete();
+                                    }
+
+                                    // Sync deletion to Supabase
+                                    SyncService.instance.pushToQueue(
+                                        'worker_actions', actionJson,
+                                        operation: 'delete');
+
+                                    if (!context.mounted) return;
+
+                                    messenger.clearSnackBars();
+                                    UIUtils.showUndoSnackBar(
+                                      context: context,
+                                      message: "تم حذف الحركة",
+                                      onUndo: () async {
+                                        final actionBox =
+                                            Hive.box<WorkerAction>(
+                                                'worker_actions');
+                                        final restoredAction =
+                                            WorkerAction.fromJson(actionJson);
+
+                                        // Use put with ID instead of add
+                                        await actionBox.put(
+                                            restoredAction.id, restoredAction);
+                                        final saved =
+                                            actionBox.get(restoredAction.id);
+
+                                        if (saved != null) {
+                                          _worker.actions.add(saved);
+                                          await _worker.save();
+                                          // Sync back to Supabase
+                                          SyncService.instance.pushToQueue(
+                                              'worker_actions', saved.toJson());
+                                          _refresh();
+                                        }
+                                      },
+                                    );
+
+                                    _refresh();
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -956,8 +981,6 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
           endTime.value = shiftStart; // العودة دائماً في بداية الوردية للإجازات
         }
       }
-
-
 
       final isHourlyAction =
           actionType.value == 'إذن' || actionType.value == 'تأمين صحي';
@@ -1328,7 +1351,8 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
                                         : 0,
                                     date: date.value,
                                     returnDate: returnDate.value,
-                                    expectedReturnDate: expectedReturnDate.value,
+                                    expectedReturnDate:
+                                        expectedReturnDate.value,
                                     notes: notesController.text,
                                     startTimeHour: startTime.value?.hour,
                                     startTimeMinute: startTime.value?.minute,
@@ -1560,7 +1584,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             Icon(Icons.timer, size: 14, color: Colors.orange.shade700),
             const SizedBox(width: 4),
             Text(
-              activeAction.isTimeBased ? "خارج العمل (${activeAction.type})" : "في ${activeAction.type}",
+              activeAction.isTimeBased
+                  ? "خارج العمل (${activeAction.type})"
+                  : "في ${activeAction.type}",
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1649,11 +1675,15 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
             children: [
               const Padding(
                 padding: EdgeInsets.all(16.0),
-                child: Text("اختر الرقم للاتصال", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                child: Text("اختر الرقم للاتصال",
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
               ListTile(
                 leading: const Icon(Icons.phone, color: Colors.green),
-                title: Text(p1, textDirection: TextDirection.ltr, textAlign: TextAlign.right),
+                title: Text(p1,
+                    textDirection: TextDirection.ltr,
+                    textAlign: TextAlign.right),
                 subtitle: const Text("الأساسي"),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1663,7 +1693,9 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.phone, color: Colors.green),
-                title: Text(p2, textDirection: TextDirection.ltr, textAlign: TextAlign.right),
+                title: Text(p2,
+                    textDirection: TextDirection.ltr,
+                    textAlign: TextAlign.right),
                 subtitle: const Text("الإضافي"),
                 onTap: () {
                   Navigator.pop(ctx);

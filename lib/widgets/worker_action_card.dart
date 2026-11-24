@@ -34,154 +34,154 @@ class WorkerActionCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       padding: const EdgeInsets.all(16),
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(_getIcon(), color: colorScheme.primary, size: 24),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    action.type,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
-                    ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(_getIcon(), color: colorScheme.primary, size: 24),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  action.type,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
 
-            // التعديل المطلوب: الأجازة والغياب والأجازة العارضة
-            if (action.type == 'إجازة' || action.type == 'غياب' || action.type == 'أجازة عارضة') ...[
-              _buildSectionTitle('🗓️ البيانات', color: colorScheme.primary),
-              if (action.shiftName != null && action.shiftName!.isNotEmpty)
-                _buildInfoRow(
-                  '🏢 الوردية:',
-                  action.shiftName!,
-                  labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: textTheme.bodyMedium?.color,
-                ),
+          // التعديل المطلوب: الأجازة والغياب والأجازة العارضة
+          if (action.type == 'إجازة' ||
+              action.type == 'غياب' ||
+              action.type == 'أجازة عارضة') ...[
+            _buildSectionTitle('🗓️ البيانات', color: colorScheme.primary),
+            if (action.shiftName != null && action.shiftName!.isNotEmpty)
               _buildInfoRow(
-                '📅 تاريخ القيام:',
-                _f(action.date),
+                '🏢 الوردية:',
+                action.shiftName!,
                 labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                 valueColor: textTheme.bodyMedium?.color,
               ),
-              if (action.startTime != null)
-                _buildInfoRow(
-                  '⏰ وقت القيام:',
-                  action.startTime!.format(context),
-                  labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: textTheme.bodyMedium?.color,
-                ),
-              if (action.type == 'إجازة' ||
-                  action.type == 'غياب' ||
-                  action.type == 'أجازة عارضة')
-                ..._buildLeaveSection(context),
-            ]
-            else if (action.type == 'مكافئة' || action.type == 'جزاء') ...[
-              _buildSectionTitle('💰 القيمة', color: colorScheme.primary),
-              if (action.amount != null)
-                _buildInfoRow(
-                  '💵 المبلغ:',
-                  '${action.amount!.toStringAsFixed(2)} جنيه',
-                  labelColor:
-                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: textTheme.bodyMedium?.color,
-                ),
-              if (action.bonusDays != null)
-                _buildInfoRow(
-                  '📅 أيام مكافئة:',
-                  _formatBonusDays(action.bonusDays!),
-                  labelColor:
-                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: textTheme.bodyMedium?.color,
-                ),
-            ] else if (action.type == 'إذن' || action.type == 'تأمين صحي') ...[
-              _buildSectionTitle('⏰ التوقيت', color: colorScheme.primary),
-              if (action.shiftName != null && action.shiftName!.isNotEmpty)
-                _buildInfoRow(
-                  '🏢 الوردية:',
-                  action.shiftName!,
-                  labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: textTheme.bodyMedium?.color,
-                ),
+            _buildInfoRow(
+              '📅 تاريخ القيام:',
+              _f(action.date),
+              labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+              valueColor: textTheme.bodyMedium?.color,
+            ),
+            if (action.startTime != null)
               _buildInfoRow(
-                '📅 تاريخ البدأ:',
-                _f(action.date),
-                labelColor:
-                    textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                '⏰ وقت القيام:',
+                action.startTime!.format(context),
+                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                valueColor: textTheme.bodyMedium?.color,
+              ),
+            if (action.type == 'إجازة' ||
+                action.type == 'غياب' ||
+                action.type == 'أجازة عارضة')
+              ..._buildLeaveSection(context),
+          ] else if (action.type == 'مكافئة' || action.type == 'جزاء') ...[
+            _buildSectionTitle('💰 القيمة', color: colorScheme.primary),
+            if (action.amount != null)
+              _buildInfoRow(
+                '💵 المبلغ:',
+                '${action.amount!.toStringAsFixed(2)} جنيه',
+                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                valueColor: textTheme.bodyMedium?.color,
+              ),
+            if (action.bonusDays != null)
+              _buildInfoRow(
+                '📅 أيام مكافئة:',
+                _formatBonusDays(action.bonusDays!),
+                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                valueColor: textTheme.bodyMedium?.color,
+              ),
+          ] else if (action.type == 'إذن' || action.type == 'تأمين صحي') ...[
+            _buildSectionTitle('⏰ التوقيت', color: colorScheme.primary),
+            if (action.shiftName != null && action.shiftName!.isNotEmpty)
+              _buildInfoRow(
+                '🏢 الوردية:',
+                action.shiftName!,
+                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                valueColor: textTheme.bodyMedium?.color,
+              ),
+            _buildInfoRow(
+              '📅 تاريخ البدأ:',
+              _f(action.date),
+              labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+              valueColor: textTheme.bodyMedium?.color,
+            ),
+            _buildInfoRow(
+              '🕒 وقت الخروج:',
+              action.startTime?.format(context) ?? '--',
+              labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+              valueColor: textTheme.bodyMedium?.color,
+            ),
+            if (action.endTime != null) ...[
+              _buildInfoRow(
+                '🔙 وقت العودة:',
+                action.endTime!.format(context),
+                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                 valueColor: textTheme.bodyMedium?.color,
               ),
               _buildInfoRow(
-                '🕒 وقت الخروج:',
-                action.startTime?.format(context) ?? '--',
-                labelColor:
-                    textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                '🗓️ تاريخ العودة:',
+                action.returnDate != null
+                    ? _f(action.returnDate!)
+                    : _f(action.date),
+                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                 valueColor: textTheme.bodyMedium?.color,
               ),
-              if (action.endTime != null) ...[
-                _buildInfoRow(
-                  '🔙 وقت العودة:',
-                  action.endTime!.format(context),
-                  labelColor:
-                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: textTheme.bodyMedium?.color,
-                ),
-                _buildInfoRow(
-                  '🗓️ تاريخ العودة:',
-                  action.returnDate != null ? _f(action.returnDate!) : _f(action.date),
-                  labelColor:
-                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: textTheme.bodyMedium?.color,
-                ),
-              ],
-              if (action.duration != null)
-                _buildInfoRow(
-                  '⏳ المدة الإجمالية:',
-                  action.duration!,
-                  labelColor:
-                      textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                  valueColor: textTheme.bodyMedium?.color,
-                ),
             ],
+            if (action.duration != null)
+              _buildInfoRow(
+                '⏳ المدة الإجمالية:',
+                action.duration!,
+                labelColor: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                valueColor: textTheme.bodyMedium?.color,
+              ),
+          ],
 
-            const SizedBox(height: 10),
-            if (action.notes != null && action.notes!.isNotEmpty) ...[
-              _buildSectionTitle('📝 الملاحظات', color: colorScheme.primary),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: theme.brightness == Brightness.dark
-                      ? Colors.grey[800]
-                      : Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: theme.brightness == Brightness.dark
-                          ? Colors.grey[700]!
-                          : Colors.grey[300]!),
-                ),
-                child: Text(
-                  action.notes!,
-                  style: TextStyle(
-                      fontSize: 14, color: textTheme.bodyMedium?.color),
-                ),
+          const SizedBox(height: 10),
+          if (action.notes != null && action.notes!.isNotEmpty) ...[
+            _buildSectionTitle('📝 الملاحظات', color: colorScheme.primary),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: theme.brightness == Brightness.dark
+                    ? Colors.grey[800]
+                    : Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: theme.brightness == Brightness.dark
+                        ? Colors.grey[700]!
+                        : Colors.grey[300]!),
               ),
-              const SizedBox(height: 10),
-            ],
-            // أزرار التحكم — يتم تمرير صلاحيات الظهور من الشاشة الأب
-            if (showEditButton || showDeleteButton) Row(
+              child: Text(
+                action.notes!,
+                style:
+                    TextStyle(fontSize: 14, color: textTheme.bodyMedium?.color),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          // أزرار التحكم — يتم تمرير صلاحيات الظهور من الشاشة الأب
+          if (showEditButton || showDeleteButton)
+            Row(
               children: [
-                if (showEditButton && action.type == 'غياب' && action.returnDate != null) ...[
+                if (showEditButton &&
+                    action.type == 'غياب' &&
+                    action.returnDate != null) ...[
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _convertToCasualLeave(context),
                       icon: const Icon(Icons.swap_horiz, size: 16),
-                      label: const Text('تحويل لعرضة', style: TextStyle(fontSize: 12)),
+                      label: const Text('تحويل لعرضة',
+                          style: TextStyle(fontSize: 12)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: BorderSide(color: Colors.orange.shade300),
@@ -195,8 +195,8 @@ class WorkerActionCard extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: onEdit,
-                      icon:
-                          Icon(Icons.edit, size: 18, color: colorScheme.primary),
+                      icon: Icon(Icons.edit,
+                          size: 18, color: colorScheme.primary),
                       label: Text('تعديل',
                           style: TextStyle(color: colorScheme.primary)),
                       style: OutlinedButton.styleFrom(
@@ -209,8 +209,8 @@ class WorkerActionCard extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: onDelete,
-                      icon:
-                          const Icon(Icons.delete, size: 18, color: Colors.white),
+                      icon: const Icon(Icons.delete,
+                          size: 18, color: Colors.white),
                       label: const Text('حذف',
                           style: TextStyle(color: Colors.white)),
                       style: ElevatedButton.styleFrom(
@@ -221,15 +221,15 @@ class WorkerActionCard extends StatelessWidget {
                   ),
               ],
             ),
-          ],
-        ),
+        ],
+      ),
     );
   }
 
   Future<void> _convertToCasualLeave(BuildContext context) async {
     // 1. تحديث حقل النوع محلياً
     action.type = 'أجازة عارضة';
-    
+
     // 2. الحفظ الفعلي في الصندوق المحلي (Hive)
     try {
       final workerActionsBox = Hive.box<WorkerAction>('worker_actions');
@@ -248,8 +248,8 @@ class WorkerActionCard extends StatelessWidget {
     // 3. إرسال التحديث للسحابة عبر sync_queue
     try {
       await SyncService.instance.pushToQueue(
-        'worker_actions', 
-        action.toJson(), 
+        'worker_actions',
+        action.toJson(),
         operation: 'update',
       );
     } catch (e) {
@@ -258,7 +258,7 @@ class WorkerActionCard extends StatelessWidget {
 
     // 4. استدعاء onRefresh لتأكيد تغيير الواجهة
     onRefresh();
-    
+
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

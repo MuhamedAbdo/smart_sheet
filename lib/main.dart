@@ -95,10 +95,13 @@ Future<void> initializeHeavyData() async {
       _openBoxWithLockRecovery<FinishedProduct>('finished_products'),
       _openBoxWithLockRecovery<LiveSession>('flexo_live_sessions'),
       _openBoxWithLockRecovery<FlexoMachine>('flexo_machines'),
-      _openBoxWithLockRecovery<DaySchedule>('factory_schedule'), // جدول أيام الوردية
+      _openBoxWithLockRecovery<DaySchedule>(
+          'factory_schedule'), // جدول أيام الوردية
       _openBoxWithLockRecovery('sync_queue'), // قائمة انتظار المزامنة
-      _openBoxWithLockRecovery<DieCuttingForm>('die_cutting_forms'), // قوالب التكسير
-      _openBoxWithLockRecovery<DieCuttingProductionReport>('die_cutting_production_reports'),
+      _openBoxWithLockRecovery<DieCuttingForm>(
+          'die_cutting_forms'), // قوالب التكسير
+      _openBoxWithLockRecovery<DieCuttingProductionReport>(
+          'die_cutting_production_reports'),
     ]);
     _openBackgroundBoxes();
 
@@ -145,11 +148,13 @@ Future<void> main() async {
       final prefs = await SharedPreferences.getInstance();
       const storage = SafeSecureStorage();
       final Box vaultBox = Hive.box(SafeSecureStorage.pairingVaultBoxName);
-      final bool isUnlockedInPrefs = prefs.getBool('is_device_unlocked') == true ||
-          prefs.getBool('has_valid_code') == true ||
-          prefs.getBool('is_device_unlocked_temp') == true;
-      final bool isUnlockedInVault = vaultBox.get('is_device_unlocked') == true ||
-          vaultBox.get('has_valid_code') == true;
+      final bool isUnlockedInPrefs =
+          prefs.getBool('is_device_unlocked') == true ||
+              prefs.getBool('has_valid_code') == true ||
+              prefs.getBool('is_device_unlocked_temp') == true;
+      final bool isUnlockedInVault =
+          vaultBox.get('is_device_unlocked') == true ||
+              vaultBox.get('has_valid_code') == true;
       final bool isUnlockedInSettings = Hive.isBoxOpen('settings') &&
           (Hive.box('settings').get('is_device_unlocked') == true ||
               Hive.box('settings').get('has_valid_code') == true);
@@ -168,7 +173,8 @@ Future<void> main() async {
           await Hive.box('settings').put('has_valid_code', true);
         }
         await prefs.remove('is_device_unlocked_temp');
-        debugPrint('🔓 تم استرجاع حالة فتح الجهاز بنجاح من SharedPreferences إلى pairing_vault بعد Restart');
+        debugPrint(
+            '🔓 تم استرجاع حالة فتح الجهاز بنجاح من SharedPreferences إلى pairing_vault بعد Restart');
       }
 
       // ✅ تأكد من أن كل جهاز يملك UUID ثابتاً منذ أول تشغيل (محفوظ في pairing_vault)

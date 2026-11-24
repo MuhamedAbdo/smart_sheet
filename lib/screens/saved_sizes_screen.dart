@@ -70,8 +70,11 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
                 controller: _searchController,
                 focusNode: _searchFocusNode,
                 onChanged: (v) {
-                  if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
-                  _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+                  if (_searchDebounce?.isActive ?? false) {
+                    _searchDebounce!.cancel();
+                  }
+                  _searchDebounce =
+                      Timer(const Duration(milliseconds: 300), () {
                     if (mounted) setState(() => searchQuery = v);
                   });
                 })
@@ -111,63 +114,67 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             builder: (context, Box box, _) {
               final clients = _getUniqueClients(box);
 
-          if (clients.isEmpty) {
-            return Center(
-              child: Text(
-                searchQuery.isEmpty
-                    ? "لا يوجد عملاء مسجلون حالياً"
-                    : "لا توجد نتائج لبحثك",
-                style: const TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            );
-          }
+              if (clients.isEmpty) {
+                return Center(
+                  child: Text(
+                    searchQuery.isEmpty
+                        ? "لا يوجد عملاء مسجلون حالياً"
+                        : "لا توجد نتائج لبحثك",
+                    style: const TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
+                );
+              }
 
-          return Column(
-            children: [
-              _buildClientsCountBar(clients.length),
-              Expanded(
-                child: ListView.builder(
-                  padding:
-                      const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 4),
-                  itemCount: clients.length,
-                  itemBuilder: (context, index) {
-                    final String clientName = clients[index];
-                    final clientItems = box.values.where((e) =>
-                        e is Map &&
-                        (e['clientName']?.toString().trim() ?? '') ==
-                            clientName &&
-                        e['isClientRecord'] != true);
-                    final Set<String> uniqueCodes = {};
-                    for (var item in clientItems) {
-                      final pCode = item['productCode']?.toString().trim() ?? '';
-                      final uniqueId = pCode.isNotEmpty
-                          ? pCode
-                          : (item['sync_id'] ?? item['id'] ?? item.hashCode).toString();
-                      uniqueCodes.add(uniqueId);
-                    }
-                    final int itemCount = uniqueCodes.length;
+              return Column(
+                children: [
+                  _buildClientsCountBar(clients.length),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(
+                          bottom: 80, left: 8, right: 8, top: 4),
+                      itemCount: clients.length,
+                      itemBuilder: (context, index) {
+                        final String clientName = clients[index];
+                        final clientItems = box.values.where((e) =>
+                            e is Map &&
+                            (e['clientName']?.toString().trim() ?? '') ==
+                                clientName &&
+                            e['isClientRecord'] != true);
+                        final Set<String> uniqueCodes = {};
+                        for (var item in clientItems) {
+                          final pCode =
+                              item['productCode']?.toString().trim() ?? '';
+                          final uniqueId = pCode.isNotEmpty
+                              ? pCode
+                              : (item['sync_id'] ?? item['id'] ?? item.hashCode)
+                                  .toString();
+                          uniqueCodes.add(uniqueId);
+                        }
+                        final int itemCount = uniqueCodes.length;
 
-                    return _ClientCard(
-                      clientName: clientName,
-                      itemCount: itemCount,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          settings: RouteSettings(name: 'ClientItemsScreen_$clientName'),
-                          builder: (ctx) => ClientItemsScreen(clientName: clientName),
-                        ),
-                      ),
-                      onEdit: () => _navigateToEditClient(clientName),
-                      onDelete: () => _confirmDeleteClient(clientName),
-                    );
-                  },
-                ),
-              ),
-            ],
+                        return _ClientCard(
+                          clientName: clientName,
+                          itemCount: itemCount,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              settings: RouteSettings(
+                                  name: 'ClientItemsScreen_$clientName'),
+                              builder: (ctx) =>
+                                  ClientItemsScreen(clientName: clientName),
+                            ),
+                          ),
+                          onEdit: () => _navigateToEditClient(clientName),
+                          onDelete: () => _confirmDeleteClient(clientName),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
           );
         },
-      );
-      },
       ),
     );
   }
@@ -304,7 +311,8 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
 
     // مزامنة الحذف سحابياً
     for (final payload in syncPayloads) {
-      SyncService.instance.pushToQueue('customers', payload, operation: 'delete');
+      SyncService.instance
+          .pushToQueue('customers', payload, operation: 'delete');
     }
 
     if (mounted) {
@@ -409,7 +417,7 @@ class _ClientCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return SmartSheetCard(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -422,7 +430,7 @@ class _ClientCard extends StatelessWidget {
         title: Text(
           clientName,
           style: TextStyle(
-            fontWeight: FontWeight.bold, 
+            fontWeight: FontWeight.bold,
             fontSize: 16,
             color: isDark ? Colors.white : theme.colorScheme.onSurface,
           ),
@@ -430,7 +438,9 @@ class _ClientCard extends StatelessWidget {
         subtitle: Text(
           '$itemCount صنف مسجل',
           style: TextStyle(
-            color: isDark ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            color: isDark
+                ? Colors.white70
+                : theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
         ),
         trailing: Row(
@@ -449,9 +459,11 @@ class _ClientCard extends StatelessWidget {
                 tooltip: "حذف العميل",
               ),
             Icon(
-              Icons.arrow_forward_ios, 
+              Icons.arrow_forward_ios,
               size: 16,
-              color: isDark ? Colors.white54 : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              color: isDark
+                  ? Colors.white54
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ],
         ),

@@ -27,7 +27,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
     final authService = context.read<AuthService>();
     final navContext = authService.navigatorKey.currentContext;
     final navState = authService.navigatorKey.currentState;
-    
+
     if (navContext == null) return;
 
     await showDialog(
@@ -57,13 +57,14 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
             onPressed: () async {
               // إغلاق نافذة التأكيد
               Navigator.of(ctx).pop();
-              
+
               // تنفيذ الخروج
               await authService.signOut();
-              
+
               // التوجيه الإجباري لشاشة الدخول ومسح السجل
               if (mounted && navState != null) {
-                navState.pushNamedAndRemoveUntil(AuthScreen.routeName, (route) => false);
+                navState.pushNamedAndRemoveUntil(
+                    AuthScreen.routeName, (route) => false);
               }
             },
             child: const Text('تأكيد'),
@@ -90,8 +91,8 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
 
     return Container(
       width: 250,
-      color: Theme.of(context).drawerTheme.backgroundColor ?? 
-             (isDarkMode ? Colors.grey[900] : Colors.white),
+      color: Theme.of(context).drawerTheme.backgroundColor ??
+          (isDarkMode ? Colors.grey[900] : Colors.white),
       child: Column(
         children: [
           // Branding Header
@@ -130,7 +131,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
               ],
             ),
           ),
-          
+
           Expanded(
             child: Hive.isBoxOpen('workers')
                 ? ValueListenableBuilder<Box<Worker>>(
@@ -154,7 +155,11 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
           index: 0,
           onTap: () {
             setState(() => _selectedIndex = 0);
-            context.read<AuthService>().navigatorKey.currentState?.popUntil((route) => route.isFirst);
+            context
+                .read<AuthService>()
+                .navigatorKey
+                .currentState
+                ?.popUntil((route) => route.isFirst);
           },
         ),
         if (_canViewArchive('flexo'))
@@ -236,7 +241,8 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
               setState(() => _selectedIndex = 7);
               final nav = context.read<AuthService>().navigatorKey.currentState;
               nav?.popUntil((route) => route.isFirst);
-              nav?.push(MaterialPageRoute(builder: (_) => const SuperAdminScreen()));
+              nav?.push(
+                  MaterialPageRoute(builder: (_) => const SuperAdminScreen()));
             },
           ),
         const Divider(),
@@ -283,13 +289,19 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
         child: ListTile(
           leading: Icon(
             icon,
-            color: color ?? (isSelected ? theme.colorScheme.primary : theme.iconTheme.color),
+            color: color ??
+                (isSelected
+                    ? theme.colorScheme.primary
+                    : theme.iconTheme.color),
           ),
           title: Text(
             title,
             style: TextStyle(
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: color ?? (isSelected ? theme.colorScheme.primary : theme.textTheme.bodyMedium?.color),
+              color: color ??
+                  (isSelected
+                      ? theme.colorScheme.primary
+                      : theme.textTheme.bodyMedium?.color),
             ),
           ),
           onTap: onTap,

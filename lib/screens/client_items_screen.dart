@@ -26,12 +26,18 @@ import 'package:uuid/uuid.dart';
 import 'package:smart_sheet/models/die_cutting_production_report.dart';
 
 DateTime? _parseTimeForDieCutting(String? dateStr, String? timeStr) {
-  if (dateStr == null || timeStr == null || timeStr.isEmpty || timeStr == '--:--') return null;
+  if (dateStr == null ||
+      timeStr == null ||
+      timeStr.isEmpty ||
+      timeStr == '--:--') {
+    return null;
+  }
   try {
     final d = DateTime.parse(dateStr);
     final parts = timeStr.split(':');
     if (parts.length < 2) return null;
-    return DateTime(d.year, d.month, d.day, int.parse(parts[0]), int.parse(parts[1]));
+    return DateTime(
+        d.year, d.month, d.day, int.parse(parts[0]), int.parse(parts[1]));
   } catch (_) {
     return null;
   }
@@ -92,7 +98,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
   void _setupBox(Box box) async {
     _savedSheetSizesBox = box;
     _refreshLocalData();
-    
+
     _boxSubscription = box.watch().listen((event) {
       if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
       _debounceTimer = Timer(const Duration(milliseconds: 300), () {
@@ -101,7 +107,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         }
       });
     });
-    
+
     if (mounted) {
       setState(() {
         _isLoading = false;
@@ -118,11 +124,17 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
   void _refreshLocalData() {
     if (_savedSheetSizesBox == null) return;
     final box = _savedSheetSizesBox!;
-    final records = box.toMap().entries.where((e) {
-      if (e.value is! Map) return false;
-      return (e.value['clientName']?.toString().trim() ?? '') == widget.clientName.trim();
-    }).map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value))).toList();
-    
+    final records = box
+        .toMap()
+        .entries
+        .where((e) {
+          if (e.value is! Map) return false;
+          return (e.value['clientName']?.toString().trim() ?? '') ==
+              widget.clientName.trim();
+        })
+        .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))
+        .toList();
+
     if (mounted) {
       setState(() {
         _allClientRecords = records;
@@ -158,25 +170,26 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     }).toList();
 
     // التصفية البرمجية للأصناف المكررة (Unique Filtering)
-    final Map<String, MapEntry<dynamic, Map<String, dynamic>>> uniqueItemsMap = {};
+    final Map<String, MapEntry<dynamic, Map<String, dynamic>>> uniqueItemsMap =
+        {};
     for (var entry in rawItemEntries) {
       final productCode = entry.value['productCode']?.toString().trim() ?? '';
       final uniqueId = productCode.isNotEmpty
           ? productCode
-          : (entry.value['sync_id'] ?? entry.value['id'] ?? entry.key).toString();
+          : (entry.value['sync_id'] ?? entry.value['id'] ?? entry.key)
+              .toString();
       uniqueItemsMap[uniqueId] = entry;
     }
     final itemEntries = uniqueItemsMap.values.toList();
 
-    final filteredEntries = itemEntries
-        .where((e) {
-          if (query.isEmpty) return true;
-          final String pName =
-              _normalizeString((e.value['productName'] ?? '').toString());
-          final String pCode =
-              _normalizeString((e.value['productCode'] ?? '').toString());
-          return pName.contains(query) || pCode == query;
-        }).toList();
+    final filteredEntries = itemEntries.where((e) {
+      if (query.isEmpty) return true;
+      final String pName =
+          _normalizeString((e.value['productName'] ?? '').toString());
+      final String pCode =
+          _normalizeString((e.value['productCode'] ?? '').toString());
+      return pName.contains(query) || pCode == query;
+    }).toList();
 
     // ترتيب تصاعدي بناءً على كود الصنف (رقمياً)
     filteredEntries.sort((a, b) {
@@ -198,79 +211,92 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     }
 
     return Scaffold(
-          appBar: AppBar(
-          title: isSearching
-              ? SavedSizeSearchBar(
-                  controller: _searchController,
-                  focusNode: _searchFocusNode,
-                  onChanged: (v) {
-                    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
-                    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-                      if (mounted) setState(() => searchQuery = v);
-                    });
-                  })
-              : Text(widget.clientName),
-          centerTitle: !isSearching,
-          actions: [
-            // ── زر البحث ──────────────────────────────────────────────────
-            IconButton(
-              icon: Icon(isSearching ? Icons.close : Icons.search),
-              onPressed: () => setState(() {
-                isSearching = !isSearching;
-                if (!isSearching) {
-                  searchQuery = "";
-                  _searchController.clear();
-                  _searchFocusNode.unfocus();
-                } else {
-                  _searchFocusNode.requestFocus();
+      appBar: AppBar(
+        title: isSearching
+            ? SavedSizeSearchBar(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                onChanged: (v) {
+                  if (_searchDebounce?.isActive ?? false) {
+                    _searchDebounce!.cancel();
+                  }
+                  _searchDebounce =
+                      Timer(const Duration(milliseconds: 300), () {
+                    if (mounted) setState(() => searchQuery = v);
+                  });
+                })
+            : Text(widget.clientName),
+        centerTitle: !isSearching,
+        actions: [
+          // ── زر البحث ──────────────────────────────────────────────────
+          IconButton(
+            icon: Icon(isSearching ? Icons.close : Icons.search),
+            onPressed: () => setState(() {
+              isSearching = !isSearching;
+              if (!isSearching) {
+                searchQuery = "";
+                _searchController.clear();
+                _searchFocusNode.unfocus();
+              } else {
+                _searchFocusNode.requestFocus();
+              }
+            }),
+          )
+        ],
+      ),
+      floatingActionButton: _workersBox == null
+          ? null
+          : ValueListenableBuilder<Box<Worker>>(
+              valueListenable: _workersBox!.listenable(),
+              builder: (context, _, __) {
+                if (!PermissionHelper.canManageClientsAdd) {
+                  return const SizedBox.shrink();
                 }
-              }),
-            )
-          ],
-        ),
-          floatingActionButton: _workersBox == null
-              ? null
-              : ValueListenableBuilder<Box<Worker>>(
-                  valueListenable: _workersBox!.listenable(),
-                  builder: (context, _, __) {
-                    if (!PermissionHelper.canManageClientsAdd) return const SizedBox.shrink();
-                    return FloatingActionButton.extended(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AddSheetSizeScreen(
-                              clientName: widget.clientName,
-                            ),
-                          ),
-                        );
-                      },
-                      backgroundColor: Colors.green.shade700,
-                      icon: const Icon(Icons.add, color: Colors.white),
-                      label: const Text(
-                        'إضافة صنف',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                return FloatingActionButton.extended(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddSheetSizeScreen(
+                          clientName: widget.clientName,
+                        ),
                       ),
                     );
                   },
-                ),
-      body: _buildBody(allClientRecords, itemEntries.length, filteredEntries, clientCode),
+                  backgroundColor: Colors.green.shade700,
+                  icon: const Icon(Icons.add, color: Colors.white),
+                  label: const Text(
+                    'إضافة صنف',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                );
+              },
+            ),
+      body: _buildBody(
+          allClientRecords, itemEntries.length, filteredEntries, clientCode),
     );
   }
 
-  Widget _buildBody(List<MapEntry<dynamic, dynamic>> allClientRecords,
-      int totalItemsCount, List<MapEntry<dynamic, Map<String, dynamic>>> filteredEntries, String clientCode) {
-    
+  Widget _buildBody(
+      List<MapEntry<dynamic, dynamic>> allClientRecords,
+      int totalItemsCount,
+      List<MapEntry<dynamic, Map<String, dynamic>>> filteredEntries,
+      String clientCode) {
     final canEdit = PermissionHelper.canManageClientsEdit;
     final canDelete = PermissionHelper.canManageClientsDelete;
     // صلاحية بدء إنتاج فلكسو — تعتمد على قسم المستخدم + صلاحية canAdd
-    final canAddFlexo = AuthHelper.currentUserCanManageProduction('flexo', 'canAdd');
+    final canAddFlexo =
+        AuthHelper.currentUserCanManageProduction('flexo', 'canAdd');
     // صلاحية بدء إنتاج خط الإنتاج — مستقلة عن الفلكسو
-    final canAddProductionLine = AuthHelper.currentUserCanManageProduction('production_line', 'canAdd');
+    final canAddProductionLine =
+        AuthHelper.currentUserCanManageProduction('production_line', 'canAdd');
     // صلاحية بدء إنتاج التكسير
-    final canAddDieCutting = AuthHelper.currentUserCanManageProduction('crushing', 'canAdd');
+    final canAddDieCutting =
+        AuthHelper.currentUserCanManageProduction('crushing', 'canAdd');
     // صلاحية بدء إنتاج الدبوس
-    final canAddStaples = AuthHelper.currentUserCanManageProduction('staple', 'canAdd');
+    final canAddStaples =
+        AuthHelper.currentUserCanManageProduction('staple', 'canAdd');
 
     // إذا لم يكن هناك أي سجل (حتى السجل الأساسي) - هذا لا يحدث إلا إذا تم الحذف
     if (allClientRecords.isEmpty && searchQuery.isEmpty) {
@@ -285,7 +311,9 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
               "لم يتم إضافة أي صنف لهذا العميل حتى الآن",
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 16, color: Colors.grey, fontWeight: FontWeight.bold),
+                  fontSize: 16,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -309,7 +337,9 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                     "لم يتم إضافة أي صنف لهذا العميل حتى الآن",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        fontSize: 16, color: Colors.grey, fontWeight: FontWeight.bold),
+                        fontSize: 16,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -337,12 +367,14 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         Expanded(
           child: ListView.builder(
             itemCount: filteredEntries.length,
-            padding: const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 4),
+            padding:
+                const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 4),
             itemBuilder: (context, index) {
               final entry = filteredEntries[index];
               return RepaintBoundary(
                 child: SavedSizeCard(
-                  key: ValueKey('${entry.key}_${entry.value['date']}_${entry.value['productState']}_${entry.value['product_state']}_${entry.value['notes']}'),
+                  key: ValueKey(
+                      '${entry.key}_${entry.value['date']}_${entry.value['productState']}_${entry.value['product_state']}_${entry.value['notes']}'),
                   record: entry.value,
                   canEdit: canEdit,
                   canDelete: canDelete,
@@ -352,10 +384,14 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                   canAddStaples: canAddStaples,
                   onEdit: () => _navigateToEdit(entry.key, entry.value),
                   onDelete: () => _confirmDelete(entry.key),
-                  onStartProduction: (data) => _openFlexoProductionReportWithSheetData(context, data),
-                  onStartProductionLine: (data) => _openProductionLineSessionWithSheetData(context, data),
-                  onStartDieCutting: (data) => _openDieCuttingSessionWithSheetData(context, data),
-                  onStartStaples: (data) => _openStaplesSessionWithSheetData(context, data),
+                  onStartProduction: (data) =>
+                      _openFlexoProductionReportWithSheetData(context, data),
+                  onStartProductionLine: (data) =>
+                      _openProductionLineSessionWithSheetData(context, data),
+                  onStartDieCutting: (data) =>
+                      _openDieCuttingSessionWithSheetData(context, data),
+                  onStartStaples: (data) =>
+                      _openStaplesSessionWithSheetData(context, data),
                   onRefresh: _refreshLocalData,
                 ),
               );
@@ -476,7 +512,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       {'sync_id': syncId, 'id': syncId},
       operation: 'delete',
     );
-    debugPrint('🗑️ [ClientItems] تم إرسال طلب حذف الصنف [sync_id=$syncId] إلى Queue');
+    debugPrint(
+        '🗑️ [ClientItems] تم إرسال طلب حذف الصنف [sync_id=$syncId] إلى Queue');
 
     if (mounted) {
       messenger.clearSnackBars();
@@ -550,7 +587,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         'date': DateTime.now().toString().split(' ')[0],
         'clientName': dataFromCard['clientName'] ?? '',
         'product': dataFromCard['productName'] ?? dataFromCard['product'] ?? '',
-        'productName': dataFromCard['productName'] ?? dataFromCard['product'] ?? '',
+        'productName':
+            dataFromCard['productName'] ?? dataFromCard['product'] ?? '',
         'productCode': dataFromCard['productCode'] ?? '',
         'dimensions': {
           'length': dataFromCard['length']?.toString() ?? '',
@@ -561,8 +599,12 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         'imagePaths': finalImages,
         'isSheet': dataFromCard['isSheet'] ?? false,
         'notes': dataFromCard['notes']?.toString() ?? '',
-        'productState': dataFromCard['productState'] ?? dataFromCard['product_state'] ?? 'مطبوع',
-        'product_state': dataFromCard['product_state'] ?? dataFromCard['productState'] ?? 'مطبوع',
+        'productState': dataFromCard['productState'] ??
+            dataFromCard['product_state'] ??
+            'مطبوع',
+        'product_state': dataFromCard['product_state'] ??
+            dataFromCard['productState'] ??
+            'مطبوع',
       };
     } catch (e) {
       if (context.mounted) Navigator.pop(context);
@@ -588,8 +630,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
   // ─── BottomSheet اختيار نوع الإنتاج (خط الإنتاج) ────────────────────────────
   void _openProductionLineSessionWithSheetData(
       BuildContext context, Map<String, dynamic> dataFromCard) async {
-    final initialData = await _prepareInitialDataFromCard(
-        context, dataFromCard,
+    final initialData = await _prepareInitialDataFromCard(context, dataFromCard,
         useProductName: true);
     if (initialData == null || !context.mounted) return;
 
@@ -632,7 +673,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
   void showProductionOptionsSheet({
     required BuildContext context,
     required Map<String, dynamic> initialData,
-    required String department, // 'flexo' | 'production_line' | 'crushing' | 'staple'
+    required String
+        department, // 'flexo' | 'production_line' | 'crushing' | 'staple'
   }) {
     final isFlexo = department == 'flexo';
     final isCrushing = department == 'crushing';
@@ -645,13 +687,13 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         final theme = Theme.of(sheetCtx);
         final isDark = theme.brightness == Brightness.dark;
         final bgColor = isDark ? const Color(0xFF1E1E2C) : Colors.white;
-        final subtitleColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+        final subtitleColor =
+            isDark ? Colors.grey.shade400 : Colors.grey.shade600;
 
         return Container(
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.18),
@@ -697,7 +739,9 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                           ? Icons.content_cut
                           : (isStaple
                               ? Icons.push_pin
-                              : (isFlexo ? Icons.precision_manufacturing : Icons.factory)),
+                              : (isFlexo
+                                  ? Icons.precision_manufacturing
+                                  : Icons.factory)),
                       color: isCrushing
                           ? Colors.orange.shade700
                           : (isStaple
@@ -725,8 +769,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                         ),
                         Text(
                           initialData['clientName']?.toString() ?? '',
-                          style: TextStyle(
-                              fontSize: 12, color: subtitleColor),
+                          style: TextStyle(fontSize: 12, color: subtitleColor),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
@@ -766,8 +809,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                 iconColor: Colors.orange.shade700,
                 bgColor: Colors.orange.shade700.withValues(alpha: 0.1),
                 title: 'إدخال تقرير يدوي (منتهي) 📝',
-                subtitle:
-                    'تسجيل بيانات أوردر تم الانتهاء منه بالفعل.',
+                subtitle: 'تسجيل بيانات أوردر تم الانتهاء منه بالفعل.',
                 isDark: isDark,
                 subtitleColor: subtitleColor,
                 onTap: () {
@@ -848,8 +890,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded,
-                  color: subtitleColor, size: 20),
+              Icon(Icons.chevron_right_rounded, color: subtitleColor, size: 20),
             ],
           ),
         ),
@@ -883,8 +924,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       final result = await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              StartStapleJobScreen(initialData: initialData),
+          builder: (_) => StartStapleJobScreen(initialData: initialData),
         ),
       );
       if (result == true && context.mounted) {
@@ -914,7 +954,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => const FlexoProductionReportScreen(department: 'crushing'),
+              builder: (_) =>
+                  const FlexoProductionReportScreen(department: 'crushing'),
             ),
           );
         } else {
@@ -939,7 +980,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => AddStapleProductionReportScreen(initialData: initialData),
+          builder: (_) =>
+              AddStapleProductionReportScreen(initialData: initialData),
         ),
       );
       return;
@@ -948,12 +990,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     final formData = {
       ...initialData,
       'department': department,
-      'product': initialData['product'] ??
-          initialData['productName'] ??
-          '',
-      'productName': initialData['productName'] ??
-          initialData['product'] ??
-          '',
+      'product': initialData['product'] ?? initialData['productName'] ?? '',
+      'productName': initialData['productName'] ?? initialData['product'] ?? '',
     };
 
     // تحديد البوكس والجدول المناسب بناءً على القسم
@@ -962,37 +1000,61 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       r['sync_id'] = syncId;
       r['id'] = syncId;
 
-      final bool isDieCutting = (department == 'crushing' || department == 'die_cutting');
-      final String tableName = isDieCutting ? 'die_cutting_production_reports' : (department == 'production_line' ? 'line_production_reports' : 'flexo_production_reports');
-      final String boxName = isDieCutting ? 'die_cutting_production_reports' : 'flexo_production_reports_box';
+      final bool isDieCutting =
+          (department == 'crushing' || department == 'die_cutting');
+      final String tableName = isDieCutting
+          ? 'die_cutting_production_reports'
+          : (department == 'production_line'
+              ? 'line_production_reports'
+              : 'flexo_production_reports');
+      final String boxName = isDieCutting
+          ? 'die_cutting_production_reports'
+          : 'flexo_production_reports_box';
 
       if (isDieCutting) {
-        if (!Hive.isBoxOpen(boxName)) await Hive.openBox<DieCuttingProductionReport>(boxName);
+        if (!Hive.isBoxOpen(boxName)) {
+          await Hive.openBox<DieCuttingProductionReport>(boxName);
+        }
         final box = Hive.box<DieCuttingProductionReport>(boxName);
         final report = DieCuttingProductionReport(
           id: syncId,
           machineName: r['machineName']?.toString() ?? '',
           technicianName: r['technicianName']?.toString() ?? '',
-          reportDate: DateTime.tryParse(r['date']?.toString() ?? '') ?? DateTime.now(),
+          reportDate:
+              DateTime.tryParse(r['date']?.toString() ?? '') ?? DateTime.now(),
           customerName: r['clientName']?.toString() ?? '',
           itemName: r['product']?.toString() ?? '',
           itemCode: r['productCode']?.toString() ?? '',
           formNumber: r['formNumber']?.toString() ?? '',
           orderNumber: r['orderNumber']?.toString() ?? '',
-          runTimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['startTime']?.toString()),
-          runTimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['endTime']?.toString()),
-          downtimeStart: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeStart']?.toString()),
-          downtimeEnd: _parseTimeForDieCutting(r['date']?.toString(), r['downtimeEnd']?.toString()),
-          productionQuantity: double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
-          wasteQuantity: double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
+          runTimeStart: _parseTimeForDieCutting(
+              r['date']?.toString(), r['startTime']?.toString()),
+          runTimeEnd: _parseTimeForDieCutting(
+              r['date']?.toString(), r['endTime']?.toString()),
+          downtimeStart: _parseTimeForDieCutting(
+              r['date']?.toString(), r['downtimeStart']?.toString()),
+          downtimeEnd: _parseTimeForDieCutting(
+              r['date']?.toString(), r['downtimeEnd']?.toString()),
+          productionQuantity:
+              double.tryParse(r['quantity']?.toString() ?? '0') ?? 0.0,
+          wasteQuantity:
+              double.tryParse(r['lineWaste']?.toString() ?? '0') ?? 0.0,
           notes: r['notes']?.toString(),
-          dimensions: r['dimensions'] is Map ? Map<String, dynamic>.from(r['dimensions']) : null,
-          crewMembers: r['crewMembers'] != null ? List<String>.from(r['crewMembers']) : (r['crew_members'] != null ? List<String>.from(r['crew_members']) : null),
+          dimensions: r['dimensions'] is Map
+              ? Map<String, dynamic>.from(r['dimensions'])
+              : null,
+          crewMembers: r['crewMembers'] != null
+              ? List<String>.from(r['crewMembers'])
+              : (r['crew_members'] != null
+                  ? List<String>.from(r['crew_members'])
+                  : null),
         );
         await box.put(syncId, report);
         SyncService.instance.pushToQueue(tableName, report.toJson());
       } else {
-        if (!Hive.isBoxOpen(boxName)) await Hive.openBox<FlexoProductionReport>(boxName);
+        if (!Hive.isBoxOpen(boxName)) {
+          await Hive.openBox<FlexoProductionReport>(boxName);
+        }
         final box = Hive.box<FlexoProductionReport>(boxName);
         final reportObj = FlexoProductionReport.fromJson(r);
         await box.put(syncId, reportObj);
@@ -1015,7 +1077,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => FlexoProductionReportScreen(department: department),
+                builder: (_) =>
+                    FlexoProductionReportScreen(department: department),
               ),
             );
           }
@@ -1023,7 +1086,4 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       ),
     );
   }
-
-
 }
-

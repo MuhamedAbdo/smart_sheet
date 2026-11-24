@@ -32,9 +32,10 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
 
       try {
         debugPrint('🔥 جاري إضافة المصنع في قاعدة البيانات...');
-        
-        final newFactoryId = 'FAC-${const Uuid().v4().substring(0, 8).toUpperCase()}';
-        
+
+        final newFactoryId =
+            'FAC-${const Uuid().v4().substring(0, 8).toUpperCase()}';
+
         await Supabase.instance.client.from('factories').insert({
           'factory_id': newFactoryId,
           'name': _factoryNameController.text.trim(),
@@ -46,7 +47,8 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("تم إنشاء المصنع بنجاح. يمكن للمدير الآن تسجيل الدخول بحساب Google."),
+            content: Text(
+                "تم إنشاء المصنع بنجاح. يمكن للمدير الآن تسجيل الدخول بحساب Google."),
             backgroundColor: Colors.green,
           ),
         );
@@ -76,16 +78,17 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
     try {
       await Supabase.instance.client
           .from('factories')
-          .update({'status': newStatus})
-          .eq('factory_id', factoryId);
+          .update({'status': newStatus}).eq('factory_id', factoryId);
 
       if (!mounted) return;
-      
+
       setState(() {}); // تحديث الشاشة فوراً
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(newStatus == 'active' ? "تمت استعادة المصنع بنجاح" : "تم إيقاف المصنع مؤقتاً"),
+          content: Text(newStatus == 'active'
+              ? "تمت استعادة المصنع بنجاح"
+              : "تم إيقاف المصنع مؤقتاً"),
           backgroundColor: Colors.green,
         ),
       );
@@ -106,14 +109,16 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("تأكيد الحذف النهائي"),
-        content: const Text("هل أنت متأكد من أنك تريد حذف هذا المصنع نهائياً؟ سيتم حذف جميع البيانات المرتبطة به ولا يمكن التراجع عن هذا الإجراء."),
+        content: const Text(
+            "هل أنت متأكد من أنك تريد حذف هذا المصنع نهائياً؟ سيتم حذف جميع البيانات المرتبطة به ولا يمكن التراجع عن هذا الإجراء."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text("إلغاء"),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(context, true),
             child: const Text("حذف نهائي"),
           ),
@@ -130,9 +135,9 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           .eq('factory_id', factoryId);
 
       if (!mounted) return;
-      
+
       setState(() {}); // تحديث الشاشة فوراً
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("تم حذف المصنع نهائياً بنجاح"),
@@ -159,8 +164,8 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           constraints: const BoxConstraints(maxWidth: 500),
           child: Card(
             elevation: 4,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Form(
@@ -173,8 +178,8 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                     const SizedBox(height: 16),
                     const Text(
                       "إضافة مصنع جديد",
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 24),
                     TextFormField(
@@ -211,7 +216,6 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                         return null;
                       },
                     ),
-
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
@@ -234,8 +238,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                             : const Text(
                                 "إنشاء المصنع",
                                 style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold),
+                                    fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                       ),
                     ),
@@ -260,8 +263,8 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
         }
         if (snapshot.hasError) {
           final errorStr = snapshot.error.toString();
-          if (errorStr.contains('SocketException') || 
-              errorStr.contains('Failed host lookup') || 
+          if (errorStr.contains('SocketException') ||
+              errorStr.contains('Failed host lookup') ||
               errorStr.contains('RealtimeSubscribeException') ||
               errorStr.contains('ClientException') ||
               errorStr.contains('timeout')) {
@@ -283,7 +286,8 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
         }
 
         final allFactories = snapshot.data ?? [];
-        final factories = allFactories.where((f) => f['status'] == 'active').toList();
+        final factories =
+            allFactories.where((f) => f['status'] == 'active').toList();
 
         if (factories.isEmpty) {
           return const Center(child: Text('لا توجد مصانع نشطة'));
@@ -308,7 +312,8 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                 subtitle: Text('كود المصنع: $factoryId'),
                 trailing: IconButton(
                   tooltip: 'إيقاف/حذف مؤقت',
-                  icon: const Icon(Icons.pause_circle_filled, color: Colors.orange),
+                  icon: const Icon(Icons.pause_circle_filled,
+                      color: Colors.orange),
                   onPressed: () => _updateFactoryStatus(factoryId, 'suspended'),
                 ),
               ),
@@ -330,8 +335,8 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
         }
         if (snapshot.hasError) {
           final errorStr = snapshot.error.toString();
-          if (errorStr.contains('SocketException') || 
-              errorStr.contains('Failed host lookup') || 
+          if (errorStr.contains('SocketException') ||
+              errorStr.contains('Failed host lookup') ||
               errorStr.contains('RealtimeSubscribeException') ||
               errorStr.contains('ClientException') ||
               errorStr.contains('timeout')) {
@@ -353,7 +358,8 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
         }
 
         final allFactories = snapshot.data ?? [];
-        final factories = allFactories.where((f) => f['status'] == 'suspended').toList();
+        final factories =
+            allFactories.where((f) => f['status'] == 'suspended').toList();
 
         if (factories.isEmpty) {
           return const Center(child: Text('سلة المحذوفات فارغة'));
@@ -382,7 +388,8 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                     IconButton(
                       tooltip: 'استعادة',
                       icon: const Icon(Icons.restore, color: Colors.green),
-                      onPressed: () => _updateFactoryStatus(factoryId, 'active'),
+                      onPressed: () =>
+                          _updateFactoryStatus(factoryId, 'active'),
                     ),
                     IconButton(
                       tooltip: 'حذف نهائي',

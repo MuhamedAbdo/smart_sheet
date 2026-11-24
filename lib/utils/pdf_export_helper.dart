@@ -31,7 +31,8 @@ import 'package:smart_sheet/utils/arabic_pdf_helper.dart';
 // توليد الـ Bytes
 // ---------------------------------
 
-Future<Uint8List?> generateFlexoProductionReportPdfBytes(Map<String, dynamic> params) async {
+Future<Uint8List?> generateFlexoProductionReportPdfBytes(
+    Map<String, dynamic> params) async {
   final records = params['records'] as List<Map<String, dynamic>>;
   if (records.isEmpty) return null;
   try {
@@ -42,7 +43,9 @@ Future<Uint8List?> generateFlexoProductionReportPdfBytes(Map<String, dynamic> pa
     final safeRecords = records.map((r) => toSerializableMap(r)).toList();
     safeRecords.sort(_compareRecordsByDateAndEndTime);
     final String? department = params['department']?.toString() ??
-        (safeRecords.isNotEmpty ? safeRecords.first['department']?.toString() : null);
+        (safeRecords.isNotEmpty
+            ? safeRecords.first['department']?.toString()
+            : null);
 
     if (department == 'crushing' || department == 'die_cutting') {
       final bytes = await compute(_generateCrushingProductionPdfBytes, {
@@ -81,7 +84,8 @@ Future<Uint8List?> generateFlexoProductionReportPdfBytes(Map<String, dynamic> pa
   }
 }
 
-Future<Uint8List?> generatePrintingReportPdfBytes(Map<String, dynamic> params) async {
+Future<Uint8List?> generatePrintingReportPdfBytes(
+    Map<String, dynamic> params) async {
   final records = params['records'] as List<Map<String, dynamic>>;
   if (records.isEmpty) return null;
   try {
@@ -165,15 +169,26 @@ String _formatTime(String t) {
   return t;
 }
 
-int _compareRecordsByDateAndEndTime(Map<String, dynamic> a, Map<String, dynamic> b) {
-  final String dateA = _formatDate((a['date'] ?? a['report_date'] ?? a['reportDate'])?.toString() ?? '');
-  final String dateB = _formatDate((b['date'] ?? b['report_date'] ?? b['reportDate'])?.toString() ?? '');
-  
+int _compareRecordsByDateAndEndTime(
+    Map<String, dynamic> a, Map<String, dynamic> b) {
+  final String dateA = _formatDate(
+      (a['date'] ?? a['report_date'] ?? a['reportDate'])?.toString() ?? '');
+  final String dateB = _formatDate(
+      (b['date'] ?? b['report_date'] ?? b['reportDate'])?.toString() ?? '');
+
   int dateCmp = dateA.compareTo(dateB);
   if (dateCmp != 0) return dateCmp;
 
-  final String timeA = (a['end_time'] ?? a['endTime'] ?? a['run_time_end'] ?? a['runTimeEnd'])?.toString().trim() ?? '';
-  final String timeB = (b['end_time'] ?? b['endTime'] ?? b['run_time_end'] ?? b['runTimeEnd'])?.toString().trim() ?? '';
+  final String timeA =
+      (a['end_time'] ?? a['endTime'] ?? a['run_time_end'] ?? a['runTimeEnd'])
+              ?.toString()
+              .trim() ??
+          '';
+  final String timeB =
+      (b['end_time'] ?? b['endTime'] ?? b['run_time_end'] ?? b['runTimeEnd'])
+              ?.toString()
+              .trim() ??
+          '';
 
   String normalizeTime(String t) {
     if (t.isEmpty || t == 'null') return '00:00';
@@ -197,20 +212,23 @@ int _compareRecordsByDateAndEndTime(Map<String, dynamic> a, Map<String, dynamic>
 // الحفظ على الجهاز
 // ---------------------------------
 
-Future<void> saveProductionPdfToDevice(BuildContext context, List<Map<String, dynamic>> records) async {
-  await _savePdfCommon(context, records, generateFlexoProductionReportPdfBytes, 'تقرير_إنتاج');
+Future<void> saveProductionPdfToDevice(
+    BuildContext context, List<Map<String, dynamic>> records) async {
+  await _savePdfCommon(
+      context, records, generateFlexoProductionReportPdfBytes, 'تقرير_إنتاج');
 }
 
-Future<void> savePrintingPdfToDevice(BuildContext context, List<Map<String, dynamic>> records) async {
-  await _savePdfCommon(context, records, generatePrintingReportPdfBytes, 'تقرير_طباعة');
+Future<void> savePrintingPdfToDevice(
+    BuildContext context, List<Map<String, dynamic>> records) async {
+  await _savePdfCommon(
+      context, records, generatePrintingReportPdfBytes, 'تقرير_طباعة');
 }
 
 Future<void> _savePdfCommon(
-  BuildContext context,
-  List<Map<String, dynamic>> records,
-  Future<Uint8List?> Function(Map<String, dynamic>) generateFn,
-  String prefix
-) async {
+    BuildContext context,
+    List<Map<String, dynamic>> records,
+    Future<Uint8List?> Function(Map<String, dynamic>) generateFn,
+    String prefix) async {
   if (records.isEmpty) {
     UIUtils.showInfoSnackBar(
       message: "لا توجد تقارير لحفظها",
@@ -224,7 +242,7 @@ Future<void> _savePdfCommon(
   if (pdfBytes == null) return;
 
   try {
-    String fileName = prefix.contains('ماكينة') 
+    String fileName = prefix.contains('ماكينة')
         ? '${prefix.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}.pdf'
         : '${prefix.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     String? filePath;
@@ -255,7 +273,8 @@ Future<void> _savePdfCommon(
   }
 }
 
-void _showSuccessSnackBar(BuildContext context, String filePath, Uint8List bytes) {
+void _showSuccessSnackBar(
+    BuildContext context, String filePath, Uint8List bytes) {
   final fileName = filePath.split('/').last;
   final messenger = scaffoldMessengerKey.currentState;
   if (messenger == null) return;
@@ -290,23 +309,42 @@ void _showSuccessSnackBar(BuildContext context, String filePath, Uint8List bytes
 // المشاركة/الطباعة (عرض PDF)
 // ---------------------------------
 
-Future<void> exportFlexoProductionReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department, String? shiftName}) async {
-  final pdfBytes = await generateFlexoProductionReportPdfBytes({'records': records, 'title': title, 'department': department, 'shiftName': shiftName});
+Future<void> exportFlexoProductionReportsToPdf(
+    BuildContext context, List<Map<String, dynamic>> records,
+    {String? title, String? department, String? shiftName}) async {
+  final pdfBytes = await generateFlexoProductionReportPdfBytes({
+    'records': records,
+    'title': title,
+    'department': department,
+    'shiftName': shiftName
+  });
   if (pdfBytes != null) {
-    String fileName = title != null ? '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}.pdf' : 'تقرير_إنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    String fileName = title != null
+        ? '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}.pdf'
+        : 'تقرير_إنتاج_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
   }
 }
 
-Future<void> exportPrintingReportsToPdf(BuildContext context, List<Map<String, dynamic>> records, {String? title, String? department, String? shiftName}) async {
-  final pdfBytes = await generatePrintingReportPdfBytes({'records': records, 'title': title, 'department': department, 'shiftName': shiftName});
+Future<void> exportPrintingReportsToPdf(
+    BuildContext context, List<Map<String, dynamic>> records,
+    {String? title, String? department, String? shiftName}) async {
+  final pdfBytes = await generatePrintingReportPdfBytes({
+    'records': records,
+    'title': title,
+    'department': department,
+    'shiftName': shiftName
+  });
   if (pdfBytes != null) {
-    String fileName = title != null ? '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}.pdf' : 'تقرير_طباعة_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    String fileName = title != null
+        ? '${title.replaceAll(RegExp(r'[\s:/\\*?"<>|]'), '_')}.pdf'
+        : 'تقرير_طباعة_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
   }
 }
 
-Future<void> exportReportToPdf(BuildContext context, Map<String, dynamic> record, List<String> imagePaths) async {
+Future<void> exportReportToPdf(BuildContext context,
+    Map<String, dynamic> record, List<String> imagePaths) async {
   await exportFlexoProductionReportsToPdf(context, [record]);
 }
 
@@ -323,7 +361,9 @@ String _getDimensionsOnly(Map<String, dynamic> record) {
     if (value.contains('.')) {
       final parts = value.split('.');
       if (parts.length > 1 && parts[1] == '0') return parts[0];
-      return value.replaceAll(RegExp(r'0*$'), '').replaceAll(RegExp(r'\.$'), '');
+      return value
+          .replaceAll(RegExp(r'0*$'), '')
+          .replaceAll(RegExp(r'\.$'), '');
     }
     return value;
   }
@@ -334,7 +374,9 @@ String _getDimensionsOnly(Map<String, dynamic> record) {
 
   if (fL == '0' || fW == '0') return '---';
 
-  final bool isSheet = record['isSheet'] == true || record['is_sheet'] == true || record['is_sheet'] == 'true';
+  final bool isSheet = record['isSheet'] == true ||
+      record['is_sheet'] == true ||
+      record['is_sheet'] == 'true';
 
   if (isSheet) {
     // للقراءة من اليمين لليسار: الطول أولاً على اليمين ثم العرض
@@ -351,30 +393,30 @@ String _getDimensionsOnly(Map<String, dynamic> record) {
 String _cleanForPdf(String text) {
   return text
       // علامات الاتجاه
-      .replaceAll('\u200F', '')  // Right-to-Left Mark
-      .replaceAll('\u200E', '')  // Left-to-Right Mark
-      .replaceAll('\u200B', '')  // Zero Width Space
-      .replaceAll('\u200C', '')  // Zero Width Non-Joiner
-      .replaceAll('\u200D', '')  // Zero Width Joiner
-      .replaceAll('\u202A', '')  // Left-to-Right Embedding
-      .replaceAll('\u202B', '')  // Right-to-Left Embedding
-      .replaceAll('\u202C', '')  // Pop Directional Formatting
-      .replaceAll('\u202D', '')  // Left-to-Right Override
-      .replaceAll('\u202E', '')  // Right-to-Left Override
-      .replaceAll('\u2066', '')  // Left-to-Right Isolate
-      .replaceAll('\u2067', '')  // Right-to-Left Isolate
-      .replaceAll('\u2068', '')  // First Strong Isolate
-      .replaceAll('\u2069', '')  // Pop Directional Isolate
+      .replaceAll('\u200F', '') // Right-to-Left Mark
+      .replaceAll('\u200E', '') // Left-to-Right Mark
+      .replaceAll('\u200B', '') // Zero Width Space
+      .replaceAll('\u200C', '') // Zero Width Non-Joiner
+      .replaceAll('\u200D', '') // Zero Width Joiner
+      .replaceAll('\u202A', '') // Left-to-Right Embedding
+      .replaceAll('\u202B', '') // Right-to-Left Embedding
+      .replaceAll('\u202C', '') // Pop Directional Formatting
+      .replaceAll('\u202D', '') // Left-to-Right Override
+      .replaceAll('\u202E', '') // Right-to-Left Override
+      .replaceAll('\u2066', '') // Left-to-Right Isolate
+      .replaceAll('\u2067', '') // Right-to-Left Isolate
+      .replaceAll('\u2068', '') // First Strong Isolate
+      .replaceAll('\u2069', '') // Pop Directional Isolate
       // التشكيل العربي (Arabic Diacritics / Non-Spacing Marks)
       // النطاق U+064B - U+065F: التنوين، الفتحة، الضمة، الكسرة، الشدة، السكون إلخ
-      .replaceAllMapped(RegExp(r'[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED\u0670]'), (_) => '');
+      .replaceAllMapped(
+          RegExp(r'[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED\u0670]'),
+          (_) => '');
 }
 
-
-
-
 // بناء الخلايا الأساسية للجدول
-pw.Widget buildTableDataCell(String text, double width, pw.Font font, {bool isRightMost = false, bool isSectionEnd = false}) {
+pw.Widget buildTableDataCell(String text, double width, pw.Font font,
+    {bool isRightMost = false, bool isSectionEnd = false}) {
   return pw.Container(
     width: width,
     height: 30.0,
@@ -382,25 +424,30 @@ pw.Widget buildTableDataCell(String text, double width, pw.Font font, {bool isRi
     decoration: pw.BoxDecoration(
       border: pw.Border(
         bottom: const pw.BorderSide(width: 0.5),
-        left: pw.BorderSide(width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
+        left: pw.BorderSide(
+            width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
         right: const pw.BorderSide(width: 0.5, color: PdfColors.black),
       ),
     ),
     child: pw.Text(ArabicPDFHelper.fixArabic(_cleanForPdf(text)),
-      style: pw.TextStyle(font: font, fontSize: 7.5),
-      softWrap: true, textAlign: pw.TextAlign.center),
+        style: pw.TextStyle(font: font, fontSize: 7.5),
+        softWrap: true,
+        textAlign: pw.TextAlign.center),
   );
 }
 
 // خلية الحبر
-pw.Widget buildStackedInkCell(String colorName, String quantity, double width, pw.Font font, {bool isSectionEnd = false}) {
+pw.Widget buildStackedInkCell(
+    String colorName, String quantity, double width, pw.Font font,
+    {bool isSectionEnd = false}) {
   return pw.Container(
     width: width,
     height: 30.0,
     decoration: pw.BoxDecoration(
       border: pw.Border(
         bottom: const pw.BorderSide(width: 0.5),
-        left: pw.BorderSide(width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
+        left: pw.BorderSide(
+            width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
         right: const pw.BorderSide(width: 0.5, color: PdfColors.black),
       ),
     ),
@@ -408,13 +455,16 @@ pw.Widget buildStackedInkCell(String colorName, String quantity, double width, p
       pw.Container(
         height: 15.0,
         alignment: pw.Alignment.center,
-        decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(width: 0.5))),
-        child: pw.Text(ArabicPDFHelper.fixArabic(colorName), style: pw.TextStyle(font: font, fontSize: 6.5)),
+        decoration: const pw.BoxDecoration(
+            border: pw.Border(bottom: pw.BorderSide(width: 0.5))),
+        child: pw.Text(ArabicPDFHelper.fixArabic(colorName),
+            style: pw.TextStyle(font: font, fontSize: 6.5)),
       ),
       pw.Container(
         height: 15.0,
         alignment: pw.Alignment.center,
-        child: pw.Text(ArabicPDFHelper.fixArabic(quantity), style: pw.TextStyle(font: font, fontSize: 7)),
+        child: pw.Text(ArabicPDFHelper.fixArabic(quantity),
+            style: pw.TextStyle(font: font, fontSize: 7)),
       ),
     ]),
   );
@@ -423,13 +473,16 @@ pw.Widget buildStackedInkCell(String colorName, String quantity, double width, p
 // ---------------------------------
 // دالة: تقرير الإنتاج (بدون أحبار، مع الفني/الماكينة)
 // ---------------------------------
-Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> params) async {
+Future<Uint8List> _generateConsolidatedProductionPdfBytes(
+    Map<String, dynamic> params) async {
   try {
     final List<dynamic> records = params['records'];
-    final String customTitle = params['title']?.toString() ?? 'تقرير الإنتاج لقسم الفلكسو';
+    final String customTitle =
+        params['title']?.toString() ?? 'تقرير الإنتاج لقسم الفلكسو';
     final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
     final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
-    final bool isProductionLine = params['department']?.toString() == 'production_line';
+    final bool isProductionLine =
+        params['department']?.toString() == 'production_line';
 
     final pdf = pw.Document();
     const int recordsPerPage = 13;
@@ -449,30 +502,83 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
 
-        final String tName = (record['technician_name'] ?? record['technicianName'])?.toString() ?? '---';
+        final String tName =
+            (record['technician_name'] ?? record['technicianName'])
+                    ?.toString() ??
+                '---';
         final crewRaw = record['crew_members'] ?? record['crewMembers'];
         final String crewDisplay = (crewRaw is List && crewRaw.isNotEmpty)
             ? crewRaw.map((e) => e.toString()).join(' / ')
             : '---';
-        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['customer_name'] ?? record['customerName'] ?? record['client'])?.toString() ?? '---';
-        final String productName = (record['product_name'] ?? record['productName'] ?? record['item_name'] ?? record['itemName'] ?? record['product'])?.toString() ?? '---';
-        final String productCode = (record['product_code'] ?? record['productCode'] ?? record['item_code'] ?? record['itemCode'])?.toString() ?? '---';
-        final String orderNumber = (record['order_number'] ?? record['orderNumber'] ?? record['work_order'] ?? record['workOrder'])?.toString() ?? '---';
-        final String quantity = (record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity'])?.toString() ?? '---';
-        final String startTime = _formatTime((record['start_time'] ?? record['startTime'] ?? record['run_time_start'] ?? record['runTimeStart'])?.toString() ?? '---');
-        final String endTime = _formatTime((record['end_time'] ?? record['endTime'] ?? record['run_time_end'] ?? record['runTimeEnd'])?.toString() ?? '---');
-        final String lineWaste = (record['line_waste'] ?? record['lineWaste'] ?? record['waste_quantity'] ?? record['wasteQuantity'])?.toString() ?? '---';
-        final String printWaste = (record['print_waste'] ?? record['printWaste'])?.toString() ?? '---';
-        final String downtimeStart = _formatTime((record['downtime_start'] ?? record['downtimeStart'])?.toString() ?? '---');
-        final String downtimeEnd = _formatTime((record['downtime_end'] ?? record['downtimeEnd'])?.toString() ?? '---');
+        final String clientName = (record['client_name'] ??
+                    record['clientName'] ??
+                    record['customer_name'] ??
+                    record['customerName'] ??
+                    record['client'])
+                ?.toString() ??
+            '---';
+        final String productName = (record['product_name'] ??
+                    record['productName'] ??
+                    record['item_name'] ??
+                    record['itemName'] ??
+                    record['product'])
+                ?.toString() ??
+            '---';
+        final String productCode = (record['product_code'] ??
+                    record['productCode'] ??
+                    record['item_code'] ??
+                    record['itemCode'])
+                ?.toString() ??
+            '---';
+        final String orderNumber = (record['order_number'] ??
+                    record['orderNumber'] ??
+                    record['work_order'] ??
+                    record['workOrder'])
+                ?.toString() ??
+            '---';
+        final String quantity = (record['quantity'] ??
+                    record['production_quantity'] ??
+                    record['productionQuantity'])
+                ?.toString() ??
+            '---';
+        final String startTime = _formatTime((record['start_time'] ??
+                    record['startTime'] ??
+                    record['run_time_start'] ??
+                    record['runTimeStart'])
+                ?.toString() ??
+            '---');
+        final String endTime = _formatTime((record['end_time'] ??
+                    record['endTime'] ??
+                    record['run_time_end'] ??
+                    record['runTimeEnd'])
+                ?.toString() ??
+            '---');
+        final String lineWaste = (record['line_waste'] ??
+                    record['lineWaste'] ??
+                    record['waste_quantity'] ??
+                    record['wasteQuantity'])
+                ?.toString() ??
+            '---';
+        final String printWaste =
+            (record['print_waste'] ?? record['printWaste'])?.toString() ??
+                '---';
+        final String downtimeStart = _formatTime(
+            (record['downtime_start'] ?? record['downtimeStart'])?.toString() ??
+                '---');
+        final String downtimeEnd = _formatTime(
+            (record['downtime_end'] ?? record['downtimeEnd'])?.toString() ??
+                '---');
         final String notes = record['notes']?.toString() ?? '---';
 
         // الخلايا بالترتيب الطبيعي (م أولاً) ثم تُعكس للحصول على RTL
         final List<pw.Widget> rowCells = [
           _buildFlexCell('${startIndex + i + 1}', arabicFont),
           _buildFlexCell(tName, arabicFont),
-          _buildFlexCell(_formatDate(record['date']?.toString() ?? '---'), arabicFont),
-          if (isProductionLine) _buildFlexCell(crewDisplay, arabicFont), // طاقم التشغيل ← خط الإنتاج فقط
+          _buildFlexCell(
+              _formatDate(record['date']?.toString() ?? '---'), arabicFont),
+          if (isProductionLine)
+            _buildFlexCell(
+                crewDisplay, arabicFont), // طاقم التشغيل ← خط الإنتاج فقط
           _buildFlexCell(clientName, arabicFont),
           _buildFlexCell(productName, arabicFont),
           _buildFlexCell(productCode, arabicFont),
@@ -503,17 +609,22 @@ Future<Uint8List> _generateConsolidatedProductionPdfBytes(Map<String, dynamic> p
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Text(ArabicPDFHelper.fixArabic(customTitle),
-                style: pw.TextStyle(font: arabicBoldFont, fontSize: 16),
-                textAlign: pw.TextAlign.center),
-              if (params['shiftName'] != null && params['shiftName'].toString().isNotEmpty && params['shiftName'] != 'كل الورديات')
+                  style: pw.TextStyle(font: arabicBoldFont, fontSize: 16),
+                  textAlign: pw.TextAlign.center),
+              if (params['shiftName'] != null &&
+                  params['shiftName'].toString().isNotEmpty &&
+                  params['shiftName'] != 'كل الورديات')
                 pw.Padding(
                   padding: const pw.EdgeInsets.only(top: 4),
-                  child: pw.Text(ArabicPDFHelper.fixArabic('الوردية: ${params['shiftName']}'),
-                    style: pw.TextStyle(font: arabicFont, fontSize: 12),
-                    textAlign: pw.TextAlign.center),
+                  child: pw.Text(
+                      ArabicPDFHelper.fixArabic(
+                          'الوردية: ${params['shiftName']}'),
+                      style: pw.TextStyle(font: arabicFont, fontSize: 12),
+                      textAlign: pw.TextAlign.center),
                 ),
               pw.SizedBox(height: 10),
-              _buildCustomProductionHeader(isProductionLine: isProductionLine, font: arabicBoldFont),
+              _buildCustomProductionHeader(
+                  isProductionLine: isProductionLine, font: arabicBoldFont),
               pw.Table(
                 columnWidths: _productionLineColumnWidths(isProductionLine),
                 border: const pw.TableBorder(
@@ -554,59 +665,60 @@ pw.Widget _buildFlexCell(String text, pw.Font font) {
   );
 }
 
-
-
 /// يعكس خريطة عروض الأعمدة لتناسب الترتيب من اليمين لليسار.
 /// pw.Table لا يعكس الأعمدة تلقائياً مع Directionality(rtl)،
 /// لذا نعكس الأعمدة يدوياً عبر هذه الدالة + عكس children في كل TableRow.
-Map<int, pw.TableColumnWidth> _reverseColumnWidths(Map<int, pw.TableColumnWidth> widths) {
+Map<int, pw.TableColumnWidth> _reverseColumnWidths(
+    Map<int, pw.TableColumnWidth> widths) {
   final int maxKey = widths.keys.reduce((a, b) => a > b ? a : b);
-  return { for (final e in widths.entries) (maxKey - e.key): e.value };
+  return {for (final e in widths.entries) (maxKey - e.key): e.value};
 }
 
-Map<int, pw.TableColumnWidth> _productionLineColumnWidths(bool isProductionLine) {
+Map<int, pw.TableColumnWidth> _productionLineColumnWidths(
+    bool isProductionLine) {
   if (isProductionLine) {
     return _reverseColumnWidths({
-      0:  const pw.FixedColumnWidth(22),   
-      1:  const pw.FlexColumnWidth(20),   
-      2:  const pw.FixedColumnWidth(54),   
-      3:  const pw.FlexColumnWidth(35),   
-      4:  const pw.FlexColumnWidth(35),   
-      5:  const pw.FlexColumnWidth(35),   
-      6:  const pw.FixedColumnWidth(46),   
-      7:  const pw.FixedColumnWidth(68),   
-      8:  const pw.FixedColumnWidth(43),   
-      9:  const pw.FixedColumnWidth(36),   
-      10: const pw.FixedColumnWidth(36),   
-      11: const pw.FixedColumnWidth(36),   
-      12: const pw.FixedColumnWidth(55),   
-      13: const pw.FixedColumnWidth(36),   
-      14: const pw.FixedColumnWidth(36),   
-      15: const pw.FlexColumnWidth(30),   
+      0: const pw.FixedColumnWidth(22),
+      1: const pw.FlexColumnWidth(20),
+      2: const pw.FixedColumnWidth(54),
+      3: const pw.FlexColumnWidth(35),
+      4: const pw.FlexColumnWidth(35),
+      5: const pw.FlexColumnWidth(35),
+      6: const pw.FixedColumnWidth(46),
+      7: const pw.FixedColumnWidth(68),
+      8: const pw.FixedColumnWidth(43),
+      9: const pw.FixedColumnWidth(36),
+      10: const pw.FixedColumnWidth(36),
+      11: const pw.FixedColumnWidth(36),
+      12: const pw.FixedColumnWidth(55),
+      13: const pw.FixedColumnWidth(36),
+      14: const pw.FixedColumnWidth(36),
+      15: const pw.FlexColumnWidth(30),
     });
   } else {
     return _reverseColumnWidths({
-      0:  const pw.FixedColumnWidth(22),   
-      1:  const pw.FlexColumnWidth(20),   
-      2:  const pw.FixedColumnWidth(54),   
-      3:  const pw.FlexColumnWidth(35),   
-      4:  const pw.FlexColumnWidth(35),   
-      5:  const pw.FixedColumnWidth(46),   
-      6:  const pw.FixedColumnWidth(68),   
-      7:  const pw.FixedColumnWidth(43),   
-      8:  const pw.FixedColumnWidth(36),   
-      9:  const pw.FixedColumnWidth(36),   
-      10: const pw.FixedColumnWidth(36),   
-      11: const pw.FixedColumnWidth(30),   
-      12: const pw.FixedColumnWidth(30),   
-      13: const pw.FixedColumnWidth(36),   
-      14: const pw.FixedColumnWidth(36),   
-      15: const pw.FlexColumnWidth(30),   
+      0: const pw.FixedColumnWidth(22),
+      1: const pw.FlexColumnWidth(20),
+      2: const pw.FixedColumnWidth(54),
+      3: const pw.FlexColumnWidth(35),
+      4: const pw.FlexColumnWidth(35),
+      5: const pw.FixedColumnWidth(46),
+      6: const pw.FixedColumnWidth(68),
+      7: const pw.FixedColumnWidth(43),
+      8: const pw.FixedColumnWidth(36),
+      9: const pw.FixedColumnWidth(36),
+      10: const pw.FixedColumnWidth(36),
+      11: const pw.FixedColumnWidth(30),
+      12: const pw.FixedColumnWidth(30),
+      13: const pw.FixedColumnWidth(36),
+      14: const pw.FixedColumnWidth(36),
+      15: const pw.FlexColumnWidth(30),
     });
   }
 }
 
-pw.Widget _buildSimpleHeaderCell(String text, pw.Font font, {double? fixedWidth, int? flex}) {
+pw.Widget _buildSimpleHeaderCell(String text, pw.Font font,
+    {double? fixedWidth, int? flex}) {
   final widget = pw.Container(
     width: fixedWidth,
     height: 35.0,
@@ -620,13 +732,16 @@ pw.Widget _buildSimpleHeaderCell(String text, pw.Font font, {double? fixedWidth,
         right: pw.BorderSide(width: 0.5),
       ),
     ),
-    child: pw.Text(ArabicPDFHelper.fixArabic(text), style: pw.TextStyle(font: font, fontSize: 8), textAlign: pw.TextAlign.center),
+    child: pw.Text(ArabicPDFHelper.fixArabic(text),
+        style: pw.TextStyle(font: font, fontSize: 8),
+        textAlign: pw.TextAlign.center),
   );
   if (flex != null) return pw.Expanded(flex: flex, child: widget);
   return widget;
 }
 
-pw.Widget _buildSplitHeaderCell(String mainText, String subText1, String subText2, double width1, double width2, pw.Font font) {
+pw.Widget _buildSplitHeaderCell(String mainText, String subText1,
+    String subText2, double width1, double width2, pw.Font font) {
   return pw.Container(
     width: width1 + width2,
     height: 35.0,
@@ -647,7 +762,9 @@ pw.Widget _buildSplitHeaderCell(String mainText, String subText1, String subText
             decoration: const pw.BoxDecoration(
               border: pw.Border(bottom: pw.BorderSide(width: 0.5)),
             ),
-            child: pw.Text(ArabicPDFHelper.fixArabic(mainText), style: pw.TextStyle(font: font, fontSize: 8), textAlign: pw.TextAlign.center),
+            child: pw.Text(ArabicPDFHelper.fixArabic(mainText),
+                style: pw.TextStyle(font: font, fontSize: 8),
+                textAlign: pw.TextAlign.center),
           ),
         ),
         pw.Expanded(
@@ -657,14 +774,18 @@ pw.Widget _buildSplitHeaderCell(String mainText, String subText1, String subText
                 width: width1,
                 alignment: pw.Alignment.center,
                 decoration: const pw.BoxDecoration(
-                  border: pw.Border(left: pw.BorderSide(width: 0.5)), 
+                  border: pw.Border(left: pw.BorderSide(width: 0.5)),
                 ),
-                child: pw.Text(ArabicPDFHelper.fixArabic(subText1), style: pw.TextStyle(font: font, fontSize: 8), textAlign: pw.TextAlign.center),
+                child: pw.Text(ArabicPDFHelper.fixArabic(subText1),
+                    style: pw.TextStyle(font: font, fontSize: 8),
+                    textAlign: pw.TextAlign.center),
               ),
               pw.Container(
                 width: width2,
                 alignment: pw.Alignment.center,
-                child: pw.Text(ArabicPDFHelper.fixArabic(subText2), style: pw.TextStyle(font: font, fontSize: 8), textAlign: pw.TextAlign.center),
+                child: pw.Text(ArabicPDFHelper.fixArabic(subText2),
+                    style: pw.TextStyle(font: font, fontSize: 8),
+                    textAlign: pw.TextAlign.center),
               ),
             ],
           ),
@@ -674,13 +795,15 @@ pw.Widget _buildSplitHeaderCell(String mainText, String subText1, String subText
   );
 }
 
-pw.Widget _buildCustomProductionHeader({required bool isProductionLine, required pw.Font font}) {
+pw.Widget _buildCustomProductionHeader(
+    {required bool isProductionLine, required pw.Font font}) {
   return pw.Row(
     children: [
       _buildSimpleHeaderCell('م', font, fixedWidth: 22),
       _buildSimpleHeaderCell('الفني', font, flex: 20),
       _buildSimpleHeaderCell('التاريخ', font, fixedWidth: 54),
-      if (isProductionLine) _buildSimpleHeaderCell('طاقم التشغيل', font, flex: 35),
+      if (isProductionLine)
+        _buildSimpleHeaderCell('طاقم التشغيل', font, flex: 35),
       _buildSimpleHeaderCell('إسم العميل', font, flex: 35),
       _buildSimpleHeaderCell('الصنف', font, flex: 35),
       _buildSimpleHeaderCell('كود الصنف', font, fixedWidth: 46),
@@ -690,7 +813,7 @@ pw.Widget _buildCustomProductionHeader({required bool isProductionLine, required
       _buildSplitHeaderCell('وقت التشغيل', 'من', 'إلى', 36, 36, font),
       if (isProductionLine)
         _buildSimpleHeaderCell('الهالك', font, fixedWidth: 55)
-      else 
+      else
         _buildSplitHeaderCell('الهالك', 'خ', 'ط', 30, 30, font),
       _buildSplitHeaderCell('الأعطال', 'من', 'إلى', 36, 36, font),
       _buildSimpleHeaderCell('الملاحظات', font, flex: 30),
@@ -723,10 +846,12 @@ pw.Widget _buildCustomCrushingHeader({required pw.Font font}) {
 // ---------------------------------
 // دالة: تقرير إنتاج قسم التكسير (بدون ألوان أو طباعة، هالك فقط، مع إدراج رقم الفورمة)
 // ---------------------------------
-Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> params) async {
+Future<Uint8List> _generateCrushingProductionPdfBytes(
+    Map<String, dynamic> params) async {
   try {
     final List<dynamic> records = params['records'];
-    final String customTitle = params['title']?.toString() ?? 'تقرير إنتاج التكسير';
+    final String customTitle =
+        params['title']?.toString() ?? 'تقرير إنتاج التكسير';
     final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
     final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
 
@@ -739,17 +864,18 @@ Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> param
     //          كود الصنف | رقم الفورمة | المقاس | أمر التشغيل | الإنتاج |
     //          من(تشغيل) | إلى(تشغيل) | الهالك | من(أعطال) | إلى(أعطال) | الملاحظات
     // عروض الأعمدة معكوسة لـ RTL (17 عمود: indices 0-16 بعد العكس)
-    final Map<int, pw.TableColumnWidth> crushingColumnWidths = _reverseColumnWidths({
-      0:  const pw.FixedColumnWidth(22),
-      1:  const pw.FlexColumnWidth(20),
-      2:  const pw.FixedColumnWidth(54),
-      3:  const pw.FlexColumnWidth(35),
-      4:  const pw.FlexColumnWidth(35),
-      5:  const pw.FlexColumnWidth(35),
-      6:  const pw.FixedColumnWidth(46),
-      7:  const pw.FixedColumnWidth(55),
-      8:  const pw.FixedColumnWidth(65),
-      9:  const pw.FixedColumnWidth(43),
+    final Map<int, pw.TableColumnWidth> crushingColumnWidths =
+        _reverseColumnWidths({
+      0: const pw.FixedColumnWidth(22),
+      1: const pw.FlexColumnWidth(20),
+      2: const pw.FixedColumnWidth(54),
+      3: const pw.FlexColumnWidth(35),
+      4: const pw.FlexColumnWidth(35),
+      5: const pw.FlexColumnWidth(35),
+      6: const pw.FixedColumnWidth(46),
+      7: const pw.FixedColumnWidth(55),
+      8: const pw.FixedColumnWidth(65),
+      9: const pw.FixedColumnWidth(43),
       10: const pw.FixedColumnWidth(36),
       11: const pw.FixedColumnWidth(36),
       12: const pw.FixedColumnWidth(36),
@@ -773,26 +899,86 @@ Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> param
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
 
-        final String tName = (record['technician_name'] ?? record['technicianName'])?.toString() ?? '---';
+        final String tName =
+            (record['technician_name'] ?? record['technicianName'])
+                    ?.toString() ??
+                '---';
         final crewRaw = record['crew_members'] ?? record['crewMembers'];
         final String crewDisplay = (crewRaw is List && crewRaw.isNotEmpty)
             ? crewRaw.map((e) => e.toString()).join(' / ')
             : '---';
-        final String formNumber = (record['form_number'] ?? record['formNumber'])?.toString() ?? '---';
-        final String wasteValue = (record['line_waste'] ?? record['lineWaste'] ?? record['waste'] ?? record['wasteQuantity'] ?? record['waste_quantity'])?.toString() ?? '---';
-        final String formNumDisplay = formNumber.trim().isEmpty || formNumber == 'null' ? '---' : formNumber;
-        final String wasteDisplay = wasteValue.trim().isEmpty || wasteValue == 'null' ? '---' : wasteValue;
-        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['client'] ?? record['customer_name'] ?? record['customerName'])?.toString() ?? '---';
-        final String productName = (record['product_name'] ?? record['productName'] ?? record['product'] ?? record['item_name'] ?? record['itemName'])?.toString() ?? '---';
-        final String productCode = (record['product_code'] ?? record['productCode'] ?? record['item_code'] ?? record['itemCode'])?.toString() ?? '---';
-        final String orderNumber = (record['order_number'] ?? record['orderNumber'] ?? record['work_order'] ?? record['workOrder'])?.toString() ?? '---';
-        final String quantity = (record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity'])?.toString() ?? '---';
-        final String startTime = _formatTime((record['start_time'] ?? record['startTime'] ?? record['run_time_start'] ?? record['runTimeStart'])?.toString() ?? '---');
-        final String endTime = _formatTime((record['end_time'] ?? record['endTime'] ?? record['run_time_end'] ?? record['runTimeEnd'])?.toString() ?? '---');
-        final String downtimeStart = _formatTime((record['downtime_start'] ?? record['downtimeStart'])?.toString() ?? '---');
-        final String downtimeEnd = _formatTime((record['downtime_end'] ?? record['downtimeEnd'])?.toString() ?? '---');
+        final String formNumber =
+            (record['form_number'] ?? record['formNumber'])?.toString() ??
+                '---';
+        final String wasteValue = (record['line_waste'] ??
+                    record['lineWaste'] ??
+                    record['waste'] ??
+                    record['wasteQuantity'] ??
+                    record['waste_quantity'])
+                ?.toString() ??
+            '---';
+        final String formNumDisplay =
+            formNumber.trim().isEmpty || formNumber == 'null'
+                ? '---'
+                : formNumber;
+        final String wasteDisplay =
+            wasteValue.trim().isEmpty || wasteValue == 'null'
+                ? '---'
+                : wasteValue;
+        final String clientName = (record['client_name'] ??
+                    record['clientName'] ??
+                    record['client'] ??
+                    record['customer_name'] ??
+                    record['customerName'])
+                ?.toString() ??
+            '---';
+        final String productName = (record['product_name'] ??
+                    record['productName'] ??
+                    record['product'] ??
+                    record['item_name'] ??
+                    record['itemName'])
+                ?.toString() ??
+            '---';
+        final String productCode = (record['product_code'] ??
+                    record['productCode'] ??
+                    record['item_code'] ??
+                    record['itemCode'])
+                ?.toString() ??
+            '---';
+        final String orderNumber = (record['order_number'] ??
+                    record['orderNumber'] ??
+                    record['work_order'] ??
+                    record['workOrder'])
+                ?.toString() ??
+            '---';
+        final String quantity = (record['quantity'] ??
+                    record['production_quantity'] ??
+                    record['productionQuantity'])
+                ?.toString() ??
+            '---';
+        final String startTime = _formatTime((record['start_time'] ??
+                    record['startTime'] ??
+                    record['run_time_start'] ??
+                    record['runTimeStart'])
+                ?.toString() ??
+            '---');
+        final String endTime = _formatTime((record['end_time'] ??
+                    record['endTime'] ??
+                    record['run_time_end'] ??
+                    record['runTimeEnd'])
+                ?.toString() ??
+            '---');
+        final String downtimeStart = _formatTime(
+            (record['downtime_start'] ?? record['downtimeStart'])?.toString() ??
+                '---');
+        final String downtimeEnd = _formatTime(
+            (record['downtime_end'] ?? record['downtimeEnd'])?.toString() ??
+                '---');
         final String notes = record['notes']?.toString() ?? '---';
-        final String dateStr = (record['date'] ?? record['report_date'] ?? record['reportDate'])?.toString() ?? '---';
+        final String dateStr =
+            (record['date'] ?? record['report_date'] ?? record['reportDate'])
+                    ?.toString() ??
+                '---';
 
         // الخلايا بالترتيب الطبيعي (م أولاً) ثم تُعكس للحصول على RTL
         final List<pw.Widget> rowCells = [
@@ -826,14 +1012,18 @@ Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> param
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Text(ArabicPDFHelper.fixArabic(customTitle),
-                style: pw.TextStyle(font: arabicBoldFont, fontSize: 16),
-                textAlign: pw.TextAlign.center),
-              if (params['shiftName'] != null && params['shiftName'].toString().isNotEmpty && params['shiftName'] != 'كل الورديات')
+                  style: pw.TextStyle(font: arabicBoldFont, fontSize: 16),
+                  textAlign: pw.TextAlign.center),
+              if (params['shiftName'] != null &&
+                  params['shiftName'].toString().isNotEmpty &&
+                  params['shiftName'] != 'كل الورديات')
                 pw.Padding(
                   padding: const pw.EdgeInsets.only(top: 4),
-                  child: pw.Text(ArabicPDFHelper.fixArabic('الوردية: ${params['shiftName']}'),
-                    style: pw.TextStyle(font: arabicFont, fontSize: 12),
-                    textAlign: pw.TextAlign.center),
+                  child: pw.Text(
+                      ArabicPDFHelper.fixArabic(
+                          'الوردية: ${params['shiftName']}'),
+                      style: pw.TextStyle(font: arabicFont, fontSize: 12),
+                      textAlign: pw.TextAlign.center),
                 ),
               pw.SizedBox(height: 10),
               _buildCustomCrushingHeader(font: arabicBoldFont),
@@ -860,16 +1050,15 @@ Future<Uint8List> _generateCrushingProductionPdfBytes(Map<String, dynamic> param
   }
 }
 
-
-
-
 // ---------------------------------
 // دالة: تقرير الطباعة (مع أحبار)
 // ---------------------------------
-Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> params) async {
+Future<Uint8List> _generateConsolidatedPrintingPdfBytes(
+    Map<String, dynamic> params) async {
   try {
     final List<dynamic> records = params['records'];
-    final String customTitle = params['title']?.toString() ?? 'تقرير إنتاج الطباعة';
+    final String customTitle =
+        params['title']?.toString() ?? 'تقرير إنتاج الطباعة';
     final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
     final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
 
@@ -905,32 +1094,41 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
 
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
-        
-        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['client'])?.toString() ?? '---';
-        final String productName = (record['product_name'] ?? record['productName'] ?? record['product'])?.toString() ?? '---';
+
+        final String clientName =
+            (record['client_name'] ?? record['clientName'] ?? record['client'])
+                    ?.toString() ??
+                '---';
+        final String productName = (record['product_name'] ??
+                    record['productName'] ??
+                    record['product'])
+                ?.toString() ??
+            '---';
         final String quantity = record['quantity']?.toString() ?? '---';
         final String notes = record['notes']?.toString() ?? '---';
 
         pageRows.add(
           pw.Row(children: [
-            buildTableDataCell('${startIndex + i + 1}', 20.0, arabicFont, isRightMost: true),
-            buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'), 55.0, arabicFont),
+            buildTableDataCell('${startIndex + i + 1}', 20.0, arabicFont,
+                isRightMost: true),
+            buildTableDataCell(_formatDate(record['date']?.toString() ?? '---'),
+                55.0, arabicFont),
             buildTableDataCell(clientName, flexibleColWidth, arabicFont),
             buildTableDataCell(productName, flexibleColWidth, arabicFont),
             buildTableDataCell(_getDimensionsOnly(record), 70.0, arabicFont),
-            
+
             // الأحبار المقسمة بديناميكية
             ...List.generate(maxColorsCount, (j) {
               final recordColors = record['colors'] as List? ?? [];
               String displayedName = '';
               String displayedQty = '';
-              
+
               if (j < recordColors.length) {
                 final colorEntry = recordColors[j];
                 displayedName = colorEntry['color']?.toString() ?? '---';
                 displayedQty = colorEntry['quantity']?.toString() ?? '---';
               }
-              
+
               return buildStackedInkCell(
                 displayedName,
                 displayedQty,
@@ -939,7 +1137,7 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
                 isSectionEnd: j == maxColorsCount - 1,
               );
             }),
-            
+
             buildTableDataCell(quantity, 40.0, arabicFont),
             buildTableDataCell(notes, flexibleColWidth, arabicFont),
           ]),
@@ -953,16 +1151,23 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
           textDirection: pw.TextDirection.rtl,
           child: pw.Column(children: [
             pw.Text(ArabicPDFHelper.fixArabic(customTitle),
-              style: pw.TextStyle(font: arabicBoldFont, fontSize: 16)),
-            if (params['shiftName'] != null && params['shiftName'].toString().isNotEmpty && params['shiftName'] != 'كل الورديات')
+                style: pw.TextStyle(font: arabicBoldFont, fontSize: 16)),
+            if (params['shiftName'] != null &&
+                params['shiftName'].toString().isNotEmpty &&
+                params['shiftName'] != 'كل الورديات')
               pw.Padding(
                 padding: const pw.EdgeInsets.only(top: 4),
-                child: pw.Text(ArabicPDFHelper.fixArabic('الوردية: ${params['shiftName']}'),
-                  style: pw.TextStyle(font: arabicFont, fontSize: 12),
-                  textAlign: pw.TextAlign.center),
+                child: pw.Text(
+                    ArabicPDFHelper.fixArabic(
+                        'الوردية: ${params['shiftName']}'),
+                    style: pw.TextStyle(font: arabicFont, fontSize: 12),
+                    textAlign: pw.TextAlign.center),
               ),
             pw.SizedBox(height: 10),
-            _buildPrintingHeader(maxColorsCount: maxColorsCount, flexibleWidth: flexibleColWidth, font: arabicBoldFont),
+            _buildPrintingHeader(
+                maxColorsCount: maxColorsCount,
+                flexibleWidth: flexibleColWidth,
+                font: arabicBoldFont),
             pw.Column(children: pageRows),
           ]),
         ),
@@ -975,7 +1180,10 @@ Future<Uint8List> _generateConsolidatedPrintingPdfBytes(Map<String, dynamic> par
   }
 }
 
-pw.Widget _buildPrintingHeader({required int maxColorsCount, required double flexibleWidth, required pw.Font font}) {
+pw.Widget _buildPrintingHeader(
+    {required int maxColorsCount,
+    required double flexibleWidth,
+    required pw.Font font}) {
   return pw.Row(
     children: [
       _buildSpannedHeader('م', 20.0, font, isRightMost: true),
@@ -984,7 +1192,8 @@ pw.Widget _buildPrintingHeader({required int maxColorsCount, required double fle
       _buildSpannedHeader('الصنف', flexibleWidth, font),
       _buildSpannedHeader('المقاس', 70.0, font),
       if (maxColorsCount > 0)
-        _buildSpannedHeader('كمية الحبر بالليتر', maxColorsCount * 35.0, font, isSectionEnd: true),
+        _buildSpannedHeader('كمية الحبر بالليتر', maxColorsCount * 35.0, font,
+            isSectionEnd: true),
       _buildSpannedHeader('العدد', 40.0, font),
       _buildSpannedHeader('الملاحظات', flexibleWidth, font),
     ],
@@ -995,7 +1204,8 @@ pw.Widget _buildPrintingHeader({required int maxColorsCount, required double fle
 // دوال Headers مشتركة
 // ---------------------------------
 
-pw.Widget _buildSpannedHeader(String text, double width, pw.Font font, {bool isRightMost = false, bool isSectionEnd = false}) {
+pw.Widget _buildSpannedHeader(String text, double width, pw.Font font,
+    {bool isRightMost = false, bool isSectionEnd = false}) {
   return pw.Container(
     width: width,
     height: 35.0,
@@ -1005,13 +1215,15 @@ pw.Widget _buildSpannedHeader(String text, double width, pw.Font font, {bool isR
       border: pw.Border(
         top: const pw.BorderSide(width: 0.5),
         bottom: const pw.BorderSide(width: 0.5),
-        left: pw.BorderSide(width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
+        left: pw.BorderSide(
+            width: isSectionEnd ? 1.5 : 0.5, color: PdfColors.black),
         right: const pw.BorderSide(width: 0.5, color: PdfColors.black),
       ),
     ),
     child: pw.Text(ArabicPDFHelper.fixArabic(text),
-      style: pw.TextStyle(font: font, fontSize: 8),
-      softWrap: true, textAlign: pw.TextAlign.center),
+        style: pw.TextStyle(font: font, fontSize: 8),
+        softWrap: true,
+        textAlign: pw.TextAlign.center),
   );
 }
 
@@ -1036,10 +1248,12 @@ pw.Widget _buildCustomStapleHeader({required pw.Font font}) {
   );
 }
 
-Future<Uint8List> _generateStapleProductionPdfBytes(Map<String, dynamic> params) async {
+Future<Uint8List> _generateStapleProductionPdfBytes(
+    Map<String, dynamic> params) async {
   try {
     final List<dynamic> records = params['records'];
-    final String customTitle = params['title']?.toString() ?? 'تقرير إنتاج الدبوس';
+    final String customTitle =
+        params['title']?.toString() ?? 'تقرير إنتاج الدبوس';
     final arabicFont = pw.Font.ttf(params['font'].buffer.asByteData());
     final arabicBoldFont = pw.Font.ttf(params['bold'].buffer.asByteData());
 
@@ -1047,17 +1261,18 @@ Future<Uint8List> _generateStapleProductionPdfBytes(Map<String, dynamic> params)
     const int recordsPerPage = 13;
     final int totalPages = (records.length / recordsPerPage).ceil();
 
-    final Map<int, pw.TableColumnWidth> stapleColumnWidths = _reverseColumnWidths({
-      0:  const pw.FixedColumnWidth(22),
-      1:  const pw.FlexColumnWidth(20),
-      2:  const pw.FixedColumnWidth(54),
-      3:  const pw.FlexColumnWidth(35),
-      4:  const pw.FlexColumnWidth(35),
-      5:  const pw.FlexColumnWidth(35),
-      6:  const pw.FixedColumnWidth(46),
-      7:  const pw.FixedColumnWidth(65),
-      8:  const pw.FixedColumnWidth(43),
-      9:  const pw.FixedColumnWidth(36),
+    final Map<int, pw.TableColumnWidth> stapleColumnWidths =
+        _reverseColumnWidths({
+      0: const pw.FixedColumnWidth(22),
+      1: const pw.FlexColumnWidth(20),
+      2: const pw.FixedColumnWidth(54),
+      3: const pw.FlexColumnWidth(35),
+      4: const pw.FlexColumnWidth(35),
+      5: const pw.FlexColumnWidth(35),
+      6: const pw.FixedColumnWidth(46),
+      7: const pw.FixedColumnWidth(65),
+      8: const pw.FixedColumnWidth(43),
+      9: const pw.FixedColumnWidth(36),
       10: const pw.FixedColumnWidth(36),
       11: const pw.FixedColumnWidth(36),
       12: const pw.FixedColumnWidth(36),
@@ -1078,24 +1293,79 @@ Future<Uint8List> _generateStapleProductionPdfBytes(Map<String, dynamic> params)
       for (int i = 0; i < pageRecords.length; i++) {
         final record = pageRecords[i] as Map<String, dynamic>;
 
-        final String tName = (record['technician_name'] ?? record['technicianName'])?.toString() ?? '---';
+        final String tName =
+            (record['technician_name'] ?? record['technicianName'])
+                    ?.toString() ??
+                '---';
         final crewRaw = record['crew_members'] ?? record['crewMembers'];
         final String crewDisplay = (crewRaw is List && crewRaw.isNotEmpty)
             ? crewRaw.map((e) => e.toString()).join(' / ')
             : '---';
-        final String wasteValue = (record['line_waste'] ?? record['lineWaste'] ?? record['waste'] ?? record['wasteQuantity'] ?? record['waste_quantity'])?.toString() ?? '---';
-        final String wasteDisplay = wasteValue.trim().isEmpty || wasteValue == 'null' ? '---' : wasteValue;
-        final String clientName = (record['client_name'] ?? record['clientName'] ?? record['client'] ?? record['customer_name'] ?? record['customerName'])?.toString() ?? '---';
-        final String productName = (record['product_name'] ?? record['productName'] ?? record['product'] ?? record['item_name'] ?? record['itemName'])?.toString() ?? '---';
-        final String productCode = (record['product_code'] ?? record['productCode'] ?? record['item_code'] ?? record['itemCode'])?.toString() ?? '---';
-        final String orderNumber = (record['order_number'] ?? record['orderNumber'] ?? record['work_order'] ?? record['workOrder'])?.toString() ?? '---';
-        final String quantity = (record['quantity'] ?? record['production_quantity'] ?? record['productionQuantity'])?.toString() ?? '---';
-        final String startTime = _formatTime((record['start_time'] ?? record['startTime'] ?? record['run_time_start'] ?? record['runTimeStart'])?.toString() ?? '---');
-        final String endTime = _formatTime((record['end_time'] ?? record['endTime'] ?? record['run_time_end'] ?? record['runTimeEnd'])?.toString() ?? '---');
-        final String downtimeStart = _formatTime((record['downtime_start'] ?? record['downtimeStart'])?.toString() ?? '---');
-        final String downtimeEnd = _formatTime((record['downtime_end'] ?? record['downtimeEnd'])?.toString() ?? '---');
+        final String wasteValue = (record['line_waste'] ??
+                    record['lineWaste'] ??
+                    record['waste'] ??
+                    record['wasteQuantity'] ??
+                    record['waste_quantity'])
+                ?.toString() ??
+            '---';
+        final String wasteDisplay =
+            wasteValue.trim().isEmpty || wasteValue == 'null'
+                ? '---'
+                : wasteValue;
+        final String clientName = (record['client_name'] ??
+                    record['clientName'] ??
+                    record['client'] ??
+                    record['customer_name'] ??
+                    record['customerName'])
+                ?.toString() ??
+            '---';
+        final String productName = (record['product_name'] ??
+                    record['productName'] ??
+                    record['product'] ??
+                    record['item_name'] ??
+                    record['itemName'])
+                ?.toString() ??
+            '---';
+        final String productCode = (record['product_code'] ??
+                    record['productCode'] ??
+                    record['item_code'] ??
+                    record['itemCode'])
+                ?.toString() ??
+            '---';
+        final String orderNumber = (record['order_number'] ??
+                    record['orderNumber'] ??
+                    record['work_order'] ??
+                    record['workOrder'])
+                ?.toString() ??
+            '---';
+        final String quantity = (record['quantity'] ??
+                    record['production_quantity'] ??
+                    record['productionQuantity'])
+                ?.toString() ??
+            '---';
+        final String startTime = _formatTime((record['start_time'] ??
+                    record['startTime'] ??
+                    record['run_time_start'] ??
+                    record['runTimeStart'])
+                ?.toString() ??
+            '---');
+        final String endTime = _formatTime((record['end_time'] ??
+                    record['endTime'] ??
+                    record['run_time_end'] ??
+                    record['runTimeEnd'])
+                ?.toString() ??
+            '---');
+        final String downtimeStart = _formatTime(
+            (record['downtime_start'] ?? record['downtimeStart'])?.toString() ??
+                '---');
+        final String downtimeEnd = _formatTime(
+            (record['downtime_end'] ?? record['downtimeEnd'])?.toString() ??
+                '---');
         final String notes = record['notes']?.toString() ?? '---';
-        final String dateStr = (record['date'] ?? record['report_date'] ?? record['reportDate'])?.toString() ?? '---';
+        final String dateStr =
+            (record['date'] ?? record['report_date'] ?? record['reportDate'])
+                    ?.toString() ??
+                '---';
 
         final List<pw.Widget> rowCells = [
           _buildFlexCell('${startIndex + i + 1}', arabicFont),
@@ -1127,14 +1397,18 @@ Future<Uint8List> _generateStapleProductionPdfBytes(Map<String, dynamic> params)
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Text(ArabicPDFHelper.fixArabic(customTitle),
-                style: pw.TextStyle(font: arabicBoldFont, fontSize: 16),
-                textAlign: pw.TextAlign.center),
-              if (params['shiftName'] != null && params['shiftName'].toString().isNotEmpty && params['shiftName'] != 'كل الورديات')
+                  style: pw.TextStyle(font: arabicBoldFont, fontSize: 16),
+                  textAlign: pw.TextAlign.center),
+              if (params['shiftName'] != null &&
+                  params['shiftName'].toString().isNotEmpty &&
+                  params['shiftName'] != 'كل الورديات')
                 pw.Padding(
                   padding: const pw.EdgeInsets.only(top: 4),
-                  child: pw.Text(ArabicPDFHelper.fixArabic('الوردية: ${params['shiftName']}'),
-                    style: pw.TextStyle(font: arabicFont, fontSize: 12),
-                    textAlign: pw.TextAlign.center),
+                  child: pw.Text(
+                      ArabicPDFHelper.fixArabic(
+                          'الوردية: ${params['shiftName']}'),
+                      style: pw.TextStyle(font: arabicFont, fontSize: 12),
+                      textAlign: pw.TextAlign.center),
                 ),
               pw.SizedBox(height: 10),
               _buildCustomStapleHeader(font: arabicBoldFont),

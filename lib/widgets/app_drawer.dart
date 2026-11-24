@@ -52,12 +52,13 @@ class AppDrawer extends StatelessWidget {
 
               // إغلاق نافذة التأكيد
               navigator.pop();
-              
+
               // تنفيذ الخروج
               await authService.signOut();
-              
+
               // التوجيه الإجباري لشاشة الدخول ومسح السجل
-              navigator.pushNamedAndRemoveUntil(AuthScreen.routeName, (route) => false);
+              navigator.pushNamedAndRemoveUntil(
+                  AuthScreen.routeName, (route) => false);
             },
             child: const Text('تأكيد'),
           ),
@@ -109,32 +110,35 @@ class AppDrawer extends StatelessWidget {
                 ),
                 if (auth.user?.email == 'mohamedabdo9999933@gmail.com')
                   ListTile(
-                    leading: Icon(Icons.admin_panel_settings, color: Colors.red[800]),
+                    leading: Icon(Icons.admin_panel_settings,
+                        color: Colors.red[800]),
                     title: Text(
                       'لوحة تحكم النظام (Super Admin)',
-                      style: TextStyle(color: Colors.red[800], fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: Colors.red[800], fontWeight: FontWeight.bold),
                     ),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SuperAdminScreen()));
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SuperAdminScreen()));
                     },
                   ),
 
                 // ─── معلومات وقانوني ───────────────────────────────────
                 const Divider(),
                 ListTile(
-                  leading: const Icon(Icons.info_outline,
-                      color: Colors.blueAccent),
+                  leading:
+                      const Icon(Icons.info_outline, color: Colors.blueAccent),
                   title: const Text('عن التطبيق والمطور'),
-                  onTap: () =>
-                      _navigate(context, const AboutScreen()),
+                  onTap: () => _navigate(context, const AboutScreen()),
                 ),
                 ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined,
                       color: Colors.teal),
                   title: const Text('سياسة الخصوصية'),
-                  onTap: () =>
-                      _navigate(context, const PrivacyPolicyScreen()),
+                  onTap: () => _navigate(context, const PrivacyPolicyScreen()),
                 ),
 
                 // ─── تسجيل الدخول / الخروج ─────────────────────────────

@@ -149,8 +149,8 @@ class SheetSizeForm extends StatelessWidget {
           )
         else ...[
           _buildTextField(context, "اسم الصنف", productNameController),
-          _buildTextField(context, 
-              "كود الصنف", productCodeController, type: TextInputType.number),
+          _buildTextField(context, "كود الصنف", productCodeController,
+              type: TextInputType.number),
 
           // --- خيار الشيت ---
           if (processType == "تكسير")
@@ -165,10 +165,13 @@ class SheetSizeForm extends StatelessWidget {
             ),
 
           // --- الأبعاد (مشتركة) ---
-          _buildTextField(context, "الطول", lengthController, type: TextInputType.number),
-          _buildTextField(context, "العرض", widthController, type: TextInputType.number),
+          _buildTextField(context, "الطول", lengthController,
+              type: TextInputType.number),
+          _buildTextField(context, "العرض", widthController,
+              type: TextInputType.number),
           if (!(isSheet && processType == "تكسير"))
-            _buildTextField(context, "الارتفاع", heightController, type: TextInputType.number),
+            _buildTextField(context, "الارتفاع", heightController,
+                type: TextInputType.number),
 
           // --- حقول التكسير ---
           if (processType == "تكسير") ...[
@@ -189,15 +192,16 @@ class SheetSizeForm extends StatelessWidget {
                 ),
               ),
             if (formNumberController != null)
-              _buildTextField(context, 
-                  "رقم الفورمة", formNumberController!, type: TextInputType.text),
+              _buildTextField(context, "رقم الفورمة", formNumberController!,
+                  type: TextInputType.text),
             if (numberOfBoxesController != null)
-              _buildTextField(context, 
-                  "عدد العلب (من الفورمة)", numberOfBoxesController!, type: TextInputType.number),
-            _buildTextField(context, 
-                "طول الشيت", sheetLengthManualController!, type: TextInputType.number),
-            _buildTextField(context, 
-                "عرض الشيت", sheetWidthManualController!, type: TextInputType.number),
+              _buildTextField(
+                  context, "عدد العلب (من الفورمة)", numberOfBoxesController!,
+                  type: TextInputType.number),
+            _buildTextField(context, "طول الشيت", sheetLengthManualController!,
+                type: TextInputType.number),
+            _buildTextField(context, "عرض الشيت", sheetWidthManualController!,
+                type: TextInputType.number),
             const SizedBox(height: 8),
             const Text("نوع الشريحة:",
                 style: TextStyle(fontWeight: FontWeight.bold)),
@@ -247,10 +251,15 @@ class SheetSizeForm extends StatelessWidget {
     );
   }
 
-  Widget _buildTextField(BuildContext context, String label, TextEditingController controller,
-      {TextInputType? type, bool enabled = true, bool locked = false, String? hint, int maxLines = 1}) {
+  Widget _buildTextField(
+      BuildContext context, String label, TextEditingController controller,
+      {TextInputType? type,
+      bool enabled = true,
+      bool locked = false,
+      String? hint,
+      int maxLines = 1}) {
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     Color? fillColor;
     if (locked) {
       fillColor = Colors.grey.withValues(alpha: 0.12);
@@ -264,9 +273,11 @@ class SheetSizeForm extends StatelessWidget {
         controller: controller,
         enabled: enabled,
         maxLines: maxLines,
-        style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87, fontSize: 14),
+        style: TextStyle(
+            color: isDarkMode ? Colors.white : Colors.black87, fontSize: 14),
         decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           labelText: label,
           labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
           hintText: hint,
@@ -276,9 +287,12 @@ class SheetSizeForm extends StatelessWidget {
           suffixIcon: locked
               ? const Icon(Icons.lock_outline, color: Colors.grey, size: 20)
               : null,
-          suffixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          suffixIconConstraints:
+              const BoxConstraints(minWidth: 36, minHeight: 36),
         ),
-        keyboardType: maxLines > 1 ? TextInputType.multiline : (type ?? TextInputType.text),
+        keyboardType: maxLines > 1
+            ? TextInputType.multiline
+            : (type ?? TextInputType.text),
         inputFormatters: (type == TextInputType.number && maxLines == 1)
             ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
             : null,

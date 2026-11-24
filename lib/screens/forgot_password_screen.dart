@@ -34,7 +34,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (error != null) {
       _showSnackBar(error, Colors.red);
     } else {
-      _showSnackBar('✅ تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني', Colors.green);
+      _showSnackBar(
+          '✅ تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني',
+          Colors.green);
       // العودة إلى شاشة تسجيل الدخول بعد الإرسال الناجح
       Navigator.of(context).pop();
     }
@@ -44,7 +46,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     UIUtils.showInfoSnackBar(
       message: message,
       backgroundColor: color,
-      icon: color == Colors.red ? Icons.error_outline : Icons.check_circle_outline,
+      icon: color == Colors.red
+          ? Icons.error_outline
+          : Icons.check_circle_outline,
     );
   }
 
@@ -135,9 +139,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: authLoading
-                      ? null
-                      : () => Navigator.of(context).pop(),
+                  onPressed:
+                      authLoading ? null : () => Navigator.of(context).pop(),
                   child: const Text('رجوع'),
                 ),
               ],

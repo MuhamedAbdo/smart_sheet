@@ -32,7 +32,8 @@ class FlexoProductionReportForm extends StatefulWidget {
   });
 
   @override
-  State<FlexoProductionReportForm> createState() => _FlexoProductionReportFormState();
+  State<FlexoProductionReportForm> createState() =>
+      _FlexoProductionReportFormState();
 }
 
 class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
@@ -79,7 +80,6 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
   List<String> selectedCrewMembers = [];
   String _productState = 'مطبوع';
 
-
   @override
   void initState() {
     super.initState();
@@ -117,7 +117,8 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
       // Ensure date is set even if not in initialData
       if (dateController.text.isEmpty) {
         final now = DateTime.now();
-        dateController.text = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+        dateController.text =
+            "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
       }
     } else {
       final now = DateTime.now();
@@ -136,18 +137,28 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
 
   void _loadInitialData(Map<String, dynamic> data) {
     dateController.text = data['date']?.toString() ?? '';
-    clientNameController.text = data['clientName']?.toString() ?? data['client_name']?.toString() ?? data['client']?.toString() ?? '';
-    productController.text = data['product']?.toString() ??
-        data['productName']?.toString() ?? data['product_name']?.toString() ?? data['item_name']?.toString() ??
+    clientNameController.text = data['clientName']?.toString() ??
+        data['client_name']?.toString() ??
+        data['client']?.toString() ??
         '';
-    productCodeController.text = data['productCode']?.toString() ?? data['product_code']?.toString() ?? data['item_code']?.toString() ?? '';
+    productController.text = data['product']?.toString() ??
+        data['productName']?.toString() ??
+        data['product_name']?.toString() ??
+        data['item_name']?.toString() ??
+        '';
+    productCodeController.text = data['productCode']?.toString() ??
+        data['product_code']?.toString() ??
+        data['item_code']?.toString() ??
+        '';
     isSheet = data['isSheet'] ?? false;
 
-
     final dimensions = Map<String, dynamic>.from(data['dimensions'] ?? {});
-    lengthController.text = dimensions['length']?.toString() ?? data['length']?.toString() ?? '';
-    widthController.text = dimensions['width']?.toString() ?? data['width']?.toString() ?? '';
-    heightController.text = dimensions['height']?.toString() ?? data['height']?.toString() ?? '';
+    lengthController.text =
+        dimensions['length']?.toString() ?? data['length']?.toString() ?? '';
+    widthController.text =
+        dimensions['width']?.toString() ?? data['width']?.toString() ?? '';
+    heightController.text =
+        dimensions['height']?.toString() ?? data['height']?.toString() ?? '';
 
     quantityController.text = data['quantity']?.toString() ?? '';
     weightController.text =
@@ -159,21 +170,41 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
             dimensions['productState']?.toString()) ??
         'مطبوع';
 
-    orderNumberController.text = data['orderNumber']?.toString() ?? data['order_number']?.toString() ?? '';
-    formNumberController.text = data['formNumber']?.toString() ?? data['form_number']?.toString() ?? '';
-    startTimeController.text = data['startTime']?.toString() ?? data['start_time']?.toString() ?? '';
-    endTimeController.text = data['endTime']?.toString() ?? data['end_time']?.toString() ?? '';
-    lineWasteController.text = data['lineWaste']?.toString() ?? data['line_waste']?.toString() ?? '';
-    printWasteController.text = data['printWaste']?.toString() ?? data['print_waste']?.toString() ?? '';
-    downtimeStartController.text = data['downtimeStart']?.toString() ?? data['downtime_start']?.toString() ?? '';
-    downtimeEndController.text = data['downtimeEnd']?.toString() ?? data['downtime_end']?.toString() ?? '';
+    orderNumberController.text = data['orderNumber']?.toString() ??
+        data['order_number']?.toString() ??
+        '';
+    formNumberController.text =
+        data['formNumber']?.toString() ?? data['form_number']?.toString() ?? '';
+    startTimeController.text =
+        data['startTime']?.toString() ?? data['start_time']?.toString() ?? '';
+    endTimeController.text =
+        data['endTime']?.toString() ?? data['end_time']?.toString() ?? '';
+    lineWasteController.text =
+        data['lineWaste']?.toString() ?? data['line_waste']?.toString() ?? '';
+    printWasteController.text =
+        data['printWaste']?.toString() ?? data['print_waste']?.toString() ?? '';
+    downtimeStartController.text = data['downtimeStart']?.toString() ??
+        data['downtime_start']?.toString() ??
+        '';
+    downtimeEndController.text = data['downtimeEnd']?.toString() ??
+        data['downtime_end']?.toString() ??
+        '';
     totalDowntimeController.text = data['totalDowntime']?.toString() ?? '0';
-    _selectedMachineName = data['machineName']?.toString() ?? data['machine_name']?.toString();
-    if (_selectedMachineName != null && _selectedMachineName!.isEmpty) _selectedMachineName = null;
-    _selectedTechnicianName = data['technicianName']?.toString() ?? data['technician_name']?.toString();
-    if (_selectedTechnicianName != null && _selectedTechnicianName!.isEmpty) _selectedTechnicianName = null;
-    _selectedShiftName = data['shiftName']?.toString() ?? data['shift_name']?.toString();
-    if (_selectedShiftName != null && _selectedShiftName!.isEmpty) _selectedShiftName = null;
+    _selectedMachineName =
+        data['machineName']?.toString() ?? data['machine_name']?.toString();
+    if (_selectedMachineName != null && _selectedMachineName!.isEmpty) {
+      _selectedMachineName = null;
+    }
+    _selectedTechnicianName = data['technicianName']?.toString() ??
+        data['technician_name']?.toString();
+    if (_selectedTechnicianName != null && _selectedTechnicianName!.isEmpty) {
+      _selectedTechnicianName = null;
+    }
+    _selectedShiftName =
+        data['shiftName']?.toString() ?? data['shift_name']?.toString();
+    if (_selectedShiftName != null && _selectedShiftName!.isEmpty) {
+      _selectedShiftName = null;
+    }
 
     if (data['crewMembers'] is List) {
       selectedCrewMembers = List<String>.from(data['crewMembers']);
@@ -233,7 +264,6 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
           'productState': _productState,
         },
         'isSheet': isSheet,
-
         if (!isCrushing)
           'colors': isProductionLine
               ? []
@@ -270,8 +300,10 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
         'totalDowntime': int.tryParse(totalDowntimeController.text) ?? 0,
         'machineName': _selectedMachineName ?? '',
         'technicianName': _selectedTechnicianName ?? '',
-        'crewMembers': selectedCrewMembers.isNotEmpty ? selectedCrewMembers : null,
-        'crew_members': selectedCrewMembers.isNotEmpty ? selectedCrewMembers : null,
+        'crewMembers':
+            selectedCrewMembers.isNotEmpty ? selectedCrewMembers : null,
+        'crew_members':
+            selectedCrewMembers.isNotEmpty ? selectedCrewMembers : null,
       };
 
       widget.onSave(report);
@@ -328,213 +360,257 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
         children: [
           Scaffold(
             resizeToAvoidBottomInset: true,
-            backgroundColor: isDark ? const Color(0xFF0F172A) : theme.colorScheme.surface,
+            backgroundColor:
+                isDark ? const Color(0xFF0F172A) : theme.colorScheme.surface,
             appBar: AppBar(
-                title: Text(widget.reportKey == null
-                    ? "🆕 إضافة تقرير إنتاج"
-                    : "✏️ تعديل تقرير إنتاج"),
-                backgroundColor: isDark ? const Color(0xFF1E293B) : theme.colorScheme.primary,
-                foregroundColor: Colors.white,
-                centerTitle: true,
-                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(bottom: Radius.circular(16))),
+              title: Text(widget.reportKey == null
+                  ? "🆕 إضافة تقرير إنتاج"
+                  : "✏️ تعديل تقرير إنتاج"),
+              backgroundColor:
+                  isDark ? const Color(0xFF1E293B) : theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              centerTitle: true,
+              shape: const RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.vertical(bottom: Radius.circular(16))),
             ),
             body: Center(
               child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+                margin: const EdgeInsets.symmetric(
+                    vertical: 16.0, horizontal: 16.0),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: isDark
+                      ? const Color(0xFF1E293B)
+                      : theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(24.0),
                 ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 600),
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: _buildTextField(dateController, "📅 التاريخ",
-                              readOnly: true, onTap: _selectDate),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          flex: 1,
-                          child: _buildShiftDropdown(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextField(clientNameController, "👤 اسم العميل")),
-                        const SizedBox(width: 4),
-                        Expanded(child: _buildTextField(orderNumberController, "🔢 رقم أمر التشغيل", icon: Icons.numbers, isRequired: false, keyboardType: TextInputType.number)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (isCrushing) ...[
-                      _buildTextField(formNumberController, "📄 رقم الفورمة",
-                          icon: Icons.confirmation_number,
-                          isRequired: false,
-                          keyboardType: TextInputType.number),
-                      const SizedBox(height: 8),
-                    ],
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(startTimeController, "🕒 وقت البداية",
-                              icon: Icons.access_time,
-                              readOnly: true,
-                              onTap: () => _selectTime(startTimeController),
-                              isRequired: false),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: _buildTextField(endTimeController, "🕒 وقت النهاية",
-                              icon: Icons.access_time,
-                              readOnly: true,
-                              onTap: () => _selectTime(endTimeController),
-                              isRequired: false),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(flex: 1, child: _buildTextField(productController, "📦 الصنف")),
-                        const SizedBox(width: 4),
-                        Expanded(flex: 1, child: _buildTextField(productCodeController, "كود الصنف", icon: Icons.qr_code, keyboardType: TextInputType.number)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    _buildMachineAndTechRow(),
-                    if (isCrushing || isProductionLine) ...[
-                      const SizedBox(height: 8),
-                      _buildCrewMembersSelector(),
-                    ],
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                            child: _buildTextField(lengthController, "📏 طول",
-                                keyboardType: TextInputType.number)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                            child: _buildTextField(widthController, "📏 عرض",
-                                keyboardType: TextInputType.number)),
-                        if (!isSheet) ...[
-                          const SizedBox(width: 4),
-                          Expanded(
-                              child: _buildTextField(
-                                  heightController, "📏 ارتفاع",
-                                  keyboardType: TextInputType.number)),
-                        ],
-                      ],
-                    ),
-
-                    const SizedBox(height: 20),
-                    if (isProductionLine)
-                      _buildPaperLayersSection()
-                    else if (!isCrushing)
-                      _buildColorsSection(),
-                    const SizedBox(height: 8),
-                    _buildTextField(quantityController, "🔢 عدد الشيتات",
-                        keyboardType: TextInputType.number),
-                    const SizedBox(height: 8),
-                    if (isProductionLine || isCrushing) ...[
-                      if (isProductionLine) ...[
-                        _buildTextField(
-                          weightController,
-                          "⚖️ الوزن (بالطن)",
-                          keyboardType:
-                              const TextInputType.numberWithOptions(decimal: true),
-                          isRequired: false,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      _buildTextField(lineWasteController, "📉 الهالك",
-                          keyboardType: TextInputType.number, isRequired: false),
-                    ] else
-                      Row(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 24.0),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
                         children: [
-                          Expanded(
-                            child: _buildTextField(
-                                lineWasteController, "📉 هالك الإنتاج",
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 1,
+                                child: _buildTextField(
+                                    dateController, "📅 التاريخ",
+                                    readOnly: true, onTap: _selectDate),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                flex: 1,
+                                child: _buildShiftDropdown(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                  child: _buildTextField(
+                                      clientNameController, "👤 اسم العميل")),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                  child: _buildTextField(orderNumberController,
+                                      "🔢 رقم أمر التشغيل",
+                                      icon: Icons.numbers,
+                                      isRequired: false,
+                                      keyboardType: TextInputType.number)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (isCrushing) ...[
+                            _buildTextField(
+                                formNumberController, "📄 رقم الفورمة",
+                                icon: Icons.confirmation_number,
+                                isRequired: false,
+                                keyboardType: TextInputType.number),
+                            const SizedBox(height: 8),
+                          ],
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                    startTimeController, "🕒 وقت البداية",
+                                    icon: Icons.access_time,
+                                    readOnly: true,
+                                    onTap: () =>
+                                        _selectTime(startTimeController),
+                                    isRequired: false),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: _buildTextField(
+                                    endTimeController, "🕒 وقت النهاية",
+                                    icon: Icons.access_time,
+                                    readOnly: true,
+                                    onTap: () => _selectTime(endTimeController),
+                                    isRequired: false),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                  flex: 1,
+                                  child: _buildTextField(
+                                      productController, "📦 الصنف")),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                  flex: 1,
+                                  child: _buildTextField(
+                                      productCodeController, "كود الصنف",
+                                      icon: Icons.qr_code,
+                                      keyboardType: TextInputType.number)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          _buildMachineAndTechRow(),
+                          if (isCrushing || isProductionLine) ...[
+                            const SizedBox(height: 8),
+                            _buildCrewMembersSelector(),
+                          ],
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                  child: _buildTextField(
+                                      lengthController, "📏 طول",
+                                      keyboardType: TextInputType.number)),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                  child: _buildTextField(
+                                      widthController, "📏 عرض",
+                                      keyboardType: TextInputType.number)),
+                              if (!isSheet) ...[
+                                const SizedBox(width: 4),
+                                Expanded(
+                                    child: _buildTextField(
+                                        heightController, "📏 ارتفاع",
+                                        keyboardType: TextInputType.number)),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          if (isProductionLine)
+                            _buildPaperLayersSection()
+                          else if (!isCrushing)
+                            _buildColorsSection(),
+                          const SizedBox(height: 8),
+                          _buildTextField(quantityController, "🔢 عدد الشيتات",
+                              keyboardType: TextInputType.number),
+                          const SizedBox(height: 8),
+                          if (isProductionLine || isCrushing) ...[
+                            if (isProductionLine) ...[
+                              _buildTextField(
+                                weightController,
+                                "⚖️ الوزن (بالطن)",
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                isRequired: false,
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                            _buildTextField(lineWasteController, "📉 الهالك",
                                 keyboardType: TextInputType.number,
                                 isRequired: false),
+                          ] else
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTextField(
+                                      lineWasteController, "📉 هالك الإنتاج",
+                                      keyboardType: TextInputType.number,
+                                      isRequired: false),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: _buildTextField(
+                                      printWasteController, "📉 هالك الطباعة",
+                                      keyboardType: TextInputType.number,
+                                      isRequired: false),
+                                ),
+                              ],
+                            ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                    downtimeStartController, "⏱️ بداية العطل",
+                                    icon: Icons.access_time,
+                                    readOnly: true,
+                                    onTap: () =>
+                                        _selectTime(downtimeStartController),
+                                    isRequired: false),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: _buildTextField(
+                                    downtimeEndController, "⏱️ نهاية العطل",
+                                    icon: Icons.access_time,
+                                    readOnly: true,
+                                    onTap: () =>
+                                        _selectTime(downtimeEndController),
+                                    isRequired: false),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: _buildTextField(
-                                printWasteController, "📉 هالك الطباعة",
-                                keyboardType: TextInputType.number,
-                                isRequired: false),
+                          const SizedBox(height: 8),
+                          _buildTextField(
+                              totalDowntimeController, "⏳ إجمالي دقائق التعطل",
+                              icon: Icons.timer_off,
+                              keyboardType: TextInputType.number,
+                              isRequired: false),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Text("حالة المنتج:",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                avatar: const Icon(Icons.crop_square_rounded,
+                                    size: 16),
+                                label: const Text("سادة"),
+                                selected: _productState == "سادة",
+                                onSelected: (v) =>
+                                    setState(() => _productState = "سادة"),
+                              ),
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                avatar:
+                                    const Icon(Icons.print_rounded, size: 16),
+                                label: const Text("مطبوع"),
+                                selected: _productState == "مطبوع",
+                                onSelected: (v) =>
+                                    setState(() => _productState = "مطبوع"),
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 8),
+                          _buildTextField(
+                              notesController, "📝 ملاحظات (اختياري)",
+                              maxLines: 3, isRequired: false),
+                          const SizedBox(height: 30),
+                          _buildActionButtons(),
                         ],
                       ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(downtimeStartController, "⏱️ بداية العطل",
-                              icon: Icons.access_time,
-                              readOnly: true,
-                              onTap: () => _selectTime(downtimeStartController),
-                              isRequired: false),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: _buildTextField(downtimeEndController, "⏱️ نهاية العطل",
-                              icon: Icons.access_time,
-                              readOnly: true,
-                              onTap: () => _selectTime(downtimeEndController),
-                              isRequired: false),
-                        ),
-                      ],
                     ),
-                    const SizedBox(height: 8),
-                    _buildTextField(totalDowntimeController, "⏳ إجمالي دقائق التعطل",
-                        icon: Icons.timer_off,
-                        keyboardType: TextInputType.number,
-                        isRequired: false),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Text("حالة المنتج:", style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          avatar: const Icon(Icons.crop_square_rounded, size: 16),
-                          label: const Text("سادة"),
-                          selected: _productState == "سادة",
-                          onSelected: (v) => setState(() => _productState = "سادة"),
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          avatar: const Icon(Icons.print_rounded, size: 16),
-                          label: const Text("مطبوع"),
-                          selected: _productState == "مطبوع",
-                          onSelected: (v) => setState(() => _productState = "مطبوع"),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    _buildTextField(notesController, "📝 ملاحظات (اختياري)",
-                        maxLines: 3, isRequired: false),
-                    const SizedBox(height: 30),
-                    _buildActionButtons(),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
-    ),
-    if (_isSaving) const Center(child: CircularProgressIndicator()),
+          if (_isSaving) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );
@@ -543,15 +619,17 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
   Widget _buildCrewMembersSelector() {
     return InkWell(
       onTap: () async {
-        final sortedWorkers = WorkerUtils.getSortedWorkers(widget.department ?? 'flexo');
-        
+        final sortedWorkers =
+            WorkerUtils.getSortedWorkers(widget.department ?? 'flexo');
+
         await showDialog(
           context: context,
           builder: (context) {
             return StatefulBuilder(
               builder: (context, setStateDialog) {
                 return AlertDialog(
-                  title: const Text('اختر طاقم الماكينة', style: TextStyle(fontFamily: 'Cairo')),
+                  title: const Text('اختر طاقم الماكينة',
+                      style: TextStyle(fontFamily: 'Cairo')),
                   content: SizedBox(
                     width: double.maxFinite,
                     child: ListView.builder(
@@ -562,15 +640,20 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                         bool showDivider = false;
                         if (index > 0) {
                           final prevWorker = sortedWorkers[index - 1];
-                          String normDept = (widget.department == 'crushing') ? 'die_cutting' : (widget.department ?? 'flexo');
-                          if (prevWorker.department == normDept && worker.department != normDept) {
+                          String normDept = (widget.department == 'crushing')
+                              ? 'die_cutting'
+                              : (widget.department ?? 'flexo');
+                          if (prevWorker.department == normDept &&
+                              worker.department != normDept) {
                             showDivider = true;
                           }
                         }
 
-                        final isSelected = selectedCrewMembers.contains(worker.name);
+                        final isSelected =
+                            selectedCrewMembers.contains(worker.name);
                         final tile = CheckboxListTile(
-                          title: Text('${worker.name} (${worker.job})', style: const TextStyle(fontFamily: 'Cairo')),
+                          title: Text('${worker.name} (${worker.job})',
+                              style: const TextStyle(fontFamily: 'Cairo')),
                           value: isSelected,
                           onChanged: (bool? value) {
                             setStateDialog(() {
@@ -590,7 +673,10 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                               const Divider(thickness: 2),
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 8.0),
-                                child: Text('باقي أقسام المصنع', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                                child: Text('باقي أقسام المصنع',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey)),
                               ),
                               tile,
                             ],
@@ -603,7 +689,8 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('موافق', style: TextStyle(fontFamily: 'Cairo')),
+                      child: const Text('موافق',
+                          style: TextStyle(fontFamily: 'Cairo')),
                     ),
                   ],
                 );
@@ -620,8 +707,8 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
           prefixIcon: const Icon(Icons.group, color: Colors.blueAccent),
         ),
         child: Text(
-          selectedCrewMembers.isEmpty 
-              ? 'اضغط لاختيار الطاقم' 
+          selectedCrewMembers.isEmpty
+              ? 'اضغط لاختيار الطاقم'
               : 'تم اختيار ${selectedCrewMembers.length} عمال',
           style: const TextStyle(fontSize: 16),
         ),
@@ -738,16 +825,19 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
 
   // ─── صف الماكينة والفني بـ Dropdowns من Hive ────────────────────────────────
   Widget _buildMachineAndTechRow() {
-    final String dept = isCrushing ? 'crushing' : (isProductionLine ? 'production_line' : 'flexo');
+    final String dept = isCrushing
+        ? 'crushing'
+        : (isProductionLine ? 'production_line' : 'flexo');
     final machineBox = Hive.isBoxOpen('flexo_machines')
         ? Hive.box<FlexoMachine>('flexo_machines')
         : null;
 
     // قائمة الماكينات (مع إزالة التكرارات والتوافق مع الـ Fallback في خط الإنتاج)
-    final List<String> machineNames = FlexoMachine.getMachinesForDepartment(dept)
-        .map((m) => m.name)
-        .toSet()
-        .toList();
+    final List<String> machineNames =
+        FlexoMachine.getMachinesForDepartment(dept)
+            .map((m) => m.name)
+            .toSet()
+            .toList();
 
     if (dept == 'production_line' &&
         machineNames.length == 1 &&
@@ -757,10 +847,8 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
     }
 
     // قائمة العمال (مع إزالة التكرارات وترتيبهم)
-    final List<String> workerNames = WorkerUtils.getSortedWorkers(dept)
-            .map((w) => w.name)
-            .toSet()
-            .toList();
+    final List<String> workerNames =
+        WorkerUtils.getSortedWorkers(dept).map((w) => w.name).toSet().toList();
 
     // إذا كانت القيمة المخزّنة غير موجودة في القائمة — أضفها مؤقتاً للتوافق
     if (_selectedMachineName != null &&
@@ -856,15 +944,17 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
     ];
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return DropdownButtonFormField<String>(
       initialValue: (value != null && items.contains(value)) ? value : null,
       decoration: InputDecoration(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
         labelText: label,
         labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
         prefixIcon: Icon(icon, color: Colors.blueAccent, size: 20),
-        prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        prefixIconConstraints:
+            const BoxConstraints(minWidth: 36, minHeight: 36),
         filled: true,
         fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
         border: OutlineInputBorder(
@@ -883,9 +973,8 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
       isExpanded: true,
       dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
       items: dropdownItems,
-      validator: isRequired
-          ? (v) => (v == null || v.isEmpty) ? 'مطلوب' : null
-          : null,
+      validator:
+          isRequired ? (v) => (v == null || v.isEmpty) ? 'مطلوب' : null : null,
       onChanged: (v) async {
         if (v == manualKey) {
           await onAddManual();
@@ -900,51 +989,70 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
   Widget _buildShiftDropdown() {
     if (!Hive.isBoxOpen('factory_schedule')) return const SizedBox.shrink();
     final scheduleBox = Hive.box<DaySchedule>('factory_schedule');
-    
+
     DateTime? dt;
     try {
       dt = DateTime.parse(dateController.text);
     } catch (_) {
       dt = DateTime.now();
     }
-    
+
     String dayName = '';
     switch (dt.weekday) {
-      case DateTime.monday: dayName = 'Monday'; break;
-      case DateTime.tuesday: dayName = 'Tuesday'; break;
-      case DateTime.wednesday: dayName = 'Wednesday'; break;
-      case DateTime.thursday: dayName = 'Thursday'; break;
-      case DateTime.friday: dayName = 'Friday'; break;
-      case DateTime.saturday: dayName = 'Saturday'; break;
-      case DateTime.sunday: dayName = 'Sunday'; break;
+      case DateTime.monday:
+        dayName = 'Monday';
+        break;
+      case DateTime.tuesday:
+        dayName = 'Tuesday';
+        break;
+      case DateTime.wednesday:
+        dayName = 'Wednesday';
+        break;
+      case DateTime.thursday:
+        dayName = 'Thursday';
+        break;
+      case DateTime.friday:
+        dayName = 'Friday';
+        break;
+      case DateTime.saturday:
+        dayName = 'Saturday';
+        break;
+      case DateTime.sunday:
+        dayName = 'Sunday';
+        break;
     }
-    
+
     final schedule = scheduleBox.get(dayName);
     List<String> shiftNames = [];
     if (schedule != null && schedule.shiftNames != null) {
       shiftNames = List<String>.from(schedule.shiftNames!);
     }
-    
+
     if (shiftNames.isEmpty) {
       shiftNames = ['الوردية الأولى']; // Fallback
     }
-    
-    if (_selectedShiftName != null && !shiftNames.contains(_selectedShiftName)) {
+
+    if (_selectedShiftName != null &&
+        !shiftNames.contains(_selectedShiftName)) {
       shiftNames.add(_selectedShiftName!);
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return DropdownButtonFormField<String>(
       key: ValueKey(dateController.text),
-      initialValue: _selectedShiftName ?? (shiftNames.isNotEmpty ? shiftNames.first : null),
+      initialValue: _selectedShiftName ??
+          (shiftNames.isNotEmpty ? shiftNames.first : null),
       isExpanded: true,
       dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
       decoration: InputDecoration(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
         labelText: 'الوردية',
         labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
-        prefixIcon: const Icon(Icons.work_history, color: Colors.blueAccent, size: 20),
-        prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        prefixIcon:
+            const Icon(Icons.work_history, color: Colors.blueAccent, size: 20),
+        prefixIconConstraints:
+            const BoxConstraints(minWidth: 36, minHeight: 36),
         filled: true,
         fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
         border: OutlineInputBorder(
@@ -994,7 +1102,8 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إلغاء')),
             ElevatedButton(
               onPressed: () {
                 result = c.text.trim();
@@ -1030,23 +1139,30 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
         onTap: onTap,
         keyboardType: keyboardType,
         maxLines: maxLines,
-        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
+        style: TextStyle(
+            color: isDark ? Colors.white : Colors.black87, fontSize: 14),
         decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           labelText: label,
           labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
-          prefixIcon: icon != null ? Icon(icon, color: Colors.blueAccent, size: 20) : null,
-          prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          prefixIcon: icon != null
+              ? Icon(icon, color: Colors.blueAccent, size: 20)
+              : null,
+          prefixIconConstraints:
+              const BoxConstraints(minWidth: 36, minHeight: 36),
           alignLabelWithHint: maxLines > 1,
           filled: true,
           fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+            borderSide:
+                BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
+            borderSide:
+                BorderSide(color: Colors.blueGrey.withValues(alpha: 0.3)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -1093,4 +1209,3 @@ class _FlexoProductionReportFormState extends State<FlexoProductionReportForm> {
     }
   }
 }
-

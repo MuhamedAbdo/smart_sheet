@@ -62,7 +62,9 @@ class SavedSizeCard extends StatelessWidget {
     final images = (record['imagePaths'] is List)
         ? (record['imagePaths'] as List).map((e) => e.toString()).toList()
         : <String>[];
-    final productState = record['productState']?.toString() ?? record['product_state']?.toString() ?? 'مطبوع';
+    final productState = record['productState']?.toString() ??
+        record['product_state']?.toString() ??
+        'مطبوع';
     final notes = record['notes']?.toString().trim() ?? '';
     final isPrinted = productState == 'مطبوع';
 
@@ -70,199 +72,72 @@ class SavedSizeCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       padding: const EdgeInsets.all(14),
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- السطر الأول: العنوان والأزرار ---
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (clientName.isNotEmpty) ...[
-                        Text(
-                          clientName,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                      ],
-                      if (productName.isNotEmpty || productCode.isNotEmpty) ...[
-                        if (productName.isNotEmpty)
-                          Text("الصنف: $productName",
-                              style: const TextStyle(
-                                  fontSize: 13, color: Colors.grey)),
-                        if (productCode.isNotEmpty)
-                          Text("الكود: $productCode",
-                              style: const TextStyle(
-                                  fontSize: 13, color: Colors.grey)),
-                        const SizedBox(height: 6),
-                      ],
-                      Chip(
-                        label: Text(processType,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 11)),
-                        backgroundColor: (processType == 'تكسير')
-                            ? Colors.orange
-                            : Colors.blue,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isPrinted
-                              ? Colors.purple.shade700
-                              : Colors.teal.shade700,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isPrinted ? Icons.print_rounded : Icons.crop_square_rounded,
-                              size: 13,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              productState,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // ―― زر المعاينة دائماً ظاهر ――
-                IconButton(
-                  icon: const Icon(Icons.visibility, color: Colors.teal),
-                  onPressed: () => processType == 'تكسير'
-                      ? _showCutterDetails(
-                          context, clientName, productName, productCode)
-                      : _showFullDetails(context, record),
-                ),
-                // ―― زر سجل التعديلات ――
-                IconButton(
-                  icon: const Icon(Icons.history_rounded, color: Colors.amber),
-                  tooltip: 'سجل التعديلات',
-                  onPressed: () async {
-                    final itemId = (record['sync_id'] ?? record['id'] ?? '').toString();
-                    final restored = await ItemEditHistorySheet.show(
-                      context,
-                      itemId: itemId,
-                      productName: productName,
-                      productCode: productCode,
-                      clientName: clientName,
-                      canEdit: canEdit,
-                    );
-                    if (restored == true) {
-                      onRefresh?.call();
-                    }
-                  },
-                ),
-                // ―― أزرار التعديل والحذف بناءً على الصلاحيات ――
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (canEdit)
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: onEdit,
-                      ),
-                    if (canDelete)
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: onDelete,
-                      ),
-                  ],
-                ),
-              ],
-            ),
-
-            const Divider(),
-
-            // --- الأبعاد الأساسية ---
-            _buildInfoRow("📏 الطول", "${record['length'] ?? '—'} سم"),
-            _buildInfoRow("📐 العرض", "${record['width'] ?? '—'} سم"),
-            if (record['isSheet'] != true)
-              _buildInfoRow("📏 الارتفاع", "${record['height'] ?? '—'} سم"),
-
-            const SizedBox(height: 10),
-
-            // --- بيانات الشيت حسب النوع ---
-            if (processType == 'تكسير') ...[
-              if ((record['formNumber']?.toString().isNotEmpty ?? false) ||
-                  (record['form_number']?.toString().isNotEmpty ?? false))
-                _buildInfoRow(
-                    "📑 رقم الفورمة",
-                    record['formNumber']?.toString().isNotEmpty == true
-                        ? record['formNumber'].toString()
-                        : record['form_number'].toString(),
-                    isBold: true),
-              _buildInfoRow(
-                  "📦 طول الشيت", "${record['sheetLengthManual'] ?? '—'} سم",
-                  isBold: true),
-              _buildInfoRow(
-                  "📐 عرض الشيت", "${record['sheetWidthManual'] ?? '—'} سم",
-                  isBold: true),
-              _buildInfoRow("🔧 النوع", record['cuttingType'] ?? '—'),
-            ] else ...[
-              if ((record['sheetLengthResult']?.isNotEmpty ?? false) ||
-                  (record['sheetWidthResult']?.isNotEmpty ?? false))
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    "${record['sheetLengthResult'] ?? ''}\n${record['sheetWidthResult'] ?? ''}",
-                    style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.indigo,
-                        fontWeight: FontWeight.w500),
-                  ),
-                ),
-            ],
-
-            // --- قسم الملاحظات (تحت مقاسات الشيت وقبل قسم الصور) ---
-            if (notes.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
-                ),
-                child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // --- السطر الأول: العنوان والأزرار ---
+          Row(
+            children: [
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.notes_rounded, size: 18, color: Colors.amber),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "ملاحظات الصنف:",
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            notes,
+                    if (clientName.isNotEmpty) ...[
+                      Text(
+                        clientName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                    if (productName.isNotEmpty || productCode.isNotEmpty) ...[
+                      if (productName.isNotEmpty)
+                        Text("الصنف: $productName",
                             style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                                fontSize: 13, color: Colors.grey)),
+                      if (productCode.isNotEmpty)
+                        Text("الكود: $productCode",
+                            style: const TextStyle(
+                                fontSize: 13, color: Colors.grey)),
+                      const SizedBox(height: 6),
+                    ],
+                    Chip(
+                      label: Text(processType,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 11)),
+                      backgroundColor: (processType == 'تكسير')
+                          ? Colors.orange
+                          : Colors.blue,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isPrinted
+                            ? Colors.purple.shade700
+                            : Colors.teal.shade700,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isPrinted
+                                ? Icons.print_rounded
+                                : Icons.crop_square_rounded,
+                            size: 13,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            productState,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
@@ -271,59 +146,205 @@ class SavedSizeCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // ―― زر المعاينة دائماً ظاهر ――
+              IconButton(
+                icon: const Icon(Icons.visibility, color: Colors.teal),
+                onPressed: () => processType == 'تكسير'
+                    ? _showCutterDetails(
+                        context, clientName, productName, productCode)
+                    : _showFullDetails(context, record),
+              ),
+              // ―― زر سجل التعديلات ――
+              IconButton(
+                icon: const Icon(Icons.history_rounded, color: Colors.amber),
+                tooltip: 'سجل التعديلات',
+                onPressed: () async {
+                  final itemId =
+                      (record['sync_id'] ?? record['id'] ?? '').toString();
+                  final restored = await ItemEditHistorySheet.show(
+                    context,
+                    itemId: itemId,
+                    productName: productName,
+                    productCode: productCode,
+                    clientName: clientName,
+                    canEdit: canEdit,
+                  );
+                  if (restored == true) {
+                    onRefresh?.call();
+                  }
+                },
+              ),
+              // ―― أزرار التعديل والحذف بناءً على الصلاحيات ――
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (canEdit)
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue),
+                      onPressed: onEdit,
+                    ),
+                  if (canDelete)
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: onDelete,
+                    ),
+                ],
+              ),
             ],
+          ),
 
-            // --- عرض الصور المعالج ---
-            if (images.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Text("📸 الصور:",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(height: 6),
-              _buildImagesList(images),
-            ],
+          const Divider(),
 
-            const SizedBox(height: 12),
+          // --- الأبعاد الأساسية ---
+          _buildInfoRow("📏 الطول", "${record['length'] ?? '—'} سم"),
+          _buildInfoRow("📐 العرض", "${record['width'] ?? '—'} سم"),
+          if (record['isSheet'] != true)
+            _buildInfoRow("📏 الارتفاع", "${record['height'] ?? '—'} سم"),
 
-            // ―― أزرار الإنتاج بناءً على صلاحية كل قسم ――
-            if (canAddFlexo || canAddProductionLine || canAddDieCutting || canAddStaples)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
-                    if (isSuperAdmin) {
-                      _showProductionMenu(context, record);
-                    } else {
-                      // التوجيه المباشر للعمال (Direct Routing)
-                      final worker = PermissionHelper.currentWorker;
-                      final dept = worker?.department ?? '';
-                      if (dept == 'flexo' && canAddFlexo) {
-                        onStartProduction(record);
-                      } else if (dept == 'production_line' && canAddProductionLine && onStartProductionLine != null) {
-                        onStartProductionLine!(record);
-                      } else if ((dept == 'crushing' || dept == 'die_cutting') && canAddDieCutting && onStartDieCutting != null) {
-                        onStartDieCutting!(record);
-                      } else if ((dept == 'staple' || dept == 'staples') && canAddStaples && onStartStaples != null) {
-                        onStartStaples!(record);
-                      } else {
-                        // حالة احتياطية إذا لم يتطابق أي شيء
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('عذراً، لا تمتلك الصلاحية المطلوبة لقسمك.'), backgroundColor: Colors.red),
-                        );
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.play_arrow, size: 20),
-                  label: const Text("بدء إنتاج", style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
+          const SizedBox(height: 10),
+
+          // --- بيانات الشيت حسب النوع ---
+          if (processType == 'تكسير') ...[
+            if ((record['formNumber']?.toString().isNotEmpty ?? false) ||
+                (record['form_number']?.toString().isNotEmpty ?? false))
+              _buildInfoRow(
+                  "📑 رقم الفورمة",
+                  record['formNumber']?.toString().isNotEmpty == true
+                      ? record['formNumber'].toString()
+                      : record['form_number'].toString(),
+                  isBold: true),
+            _buildInfoRow(
+                "📦 طول الشيت", "${record['sheetLengthManual'] ?? '—'} سم",
+                isBold: true),
+            _buildInfoRow(
+                "📐 عرض الشيت", "${record['sheetWidthManual'] ?? '—'} سم",
+                isBold: true),
+            _buildInfoRow("🔧 النوع", record['cuttingType'] ?? '—'),
+          ] else ...[
+            if ((record['sheetLengthResult']?.isNotEmpty ?? false) ||
+                (record['sheetWidthResult']?.isNotEmpty ?? false))
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  "${record['sheetLengthResult'] ?? ''}\n${record['sheetWidthResult'] ?? ''}",
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.indigo,
+                      fontWeight: FontWeight.w500),
                 ),
               ),
           ],
-        ),
+
+          // --- قسم الملاحظات (تحت مقاسات الشيت وقبل قسم الصور) ---
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.notes_rounded,
+                      size: 18, color: Colors.amber),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "ملاحظات الصنف:",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          notes,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // --- عرض الصور المعالج ---
+          if (images.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text("📸 الصور:",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 6),
+            _buildImagesList(images),
+          ],
+
+          const SizedBox(height: 12),
+
+          // ―― أزرار الإنتاج بناءً على صلاحية كل قسم ――
+          if (canAddFlexo ||
+              canAddProductionLine ||
+              canAddDieCutting ||
+              canAddStaples)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  final bool isSuperAdmin = PermissionHelper.isSuperAdmin;
+                  if (isSuperAdmin) {
+                    _showProductionMenu(context, record);
+                  } else {
+                    // التوجيه المباشر للعمال (Direct Routing)
+                    final worker = PermissionHelper.currentWorker;
+                    final dept = worker?.department ?? '';
+                    if (dept == 'flexo' && canAddFlexo) {
+                      onStartProduction(record);
+                    } else if (dept == 'production_line' &&
+                        canAddProductionLine &&
+                        onStartProductionLine != null) {
+                      onStartProductionLine!(record);
+                    } else if ((dept == 'crushing' || dept == 'die_cutting') &&
+                        canAddDieCutting &&
+                        onStartDieCutting != null) {
+                      onStartDieCutting!(record);
+                    } else if ((dept == 'staple' || dept == 'staples') &&
+                        canAddStaples &&
+                        onStartStaples != null) {
+                      onStartStaples!(record);
+                    } else {
+                      // حالة احتياطية إذا لم يتطابق أي شيء
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'عذراً، لا تمتلك الصلاحية المطلوبة لقسمك.'),
+                            backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.play_arrow, size: 20),
+                label: const Text("بدء إنتاج",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -523,10 +544,15 @@ class SavedSizeCard extends StatelessWidget {
     final worker = PermissionHelper.currentWorker;
     final isAdmin = PermissionHelper.isSuperAdmin;
 
-    final showFlexo = isAdmin || (worker?.department == 'flexo' && worker?.canAdd == true);
-    final showProductionLine = isAdmin || (worker?.department == 'production_line' && worker?.canAdd == true);
-    final showDieCutting = isAdmin || (worker?.department == 'crushing' && worker?.canAdd == true);
-    final showStaple = isAdmin || ((worker?.department == 'staple' || worker?.department == 'staples') && worker?.canAdd == true);
+    final showFlexo =
+        isAdmin || (worker?.department == 'flexo' && worker?.canAdd == true);
+    final showProductionLine = isAdmin ||
+        (worker?.department == 'production_line' && worker?.canAdd == true);
+    final showDieCutting =
+        isAdmin || (worker?.department == 'crushing' && worker?.canAdd == true);
+    final showStaple = isAdmin ||
+        ((worker?.department == 'staple' || worker?.department == 'staples') &&
+            worker?.canAdd == true);
 
     showModalBottomSheet(
       context: context,
@@ -539,11 +565,13 @@ class SavedSizeCard extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("اختر قسم الإنتاج:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text("اختر قسم الإنتاج:",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               if (showFlexo)
                 ListTile(
-                  leading: const Icon(Icons.precision_manufacturing, color: Colors.blue),
+                  leading: const Icon(Icons.precision_manufacturing,
+                      color: Colors.blue),
                   title: const Text("إنتاج فلكسو"),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -605,7 +633,8 @@ class SavedSizeCard extends StatelessWidget {
             Text("📏 طول الشيت: ${record['sheetLengthManual'] ?? '—'} سم"),
             Text("📐 عرض الشيت: ${record['sheetWidthManual'] ?? '—'} سم"),
             Text("🔧 النوع: ${record['cuttingType'] ?? '—'}"),
-            Text("🏷️ حالة المنتج: ${record['productState'] ?? record['product_state'] ?? 'مطبوع'}"),
+            Text(
+                "🏷️ حالة المنتج: ${record['productState'] ?? record['product_state'] ?? 'مطبوع'}"),
             if (record['notes']?.toString().trim().isNotEmpty ?? false)
               Text("📝 الملاحظات: ${record['notes']}"),
           ],
@@ -669,7 +698,8 @@ class SavedSizeCard extends StatelessWidget {
           children: [
             Text("📏 الأبعاد: $length × $width × $height سم"),
             const SizedBox(height: 4),
-            Text("🏷️ حالة المنتج: ${record['productState'] ?? record['product_state'] ?? 'مطبوع'}"),
+            Text(
+                "🏷️ حالة المنتج: ${record['productState'] ?? record['product_state'] ?? 'مطبوع'}"),
             if (record['notes']?.toString().trim().isNotEmpty ?? false) ...[
               const SizedBox(height: 4),
               Text("📝 الملاحظات: ${record['notes']}"),
@@ -942,5 +972,3 @@ class SavedSizeCard extends StatelessWidget {
     }
   }
 }
-
-

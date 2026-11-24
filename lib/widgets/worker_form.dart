@@ -1028,285 +1028,290 @@ class _WorkerFormState extends State<WorkerForm> {
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 500),
         child: SingleChildScrollView(
-        child: Padding(
-          padding:
-              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: "👤 الاسم")),
-              const SizedBox(height: 10),
-              TextField(
-                  controller: phoneController,
-                  decoration: InputDecoration(
-                    labelText: "📞 الهاتف",
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.contact_phone, color: Colors.blue),
-                      onPressed: _pickContact,
-                      tooltip: "اختيار من جهات الاتصال",
-                    ),
-                  ),
-                  keyboardType: TextInputType.phone),
-              const SizedBox(height: 10),
-              TextField(
-                  controller: secondaryPhoneController,
-                  decoration: InputDecoration(
-                    labelText: "📞 الهاتف الإضافي (اختياري)",
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.contact_phone, color: Colors.blue),
-                      onPressed: _pickSecondaryContact,
-                      tooltip: "اختيار من جهات الاتصال",
-                    ),
-                  ),
-                  keyboardType: TextInputType.phone),
-              const SizedBox(height: 10),
-              const Align(
-                alignment: Alignment.centerRight,
-                child: Text("حدد رقم الواتساب المفضل:",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              RadioGroup<String>(
-                groupValue: whatsappPhonePreference,
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      whatsappPhonePreference = val;
-                    });
-                  }
-                },
-                child: const Row(
-                  children: [
-                    Expanded(
-                      child: RadioListTile<String>(
-                        title: Text("الأساسي", style: TextStyle(fontSize: 13)),
-                        value: 'primary',
-                        contentPadding: EdgeInsets.zero,
+          child: Padding(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: "👤 الاسم")),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: phoneController,
+                    decoration: InputDecoration(
+                      labelText: "📞 الهاتف",
+                      suffixIcon: IconButton(
+                        icon:
+                            const Icon(Icons.contact_phone, color: Colors.blue),
+                        onPressed: _pickContact,
+                        tooltip: "اختيار من جهات الاتصال",
                       ),
                     ),
-                    Expanded(
-                      child: RadioListTile<String>(
-                        title: Text("الإضافي", style: TextStyle(fontSize: 13)),
-                        value: 'secondary',
-                        contentPadding: EdgeInsets.zero,
+                    keyboardType: TextInputType.phone),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: secondaryPhoneController,
+                    decoration: InputDecoration(
+                      labelText: "📞 الهاتف الإضافي (اختياري)",
+                      suffixIcon: IconButton(
+                        icon:
+                            const Icon(Icons.contact_phone, color: Colors.blue),
+                        onPressed: _pickSecondaryContact,
+                        tooltip: "اختيار من جهات الاتصال",
                       ),
                     ),
-                  ],
+                    keyboardType: TextInputType.phone),
+                const SizedBox(height: 10),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: Text("حدد رقم الواتساب المفضل:",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                  controller: emailController,
-                  decoration: const InputDecoration(
-                    labelText: "📧 البريد الإلكتروني (اختياري)",
-                    hintText: "example@email.com",
+                RadioGroup<String>(
+                  groupValue: whatsappPhonePreference,
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        whatsappPhonePreference = val;
+                      });
+                    }
+                  },
+                  child: const Row(
+                    children: [
+                      Expanded(
+                        child: RadioListTile<String>(
+                          title:
+                              Text("الأساسي", style: TextStyle(fontSize: 13)),
+                          value: 'primary',
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      Expanded(
+                        child: RadioListTile<String>(
+                          title:
+                              Text("الإضافي", style: TextStyle(fontSize: 13)),
+                          value: 'secondary',
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ],
                   ),
-                  keyboardType: TextInputType.emailAddress),
-              const SizedBox(height: 10),
-              // ─── 1) القسم أولاً (يُظهر الوظائف المناسبة) ─────────────────
-              // لا يظهر إذا تم تمرير قسم ثابت من الخارج
-              if (widget.defaultDepartment == null) ...[
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(
+                      labelText: "📧 البريد الإلكتروني (اختياري)",
+                      hintText: "example@email.com",
+                    ),
+                    keyboardType: TextInputType.emailAddress),
+                const SizedBox(height: 10),
+                // ─── 1) القسم أولاً (يُظهر الوظائف المناسبة) ─────────────────
+                // لا يظهر إذا تم تمرير قسم ثابت من الخارج
+                if (widget.defaultDepartment == null) ...[
+                  InkWell(
+                    onTap: _showDepartmentPickerBottomSheet,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: "🏢 القسم",
+                        border: OutlineInputBorder(),
+                        suffixIcon: Icon(Icons.arrow_drop_down),
+                      ),
+                      child: Text(
+                        _allDepartmentLabels.isNotEmpty &&
+                                _allDepartmentCodes.contains(selectedDepartment)
+                            ? _allDepartmentLabels[
+                                _allDepartmentCodes.indexOf(selectedDepartment)]
+                            : (departmentOptions[selectedDepartment] ??
+                                selectedDepartment),
+                        style: const TextStyle(fontSize: 15),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                // ─── 2) الوظيفة — ديناميكية حسب القسم المختار ────────────────
                 InkWell(
-                  onTap: _showDepartmentPickerBottomSheet,
+                  onTap: _showJobPickerBottomSheet,
                   borderRadius: BorderRadius.circular(8),
                   child: InputDecorator(
                     decoration: const InputDecoration(
-                      labelText: "🏢 القسم",
+                      labelText: "🛠 الوظيفة",
                       border: OutlineInputBorder(),
                       suffixIcon: Icon(Icons.arrow_drop_down),
                     ),
                     child: Text(
-                      _allDepartmentLabels.isNotEmpty &&
-                              _allDepartmentCodes.contains(selectedDepartment)
-                          ? _allDepartmentLabels[
-                              _allDepartmentCodes.indexOf(selectedDepartment)]
-                          : (departmentOptions[selectedDepartment] ??
-                              selectedDepartment),
+                      selectedJob ?? availableJobs.firstOrNull ?? 'عامل',
                       style: const TextStyle(fontSize: 15),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
-              ],
-              // ─── 2) الوظيفة — ديناميكية حسب القسم المختار ────────────────
-              InkWell(
-                onTap: _showJobPickerBottomSheet,
-                borderRadius: BorderRadius.circular(8),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: "🛠 الوظيفة",
-                    border: OutlineInputBorder(),
-                    suffixIcon: Icon(Icons.arrow_drop_down),
+                if (showPermissions && widget.defaultDepartment == null) ...[
+                  const SizedBox(height: 15),
+                  const Divider(),
+                  ExpansionTile(
+                    title: const Text("🏭 صلاحيات الإنتاج",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    collapsedShape:
+                        const RoundedRectangleBorder(side: BorderSide.none),
+                    shape: const RoundedRectangleBorder(side: BorderSide.none),
+                    dense: true,
+                    children: [
+                      CheckboxListTile(
+                        title: const Text("إضافة تقارير"),
+                        value: canAdd,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canAdd = val ?? false),
+                      ),
+                      CheckboxListTile(
+                        title: const Text("تعديل تقارير"),
+                        value: canEdit,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canEdit = val ?? false),
+                      ),
+                      CheckboxListTile(
+                        title: const Text("حذف تقارير"),
+                        value: canDelete,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canDelete = val ?? false),
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    selectedJob ?? availableJobs.firstOrNull ?? 'عامل',
-                    style: const TextStyle(fontSize: 15),
-                    overflow: TextOverflow.ellipsis,
+                  ExpansionTile(
+                    title: const Text("📦 صلاحيات العملاء والأصناف",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    collapsedShape:
+                        const RoundedRectangleBorder(side: BorderSide.none),
+                    shape: const RoundedRectangleBorder(side: BorderSide.none),
+                    dense: true,
+                    children: [
+                      CheckboxListTile(
+                        title: const Text("إضافة عملاء وأصناف"),
+                        value: canManageClientsAdd,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canManageClientsAdd = val ?? false),
+                      ),
+                      CheckboxListTile(
+                        title: const Text("تعديل عملاء وأصناف"),
+                        value: canManageClientsEdit,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canManageClientsEdit = val ?? false),
+                      ),
+                      CheckboxListTile(
+                        title: const Text("حذف عملاء وأصناف"),
+                        value: canManageClientsDelete,
+                        dense: true,
+                        onChanged: (val) => setState(
+                            () => canManageClientsDelete = val ?? false),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              if (showPermissions && widget.defaultDepartment == null) ...[
-                const SizedBox(height: 15),
-                const Divider(),
-                ExpansionTile(
-                  title: const Text("🏭 صلاحيات الإنتاج",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  collapsedShape:
-                      const RoundedRectangleBorder(side: BorderSide.none),
-                  shape: const RoundedRectangleBorder(side: BorderSide.none),
-                  dense: true,
-                  children: [
-                    CheckboxListTile(
-                      title: const Text("إضافة تقارير"),
-                      value: canAdd,
-                      dense: true,
-                      onChanged: (val) => setState(() => canAdd = val ?? false),
-                    ),
-                    CheckboxListTile(
-                      title: const Text("تعديل تقارير"),
-                      value: canEdit,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canEdit = val ?? false),
-                    ),
-                    CheckboxListTile(
-                      title: const Text("حذف تقارير"),
-                      value: canDelete,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canDelete = val ?? false),
-                    ),
-                  ],
-                ),
-                ExpansionTile(
-                  title: const Text("📦 صلاحيات العملاء والأصناف",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  collapsedShape:
-                      const RoundedRectangleBorder(side: BorderSide.none),
-                  shape: const RoundedRectangleBorder(side: BorderSide.none),
-                  dense: true,
-                  children: [
-                    CheckboxListTile(
-                      title: const Text("إضافة عملاء وأصناف"),
-                      value: canManageClientsAdd,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canManageClientsAdd = val ?? false),
-                    ),
-                    CheckboxListTile(
-                      title: const Text("تعديل عملاء وأصناف"),
-                      value: canManageClientsEdit,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canManageClientsEdit = val ?? false),
-                    ),
-                    CheckboxListTile(
-                      title: const Text("حذف عملاء وأصناف"),
-                      value: canManageClientsDelete,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canManageClientsDelete = val ?? false),
-                    ),
-                  ],
-                ),
-                ExpansionTile(
-                  title: const Text("📄 صلاحيات أوامر التشغيل",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  collapsedShape:
-                      const RoundedRectangleBorder(side: BorderSide.none),
-                  shape: const RoundedRectangleBorder(side: BorderSide.none),
-                  dense: true,
-                  children: [
-                    CheckboxListTile(
-                      title: const Text("إصدار أوامر التشغيل"),
-                      value: canIssueJobOrders,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canIssueJobOrders = val ?? false),
-                    ),
-                  ],
-                ),
-                ExpansionTile(
-                  title: const Text("👥 صلاحيات شؤون العاملين",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  collapsedShape:
-                      const RoundedRectangleBorder(side: BorderSide.none),
-                  shape: const RoundedRectangleBorder(side: BorderSide.none),
-                  dense: true,
-                  children: [
-                    CheckboxListTile(
-                      title: const Text("إضافة عامل"),
-                      value: canAddWorker,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canAddWorker = val ?? false),
-                    ),
-                    CheckboxListTile(
-                      title: const Text("تعديل عامل"),
-                      value: canEditWorker,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canEditWorker = val ?? false),
-                    ),
-                    CheckboxListTile(
-                      title: const Text("حذف عامل"),
-                      value: canDeleteWorker,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canDeleteWorker = val ?? false),
-                    ),
-                    CheckboxListTile(
-                      title: const Text("إضافة حركة عامل"),
-                      value: canAddWorkerAction,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canAddWorkerAction = val ?? false),
-                    ),
-                  ],
-                ),
-                ExpansionTile(
-                  title: const Text("🗄️ صلاحيات الأرشيف",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  collapsedShape:
-                      const RoundedRectangleBorder(side: BorderSide.none),
-                  shape: const RoundedRectangleBorder(side: BorderSide.none),
-                  dense: true,
-                  children: [
-                    CheckboxListTile(
-                      title: const Text("قراءة الأرشيف (جميع الأقسام)"),
-                      value: canReadArchive,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canReadArchive = val ?? false),
-                    ),
-                    CheckboxListTile(
-                      title: const Text("إضافة للأرشيف (نفس القسم فقط)"),
-                      value: canAddArchive,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canAddArchive = val ?? false),
-                    ),
-                    CheckboxListTile(
-                      title: const Text("استعادة الأرشيف (نفس القسم فقط)"),
-                      value: canRestoreArchive,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canRestoreArchive = val ?? false),
-                    ),
-                    CheckboxListTile(
-                      title: const Text("حذف من الأرشيف (نفس القسم فقط)"),
-                      value: canDeleteArchive,
-                      dense: true,
-                      onChanged: (val) =>
-                          setState(() => canDeleteArchive = val ?? false),
-                    ),
-                  ],
-                ),
+                  ExpansionTile(
+                    title: const Text("📄 صلاحيات أوامر التشغيل",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    collapsedShape:
+                        const RoundedRectangleBorder(side: BorderSide.none),
+                    shape: const RoundedRectangleBorder(side: BorderSide.none),
+                    dense: true,
+                    children: [
+                      CheckboxListTile(
+                        title: const Text("إصدار أوامر التشغيل"),
+                        value: canIssueJobOrders,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canIssueJobOrders = val ?? false),
+                      ),
+                    ],
+                  ),
+                  ExpansionTile(
+                    title: const Text("👥 صلاحيات شؤون العاملين",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    collapsedShape:
+                        const RoundedRectangleBorder(side: BorderSide.none),
+                    shape: const RoundedRectangleBorder(side: BorderSide.none),
+                    dense: true,
+                    children: [
+                      CheckboxListTile(
+                        title: const Text("إضافة عامل"),
+                        value: canAddWorker,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canAddWorker = val ?? false),
+                      ),
+                      CheckboxListTile(
+                        title: const Text("تعديل عامل"),
+                        value: canEditWorker,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canEditWorker = val ?? false),
+                      ),
+                      CheckboxListTile(
+                        title: const Text("حذف عامل"),
+                        value: canDeleteWorker,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canDeleteWorker = val ?? false),
+                      ),
+                      CheckboxListTile(
+                        title: const Text("إضافة حركة عامل"),
+                        value: canAddWorkerAction,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canAddWorkerAction = val ?? false),
+                      ),
+                    ],
+                  ),
+                  ExpansionTile(
+                    title: const Text("🗄️ صلاحيات الأرشيف",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    collapsedShape:
+                        const RoundedRectangleBorder(side: BorderSide.none),
+                    shape: const RoundedRectangleBorder(side: BorderSide.none),
+                    dense: true,
+                    children: [
+                      CheckboxListTile(
+                        title: const Text("قراءة الأرشيف (جميع الأقسام)"),
+                        value: canReadArchive,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canReadArchive = val ?? false),
+                      ),
+                      CheckboxListTile(
+                        title: const Text("إضافة للأرشيف (نفس القسم فقط)"),
+                        value: canAddArchive,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canAddArchive = val ?? false),
+                      ),
+                      CheckboxListTile(
+                        title: const Text("استعادة الأرشيف (نفس القسم فقط)"),
+                        value: canRestoreArchive,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canRestoreArchive = val ?? false),
+                      ),
+                      CheckboxListTile(
+                        title: const Text("حذف من الأرشيف (نفس القسم فقط)"),
+                        value: canDeleteArchive,
+                        dense: true,
+                        onChanged: (val) =>
+                            setState(() => canDeleteArchive = val ?? false),
+                      ),
+                    ],
+                  ),
+                ],
               ],
-            ],
-          ),
+            ),
           ),
         ),
       ),

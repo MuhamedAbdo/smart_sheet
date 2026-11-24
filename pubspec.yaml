@@ -57,7 +57,6 @@ dependencies:
   open_file: ^3.5.10
   file_picker: ^10.3.7
   supabase_flutter: ^2.12.0
-  workmanager: ^0.9.0+3
   flutter_local_notifications: ^19.5.0
   flutter_foreground_task: ^9.1.0
   flutter_native_contact_picker: ^0.0.11
@@ -89,6 +88,7 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1
 
 # إعدادات توليد الأيقونات باستخدام الاسم الجديد app_icon.jpg
+  vector_math: any
 flutter_launcher_icons:
   android: true
   ios: true

@@ -242,17 +242,24 @@ class FactoryScheduleCard extends StatelessWidget {
               final bool? confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('تأكيد الحذف', style: TextStyle(fontFamily: 'Cairo')),
-                  content: Text('هل أنت متأكد من حذف الوردية الأساسية "${shift.name}"؟', style: const TextStyle(fontFamily: 'Cairo')),
+                  title: const Text('تأكيد الحذف',
+                      style: TextStyle(fontFamily: 'Cairo')),
+                  content: Text(
+                      'هل أنت متأكد من حذف الوردية الأساسية "${shift.name}"؟',
+                      style: const TextStyle(fontFamily: 'Cairo')),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo')),
+                      child: const Text('إلغاء',
+                          style: TextStyle(fontFamily: 'Cairo')),
                     ),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                      child: const Text('حذف', style: TextStyle(color: Colors.white, fontFamily: 'Cairo')),
+                      style:
+                          ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      child: const Text('حذف',
+                          style: TextStyle(
+                              color: Colors.white, fontFamily: 'Cairo')),
                     ),
                   ],
                 ),
@@ -469,9 +476,7 @@ class FactoryScheduleCard extends StatelessWidget {
             .eq('factory_id', factoryId)
             .eq('day_name', schedule.dayName);
       } else {
-        await Supabase.instance.client
-            .from('factory_schedule')
-            .insert(payload);
+        await Supabase.instance.client.from('factory_schedule').insert(payload);
       }
       debugPrint(
           '✅ [factory_schedule] تم رفع ${schedule.dayName} إلى Supabase.');

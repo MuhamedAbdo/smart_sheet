@@ -152,7 +152,7 @@ class WorkerAction extends HiveObject {
 
     final startDateTime = DateTime(
         date.year, date.month, date.day, startTime!.hour, startTime!.minute);
-    
+
     final endBaseDate = returnDate ?? date;
     final endDateTime = DateTime(endBaseDate.year, endBaseDate.month,
         endBaseDate.day, endTime!.hour, endTime!.minute);

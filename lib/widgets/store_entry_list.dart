@@ -47,7 +47,7 @@ class StoreEntryList extends StatelessWidget {
                   onDelete: () {
                     final entryToRemove = box.getAt(index);
                     if (entryToRemove == null) return;
-                    
+
                     UIUtils.showDeleteConfirmation(
                       context: context,
                       title: "حذف السجل",
@@ -56,7 +56,7 @@ class StoreEntryList extends StatelessWidget {
                         final messenger = ScaffoldMessenger.of(context);
                         await box.deleteAt(index);
                         if (!context.mounted) return;
-                        
+
                         messenger.clearSnackBars();
                         UIUtils.showUndoSnackBar(
                           context: context,
