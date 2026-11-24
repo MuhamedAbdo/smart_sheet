@@ -23,7 +23,8 @@ import 'package:smart_sheet/widgets/sheet_size_form.dart';
 // ignore: unused_import
 import 'package:smart_sheet/widgets/sheet_size_production_table.dart';
 import 'package:smart_sheet/services/sync_service.dart';
-import 'package:smart_sheet/services/storage_service.dart';
+import 'package:smart_sheet/services/cloudinary_service.dart';
+import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 import 'package:smart_sheet/utils/cache_helper.dart';
@@ -217,32 +218,51 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         }
       }
 
-      // ③ رفع الصور الجديدة (File محلي) إلى Supabase Storage والحصول على Public URLs
-      //    هذه هي الخطوة الحاسمة: نخزن فقط الـ URL وليس مسار الجهاز المحلي
+      // ③ رفع الصور الجديدة (File محلي) إلى Cloudinary والحصول على Secure URLs
+      //    مع عزل المجلدات بناءً على factory_id
       List<String> finalImageUrls = [];
       if (!kIsWeb && _capturedImages.isNotEmpty) {
         if (mounted) setState(() => _isUploading = true);
         try {
-          final localPaths = _capturedImages.map((item) {
-            if (item is File) return item.path;
-            if (item is String) return item; // URL موجود مسبقاً
-            return item.toString();
+          final currentFactoryId =
+              await SupabaseManager.getFactoryId() ?? 'default';
+
+          final uploadTasks = _capturedImages.map((item) async {
+            // إذا كان الرابط يبدأ بـ http فهو مرفوع مسبقاً (Supabase أو Cloudinary)
+            if (item is String && item.startsWith('http')) {
+              return item;
+            }
+
+            File? file;
+            if (item is File) {
+              file = item;
+            } else if (item is String) {
+              file = File(item);
+            }
+
+            if (file != null && await file.exists()) {
+              return await CloudinaryService.uploadImage(
+                file,
+                factoryId: currentFactoryId,
+              );
+            }
+            return null;
           }).toList();
 
-          // StorageService.uploadMultipleImages: يُعيد الروابط الجاهزة مباشرة،
-          // ويتجاهل المسارات التي تبدأ بـ http (مرفوعة مسبقاً)
-          finalImageUrls = await StorageService.uploadMultipleImages(
-            localPaths,
-            'images',
-          );
+          final results = await Future.wait(uploadTasks);
+          finalImageUrls = results.whereType<String>().toList();
+
           debugPrint(
-              '✅ تم رفع ${finalImageUrls.length} صورة إلى Supabase Storage');
+              '✅ تم رفع ${finalImageUrls.length} صورة إلى Cloudinary (factory: $currentFactoryId)');
           for (final url in finalImageUrls) {
             debugPrint('  🔗 $url');
           }
         } catch (e) {
-          debugPrint('⚠️ فشل رفع الصور: $e — سيتم الحفظ بدون صور');
-          finalImageUrls = [];
+          debugPrint('⚠️ فشل رفع الصور إلى Cloudinary: $e');
+          finalImageUrls = _capturedImages
+              .where((item) => item is String && item.startsWith('http'))
+              .cast<String>()
+              .toList();
         } finally {
           if (mounted) setState(() => _isUploading = false);
         }

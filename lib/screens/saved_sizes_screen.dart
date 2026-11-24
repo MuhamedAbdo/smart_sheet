@@ -114,61 +114,64 @@ class _SavedSizesScreenState extends State<SavedSizesScreen> {
             builder: (context, Box box, _) {
               final clients = _getUniqueClients(box);
 
-              if (clients.isEmpty) {
-                return Center(
-                  child: Text(
-                    searchQuery.isEmpty
-                        ? "لا يوجد عملاء مسجلون حالياً"
-                        : "لا توجد نتائج لبحثك",
-                    style: const TextStyle(color: Colors.grey, fontSize: 16),
-                  ),
-                );
-              }
-
               return Column(
                 children: [
                   _buildClientsCountBar(clients.length),
                   Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.only(
-                          bottom: 80, left: 8, right: 8, top: 4),
-                      itemCount: clients.length,
-                      itemBuilder: (context, index) {
-                        final String clientName = clients[index];
-                        final clientItems = box.values.where((e) =>
-                            e is Map &&
-                            (e['clientName']?.toString().trim() ?? '') ==
-                                clientName &&
-                            e['isClientRecord'] != true);
-                        final Set<String> uniqueCodes = {};
-                        for (var item in clientItems) {
-                          final pCode =
-                              item['productCode']?.toString().trim() ?? '';
-                          final uniqueId = pCode.isNotEmpty
-                              ? pCode
-                              : (item['sync_id'] ?? item['id'] ?? item.hashCode)
-                                  .toString();
-                          uniqueCodes.add(uniqueId);
-                        }
-                        final int itemCount = uniqueCodes.length;
-
-                        return _ClientCard(
-                          clientName: clientName,
-                          itemCount: itemCount,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              settings: RouteSettings(
-                                  name: 'ClientItemsScreen_$clientName'),
-                              builder: (ctx) =>
-                                  ClientItemsScreen(clientName: clientName),
+                    child: clients.isEmpty
+                        ? Center(
+                            child: Text(
+                              searchQuery.isEmpty
+                                  ? "لا يوجد عملاء مسجلون حالياً"
+                                  : "لا توجد نتائج لبحثك",
+                              style: const TextStyle(
+                                  color: Colors.grey, fontSize: 16),
                             ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.only(
+                                bottom: 80, left: 8, right: 8, top: 4),
+                            itemCount: clients.length,
+                            itemBuilder: (context, index) {
+                              final String clientName = clients[index];
+                              final clientItems = box.values.where((e) =>
+                                  e is Map &&
+                                  (e['clientName']?.toString().trim() ?? '') ==
+                                      clientName &&
+                                  e['isClientRecord'] != true);
+                              final Set<String> uniqueCodes = {};
+                              for (var item in clientItems) {
+                                final pCode =
+                                    item['productCode']?.toString().trim() ??
+                                        '';
+                                final uniqueId = pCode.isNotEmpty
+                                    ? pCode
+                                    : (item['sync_id'] ??
+                                            item['id'] ??
+                                            item.hashCode)
+                                        .toString();
+                                uniqueCodes.add(uniqueId);
+                              }
+                              final int itemCount = uniqueCodes.length;
+
+                              return _ClientCard(
+                                clientName: clientName,
+                                itemCount: itemCount,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    settings: RouteSettings(
+                                        name: 'ClientItemsScreen_$clientName'),
+                                    builder: (ctx) => ClientItemsScreen(
+                                        clientName: clientName),
+                                  ),
+                                ),
+                                onEdit: () => _navigateToEditClient(clientName),
+                                onDelete: () =>
+                                    _confirmDeleteClient(clientName),
+                              );
+                            },
                           ),
-                          onEdit: () => _navigateToEditClient(clientName),
-                          onDelete: () => _confirmDeleteClient(clientName),
-                        );
-                      },
-                    ),
                   ),
                 ],
               );

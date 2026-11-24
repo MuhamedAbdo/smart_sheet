@@ -20,6 +20,7 @@ import 'package:smart_sheet/models/worker_model.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/pairing_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smart_sheet/services/cloudinary_service.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
@@ -549,6 +550,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                   _buildUploadButton(),
                   const SizedBox(height: 12),
                   _buildRestoreButton(),
+                  if (isAdmin) ...[
+                    const SizedBox(height: 12),
+                    _buildCloudinaryMigrationButton(),
+                  ],
 
                   const SizedBox(height: 24),
                   const Divider(),
@@ -769,6 +774,52 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           borderRadius: BorderRadius.circular(8),
         ),
       ),
+    );
+  }
+
+  Widget _buildCloudinaryMigrationButton() {
+    return ElevatedButton.icon(
+      onPressed: _isLoading ? null : _handleCloudinaryMigration,
+      icon: const Icon(Icons.photo_size_select_actual_outlined),
+      label: const Text(
+        'إعادة ترحيل الصور بصيغة WebP (مؤقت)',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 56),
+        backgroundColor: Colors.teal.shade700,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleCloudinaryMigration() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final factoryId =
+        (await SupabaseManager.getFactoryId()) ?? authService.factoryId;
+
+    if (factoryId == null || factoryId.trim().isEmpty) {
+      if (mounted) {
+        UIUtils.showInfoSnackBar(
+          message: 'لم يتم العثور على معرّف المصنع (factory_id)',
+          backgroundColor: Colors.redAccent,
+          icon: Icons.error_outline,
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return _CloudinaryMigrationDialog(factoryId: factoryId);
+      },
     );
   }
 
@@ -1161,6 +1212,254 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         );
       }
     }
+  }
+}
+
+/// نافذة مخصصة لإعادة ترحيل الصور مع حماية كاملة من استدعاء setState بعد الإغلاق
+class _CloudinaryMigrationDialog extends StatefulWidget {
+  final String factoryId;
+
+  const _CloudinaryMigrationDialog({required this.factoryId});
+
+  @override
+  State<_CloudinaryMigrationDialog> createState() =>
+      _CloudinaryMigrationDialogState();
+}
+
+class _CloudinaryMigrationDialogState
+    extends State<_CloudinaryMigrationDialog> {
+  MigrationProgress _progress = const MigrationProgress(
+    currentStatus: 'جاري تهيئة عملية الترحيل والضغط إلى WebP...',
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    // بدء الترحيل بأمان مع التحقق من mounted قبل أي setState
+    CloudinaryService.migrateFactoryImages(
+      factoryId: widget.factoryId,
+      onProgress: (p) {
+        if (mounted) {
+          setState(() {
+            _progress = p;
+          });
+        }
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = _progress.totalImages;
+    final scanned = _progress.scannedImages;
+    final progressVal =
+        (total > 0) ? (scanned / total).clamp(0.0, 1.0) : null;
+    final percent = (total > 0) ? ((scanned / total) * 100).toInt() : 0;
+
+    return PopScope(
+      canPop: _progress.isCompleted,
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.photo_size_select_actual_outlined,
+                color: Colors.teal, size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'إعادة ترحيل الصور بصيغة WebP',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.teal.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.teal.withAlpha(50)),
+                ),
+                child: Text(
+                  'المصنع: ${widget.factoryId}',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.teal),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (!_progress.isCompleted) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: progressVal,
+                    minHeight: 10,
+                    backgroundColor: Colors.grey.shade200,
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(Colors.teal),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'الصور المفحوصة: $scanned من أصل $total',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    Text(
+                      '$percent%',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.teal),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _progress.errorMessage != null
+                        ? Colors.red.withAlpha(25)
+                        : Colors.green.withAlpha(25),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _progress.errorMessage != null
+                          ? Colors.red
+                          : Colors.green,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _progress.errorMessage != null
+                            ? Icons.error_outline
+                            : Icons.check_circle_outline,
+                        color: _progress.errorMessage != null
+                            ? Colors.red
+                            : Colors.green,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _progress.errorMessage != null
+                              ? _progress.errorMessage!
+                              : 'اكتملت عملية ترحيل وضغط الصور إلى WebP بنجاح!',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _progress.errorMessage != null
+                                ? Colors.red
+                                : Colors.green,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Text(
+                _progress.currentStatus,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildMigrationStatItem(
+                    icon: Icons.cloud_done,
+                    color: Colors.green,
+                    title: 'تم تحويلها WebP',
+                    value: '${_progress.migratedImages}',
+                  ),
+                  _buildMigrationStatItem(
+                    icon: Icons.fast_forward,
+                    color: Colors.blue,
+                    title: 'WebP مسبقاً',
+                    value: '${_progress.skippedImages}',
+                  ),
+                  _buildMigrationStatItem(
+                    icon: Icons.error,
+                    color: Colors.red,
+                    title: 'فشلت / حُذفت',
+                    value: '${_progress.failedImages}',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          if (_progress.isCompleted)
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('إغلاق'),
+            )
+          else
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'جاري المعالجة والرفع... يرجى الانتظار',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMigrationStatItem({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String value,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 22),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+      ],
+    );
   }
 }
 
