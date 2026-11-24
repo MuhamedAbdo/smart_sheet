@@ -104,6 +104,9 @@ mixin CustomerSync on SyncServiceBase {
         return;
       }
 
+      final appDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory('${appDir.path}/images');
+
       final recordsList = <Map<String, dynamic>>[];
       for (final key in box.keys) {
         final item = box.get(key);
@@ -118,6 +121,73 @@ mixin CustomerSync on SyncServiceBase {
                 ? r['id'].toString().trim()
                 : '${r['clientName'] ?? ''}_${factoryId}_${r['productCode'] ?? ''}');
         if (syncId.isEmpty) continue;
+
+        // ─── فحص وترحيل الصور إلى Cloudinary قبل الرفع المباشر ─────────────
+        final rawImages = (r['imagePaths'] ?? r['image_paths']);
+        final List<String> currentImagePaths = (rawImages is List)
+            ? rawImages.map((e) => e.toString()).toList()
+            : <String>[];
+
+        final List<String> finalImagePaths = [];
+        bool imagesModified = false;
+
+        for (final rawPath in currentImagePaths) {
+          final imgPath = rawPath.trim();
+          if (imgPath.isEmpty) continue;
+
+          // 1. إذا كان الرابط موجوداً مسبقاً على res.cloudinary.com
+          if (imgPath.contains('res.cloudinary.com')) {
+            finalImagePaths.add(imgPath);
+            continue;
+          }
+
+          // 2. فحص هل يوجد ملف محلي للصورة (مسار محلي كامل، أو ملف في مجلد images)
+          File? localFile;
+          if (!imgPath.startsWith('http')) {
+            final directFile = File(imgPath);
+            if (directFile.existsSync()) {
+              localFile = directFile;
+            }
+          }
+          if (localFile == null) {
+            final fileName = p.basename(imgPath);
+            final fallbackFile = File('${imagesDir.path}/$fileName');
+            if (fallbackFile.existsSync()) {
+              localFile = fallbackFile;
+            }
+          }
+
+          if (localFile != null && localFile.existsSync()) {
+            debugPrint(
+                '📤 [directPushAllCustomers] رفع صورة محلية إلى Cloudinary ($syncId): ${localFile.path}');
+            final uploadedUrl = await CloudinaryService.uploadImage(
+              localFile,
+              factoryId: factoryId,
+              compress: true,
+            );
+            if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+              finalImagePaths.add(uploadedUrl);
+              imagesModified = true;
+              debugPrint(
+                  '✅ [directPushAllCustomers] تم رفع الصورة بنجاح إلى Cloudinary: $uploadedUrl');
+            } else {
+              // عند تعذر الرفع نحتفظ بالمسار لتجنب فقدان المرجع
+              finalImagePaths.add(imgPath);
+            }
+          } else {
+            // الملف غير موجود محلياً (مثلاً رابط http خارجي أو supabase لم ينزل محلياً)
+            // نحتفظ به كما هو حماية للبيانات وعدم حذف أي شيء
+            finalImagePaths.add(imgPath);
+          }
+        }
+
+        if (imagesModified) {
+          r['imagePaths'] = finalImagePaths;
+          r['image_paths'] = finalImagePaths;
+          await box.put(key, r);
+          debugPrint(
+              '💾 [directPushAllCustomers] تم تحديث السجل في Hive بروابط Cloudinary الجديدة ($syncId)');
+        }
 
         // تجهيز تفاصيل الشيت
         final sheetDetailsMap = (r['sheet_details'] is Map)
@@ -171,10 +241,7 @@ mixin CustomerSync on SyncServiceBase {
           'is_client_record': r['isClientRecord'] == true ||
               r['is_client_record'] == true ||
               r['is_client_record'] == 'true',
-          'image_paths': (r['imagePaths'] ?? r['image_paths'] as List?)
-                  ?.map((e) => e.toString())
-                  .toList() ??
-              [],
+          'image_paths': finalImagePaths,
           'form_number':
               r['form_number']?.toString() ?? r['formNumber']?.toString() ?? '',
           'number_of_boxes': double.tryParse(r['number_of_boxes']?.toString() ??
@@ -564,6 +631,7 @@ mixin CustomerSync on SyncServiceBase {
         'date': r['date']?.toString() ?? DateTime.now().toIso8601String(),
         'factory_id': r['factory_id'],
         'imagePaths': r['image_paths'] ?? [],
+        'image_paths': r['image_paths'] ?? [],
         'isClientRecord': r['is_client_record'] ?? false,
         'isOverFlap': sheetDetails['isOverFlap'] ?? false,
         'isFlap': sheetDetails['isFlap'] ?? true,

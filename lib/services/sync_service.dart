@@ -51,6 +51,9 @@ import 'package:smart_sheet/utils/permission_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_sheet/globals.dart';
 import 'package:uuid/uuid.dart';
+import 'package:smart_sheet/services/cloudinary_service.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 // 🔑 part files — جزء من نفس الـ library، ترى جميع التعريفات الـ private.
 part 'sync/customer_sync.dart';

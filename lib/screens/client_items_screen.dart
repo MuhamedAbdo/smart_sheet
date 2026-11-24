@@ -490,7 +490,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     if (backupRecord == null) return;
 
     // استخراج مسارات الصور إذا كانت موجودة للحذف اليدوي من الكاش
-    final imagePaths = backupRecord['imagePaths'];
+    final imagePaths = backupRecord['imagePaths'] ?? backupRecord['image_paths'];
 
     // استخراج sync_id قبل الحذف لاستخدامه في المزامنة السحابية
     final syncId = backupRecord['sync_id']?.toString() ?? key.toString();
@@ -563,8 +563,9 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       final appDir = await getApplicationDocumentsDirectory();
       final imageDir = Directory('${appDir.path}/images');
 
-      if (dataFromCard['imagePaths'] is List) {
-        for (var pathObj in dataFromCard['imagePaths']) {
+      final rawImages = dataFromCard['imagePaths'] ?? dataFromCard['image_paths'];
+      if (rawImages is List) {
+        for (var pathObj in rawImages) {
           String path = pathObj.toString();
           if (path.startsWith('http')) {
             finalImages.add(path);

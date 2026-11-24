@@ -257,6 +257,80 @@ class BackupService {
     }
   }
 
+  /// تنظيف مسارات الصور بعد الاستعادة:
+  /// - الاحتفاظ بروابط Cloudinary والروابط الصالحة للعرض المباشر من السحابة.
+  /// - تنظيف أي مسار صورة محلي غير موجود فعلياً على الجهاز لمنع ظهور الصور المكسورة (broken image).
+  static Future<void> sanitizeRestoredImagePaths() async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory('${appDir.path}/images');
+
+      final box = Hive.isBoxOpen('savedSheetSizes')
+          ? Hive.box('savedSheetSizes')
+          : await Hive.openBox('savedSheetSizes');
+
+      if (box.isEmpty) return;
+
+      int cleanedCount = 0;
+      for (final key in box.keys) {
+        final item = box.get(key);
+        if (item is! Map) continue;
+
+        final record = Map<String, dynamic>.from(item);
+        final rawImages = record['imagePaths'] ?? record['image_paths'];
+        if (rawImages is! List || rawImages.isEmpty) continue;
+
+        final List<String> validImages = [];
+        bool modified = false;
+
+        for (final rawPath in rawImages) {
+          final path = rawPath.toString().trim();
+          if (path.isEmpty) {
+            modified = true;
+            continue;
+          }
+
+          // 1. روابط Cloudinary وروابط الويب الصالحة: نحتفظ بها مباشرة للعرض السحابي
+          if (path.startsWith('http')) {
+            validImages.add(path);
+            continue;
+          }
+
+          // 2. مسارات الصور المحلية: التأكد من وجود الملف فعلياً على هذا الجهاز
+          final directFile = File(path);
+          if (directFile.existsSync()) {
+            validImages.add(path);
+            continue;
+          }
+
+          final fileName = p.basename(path);
+          final localFile = File('${imagesDir.path}/$fileName');
+          if (localFile.existsSync()) {
+            validImages.add(localFile.path);
+            continue;
+          }
+
+          // ملف محلي غير موجود على الجهاز -> نحذفه لمنع ظهور broken image
+          modified = true;
+          cleanedCount++;
+          debugPrint(
+              '🧹 [Restore Cleanup] إزالة مسار صورة محلي مفقود: $path من السجل: ${record['clientName'] ?? ''}');
+        }
+
+        if (modified) {
+          record['imagePaths'] = validImages;
+          record['image_paths'] = validImages;
+          await box.put(key, record);
+        }
+      }
+
+      debugPrint(
+          '✅ [Restore Cleanup] تم تنظيف مسارات الصور بنجاح. أزيل $cleanedCount مساراً محلياً مفقوداً.');
+    } catch (e) {
+      debugPrint('⚠️ [Restore Cleanup] خطأ أثناء تنظيف مسارات الصور: $e');
+    }
+  }
+
   static void _cleanTablesDirectory(Directory dir) {
     if (!dir.existsSync()) return;
     for (final entity in dir.listSync(recursive: false)) {
@@ -435,6 +509,9 @@ class BackupService {
       if (linkedWorkerId != null && linkedWorkerId.isNotEmpty) {
         await settingsBox.put('linked_worker_id', linkedWorkerId);
       }
+
+      // ─── 6. تنظيف مسارات الصور المحلية المفقودة والاحتفاظ بروابط Cloudinary ───
+      await sanitizeRestoredImagePaths();
 
       debugPrint('✅ _restoreFromZipPath: تم استرجاع البيانات بنجاح مع صون حالة المصادقة والـ Gatekeeper.');
       return 'SUCCESS_RESTORE';

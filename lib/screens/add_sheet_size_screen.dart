@@ -228,24 +228,38 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
               await SupabaseManager.getFactoryId() ?? 'default';
 
           final uploadTasks = _capturedImages.map((item) async {
-            // إذا كان الرابط يبدأ بـ http فهو مرفوع مسبقاً (Supabase أو Cloudinary)
-            if (item is String && item.startsWith('http')) {
+            // إذا كان الرابط موجوداً بالفعل على Cloudinary
+            if (item is String && item.contains('res.cloudinary.com')) {
               return item;
             }
 
             File? file;
             if (item is File) {
               file = item;
-            } else if (item is String) {
+            } else if (item is String && !item.startsWith('http')) {
               file = File(item);
+              if (!await file.exists()) {
+                final appDir = await getApplicationDocumentsDirectory();
+                final fallback = File('${appDir.path}/images/${item.split('/').last.split('\\').last}');
+                if (await fallback.exists()) {
+                  file = fallback;
+                }
+              }
             }
 
             if (file != null && await file.exists()) {
               return await CloudinaryService.uploadImage(
                 file,
                 factoryId: currentFactoryId,
+                compress: true,
               );
             }
+
+            // إذا كان رابط http آخر، نحتفظ به
+            if (item is String && item.startsWith('http')) {
+              return item;
+            }
+
             return null;
           }).toList();
 
@@ -283,6 +297,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
         'height': heightController.text,
         // ✅ نخزن فقط Public URLs — لا مسارات محلية تصل إلى الهاتف
         'imagePaths': finalImageUrls,
+        'image_paths': finalImageUrls,
         'date': DateTime.now().toIso8601String(),
         'isSheet': isSheet,
         'isClientRecord': isAddingClientOnly,
@@ -527,7 +542,7 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
       'is_sheet': r['isSheet'],
       'date': r['date'],
       'is_client_record': r['isClientRecord'],
-      'image_paths': r['imagePaths'] ?? [],
+      'image_paths': r['imagePaths'] ?? r['image_paths'] ?? [],
       'product_state': r['product_state'] ?? r['productState'] ?? 'مطبوع',
       'notes': r['notes'] ?? '',
       'form_number': r['form_number'] ?? r['formNumber'],
@@ -631,15 +646,20 @@ class _AddSheetSizeScreenState extends State<AddSheetSizeScreen> {
           : 'مطبوع';
       notesController.text = data['notes']?.toString() ?? '';
 
-      if (data['imagePaths'] != null) {
-        _capturedImages = (data['imagePaths'] as List).map((p) {
+      final rawImages = data['imagePaths'] ?? data['image_paths'];
+      if (rawImages is List) {
+        _capturedImages = rawImages.map((p) {
           String path = p.toString();
           if (path.startsWith('http')) {
             return path; // الاحتفاظ برابط الإنترنت كنص (String)
-          } else if (!path.contains('/')) {
+          } else if (!path.contains('/') && !path.contains('\\')) {
             return File('$imageDirPath/$path'); // استعادة الملف المحلي
           }
-          return File(path); // مسار محلي كامل
+          final f = File(path);
+          if (f.existsSync()) return f;
+          final fallback = File('$imageDirPath/${path.split('/').last.split('\\').last}');
+          if (fallback.existsSync()) return fallback;
+          return f; // مسار محلي كامل
         }).toList();
       }
 

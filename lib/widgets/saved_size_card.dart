@@ -59,8 +59,9 @@ class SavedSizeCard extends StatelessWidget {
     final productName = record['productName']?.toString() ?? '';
     final productCode = record['productCode']?.toString() ?? '';
 
-    final images = (record['imagePaths'] is List)
-        ? (record['imagePaths'] as List).map((e) => e.toString()).toList()
+    final rawImgs = record['imagePaths'] ?? record['image_paths'];
+    final images = (rawImgs is List)
+        ? rawImgs.map((e) => e.toString()).toList()
         : <String>[];
     final productState = record['productState']?.toString() ??
         record['product_state']?.toString() ??
@@ -496,7 +497,10 @@ class SavedSizeCard extends StatelessWidget {
                                   ),
                                 )
                               : Image.file(
-                                  File(path),
+                                  File(path.contains('/') ||
+                                          path.contains('\\')
+                                      ? path
+                                      : '$baseDirPath/$path'),
                                   cacheWidth: 100,
                                   cacheHeight: 100,
                                   fit: BoxFit.cover,

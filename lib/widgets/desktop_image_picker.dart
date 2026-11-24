@@ -173,6 +173,12 @@ class DesktopImagePicker extends StatelessWidget {
               const Center(child: Icon(Icons.broken_image, color: Colors.red)),
         ),
       );
+    } else if (image is String) {
+      final file = File(image);
+      if (file.existsSync()) {
+        return Image.file(file, fit: BoxFit.cover);
+      }
+      return const Center(child: Icon(Icons.broken_image));
     } else {
       return const Center(child: Icon(Icons.broken_image));
     }

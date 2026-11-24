@@ -270,6 +270,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             await settingsBox.put('factory_id', currentFactoryId);
           }
 
+          // تنظيف مسارات الصور المحلية المفقودة والاحتفاظ بروابط Cloudinary الصالحة
+          await BackupService.sanitizeRestoredImagePaths();
+
           if (!mounted) return;
 
           showDialog(
@@ -421,6 +424,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           if (currentFactoryId != null && currentFactoryId.isNotEmpty) {
             await settingsBox.put('factory_id', currentFactoryId);
           }
+
+          // تنظيف مسارات الصور المحلية المفقودة والاحتفاظ بروابط Cloudinary الصالحة
+          await BackupService.sanitizeRestoredImagePaths();
 
           if (!mounted) return;
 
