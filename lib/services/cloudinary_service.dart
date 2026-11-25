@@ -402,12 +402,12 @@ class CloudinaryService {
             ));
 
             if (isCloudinaryUrl) {
-              // 1. إذا كان الرابط معروفاً مسبقاً بأنه ميت (404)، نتخطاه ونحذفه فوراً
+              // 1. إذا كان الرابط معروفاً مسبقاً بأنه يرجع 404 أو تعذر تحميله، نتخطاه ونتركه في السجل دون حذفه
               if (deadUrls.contains(path)) {
                 debugPrint(
-                    '🗑️ [Migration] رابط Cloudinary ميت معروف (404) تم تنظيفه وحذفه: $path');
+                    '⚠️ [Migration] رابط Cloudinary فشل سابقاً (404) تم تركه في السجل دون حذف: $path');
                 failed++;
-                recordChanged = true;
+                updatedPaths.add(path);
                 onProgress(MigrationProgress(
                   totalRecords: recordsWithImages.length,
                   processedRecords: processedRecords,
@@ -417,7 +417,7 @@ class CloudinaryService {
                   skippedImages: skipped,
                   failedImages: failed,
                   currentStatus:
-                      'تم تنظيف رابط ميت (404) من سجل ($clientName - $productName)...',
+                      'تعذر تحميل رابط سابقاً (404)، تم تركه في سجل ($clientName - $productName)...',
                 ));
                 continue;
               }
@@ -449,10 +449,10 @@ class CloudinaryService {
 
               if (is404) {
                 debugPrint(
-                    '🗑️ [Migration] رابط Cloudinary ميت (404 Resource not found): $path — تم حذفه من السجل');
+                    '⚠️ [Migration] رابط Cloudinary يرجع 404 (Resource not found): $path — تم تركه في السجل واحتسابه كفاشل دون حذفه');
                 deadUrls.add(path);
                 failed++;
-                recordChanged = true; // تم تعديل السجل بحذف الرابط الميت
+                updatedPaths.add(path); // نتركه في السجل كما هو دون حذفه
                 onProgress(MigrationProgress(
                   totalRecords: recordsWithImages.length,
                   processedRecords: processedRecords,
@@ -462,9 +462,9 @@ class CloudinaryService {
                   skippedImages: skipped,
                   failedImages: failed,
                   currentStatus:
-                      'تم حذف رابط ميت (404) من سجل ($clientName - $productName)...',
+                      'فشل رابط (404) وتم تركه في سجل ($clientName - $productName)...',
                 ));
-                continue; // لا نضيف الرابط الميت إلى updatedPaths
+                continue; // ننتقل للرابط التالي مع الاحتفاظ بالرابط الحالي في updatedPaths
               }
 
               // 4. إذا كانت الصورة متوفرة وتم تحميلها بنجاح (كود 200)

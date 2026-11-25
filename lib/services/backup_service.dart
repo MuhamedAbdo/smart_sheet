@@ -258,8 +258,8 @@ class BackupService {
   }
 
   /// تنظيف مسارات الصور بعد الاستعادة:
-  /// - الاحتفاظ بروابط Cloudinary والروابط الصالحة للعرض المباشر من السحابة.
-  /// - تنظيف أي مسار صورة محلي غير موجود فعلياً على الجهاز لمنع ظهور الصور المكسورة (broken image).
+  /// - الاحتفاظ بروابط Cloudinary وروابط Supabase والروابط الصالحة للعرض المباشر من السحابة.
+  /// - تنظيف أي مسار صورة محلي مفقود فعلياً على الجهاز لمنع ظهور الصور المكسورة (broken image).
   static Future<void> sanitizeRestoredImagePaths() async {
     try {
       final appDir = await getApplicationDocumentsDirectory();
@@ -277,7 +277,10 @@ class BackupService {
         if (item is! Map) continue;
 
         final record = Map<String, dynamic>.from(item);
-        final rawImages = record['imagePaths'] ?? record['image_paths'];
+        dynamic rawImages = record['image_paths'];
+        if (rawImages == null || (rawImages is List && rawImages.isEmpty)) {
+          rawImages = record['imagePaths'];
+        }
         if (rawImages is! List || rawImages.isEmpty) continue;
 
         final List<String> validImages = [];
@@ -290,8 +293,16 @@ class BackupService {
             continue;
           }
 
-          // 1. روابط Cloudinary وروابط الويب الصالحة: نحتفظ بها مباشرة للعرض السحابي
-          if (path.startsWith('http')) {
+          final lower = path.toLowerCase();
+          // 1. روابط Cloudinary و Supabase وكافة روابط الويب الصالحة:
+          // الحفاظ التام عليها للعرض المباشر من السحابة وعدم اعتبارها مسارات محلية أبداً
+          final bool isWebUrl = path.startsWith('http://') ||
+              path.startsWith('https://') ||
+              lower.contains('supabase.co') ||
+              lower.contains('res.cloudinary.com') ||
+              lower.contains('cloudinary.com');
+
+          if (isWebUrl) {
             validImages.add(path);
             continue;
           }
@@ -310,14 +321,16 @@ class BackupService {
             continue;
           }
 
-          // ملف محلي غير موجود على الجهاز -> نحذفه لمنع ظهور broken image
+          // ملف محلي مفقود فعلياً من الجهاز -> نحذفه لمنع ظهور broken image
           modified = true;
           cleanedCount++;
           debugPrint(
-              '🧹 [Restore Cleanup] إزالة مسار صورة محلي مفقود: $path من السجل: ${record['clientName'] ?? ''}');
+              '🧹 [Restore Cleanup] إزالة مسار صورة محلي مفقود: $path من السجل: ${record['clientName'] ?? record['client_name'] ?? ''}');
         }
 
-        if (modified) {
+        if (modified ||
+            record['image_paths'] != validImages ||
+            record['imagePaths'] != validImages) {
           record['imagePaths'] = validImages;
           record['image_paths'] = validImages;
           await box.put(key, record);
@@ -328,6 +341,181 @@ class BackupService {
           '✅ [Restore Cleanup] تم تنظيف مسارات الصور بنجاح. أزيل $cleanedCount مساراً محلياً مفقوداً.');
     } catch (e) {
       debugPrint('⚠️ [Restore Cleanup] خطأ أثناء تنظيف مسارات الصور: $e');
+    }
+  }
+
+  /// حماية وتحديث روابط الصور المستعادة في جدول customers بقاعدة بيانات Supabase:
+  /// - تقرأ كافة السجلات من صندوق savedSheetSizes التي تحتوي على image_paths (أو imagePaths) غير فارغة.
+  /// - تقوم بتحديث عمود image_paths في جدول customers فوراً بمطابقة id أو sync_id مع factory_id.
+  /// - هذا الإجراء يمنع SyncService من مسح الروابط المستعادة عند إعادة تشغيل التطبيق.
+  static Future<int> pushRestoredImagePathsToSupabase({String? factoryId}) async {
+    try {
+      final client = Supabase.instance.client;
+
+      // تحديد معرّف المصنع factoryId من عدة مصادر موثوقة
+      String? resolvedFactoryId = factoryId?.trim();
+      if (resolvedFactoryId == null || resolvedFactoryId.isEmpty) {
+        resolvedFactoryId = await SupabaseManager.getFactoryId();
+      }
+      if (resolvedFactoryId == null || resolvedFactoryId.isEmpty) {
+        if (Hive.isBoxOpen(SafeSecureStorage.pairingVaultBoxName)) {
+          resolvedFactoryId = Hive.box(SafeSecureStorage.pairingVaultBoxName)
+              .get('factory_id')
+              ?.toString();
+        }
+      }
+      if (resolvedFactoryId == null || resolvedFactoryId.isEmpty) {
+        if (Hive.isBoxOpen('settings')) {
+          resolvedFactoryId =
+              Hive.box('settings').get('factory_id')?.toString();
+        }
+      }
+      if (resolvedFactoryId == null || resolvedFactoryId.isEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        resolvedFactoryId = prefs.getString('factory_id');
+      }
+
+      if (resolvedFactoryId == null || resolvedFactoryId.trim().isEmpty) {
+        debugPrint(
+            '⚠️ [pushRestoredImagePathsToSupabase] لم يتم العثور على factory_id، تعذر التحديث في Supabase.');
+        return 0;
+      }
+      resolvedFactoryId = resolvedFactoryId.trim();
+
+      final box = Hive.isBoxOpen('savedSheetSizes')
+          ? Hive.box('savedSheetSizes')
+          : await Hive.openBox('savedSheetSizes');
+
+      if (box.isEmpty) {
+        debugPrint(
+            'ℹ️ [pushRestoredImagePathsToSupabase] صندوق savedSheetSizes فارغ.');
+        return 0;
+      }
+
+      int updateCount = 0;
+      final List<Future<void>> updateTasks = [];
+
+      for (final key in box.keys) {
+        final item = box.get(key);
+        if (item is! Map) continue;
+
+        dynamic rawImages = item['image_paths'];
+        if (rawImages == null || (rawImages is List && rawImages.isEmpty)) {
+          rawImages = item['imagePaths'];
+        }
+        if (rawImages is! List || rawImages.isEmpty) continue;
+
+        final List<String> paths = rawImages
+            .map((e) => e.toString().trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        if (paths.isEmpty) continue;
+
+        final dynamic rawSyncId = item['sync_id'] ?? item['syncId'];
+        final String? syncId = rawSyncId?.toString().trim();
+        final dynamic rawId = item['id'];
+        final String? id = rawId?.toString().trim();
+
+        if ((syncId == null || syncId.isEmpty) && (id == null || id.isEmpty)) {
+          continue;
+        }
+
+        updateTasks.add(() async {
+          try {
+            bool updated = false;
+
+            // 1. المطابقة بـ sync_id مع factory_id
+            if (syncId != null && syncId.isNotEmpty) {
+              try {
+                final res = await client
+                    .from('customers')
+                    .update({'image_paths': paths})
+                    .eq('factory_id', resolvedFactoryId!)
+                    .eq('sync_id', syncId)
+                    .select('id');
+                if (res.isNotEmpty) {
+                  updated = true;
+                  updateCount++;
+                }
+              } catch (e) {
+                debugPrint(
+                    '⚠️ [pushRestoredImagePathsToSupabase] محاولة sync_id ($syncId): $e');
+              }
+            }
+
+            // 2. إذا لم تتطابق أو لم تنجح المطابقة بـ sync_id، المطابقة بـ id مع factory_id
+            if (!updated && id != null && id.isNotEmpty) {
+              try {
+                final res = await client
+                    .from('customers')
+                    .update({'image_paths': paths})
+                    .eq('factory_id', resolvedFactoryId!)
+                    .eq('id', rawId)
+                    .select('id');
+                if (res.isNotEmpty) {
+                  updated = true;
+                  updateCount++;
+                }
+              } catch (e) {
+                debugPrint(
+                    '⚠️ [pushRestoredImagePathsToSupabase] محاولة id ($id): $e');
+              }
+            }
+
+            // 3. مطابقة احتياطية متبادلة (إذا كان id في Hive مخزناً كـ sync_id في Supabase أو العكس)
+            if (!updated) {
+              if (id != null && id.isNotEmpty) {
+                try {
+                  final res = await client
+                      .from('customers')
+                      .update({'image_paths': paths})
+                      .eq('factory_id', resolvedFactoryId!)
+                      .eq('sync_id', id)
+                      .select('id');
+                  if (res.isNotEmpty) {
+                    updated = true;
+                    updateCount++;
+                  }
+                } catch (_) {}
+              }
+              if (!updated && syncId != null && syncId.isNotEmpty) {
+                try {
+                  final res = await client
+                      .from('customers')
+                      .update({'image_paths': paths})
+                      .eq('factory_id', resolvedFactoryId!)
+                      .eq('id', syncId)
+                      .select('id');
+                  if (res.isNotEmpty) {
+                    updated = true;
+                    updateCount++;
+                  }
+                } catch (_) {}
+              }
+            }
+          } catch (e) {
+            debugPrint(
+                '❌ [pushRestoredImagePathsToSupabase] فشل تحديث السجل ($syncId / $id): $e');
+          }
+        }());
+      }
+
+      // تنفيذ التحديثات بالتوازي على دفعات لتجنب الضغط على الشبكة
+      for (var i = 0; i < updateTasks.length; i += 20) {
+        final chunk = updateTasks.sublist(
+          i,
+          i + 20 > updateTasks.length ? updateTasks.length : i + 20,
+        );
+        await Future.wait(chunk);
+      }
+
+      debugPrint(
+          '✅ [pushRestoredImagePathsToSupabase] تم تحديث روابط الصور لـ $updateCount سجل في Supabase بنجاح.');
+      return updateCount;
+    } catch (e) {
+      debugPrint(
+          '❌ [pushRestoredImagePathsToSupabase] خطأ عام أثناء تحديث روابط الصور في Supabase: $e');
+      return 0;
     }
   }
 
@@ -510,8 +698,11 @@ class BackupService {
         await settingsBox.put('linked_worker_id', linkedWorkerId);
       }
 
-      // ─── 6. تنظيف مسارات الصور المحلية المفقودة والاحتفاظ بروابط Cloudinary ───
+      // ─── 6. تنظيف مسارات الصور المحلية المفقودة والاحتفاظ بروابط Cloudinary و Supabase ───
       await sanitizeRestoredImagePaths();
+
+      // ─── 7. حماية ورفع روابط الصور المستعادة إلى جدول customers في Supabase فوراً ───
+      await pushRestoredImagePathsToSupabase(factoryId: factoryId);
 
       debugPrint('✅ _restoreFromZipPath: تم استرجاع البيانات بنجاح مع صون حالة المصادقة والـ Gatekeeper.');
       return 'SUCCESS_RESTORE';
