@@ -153,7 +153,7 @@ class KillSwitchService {
   }
 
   /// إيقاف الاستماع وإغلاق القناة.
-  Future<void> stopListening() async {
+  Future<void> stopListening({bool clearCallback = true}) async {
     if (_workerChannel != null) {
       try {
         await _supabase.removeChannel(_workerChannel!);
@@ -174,7 +174,9 @@ class KillSwitchService {
     }
     debugPrint('🔒 KillSwitch: تم إغلاق قنوات المراقبة');
 
-    _onForcedLogout = null;
+    if (clearCallback) {
+      _onForcedLogout = null;
+    }
   }
 
   /// للـ Admin: فك ارتباط جهاز العامل عن بُعد.
@@ -512,15 +514,31 @@ class KillSwitchService {
     }
   }
 
+  /// مسح البيانات المحلية للجهاز (صناديق البيانات والكاش) مع إمكانية التحكم في تسجيل الخروج.
+  Future<void> wipeLocalData({
+    bool shouldSignOut = false,
+    bool clearProfileFactoryId = false,
+    String reason = 'تم مسح البيانات المحلية لتغيير المصنع',
+    Function(String)? onForcedLogout,
+  }) async {
+    await forceLogout(
+      onForcedLogout: onForcedLogout,
+      clearProfileFactoryId: clearProfileFactoryId,
+      reason: reason,
+      shouldSignOut: shouldSignOut,
+    );
+  }
+
   Future<void> forceLogout({
     Function(String)? onForcedLogout,
     bool clearProfileFactoryId = true,
     String reason = 'تم إغلاق الجلسة بواسطة الإدارة',
+    bool shouldSignOut = true,
   }) async {
     try {
       // 0. تصفير factory_id في السحاب (profiles) للمستخدم الحالي لمنع إعادة ربطه تلقائياً عند تسجيل الدخول مجدداً
       final currentUser = _supabase.auth.currentUser;
-      if (currentUser != null && clearProfileFactoryId) {
+      if (currentUser != null && clearProfileFactoryId && shouldSignOut) {
         try {
           await _supabase.from('profiles').update({
             'factory_id': null,
@@ -535,7 +553,9 @@ class KillSwitchService {
       //    ملاحظة: هذه تُكتب في pairing_vault (عبر SafeSecureStorage)، لكننا نحذفها
       //    عند الطرد الحقيقي (فك الارتباط من الإدارة) فقط — وليس عند logout عادي.
       //    حالياً نُبقي على factory_id و is_device_unlocked لضمان الاستمرارية عبر التحديثات.
-      await _storage.delete(key: 'user_role');
+      if (shouldSignOut) {
+        await _storage.delete(key: 'user_role');
+      }
       await clearLinkedWorkerId();
 
       // 1b. المسح الشامل لبيانات العمل المحلية (بيانات المصنع، المزامنة، إلخ)
@@ -562,9 +582,9 @@ class KillSwitchService {
         if (Hive.isBoxOpen('settings')) {
           final settingsBox = Hive.box('settings');
           // المفاتيح التي يجوز مسحها عند تسجيل الخروج (جلسة المستخدم فقط)
-          const sessionKeys = [
-            'is_user_logged_in',
-            'user_role',
+          final sessionKeys = [
+            if (shouldSignOut) 'is_user_logged_in',
+            if (shouldSignOut) 'user_role',
             'linked_worker_id',
           ];
           for (final key in sessionKeys) {
@@ -629,18 +649,25 @@ class KillSwitchService {
       }
 
       // 3. تسجيل الخروج من Supabase Auth
-      try {
-        await _supabase.auth.signOut();
-      } catch (_) {}
+      if (shouldSignOut) {
+        try {
+          await _supabase.auth.signOut(scope: SignOutScope.local);
+        } catch (_) {}
 
-      debugPrint('✅ KillSwitch: تم مسح بيانات الجهاز المحلية وتصفير الجلسة');
+        debugPrint('✅ KillSwitch: تم مسح بيانات الجهاز المحلية وتصفير الجلسة');
+      } else {
+        debugPrint(
+            '✅ KillSwitch: تم مسح بيانات الجهاز المحلية مع الإبقاء على الجلسة (shouldSignOut: false)');
+      }
 
       // 4. إيقاف الاستماع (لتفادي الحلقات)
-      await stopListening();
+      await stopListening(clearCallback: shouldSignOut);
 
       // 5. استدعاء الـ callback للطرد من الـ UI
-      final callback = onForcedLogout ?? _onForcedLogout;
-      callback?.call(reason);
+      if (shouldSignOut) {
+        final callback = onForcedLogout ?? _onForcedLogout;
+        callback?.call(reason);
+      }
     } catch (e) {
       debugPrint('❌ KillSwitch._executeForcedLogout: $e');
     }

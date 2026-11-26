@@ -34,6 +34,8 @@ class AuthService extends ChangeNotifier {
   bool get isAdmin => _state.role?.trim().toLowerCase() == 'admin';
   String? get currentUserEmail => _state.user?.email;
   String? _factoryId;
+  bool _isSwitchingFactory = false;
+  Completer<void>? _factorySwitchCompleter;
 
   AuthService() {
     // 💡 الاستماع إلى تغيرات حالة Supabase
@@ -144,6 +146,58 @@ class AuthService extends ChangeNotifier {
       _clearUserData();
     }
     notifyListeners();
+  }
+
+  /// معالجة تبديل المصنع ومسح البيانات القديمة بأمان مع منع الاستدعاء المتوازي
+  Future<void> _handleFactorySwitch({
+    required String oldFactoryId,
+    required String newFactoryId,
+    required SafeSecureStorage storage,
+  }) async {
+    // إذا كانت هناك عملية تبديل جارية بالفعل، ننتظر اكتمالها لتفادي التوازي
+    if (_isSwitchingFactory) {
+      debugPrint(
+          '⏳ AuthService: عملية تبديل المصنع قيد التنفيذ بالفعل، في انتظار انتهائها...');
+      await _factorySwitchCompleter?.future;
+      return;
+    }
+
+    _isSwitchingFactory = true;
+    _factorySwitchCompleter = Completer<void>();
+
+    try {
+      debugPrint(
+          '🚨 AuthService: Factory ID changed. Wiping old data ($oldFactoryId -> $newFactoryId).');
+
+      // 1. مسح البيانات المحلية مع تمرير shouldSignOut: false لمنع طرد المستخدم فور تسجيل دخوله
+      await KillSwitchService.instance.forceLogout(
+        reason: 'تم تغيير المصنع الخاص بك ومسح البيانات القديمة.',
+        clearProfileFactoryId: false,
+        shouldSignOut: false,
+      );
+
+      // 2. تحديث factory_id المحفوظ في pairing_vault و settings إلى المصنع الجديد بعد المسح
+      await storage.write(key: 'factory_id', value: newFactoryId);
+      if (Hive.isBoxOpen('pairing_vault')) {
+        await Hive.box('pairing_vault').put('factory_id', newFactoryId);
+      }
+      if (Hive.isBoxOpen('settings')) {
+        await Hive.box('settings').put('factory_id', newFactoryId);
+      }
+      _factoryId = newFactoryId;
+
+      debugPrint(
+          '✅ AuthService: تم تبديل المصنع وتحديث factory_id إلى ($newFactoryId) في pairing_vault و settings.');
+    } catch (e) {
+      debugPrint('❌ AuthService: خطأ أثناء تبديل المصنع ومسح البيانات: $e');
+    } finally {
+      _isSwitchingFactory = false;
+      if (_factorySwitchCompleter != null &&
+          !_factorySwitchCompleter!.isCompleted) {
+        _factorySwitchCompleter!.complete();
+        _factorySwitchCompleter = null;
+      }
+    }
   }
 
   Future<void> _fetchAndStoreUserData(String userId,
@@ -278,22 +332,23 @@ class AuthService extends ChangeNotifier {
           }
         } // نهاية if (fetchedFactoryId == null)
 
+        // انتظار أي عملية تبديل مصنع جارية بالتوازي من تدفق تسجيل دخول آخر
+        if (_isSwitchingFactory) {
+          debugPrint('⏳ AuthService: انتظار انتهاء تبديل المصنع الجاري...');
+          await _factorySwitchCompleter?.future;
+        }
+
+        final currentStoredFactoryId = await storage.read(key: 'factory_id');
+
         // 🚨 2. مسح البيانات إذا تغير المصنع لمنع تسريب بيانات المصنع القديم
-        if (oldFactoryId != null &&
-            oldFactoryId != fetchedFactoryId &&
+        if (currentStoredFactoryId != null &&
+            currentStoredFactoryId != fetchedFactoryId &&
             fetchedFactoryId != null) {
-          debugPrint('🚨 AuthService: Factory ID changed. Wiping old data.');
-          await KillSwitchService.instance.forceLogout(
-            reason:
-                'تم تغيير المصنع الخاص بك. يرجى إعادة تسجيل الدخول مرة أخرى لتحديث البيانات.',
-            clearProfileFactoryId: false,
+          await _handleFactorySwitch(
+            oldFactoryId: currentStoredFactoryId,
+            newFactoryId: fetchedFactoryId,
+            storage: storage,
           );
-          _state = UserState.unauthenticated().copyWith(
-            errorMessage:
-                'تم تغيير المصنع الخاص بك. يرجى إعادة تسجيل الدخول مرة أخرى لتحديث البيانات.',
-          );
-          notifyListeners();
-          return; // 🛑 إيقاف استكمال عملية تسجيل الدخول
         }
 
         // 🚨 3. فحص حالة المصنع (موقوف أم لا) لجميع المستخدمين بما فيهم المدراء
@@ -388,6 +443,12 @@ class AuthService extends ChangeNotifier {
         _factoryId = fetchedFactoryId;
         if (_factoryId != null) {
           await storage.write(key: 'factory_id', value: _factoryId!);
+          if (Hive.isBoxOpen('pairing_vault')) {
+            await Hive.box('pairing_vault').put('factory_id', _factoryId!);
+          }
+          if (Hive.isBoxOpen('settings')) {
+            await Hive.box('settings').put('factory_id', _factoryId!);
+          }
         }
         // ✅ إذا كان _factoryId == null لأن profiles.factory_id == null وليس بسبب فك الارتباط، نحتفظ بالقيمة المحلية المخزّنة
         else if (_factoryId == null && !checkDeviceLink) {
