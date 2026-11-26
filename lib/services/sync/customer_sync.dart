@@ -46,6 +46,50 @@ mixin CustomerSync on SyncServiceBase {
         return;
       }
 
+      // ─── 1. جمع كل sync_id و id القادمة من استجابة السيرفر في Set ─────
+      final serverSyncIds = <String>{};
+      for (final r in res) {
+        final syncId = r['sync_id']?.toString().trim();
+        if (syncId != null && syncId.isNotEmpty) {
+          serverSyncIds.add(syncId);
+        }
+        final id = r['id']?.toString().trim();
+        if (id != null && id.isNotEmpty) {
+          serverSyncIds.add(id);
+        }
+      }
+
+      // ─── 2. جمع كل sync_id المعلّقة حالياً في sync_queue لجدول customers في Set آخر ─
+      final pendingSyncIds = <String>{};
+      try {
+        final queueBox = Hive.isBoxOpen('sync_queue')
+            ? Hive.box('sync_queue')
+            : await Hive.openBox('sync_queue');
+
+        for (var i = 0; i < queueBox.length; i++) {
+          final qItem = queueBox.getAt(i);
+          if (qItem is Map && qItem['table']?.toString() == 'customers') {
+            final op = qItem['operation']?.toString();
+            // سجلات أُنشئت أو عُدّلت محلياً ولم تُرفع بعد (تجنب اعتبارها سجلات شبحية)
+            if (op != 'delete' && op != 'batch_delete') {
+              final data = qItem['data'];
+              if (data is Map) {
+                final sId = data['sync_id']?.toString().trim();
+                if (sId != null && sId.isNotEmpty) {
+                  pendingSyncIds.add(sId);
+                }
+                final id = data['id']?.toString().trim();
+                if (id != null && id.isNotEmpty) {
+                  pendingSyncIds.add(id);
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ CustomerSync: خطأ أثناء قراءة sync_queue للمطابقة: $e');
+      }
+
       for (final r in res) {
         try {
           final hasSheetDetails = r['sheet_details'] != null;
@@ -69,6 +113,40 @@ mixin CustomerSync on SyncServiceBase {
         }
       }
       debugPrint('✅ CustomerSync: تم استرجاع ${res.length} customers.');
+
+      // ─── 3. مطابقة البيانات (Reconciliation) وحذف السجلات الشبحية ──
+      final keysToDelete = <dynamic>[];
+      for (var i = 0; i < box.length; i++) {
+        final item = box.getAt(i);
+        if (item is! Map) continue;
+
+        final localSyncId = item['sync_id']?.toString().trim();
+        final localId = item['id']?.toString().trim();
+        final boxKey = box.keyAt(i).toString().trim();
+
+        final existsOnServer = (localSyncId != null && serverSyncIds.contains(localSyncId)) ||
+            (localId != null && serverSyncIds.contains(localId)) ||
+            serverSyncIds.contains(boxKey);
+
+        final isPendingInQueue = (localSyncId != null && pendingSyncIds.contains(localSyncId)) ||
+            (localId != null && pendingSyncIds.contains(localId)) ||
+            pendingSyncIds.contains(boxKey);
+
+        if (!existsOnServer && !isPendingInQueue) {
+          keysToDelete.add(box.keyAt(i));
+        }
+      }
+
+      if (keysToDelete.isNotEmpty) {
+        await box.deleteAll(keysToDelete);
+        debugPrint(
+          '🧹 [Reconciliation] CustomerSync: تم حذف ${keysToDelete.length} سجل محلياً بالمطابقة (غير موجودة بالسيرفر وليست معلقة في الطابور).',
+        );
+      } else {
+        debugPrint(
+          '🎯 [Reconciliation] CustomerSync: الصندوق المحلي متطابق تماماً مع السيرفر (0 محذوفات).',
+        );
+      }
     } catch (e) {
       debugPrint('❌ CustomerSync._initCustomers: $e');
     }
