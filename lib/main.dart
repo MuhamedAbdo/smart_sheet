@@ -21,6 +21,7 @@ import 'package:smart_sheet/screens/client_items_screen.dart';
 import 'package:smart_sheet/screens/die_cutting_forms_screen.dart';
 
 import 'package:window_manager/window_manager.dart';
+import 'package:smart_sheet/services/windows_tray_service.dart';
 import 'package:local_notifier/local_notifier.dart';
 import 'package:smart_sheet/widgets/desktop_title_bar.dart';
 import 'package:smart_sheet/widgets/desktop_sidebar.dart';
@@ -117,9 +118,13 @@ Future<void> initializeHeavyData() async {
   }
 }
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   bool initSuccess = false;
   String? initErrorDetails;
+
+  final bool isAutoStart = !kIsWeb &&
+      Platform.isWindows &&
+      (args.contains('--autostart') || args.contains('--minimized'));
 
   try {
     // 1. التأكد من تهيئة نظام Flutter
@@ -242,12 +247,12 @@ Future<void> main() async {
     });
     debugPrint('✅ SyncService: تم استدعاء initialize() للعمل في الخلفية.');
 
-    // 4. تهيئة نافذة سطح المكتب
+    // 4. تهيئة نافذة سطح المكتب وخدمة الـ System Tray
     if (!kIsWeb && Platform.isWindows) {
       try {
         await windowManager.ensureInitialized();
 
-        WindowOptions windowOptions = const WindowOptions(
+        const windowOptions = WindowOptions(
           size: Size(1280, 720),
           center: true,
           backgroundColor: Colors.transparent,
@@ -255,12 +260,31 @@ Future<void> main() async {
           titleBarStyle: TitleBarStyle.hidden,
         );
 
-        await windowManager.waitUntilReadyToShow(windowOptions);
-        await windowManager.show();
-        await windowManager.focus();
-        debugPrint("✅ Window is now visible");
+        await windowManager.waitUntilReadyToShow(windowOptions, () async {
+          await windowManager.setPreventClose(true);
+          if (isAutoStart) {
+            await windowManager.hide();
+            debugPrint("🔇 [Main] App launched in background (System Tray only)");
+          } else {
+            await windowManager.show();
+            await windowManager.focus();
+            debugPrint("✅ [Main] Window is now visible");
+          }
+        });
+
+        // ضمان استيفاء الحالة حتى لو لم يتم تشغيل الـ callback في بعض بيئات التشغيل
+        await windowManager.setPreventClose(true);
+        if (isAutoStart) {
+          await windowManager.hide();
+        } else {
+          await windowManager.show();
+          await windowManager.focus();
+        }
+
+        // تهيئة أيقونة النظام بجانب الساعة وقائمة الـ Context Menu والتشغيل التلقائي
+        await WindowsTrayService.instance.init(isAutoStart: isAutoStart);
       } catch (e) {
-        debugPrint("⚠️ Window Manager Initialization Failed: $e");
+        debugPrint("⚠️ Window Manager / Tray Initialization Failed: $e");
       }
     }
 

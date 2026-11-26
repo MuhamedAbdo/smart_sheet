@@ -14,6 +14,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
+import 'package:window_manager/window_manager.dart';
 
 @pragma('vm:entry-point')
 void startCallback() {
@@ -226,9 +227,15 @@ class BackupService {
   Future<void> restartApp() async {
     try {
       await Future.delayed(const Duration(milliseconds: 500));
-      if (Platform.isWindows) {
+      if (!kIsWeb && Platform.isWindows) {
         // إعادة تشغيل على ويندوز
         await Process.start(Platform.resolvedExecutable, []);
+        try {
+          if (await windowManager.isPreventClose()) {
+            await windowManager.setPreventClose(false);
+          }
+          await windowManager.destroy();
+        } catch (_) {}
         exit(0);
       } else {
         await _platform.invokeMethod('restartApp');

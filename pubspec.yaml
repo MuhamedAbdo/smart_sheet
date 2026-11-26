@@ -66,6 +66,9 @@ dependencies:
   qr_flutter: ^4.1.0
   uuid: ^4.3.3
   window_manager: ^0.5.1
+  tray_manager: ^0.2.4
+  launch_at_startup: ^0.5.1
+  package_info_plus: ^8.1.0
   local_notifier: ^0.1.6
   cached_network_image: ^3.4.1
   image_picker: ^1.2.2
