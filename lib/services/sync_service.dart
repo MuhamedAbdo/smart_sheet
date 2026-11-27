@@ -659,9 +659,11 @@ class SyncService extends SyncServiceBase
         debugPrint('❌ showLocalNotification (Android): $e');
       }
     }
-    // ─── Windows وغيره: الـ overlay يُعرض من المستدعي مباشرةً ────────
-    // (UIUtils.showTopOverlay لا يعمل هنا لأن context غير متاح — يُستدعى
-    //  من _onCustomerChange و _performDeltaSync مباشرةً قبل هذه الدالة)
+    // ─── Windows: إشعار Toast حقيقي عبر local_notifier ───────────
+    // يظهر في مركز الإشعارات حتى لو كان التطبيق مصغراً في System Tray
+    if (Platform.isWindows) {
+      UIUtils.showDesktopNotification(title: title, body: body);
+    }
   }
 
   // ==============================================================

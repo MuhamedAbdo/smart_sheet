@@ -520,8 +520,8 @@ mixin CustomerSync on SyncServiceBase {
     try {
       final isDelete = payload.eventType == PostgresChangeEvent.delete;
 
-      // ⚠️ عند DELETE: oldRecord يكون فارغاً إذا لم يكن REPLICA IDENTITY FULL مفعّلاً.
-      // نستخدم newRecord كـ fallback لاستخراج المعرّف.
+      // ⚠️ عند DELETE: البيانات السابقة تكون في oldRecord حصراً (newRecord يكون فارغاً في Postgres CDC).
+      // نستخدم newRecord كـ fallback فقط إن كان oldRecord فارغاً.
       Map<String, dynamic> record;
       if (isDelete) {
         record = payload.oldRecord.isNotEmpty
@@ -540,7 +540,9 @@ mixin CustomerSync on SyncServiceBase {
       }
 
       final recordFactoryId = record['factory_id']?.toString();
-      if (!isDelete && recordFactoryId != myFactoryId) {
+      if (recordFactoryId != null &&
+          recordFactoryId.isNotEmpty &&
+          recordFactoryId != myFactoryId) {
         debugPrint('⏭️ [customers] تجاهل: factory مختلف ($recordFactoryId)');
         return;
       }
@@ -551,20 +553,166 @@ mixin CustomerSync on SyncServiceBase {
       }
       final box = Hive.box('savedSheetSizes');
 
+      // عند DELETE: نقرأ البيانات من payload.oldRecord وليس newRecord
+      // مع استخراج نسخة احتياطية من الصندوق المحلي كـ fallback إذا لم يكن REPLICA IDENTITY FULL مفعّلاً
+      Map<dynamic, dynamic>? localBackup;
       if (isDelete) {
-        final clientName = record['client_name']?.toString() ?? '';
-        final syncId = record['sync_id']?.toString();
-        final remoteId = record['id']?.toString();
+        final sId = payload.oldRecord['sync_id']?.toString() ??
+            payload.newRecord['sync_id']?.toString() ??
+            record['sync_id']?.toString();
+        final rId = payload.oldRecord['id']?.toString() ??
+            payload.newRecord['id']?.toString() ??
+            record['id']?.toString();
+        for (var i = 0; i < box.length; i++) {
+          final item = box.getAt(i);
+          if (item is Map) {
+            final itemSyncId = item['sync_id']?.toString();
+            final itemId = item['id']?.toString();
+            if ((sId != null && itemSyncId == sId) ||
+                (rId != null && (itemSyncId == rId || itemId == rId))) {
+              localBackup = item;
+              break;
+            }
+          }
+        }
+      }
+
+      final String clientName = isDelete
+          ? (payload.oldRecord['client_name']?.toString() ??
+              localBackup?['clientName']?.toString() ??
+              record['client_name']?.toString() ??
+              '')
+          : (record['client_name']?.toString() ?? '');
+
+      final String productName = isDelete
+          ? (payload.oldRecord['product_name']?.toString() ??
+              localBackup?['productName']?.toString() ??
+              record['product_name']?.toString() ??
+              '')
+          : (record['product_name']?.toString() ?? '');
+
+      final bool isClientRecord = isDelete
+          ? (payload.oldRecord['is_client_record'] == true ||
+              payload.oldRecord['is_client_record'] == 'true' ||
+              localBackup?['isClientRecord'] == true ||
+              localBackup?['isClientRecord'] == 'true' ||
+              record['is_client_record'] == true ||
+              record['is_client_record'] == 'true')
+          : (record['is_client_record'] == true ||
+              record['is_client_record'] == 'true');
+
+      // ─── إشعارات Windows لأحداث customers (INSERT / UPDATE / DELETE) ──
+      // فلتر _isOwnAction يعمل فقط مع INSERT لأن created_by يحمل منشئ السجل الأصلي،
+      // ولا يحمل من قام بالتعديل أو الحذف، مما يمنع وصول إشعارات التعديل والحذف لحساب الإدارة على Windows.
+      final bool shouldSkipOwnAction =
+          payload.eventType == PostgresChangeEvent.insert && _isOwnAction(record);
+
+      if (!shouldSkipOwnAction) {
+        String? winTitle;
+        String? winBody;
+
+        if (payload.eventType == PostgresChangeEvent.insert) {
+          winTitle = isClientRecord ? '➕ عميل جديد' : '📦 صنف جديد مضاف';
+          winBody = isClientRecord
+              ? 'تم تسجيل العميل: $clientName'
+              : 'تم إضافة صنف: $productName للعميل: $clientName';
+        } else if (payload.eventType == PostgresChangeEvent.update) {
+          winTitle = isClientRecord ? '✏️ تعديل عميل' : '✏️ تعديل صنف';
+          winBody = isClientRecord
+              ? 'تم تعديل بيانات العميل: $clientName'
+              : 'تم تعديل الصنف: $productName للعميل: $clientName';
+        } else if (isDelete) {
+          winTitle = isClientRecord ? '🗑️ حذف عميل' : '🗑️ حذف صنف';
+          winBody = isClientRecord
+              ? 'تم حذف العميل: $clientName'
+              : (productName.isNotEmpty
+                  ? 'تم حذف صنف: $productName للعميل: $clientName'
+                  : (clientName.isNotEmpty
+                      ? 'تم حذف صنف للعميل: $clientName'
+                      : 'تم حذف سجل من جدول العملاء'));
+        }
+
+        if (winTitle != null && winBody != null) {
+          UIUtils.showDesktopNotification(title: winTitle, body: winBody);
+
+          if (payload.eventType == PostgresChangeEvent.insert) {
+            void onTapCallback() async {
+              bool clientExists = false;
+              if (Hive.isBoxOpen('savedSheetSizes')) {
+                final b = Hive.box('savedSheetSizes');
+                for (var i = 0; i < b.length; i++) {
+                  final item = b.getAt(i);
+                  if (item is Map &&
+                      (item['clientName']?.toString().trim() ?? '') ==
+                          clientName.trim()) {
+                    clientExists = true;
+                    break;
+                  }
+                }
+              }
+
+              if (clientExists) {
+                final context = scaffoldMessengerKey.currentContext;
+                if (context != null) {
+                  final authService =
+                      Provider.of<AuthService>(context, listen: false);
+                  final nav = authService.navigatorKey.currentState;
+                  if (nav != null) {
+                    bool isAlreadyTop = false;
+                    nav.popUntil((route) {
+                      if (route.isCurrent &&
+                          route.settings.name ==
+                              'ClientItemsScreen_$clientName') {
+                        isAlreadyTop = true;
+                      }
+                      return true; // Stop immediately, don't pop anything
+                    });
+
+                    if (!isAlreadyTop) {
+                      nav.push(
+                        MaterialPageRoute(
+                          settings: RouteSettings(
+                              name: 'ClientItemsScreen_$clientName'),
+                          builder: (_) =>
+                              ClientItemsScreen(clientName: clientName),
+                        ),
+                      );
+                    }
+                  }
+                }
+              } else {
+                debugPrint('⚠️ العميل غير موجود محلياً (Tap): $clientName');
+              }
+            }
+
+            // In-App Overlay Alert مع التنقل عند النقر
+            UIUtils.showTopOverlay(
+              title: winTitle,
+              message: winBody,
+              onTap: onTapCallback,
+            );
+          } else {
+            // In-App Overlay Alert لأحداث التعديل والحذف
+            UIUtils.showTopOverlay(title: winTitle, message: winBody);
+          }
+        }
+      }
+
+      // ─── تطبيق التغيير محلياً في Hive box: savedSheetSizes ───
+      if (isDelete) {
+        final syncId = payload.oldRecord['sync_id']?.toString() ??
+            record['sync_id']?.toString();
+        final remoteId = payload.oldRecord['id']?.toString() ??
+            record['id']?.toString();
         debugPrint(
             '🗑️ [customers] وصل طلب حذف: $clientName (sync_id=$syncId, id=$remoteId)');
         final deleted = await _deleteFromBoxByAnyId(box,
             syncId: syncId, remoteId: remoteId);
-        if (!deleted) {
+        if (!deleted && isClientRecord && clientName.isNotEmpty) {
           await _deleteFromBoxByClientName(box, clientName);
         }
         debugPrint('🗑️ [customers] اكتمل الحذف: $clientName');
       } else {
-        final clientName = record['client_name']?.toString() ?? '';
         final rawSyncId =
             record['sync_id']?.toString() ?? record['id']?.toString();
         final syncId = rawSyncId ??
@@ -572,79 +720,6 @@ mixin CustomerSync on SyncServiceBase {
 
         debugPrint(
             '🌟 وصلت بيانات جديدة: $clientName (factory: $recordFactoryId) key=$syncId');
-
-        if (!isDelete && payload.eventType == PostgresChangeEvent.insert) {
-          final isClientRecord = record['is_client_record'] == true ||
-              record['is_client_record'] == 'true';
-          final title = isClientRecord ? "➕ عميل جديد" : "📦 صنف جديد مضاف";
-          final body = isClientRecord
-              ? "تم تسجيل العميل: $clientName"
-              : "تم إضافة صنف: ${record['product_name'] ?? ''} للعميل: $clientName";
-
-          // ℹ️ الإشعار يصل عبر FCM Edge Function — لا نحتاج showLocalNotification هنا
-          // نُظهر فقط الـ overlay المرئي عند فتح التطبيق
-
-          void onTapCallback() async {
-            bool clientExists = false;
-            if (Hive.isBoxOpen('savedSheetSizes')) {
-              final box = Hive.box('savedSheetSizes');
-              for (var i = 0; i < box.length; i++) {
-                final item = box.getAt(i);
-                if (item is Map &&
-                    (item['clientName']?.toString().trim() ?? '') ==
-                        clientName.trim()) {
-                  clientExists = true;
-                  break;
-                }
-              }
-            }
-
-            if (clientExists) {
-              final context = scaffoldMessengerKey.currentContext;
-              if (context != null) {
-                final authService =
-                    Provider.of<AuthService>(context, listen: false);
-                final nav = authService.navigatorKey.currentState;
-                if (nav != null) {
-                  bool isAlreadyTop = false;
-                  nav.popUntil((route) {
-                    if (route.isCurrent &&
-                        route.settings.name ==
-                            'ClientItemsScreen_$clientName') {
-                      isAlreadyTop = true;
-                    }
-                    return true; // Stop immediately, don't pop anything
-                  });
-
-                  if (!isAlreadyTop) {
-                    nav.push(
-                      MaterialPageRoute(
-                        settings: RouteSettings(
-                            name: 'ClientItemsScreen_$clientName'),
-                        builder: (_) =>
-                            ClientItemsScreen(clientName: clientName),
-                      ),
-                    );
-                  }
-                }
-              }
-            } else {
-              debugPrint('⚠️ العميل غير موجود محلياً (Tap): $clientName');
-            }
-          }
-
-          UIUtils.showTopOverlay(
-            title: title,
-            message: body,
-            onTap: onTapCallback,
-          );
-
-          UIUtils.showDesktopNotification(
-            title: title,
-            body: body,
-            onClick: onTapCallback,
-          );
-        }
 
         try {
           final hasSheetDetails = record['sheet_details'] != null;
@@ -661,8 +736,7 @@ mixin CustomerSync on SyncServiceBase {
             }
           }
 
-          if (!isDelete &&
-              payload.eventType == PostgresChangeEvent.insert &&
+          if (payload.eventType == PostgresChangeEvent.insert &&
               box.containsKey(existingKey)) {
             debugPrint(
                 '⏭️ [customers] السجل موجود مسبقاً، سيتم منع التكرار: $existingKey');
@@ -796,6 +870,20 @@ mixin CustomerSync on SyncServiceBase {
         newRecord[field] = existingRecord[field];
       }
     }
+  }
+
+  // ─── مساعد: هل يجب تخطي الإشعار (صاحب العملية على Windows)؟ ────────────
+  // على Windows: نتجاهل إشعار INSERT فقط إذا كان created_by = المستخدم الحالي
+  // (لا يُستخدم مع UPDATE أو DELETE لأن created_by يمثل منشئ السجل الأصلي وليس المعدّل)
+  bool _isOwnAction(Map<String, dynamic> record) {
+    if (kIsWeb || !Platform.isWindows) return false;
+    final recordCreatedBy = record['created_by']?.toString();
+    if (recordCreatedBy == null || recordCreatedBy.isEmpty) return false;
+    final settingsBox =
+        Hive.isBoxOpen('settings') ? Hive.box('settings') : null;
+    final currentUserId = settingsBox?.get('user_id')?.toString() ??
+        settingsBox?.get('supabase_user_id')?.toString();
+    return currentUserId != null && currentUserId == recordCreatedBy;
   }
 
   /// دالة الحذف الموحدة بثلاث طرق (sync_id → id → بحث خطي)

@@ -26,6 +26,19 @@ mixin ProductionSync on SyncServiceBase {
   RealtimeChannel? _stapleProductionChannel;
   RealtimeChannel? _stapleArchivedReportsChannel;
 
+  // ─── مساعد: هل يجب تخطي الإشعار (صاحب العملية على Windows)؟ ────────────
+  // على Windows: نتجاهل الإشعار فقط إذا كان created_by = المستخدم الحالي
+  bool _isOwnAction(Map<String, dynamic> record) {
+    if (kIsWeb || !Platform.isWindows) return false;
+    final recordCreatedBy = record['created_by']?.toString();
+    if (recordCreatedBy == null || recordCreatedBy.isEmpty) return false;
+    final settingsBox =
+        Hive.isBoxOpen('settings') ? Hive.box('settings') : null;
+    final currentUserId = settingsBox?.get('user_id')?.toString() ??
+        settingsBox?.get('supabase_user_id')?.toString();
+    return currentUserId != null && currentUserId == recordCreatedBy;
+  }
+
   // ==============================================================
   // Initial Sync
   // ==============================================================
@@ -789,6 +802,33 @@ mixin ProductionSync on SyncServiceBase {
           }
         }
         await box.put(syncId, StapleProductionReport.fromJson(record));
+        debugPrint('✅ [staple_production_reports] تم حفظ محلياً: $syncId');
+
+        // ─── إشعار Windows عند انتهاء أوردر استابل (INSERT فقط) ──
+        if (payload.eventType == PostgresChangeEvent.insert &&
+            !_isOwnAction(record)) {
+          final machineName = record['machine_name']?.toString() ?? '';
+          final clientName = record['client_name']?.toString() ??
+              record['customer_name']?.toString() ?? '';
+          final productName = record['product_name']?.toString() ??
+              record['item_name']?.toString() ?? '';
+          final quantityRaw =
+              record['quantity'] ?? record['production_quantity'];
+          final quantity = quantityRaw != null ? quantityRaw.toString() : '';
+          const title = "📊 تقرير استابل جديد (انتهى أوردر)";
+          final bodyParts = <String>[
+            if (machineName.trim().isNotEmpty) "الماكينة: $machineName",
+            if (clientName.trim().isNotEmpty) "العميل: $clientName",
+            if (productName.trim().isNotEmpty) "الصنف: $productName",
+            if (quantity.trim().isNotEmpty) "الكمية: $quantity",
+          ];
+          final body = bodyParts.isNotEmpty
+              ? bodyParts.join(' | ')
+              : "تم إضافة تقرير إنتاج استابل جديد";
+
+          UIUtils.showTopOverlay(title: title, message: body);
+          UIUtils.showDesktopNotification(title: title, body: body);
+        }
       }
     } catch (e) {
       debugPrint('❌ _onStapleReportChange error: $e');
@@ -837,15 +877,19 @@ mixin ProductionSync on SyncServiceBase {
         debugPrint(
             '✅ [die_cutting_production_reports] تم حفظ محلياً: $stableKey');
 
-        if (payload.eventType == PostgresChangeEvent.insert) {
+        if (payload.eventType == PostgresChangeEvent.insert &&
+            !_isOwnAction(record)) {
           final customerName = record['customer_name']?.toString() ?? '';
           final itemName = record['item_name']?.toString() ?? '';
           final machineName = record['machine_name']?.toString() ?? '';
-          const title = "📊 تقرير إنتاج تكسير جديد";
+          final quantityRaw = record['production_quantity'] ?? record['quantity'];
+          final quantity = quantityRaw != null ? quantityRaw.toString() : '';
+          const title = "📊 تقرير تكسير جديد (انتهى أوردر)";
           final bodyParts = <String>[
+            if (machineName.trim().isNotEmpty) "الماكينة: $machineName",
             if (customerName.trim().isNotEmpty) "العميل: $customerName",
             if (itemName.trim().isNotEmpty) "الصنف: $itemName",
-            if (machineName.trim().isNotEmpty) "الماكينة: $machineName",
+            if (quantity.trim().isNotEmpty) "الكمية: $quantity",
           ];
           final body = bodyParts.isNotEmpty
               ? bodyParts.join(' | ')
@@ -984,18 +1028,22 @@ mixin ProductionSync on SyncServiceBase {
         await box.put(existingKey, reportObj);
         debugPrint('✅ [$tableName] تم حفظ محلياً: $stableKey');
 
-        if (payload.eventType == PostgresChangeEvent.insert) {
+        if (payload.eventType == PostgresChangeEvent.insert &&
+            !_isOwnAction(record)) {
           final productName = record['product']?.toString() ??
               record['product_name']?.toString() ??
               '';
           final machineName = record['machine_name']?.toString() ??
               record['machineName']?.toString() ??
               '';
-          const title = "📊 تقرير إنتاج جديد";
+          final quantityRaw = record['quantity'] ?? record['production_quantity'];
+          final quantity = quantityRaw != null ? quantityRaw.toString() : '';
+          const title = "📊 تقرير إنتاج جديد (انتهى أوردر)";
           final bodyParts = <String>[
+            if (machineName.trim().isNotEmpty) "الماكينة: $machineName",
             if (clientName.toString().trim().isNotEmpty) "العميل: $clientName",
             if (productName.trim().isNotEmpty) "الصنف: $productName",
-            if (machineName.trim().isNotEmpty) "الماكينة: $machineName",
+            if (quantity.trim().isNotEmpty) "الكمية: $quantity",
           ];
           final body = bodyParts.isNotEmpty
               ? bodyParts.join(' | ')
@@ -1224,6 +1272,26 @@ mixin ProductionSync on SyncServiceBase {
         }
         await box.put(existingKey, session);
         debugPrint('✅ [live_sessions] تم حفظ/تحديث: $stableKey');
+
+        // ─── إشعار Windows عند بدء تشغيل أوردر جديد (INSERT فقط) ──
+        if (payload.eventType == PostgresChangeEvent.insert &&
+            !_isOwnAction(record)) {
+          final machineName = record['machine_name']?.toString() ?? '';
+          final clientName = record['client_name']?.toString() ?? '';
+          final productName = record['product_name']?.toString() ?? '';
+          const title = "🚀 بدء تشغيل أوردر جديد";
+          final bodyParts = <String>[
+            if (machineName.trim().isNotEmpty) "الماكينة: $machineName",
+            if (clientName.trim().isNotEmpty) "العميل: $clientName",
+            if (productName.trim().isNotEmpty) "الصنف: $productName",
+          ];
+          final body = bodyParts.isNotEmpty
+              ? bodyParts.join(' | ')
+              : "تم بدء تشغيل جلسة إنتاج جديدة";
+
+          UIUtils.showTopOverlay(title: title, message: body);
+          UIUtils.showDesktopNotification(title: title, body: body);
+        }
       }
     } catch (e) {
       debugPrint('❌ _onLiveSessionChange: $e');
