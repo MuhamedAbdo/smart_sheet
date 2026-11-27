@@ -18,7 +18,6 @@
 
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -27,12 +26,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // يُستدعى من Flutter Engine معزول عند وصول إشعار والتطبيق مغلق/خلفية
 // ⚠️ يجب أن تكون top-level function (خارج أي كلاس) و public
 // ⚠️ يجب تسجيلها في main() مباشرةً بعد Firebase.initializeApp() وقبل runApp()
+// ⚠️ لا تستدعِ Firebase.initializeApp() هنا — يتم استدعاؤها بالفعل في
+//    _firebaseMessagingBackgroundHandler بـ main.dart قبل استدعاء هذه الدالة
+//    استدعاؤها مرة ثانية يسبب [core/duplicate-app] ويُسقط العملية كلها
 @pragma('vm:entry-point')
 Future<void> fcmBackgroundHandler(RemoteMessage message) async {
-  // تهيئة Firebase في الـ isolate المعزول
-  await Firebase.initializeApp();
   debugPrint('📬 [FCM Background] ${message.notification?.title}: ${message.notification?.body}');
-  // نظهر local notification يدوياً في الخلفية
+  // نظهر local notification يدوياً في الخلفية (data-only messages)
   await _showLocalFromRemote(message);
 }
 

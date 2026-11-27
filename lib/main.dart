@@ -71,14 +71,18 @@ class MyHttpOverrides extends HttpOverrides {
 }
 
 // ─── Top-Level Background Handler — يجب أن يكون في أعلى مستوى خارج أي كلاس ───
+// ✅ هذا هو Handler المُسجَّل الوحيد لـ onBackgroundMessage
+// ✅ Firebase.initializeApp() يُستدعى هنا مرة واحدة فقط قبل أي عمل آخر
+// ✅ fcmBackgroundHandler يُستدعى كـ fallback لـ data-only messages بدون تهيئة ثانية
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // تهيئة Firebase في الـ Isolate المعزول — مرة واحدة فقط هنا
   await Firebase.initializeApp();
   debugPrint(
       '📬 [FCM Background Handler in main.dart] Title: ${message.notification?.title ?? message.data['title']} | Body: ${message.notification?.body ?? message.data['body']}');
 
-  // في حال كان الإشعار يعتمد على data فقط ولا يحتوي على notification object
-  // نقوم بإظهاره كإشعار محلي بواسطة fcmBackgroundHandler
+  // في حال كان الإشعار يعتمد على data فقط ولا يحتوي على notification object،
+  // نعرضه كإشعار محلي — fcmBackgroundHandler لا يعيد تهيئة Firebase
   if (message.notification == null) {
     await fcmBackgroundHandler(message);
   }
