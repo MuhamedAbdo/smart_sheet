@@ -46,8 +46,15 @@ DateTime? _parseTimeForDieCutting(String? dateStr, String? timeStr) {
 /// شاشة تعرض جميع الأصناف والمقاسات المرتبطة بعميل معين
 class ClientItemsScreen extends StatefulWidget {
   final String clientName;
+  final String? highlightSyncId;
+  final String? highlightProductName;
 
-  const ClientItemsScreen({super.key, required this.clientName});
+  const ClientItemsScreen({
+    super.key,
+    required this.clientName,
+    this.highlightSyncId,
+    this.highlightProductName,
+  });
 
   @override
   State<ClientItemsScreen> createState() => _ClientItemsScreenState();
@@ -64,8 +71,13 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
   StreamSubscription? _boxSubscription;
   Timer? _debounceTimer;
   Timer? _searchDebounce;
+  Timer? _highlightTimer;
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _highlightedItemKey = GlobalKey();
+  String? _activeHighlightKey;
+  bool _didScrollToHighlight = false;
 
   @override
   void initState() {
@@ -139,37 +151,18 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       setState(() {
         _allClientRecords = records;
       });
+      _scheduleHighlightScrollIfNeeded();
     }
   }
 
-  @override
-  void dispose() {
-    FocusManager.instance.primaryFocus?.unfocus();
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    _boxSubscription?.cancel();
-    _debounceTimer?.cancel();
-    _searchDebounce?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    final query = _normalizeString(searchQuery);
-
-    // استخدام القائمة المحلية بدلاً من الحساب المباشر من الـ Box في كل build
-    final allClientRecords = _allClientRecords;
-
-    // السجلات التي تمثل "أصناف" فقط (ليست سجل العميل الأساسي)
+  List<MapEntry<dynamic, Map<String, dynamic>>> _buildFilteredEntries(
+      List<MapEntry<dynamic, Map<String, dynamic>>> allClientRecords,
+      {bool ignoreSearch = false}) {
+    final query = ignoreSearch ? '' : _normalizeString(searchQuery);
     final rawItemEntries = allClientRecords.where((e) {
       return e.value['isClientRecord'] != true;
     }).toList();
 
-    // التصفية البرمجية للأصناف المكررة (Unique Filtering)
     final Map<String, MapEntry<dynamic, Map<String, dynamic>>> uniqueItemsMap =
         {};
     for (var entry in rawItemEntries) {
@@ -191,12 +184,124 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       return pName.contains(query) || pCode == query;
     }).toList();
 
-    // ترتيب تصاعدي بناءً على كود الصنف (رقمياً)
     filteredEntries.sort((a, b) {
       final codeA = int.tryParse(a.value['productCode']?.toString() ?? '') ?? 0;
       final codeB = int.tryParse(b.value['productCode']?.toString() ?? '') ?? 0;
       return codeA.compareTo(codeB);
     });
+
+    return filteredEntries;
+  }
+
+  void _scheduleHighlightScrollIfNeeded() {
+    if (_didScrollToHighlight || _isLoading) return;
+    final targetSyncId = widget.highlightSyncId?.trim();
+    final targetProduct = widget.highlightProductName?.trim();
+    if ((targetSyncId == null || targetSyncId.isEmpty) &&
+        (targetProduct == null || targetProduct.isEmpty)) {
+      return;
+    }
+
+    final filtered = _buildFilteredEntries(_allClientRecords);
+    int targetIndex = -1;
+
+    if (targetSyncId != null && targetSyncId.isNotEmpty) {
+      targetIndex = filtered.indexWhere((e) =>
+          e.key.toString() == targetSyncId ||
+          e.value['sync_id']?.toString() == targetSyncId ||
+          e.value['id']?.toString() == targetSyncId);
+    }
+    if (targetIndex == -1 &&
+        targetProduct != null &&
+        targetProduct.isNotEmpty) {
+      final normTarget = _normalizeString(targetProduct);
+      targetIndex = filtered.indexWhere((e) =>
+          _normalizeString(e.value['productName']?.toString() ?? '') ==
+          normTarget);
+    }
+
+    if (targetIndex == -1) return;
+
+    _didScrollToHighlight = true;
+    final matchedKey = filtered[targetIndex].key.toString();
+
+    if (mounted) {
+      setState(() => _activeHighlightKey = matchedKey);
+      _highlightTimer?.cancel();
+      _highlightTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) setState(() => _activeHighlightKey = null);
+      });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToMatchedIndex(targetIndex, filtered.length);
+    });
+  }
+
+  Future<void> _scrollToMatchedIndex(int targetIndex, int totalCount) async {
+    if (!mounted) return;
+    if (_highlightedItemKey.currentContext != null) {
+      await Scrollable.ensureVisible(
+        _highlightedItemKey.currentContext!,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOut,
+        alignment: 0.15,
+      );
+      return;
+    }
+
+    if (!_scrollController.hasClients || totalCount <= 1) return;
+
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    final estimatedOffset =
+        (maxExtent * (targetIndex / (totalCount - 1))).clamp(0.0, maxExtent);
+    _scrollController.jumpTo(estimatedOffset);
+
+    await Future.delayed(const Duration(milliseconds: 60));
+    if (!mounted) return;
+    if (_highlightedItemKey.currentContext != null) {
+      await Scrollable.ensureVisible(
+        _highlightedItemKey.currentContext!,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+        alignment: 0.15,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _scrollController.dispose();
+    _highlightTimer?.cancel();
+    _boxSubscription?.cancel();
+    _debounceTimer?.cancel();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // استخدام القائمة المحلية بدلاً من الحساب المباشر من الـ Box في كل build
+    final allClientRecords = _allClientRecords;
+    final totalItemsCount =
+        _buildFilteredEntries(allClientRecords, ignoreSearch: true).length;
+    final filteredEntries = _buildFilteredEntries(allClientRecords);
+
+    // التأكد من التمرير بعد أول بناء فعلي عند توفر البيانات
+    if (!_didScrollToHighlight &&
+        (widget.highlightSyncId != null ||
+            widget.highlightProductName != null)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scheduleHighlightScrollIfNeeded();
+      });
+    }
 
     // جلب كود العميل حصرياً من سجل العميل الأساسي (isClientRecord)
     String clientCode = "غير مسجل";
@@ -274,7 +379,7 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
               },
             ),
       body: _buildBody(
-          allClientRecords, itemEntries.length, filteredEntries, clientCode),
+          allClientRecords, totalItemsCount, filteredEntries, clientCode),
     );
   }
 
@@ -366,33 +471,50 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
         // قائمة الأصناف
         Expanded(
           child: ListView.builder(
+            controller: _scrollController,
             itemCount: filteredEntries.length,
             padding:
                 const EdgeInsets.only(bottom: 80, left: 8, right: 8, top: 4),
             itemBuilder: (context, index) {
               final entry = filteredEntries[index];
+              final isHighlighted = _activeHighlightKey != null &&
+                  _activeHighlightKey == entry.key.toString();
               return RepaintBoundary(
-                child: SavedSizeCard(
-                  key: ValueKey(
-                      '${entry.key}_${entry.value['date']}_${entry.value['productState']}_${entry.value['product_state']}_${entry.value['notes']}'),
-                  record: entry.value,
-                  canEdit: canEdit,
-                  canDelete: canDelete,
-                  canAddFlexo: canAddFlexo,
-                  canAddProductionLine: canAddProductionLine,
-                  canAddDieCutting: canAddDieCutting,
-                  canAddStaples: canAddStaples,
-                  onEdit: () => _navigateToEdit(entry.key, entry.value),
-                  onDelete: () => _confirmDelete(entry.key),
-                  onStartProduction: (data) =>
-                      _openFlexoProductionReportWithSheetData(context, data),
-                  onStartProductionLine: (data) =>
-                      _openProductionLineSessionWithSheetData(context, data),
-                  onStartDieCutting: (data) =>
-                      _openDieCuttingSessionWithSheetData(context, data),
-                  onStartStaples: (data) =>
-                      _openStaplesSessionWithSheetData(context, data),
-                  onRefresh: _refreshLocalData,
+                child: AnimatedContainer(
+                  key: isHighlighted ? _highlightedItemKey : null,
+                  duration: const Duration(milliseconds: 350),
+                  decoration: isHighlighted
+                      ? BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.amber.shade600,
+                            width: 2.5,
+                          ),
+                          color: Colors.amber.withValues(alpha: 0.12),
+                        )
+                      : null,
+                  child: SavedSizeCard(
+                    key: ValueKey(
+                        '${entry.key}_${entry.value['date']}_${entry.value['productState']}_${entry.value['product_state']}_${entry.value['notes']}'),
+                    record: entry.value,
+                    canEdit: canEdit,
+                    canDelete: canDelete,
+                    canAddFlexo: canAddFlexo,
+                    canAddProductionLine: canAddProductionLine,
+                    canAddDieCutting: canAddDieCutting,
+                    canAddStaples: canAddStaples,
+                    onEdit: () => _navigateToEdit(entry.key, entry.value),
+                    onDelete: () => _confirmDelete(entry.key),
+                    onStartProduction: (data) =>
+                        _openFlexoProductionReportWithSheetData(context, data),
+                    onStartProductionLine: (data) =>
+                        _openProductionLineSessionWithSheetData(context, data),
+                    onStartDieCutting: (data) =>
+                        _openDieCuttingSessionWithSheetData(context, data),
+                    onStartStaples: (data) =>
+                        _openStaplesSessionWithSheetData(context, data),
+                    onRefresh: _refreshLocalData,
+                  ),
                 ),
               );
             },
@@ -490,7 +612,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
     if (backupRecord == null) return;
 
     // استخراج مسارات الصور إذا كانت موجودة للحذف اليدوي من الكاش
-    final imagePaths = backupRecord['imagePaths'] ?? backupRecord['image_paths'];
+    final imagePaths =
+        backupRecord['imagePaths'] ?? backupRecord['image_paths'];
 
     // استخراج sync_id قبل الحذف لاستخدامه في المزامنة السحابية
     final syncId = backupRecord['sync_id']?.toString() ?? key.toString();
@@ -563,7 +686,8 @@ class _ClientItemsScreenState extends State<ClientItemsScreen> {
       final appDir = await getApplicationDocumentsDirectory();
       final imageDir = Directory('${appDir.path}/images');
 
-      final rawImages = dataFromCard['imagePaths'] ?? dataFromCard['image_paths'];
+      final rawImages =
+          dataFromCard['imagePaths'] ?? dataFromCard['image_paths'];
       if (rawImages is List) {
         for (var pathObj in rawImages) {
           String path = pathObj.toString();

@@ -16,11 +16,13 @@
 //   await PushNotificationService.init();               // في main()
 //   await PushNotificationService.uploadToken(email);   // بعد تسجيل الدخول
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smart_sheet/services/notification_navigation_service.dart';
 
 // ─── Background Handler — يجب أن يكون دالة top-level (خارج أي كلاس) ─────────
 // يُستدعى من Flutter Engine معزول عند وصول إشعار والتطبيق مغلق/خلفية
@@ -31,7 +33,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 //    استدعاؤها مرة ثانية يسبب [core/duplicate-app] ويُسقط العملية كلها
 @pragma('vm:entry-point')
 Future<void> fcmBackgroundHandler(RemoteMessage message) async {
-  debugPrint('📬 [FCM Background] ${message.notification?.title}: ${message.notification?.body}');
+  debugPrint(
+      '📬 [FCM Background] ${message.notification?.title}: ${message.notification?.body}');
   // نظهر local notification يدوياً في الخلفية (data-only messages)
   await _showLocalFromRemote(message);
 }
@@ -40,30 +43,48 @@ Future<void> fcmBackgroundHandler(RemoteMessage message) async {
 Future<void> _showLocalFromRemote(RemoteMessage message) async {
   try {
     final plugin = FlutterLocalNotificationsPlugin();
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await plugin.initialize(const InitializationSettings(android: androidSettings));
-
-    const details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        'factory_push_channel',
-        'إشعارات المصنع',
-        channelDescription: 'إشعارات Push الحقيقية من المصنع',
-        importance: Importance.max,
-        priority: Priority.high,
-        playSound: true,
-        icon: '@mipmap/ic_launcher',
-      ),
-    );
-
-    await plugin.show(
-      message.hashCode,
-      message.notification?.title ?? 'إشعار جديد',
-      message.notification?.body ?? '',
-      details,
-    );
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    await plugin
+        .initialize(const InitializationSettings(android: androidSettings));
+    await _displayLocalNotification(plugin, message);
   } catch (e) {
     debugPrint('❌ [FCM] _showLocalFromRemote: $e');
   }
+}
+
+/// عرض الإشعار الفعلي عبر FlutterLocalNotificationsPlugin مع تمرير data كـ JSON payload
+Future<void> _displayLocalNotification(
+  FlutterLocalNotificationsPlugin plugin,
+  RemoteMessage message,
+) async {
+  const details = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'factory_push_channel',
+      'إشعارات المصنع',
+      channelDescription: 'إشعارات Push الحقيقية من المصنع',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      icon: '@mipmap/ic_launcher',
+    ),
+  );
+
+  final title = message.notification?.title ??
+      message.data['title']?.toString() ??
+      'إشعار جديد';
+  final body =
+      message.notification?.body ?? message.data['body']?.toString() ?? '';
+  final payloadJson =
+      message.data.isNotEmpty ? jsonEncode(message.data) : null;
+
+  await plugin.show(
+    message.hashCode,
+    title,
+    body,
+    details,
+    payload: payloadJson,
+  );
 }
 
 class PushNotificationService {
@@ -130,6 +151,23 @@ class PushNotificationService {
       // 6. الاستماع عند فتح التطبيق بالضغط على إشعار خلفي
       FirebaseMessaging.onMessageOpenedApp.listen(_onNotificationOpenedApp);
 
+      // 6b. فحص الإشعار الذي فتح التطبيق من حالة الإغلاق التام (Terminated)
+      final initialMessage = await _messaging.getInitialMessage();
+      if (initialMessage != null && initialMessage.data.isNotEmpty) {
+        debugPrint(
+            '🚀 [FCM] تم فتح التطبيق من إشعار (Terminated): ${initialMessage.data}');
+        NotificationNavigationService.handleNavigation(initialMessage.data);
+      }
+
+      // 6c. فحص الإشعار المحلي الذي فتح التطبيق من حالة الإغلاق التام
+      final launchDetails =
+          await _localNotifications.getNotificationAppLaunchDetails();
+      if (launchDetails?.didNotificationLaunchApp == true &&
+          launchDetails?.notificationResponse?.payload != null) {
+        NotificationNavigationService.handleJsonPayload(
+            launchDetails!.notificationResponse!.payload);
+      }
+
       // 7. الاستماع لتحديث التوكن
       _messaging.onTokenRefresh.listen(_onTokenRefresh);
 
@@ -178,15 +216,23 @@ class PushNotificationService {
 
   /// معالجة الإشعار عندما التطبيق مفتوح (Foreground)
   static Future<void> _onForegroundMessage(RemoteMessage message) async {
-    debugPrint('📬 [FCM Foreground] ${message.notification?.title}: ${message.notification?.body}');
-    // نعرض إشعاراً محلياً لأن FCM لا يُظهره تلقائياً في Foreground على Android
-    await _showLocalFromRemote(message);
+    debugPrint(
+        '📬 [FCM Foreground] ${message.notification?.title}: ${message.notification?.body}');
+    // نعرض إشعاراً محلياً عبر _localNotifications المُهيأة مسبقاً للحفاظ على onDidReceiveNotificationResponse
+    try {
+      await _displayLocalNotification(_localNotifications, message);
+    } catch (e) {
+      debugPrint('❌ [FCM] _onForegroundMessage: $e');
+    }
   }
 
   /// معالجة النقر على الإشعار من الخلفية (التطبيق يُفتح به)
   static void _onNotificationOpenedApp(RemoteMessage message) {
-    debugPrint('🔔 [FCM] فتح التطبيق عبر الإشعار: ${message.notification?.title}');
-    // يمكن إضافة navigation هنا لاحقاً إذا احتجنا
+    debugPrint(
+        '🔔 [FCM] فتح التطبيق عبر الإشعار: ${message.notification?.title} | data=${message.data}');
+    if (message.data.isNotEmpty) {
+      NotificationNavigationService.handleNavigation(message.data);
+    }
   }
 
   /// تحديث التوكن تلقائياً عند تجديد Firebase له
@@ -209,6 +255,6 @@ class PushNotificationService {
   /// معالجة النقر على الإشعار المحلي
   static void _onNotificationTap(NotificationResponse response) {
     debugPrint('🔔 [FCM] تم النقر على الإشعار المحلي: ${response.payload}');
-    // يمكن إضافة navigation هنا لاحقاً
+    NotificationNavigationService.handleJsonPayload(response.payload);
   }
 }

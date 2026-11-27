@@ -124,13 +124,15 @@ mixin CustomerSync on SyncServiceBase {
         final localId = item['id']?.toString().trim();
         final boxKey = box.keyAt(i).toString().trim();
 
-        final existsOnServer = (localSyncId != null && serverSyncIds.contains(localSyncId)) ||
-            (localId != null && serverSyncIds.contains(localId)) ||
-            serverSyncIds.contains(boxKey);
+        final existsOnServer =
+            (localSyncId != null && serverSyncIds.contains(localSyncId)) ||
+                (localId != null && serverSyncIds.contains(localId)) ||
+                serverSyncIds.contains(boxKey);
 
-        final isPendingInQueue = (localSyncId != null && pendingSyncIds.contains(localSyncId)) ||
-            (localId != null && pendingSyncIds.contains(localId)) ||
-            pendingSyncIds.contains(boxKey);
+        final isPendingInQueue =
+            (localSyncId != null && pendingSyncIds.contains(localSyncId)) ||
+                (localId != null && pendingSyncIds.contains(localId)) ||
+                pendingSyncIds.contains(boxKey);
 
         if (!existsOnServer && !isPendingInQueue) {
           keysToDelete.add(box.keyAt(i));
@@ -605,7 +607,8 @@ mixin CustomerSync on SyncServiceBase {
       // فلتر _isOwnAction يعمل فقط مع INSERT لأن created_by يحمل منشئ السجل الأصلي،
       // ولا يحمل من قام بالتعديل أو الحذف، مما يمنع وصول إشعارات التعديل والحذف لحساب الإدارة على Windows.
       final bool shouldSkipOwnAction =
-          payload.eventType == PostgresChangeEvent.insert && _isOwnAction(record);
+          payload.eventType == PostgresChangeEvent.insert &&
+              _isOwnAction(record);
 
       if (!shouldSkipOwnAction) {
         String? winTitle;
@@ -633,68 +636,43 @@ mixin CustomerSync on SyncServiceBase {
         }
 
         if (winTitle != null && winBody != null) {
-          UIUtils.showDesktopNotification(title: winTitle, body: winBody);
+          final String eventType =
+              payload.eventType == PostgresChangeEvent.insert
+                  ? 'INSERT'
+                  : (payload.eventType == PostgresChangeEvent.update
+                      ? 'UPDATE'
+                      : 'DELETE');
+          final String syncId = (isDelete
+                  ? (payload.oldRecord['sync_id']?.toString() ??
+                      localBackup?['sync_id']?.toString() ??
+                      record['sync_id']?.toString() ??
+                      payload.oldRecord['id']?.toString() ??
+                      record['id']?.toString())
+                  : (record['sync_id']?.toString() ??
+                      record['id']?.toString())) ??
+              '';
+          final payloadData = <String, dynamic>{
+            'table_name': 'customers',
+            'event_type': eventType,
+            'client_name': clientName,
+            'product_name': productName,
+            'sync_id': syncId,
+            'is_client_record': isClientRecord.toString(),
+          };
 
-          if (payload.eventType == PostgresChangeEvent.insert) {
-            void onTapCallback() async {
-              bool clientExists = false;
-              if (Hive.isBoxOpen('savedSheetSizes')) {
-                final b = Hive.box('savedSheetSizes');
-                for (var i = 0; i < b.length; i++) {
-                  final item = b.getAt(i);
-                  if (item is Map &&
-                      (item['clientName']?.toString().trim() ?? '') ==
-                          clientName.trim()) {
-                    clientExists = true;
-                    break;
-                  }
-                }
-              }
+          UIUtils.showDesktopNotification(
+            title: winTitle,
+            body: winBody,
+            payloadData: payloadData,
+          );
 
-              if (clientExists) {
-                final context = scaffoldMessengerKey.currentContext;
-                if (context != null) {
-                  final authService =
-                      Provider.of<AuthService>(context, listen: false);
-                  final nav = authService.navigatorKey.currentState;
-                  if (nav != null) {
-                    bool isAlreadyTop = false;
-                    nav.popUntil((route) {
-                      if (route.isCurrent &&
-                          route.settings.name ==
-                              'ClientItemsScreen_$clientName') {
-                        isAlreadyTop = true;
-                      }
-                      return true; // Stop immediately, don't pop anything
-                    });
-
-                    if (!isAlreadyTop) {
-                      nav.push(
-                        MaterialPageRoute(
-                          settings: RouteSettings(
-                              name: 'ClientItemsScreen_$clientName'),
-                          builder: (_) =>
-                              ClientItemsScreen(clientName: clientName),
-                        ),
-                      );
-                    }
-                  }
-                }
-              } else {
-                debugPrint('⚠️ العميل غير موجود محلياً (Tap): $clientName');
-              }
-            }
-
-            // In-App Overlay Alert مع التنقل عند النقر
-            UIUtils.showTopOverlay(
-              title: winTitle,
-              message: winBody,
-              onTap: onTapCallback,
-            );
-          } else {
-            // In-App Overlay Alert لأحداث التعديل والحذف
-            UIUtils.showTopOverlay(title: winTitle, message: winBody);
-          }
+          // In-App Overlay Alert مع التوجيه المباشر عند النقر
+          UIUtils.showTopOverlay(
+            title: winTitle,
+            message: winBody,
+            onTap: () =>
+                NotificationNavigationService.handleNavigation(payloadData),
+          );
         }
       }
 
@@ -702,8 +680,8 @@ mixin CustomerSync on SyncServiceBase {
       if (isDelete) {
         final syncId = payload.oldRecord['sync_id']?.toString() ??
             record['sync_id']?.toString();
-        final remoteId = payload.oldRecord['id']?.toString() ??
-            record['id']?.toString();
+        final remoteId =
+            payload.oldRecord['id']?.toString() ?? record['id']?.toString();
         debugPrint(
             '🗑️ [customers] وصل طلب حذف: $clientName (sync_id=$syncId, id=$remoteId)');
         final deleted = await _deleteFromBoxByAnyId(box,
@@ -837,8 +815,11 @@ mixin CustomerSync on SyncServiceBase {
     bool hasSheetDetails,
   ) {
     // ✅ حماية حالة المنتج المحلية: إذا كان السجل المحلي "مطبوع" والسحابي قديم "سادة" أو فارغ، احتفظ بـ "مطبوع"
-    if ((existingRecord['product_state'] == 'مطبوع' || existingRecord['productState'] == 'مطبوع') &&
-        (newRecord['product_state'] == 'سادة' || newRecord['product_state'] == null || newRecord['product_state'] == 'null')) {
+    if ((existingRecord['product_state'] == 'مطبوع' ||
+            existingRecord['productState'] == 'مطبوع') &&
+        (newRecord['product_state'] == 'سادة' ||
+            newRecord['product_state'] == null ||
+            newRecord['product_state'] == 'null')) {
       newRecord['product_state'] = 'مطبوع';
       newRecord['productState'] = 'مطبوع';
     }

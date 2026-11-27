@@ -2,8 +2,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:local_notifier/local_notifier.dart';
-import 'package:window_manager/window_manager.dart';
 import 'package:smart_sheet/globals.dart';
+import 'package:smart_sheet/services/notification_navigation_service.dart';
+import 'package:smart_sheet/services/windows_tray_service.dart';
 
 class UIUtils {
   /// Widget موحد لعرض "أمر التشغيل" كـ Badge
@@ -338,6 +339,7 @@ class UIUtils {
     required String title,
     required String body,
     VoidCallback? onClick,
+    Map<String, dynamic>? payloadData,
   }) async {
     if (kIsWeb || !Platform.isWindows) return;
     try {
@@ -376,11 +378,13 @@ class UIUtils {
       );
       notification.onClick = () async {
         try {
-          // إعادة التركيز على النافذة وإظهارها عند الضغط على الإشعار من شريط المهام
-          await windowManager.show();
-          await windowManager.focus();
+          // إظهار نافذة التطبيق من جوار الساعة (System Tray) والتركيز عليها
+          await WindowsTrayService().showAppWindow();
         } catch (e) {
           debugPrint('⚠️ [showDesktopNotification] Window focus error: $e');
+        }
+        if (payloadData != null && payloadData.isNotEmpty) {
+          NotificationNavigationService.handleNavigation(payloadData);
         }
         if (onClick != null) {
           onClick();

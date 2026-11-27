@@ -825,9 +825,26 @@ mixin ProductionSync on SyncServiceBase {
           final body = bodyParts.isNotEmpty
               ? bodyParts.join(' | ')
               : "تم إضافة تقرير إنتاج استابل جديد";
+          final payloadData = <String, dynamic>{
+            'table_name': 'staple_production_reports',
+            'event_type': 'INSERT',
+            'department': record['department']?.toString() ?? 'staple',
+            'client_name': clientName,
+            'product_name': productName,
+            'sync_id': syncId,
+          };
 
-          UIUtils.showTopOverlay(title: title, message: body);
-          UIUtils.showDesktopNotification(title: title, body: body);
+          UIUtils.showTopOverlay(
+            title: title,
+            message: body,
+            onTap: () =>
+                NotificationNavigationService.handleNavigation(payloadData),
+          );
+          UIUtils.showDesktopNotification(
+            title: title,
+            body: body,
+            payloadData: payloadData,
+          );
         }
       }
     } catch (e) {
@@ -894,15 +911,26 @@ mixin ProductionSync on SyncServiceBase {
           final body = bodyParts.isNotEmpty
               ? bodyParts.join(' | ')
               : "تم إضافة تقرير إنتاج تكسير جديد";
+          final payloadData = <String, dynamic>{
+            'table_name': 'die_cutting_production_reports',
+            'event_type': 'INSERT',
+            'department': record['department']?.toString() ?? 'crushing',
+            'client_name': customerName,
+            'product_name': itemName,
+            'sync_id': stableKey,
+          };
 
           UIUtils.showTopOverlay(
             title: title,
             message: body,
+            onTap: () =>
+                NotificationNavigationService.handleNavigation(payloadData),
           );
 
           UIUtils.showDesktopNotification(
             title: title,
             body: body,
+            payloadData: payloadData,
           );
         }
       }
@@ -1048,15 +1076,31 @@ mixin ProductionSync on SyncServiceBase {
           final body = bodyParts.isNotEmpty
               ? bodyParts.join(' | ')
               : "تم إضافة تقرير إنتاج جديد";
+          final dept = record['department']?.toString().trim().isNotEmpty == true
+              ? record['department'].toString().trim()
+              : (tableName == 'line_production_reports'
+                  ? 'production_line'
+                  : 'flexo');
+          final payloadData = <String, dynamic>{
+            'table_name': tableName,
+            'event_type': 'INSERT',
+            'department': dept,
+            'client_name': clientName.toString(),
+            'product_name': productName,
+            'sync_id': stableKey,
+          };
 
           UIUtils.showTopOverlay(
             title: title,
             message: body,
+            onTap: () =>
+                NotificationNavigationService.handleNavigation(payloadData),
           );
 
           UIUtils.showDesktopNotification(
             title: title,
             body: body,
+            payloadData: payloadData,
           );
         }
       }
@@ -1202,30 +1246,119 @@ mixin ProductionSync on SyncServiceBase {
       }
 
       if (isDelete) {
-        // ── بحث شامل في الصندوق للعثور على المفتاح ──
+        // ── بحث شامل في الصندوق للعثور على المفتاح وحفظ نسخة احتياطية قبل الحذف ──
         dynamic keyToDelete;
+        LiveSession? localSessionBackup;
 
         // أولاً: بحث مباشر بالـ stableKey
         if (box.containsKey(stableKey)) {
           keyToDelete = stableKey;
+          localSessionBackup = box.get(stableKey);
         } else {
           // ثانياً: بحث بالمرور على الكل ومقارنة session.id
           for (var i = 0; i < box.length; i++) {
             final session = box.getAt(i);
             if (session != null && session.id == stableKey) {
               keyToDelete = box.keyAt(i);
+              localSessionBackup = session;
               break;
             }
           }
         }
 
+        // fallback إضافي من صندوق live_sessions إن وجد
+        if (localSessionBackup == null && Hive.isBoxOpen('live_sessions')) {
+          final legacyBox = Hive.box<LiveSession>('live_sessions');
+          localSessionBackup = legacyBox.get(stableKey);
+          if (localSessionBackup == null) {
+            for (var i = 0; i < legacyBox.length; i++) {
+              final s = legacyBox.getAt(i);
+              if (s != null && s.id == stableKey) {
+                localSessionBackup = s;
+                break;
+              }
+            }
+          }
+        }
+
+        String pickField(List<String?> candidates, [String fallback = '']) {
+          for (final c in candidates) {
+            if (c != null &&
+                c.trim().isNotEmpty &&
+                c.trim().toLowerCase() != 'null') {
+              return c.trim();
+            }
+          }
+          return fallback;
+        }
+
+        final machineName = pickField([
+          payload.oldRecord['machine_name']?.toString(),
+          localSessionBackup?.machineName,
+          record['machine_name']?.toString(),
+        ]);
+        final clientName = pickField([
+          payload.oldRecord['client_name']?.toString(),
+          localSessionBackup?.clientName,
+          record['client_name']?.toString(),
+        ]);
+        final productName = pickField([
+          payload.oldRecord['product_name']?.toString(),
+          localSessionBackup?.productName,
+          record['product_name']?.toString(),
+        ]);
+        final department = pickField([
+          payload.oldRecord['department']?.toString(),
+          localSessionBackup?.department,
+          record['department']?.toString(),
+        ], machineName == 'خط الإنتاج' ? 'production_line' : 'flexo');
+
         if (keyToDelete != null) {
           await box.delete(keyToDelete);
+          if (Hive.isBoxOpen('live_sessions')) {
+            await Hive.box<LiveSession>('live_sessions').delete(stableKey);
+          }
           debugPrint('🗑️ [live_sessions] حُذف محلياً: $stableKey');
         } else {
           debugPrint(
               '⚠️ [live_sessions] لم يُعثر على الجلسة محلياً: $stableKey (ربما حُذف مسبقاً)');
         }
+
+        // ─── إشعار Windows Toast عند إلغاء تشغيل الأوردر ──────────
+        const title = '❌ إلغاء تشغيل أوردر';
+        final bodyParts = <String>[
+          if (machineName.isNotEmpty) 'الماكينة: $machineName',
+          if (clientName.isNotEmpty) 'العميل: $clientName',
+          if (productName.isNotEmpty) 'الصنف: $productName',
+        ];
+        final body = bodyParts.isNotEmpty
+            ? bodyParts.join(' | ')
+            : 'تم إلغاء تشغيل جلسة الإنتاج الحالية';
+
+        final payloadData = <String, dynamic>{
+          'table_name': 'live_sessions',
+          'event_type': 'DELETE',
+          'department': department,
+          if (clientName.isNotEmpty) 'client_name': clientName,
+          if (productName.isNotEmpty) 'product_name': productName,
+          'sync_id': stableKey,
+        };
+
+        if (keyToDelete != null) {
+          UIUtils.showTopOverlay(
+            title: title,
+            message: body,
+            backgroundColor: Colors.red.shade700,
+            icon: Icons.cancel_outlined,
+            onTap: () =>
+                NotificationNavigationService.handleNavigation(payloadData),
+          );
+        }
+        UIUtils.showDesktopNotification(
+          title: title,
+          body: body,
+          payloadData: payloadData,
+        );
       } else {
         var session = LiveSession.fromJson(record);
         dynamic existingKey = stableKey;
@@ -1288,9 +1421,30 @@ mixin ProductionSync on SyncServiceBase {
           final body = bodyParts.isNotEmpty
               ? bodyParts.join(' | ')
               : "تم بدء تشغيل جلسة إنتاج جديدة";
+          final dept = session.department ??
+              (machineName.trim() == 'خط الإنتاج'
+                  ? 'production_line'
+                  : 'flexo');
+          final payloadData = <String, dynamic>{
+            'table_name': 'live_sessions',
+            'event_type': 'INSERT',
+            'department': dept,
+            'client_name': clientName,
+            'product_name': productName,
+            'sync_id': stableKey,
+          };
 
-          UIUtils.showTopOverlay(title: title, message: body);
-          UIUtils.showDesktopNotification(title: title, body: body);
+          UIUtils.showTopOverlay(
+            title: title,
+            message: body,
+            onTap: () =>
+                NotificationNavigationService.handleNavigation(payloadData),
+          );
+          UIUtils.showDesktopNotification(
+            title: title,
+            body: body,
+            payloadData: payloadData,
+          );
         }
       }
     } catch (e) {

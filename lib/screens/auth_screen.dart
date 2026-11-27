@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/notification_navigation_service.dart';
 import '../utils/ui_utils.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -69,6 +70,9 @@ class _AuthScreenState extends State<AuthScreen> {
         // الانتقال للصفحة الرئيسية آلياً بعد النجاح
         Navigator.of(context)
             .pushNamedAndRemoveUntil('/home', (route) => false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          NotificationNavigationService.markAppReady();
+        });
       }
     }
   }
@@ -93,6 +97,9 @@ class _AuthScreenState extends State<AuthScreen> {
       if (authService.state.user != null) {
         Navigator.of(context)
             .pushNamedAndRemoveUntil('/home', (route) => false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          NotificationNavigationService.markAppReady();
+        });
       }
     }
   }

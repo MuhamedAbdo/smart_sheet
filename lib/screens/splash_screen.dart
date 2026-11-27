@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/screens/home_screen.dart';
 import 'package:smart_sheet/screens/gatekeeper_screen.dart';
+import 'package:smart_sheet/services/notification_navigation_service.dart';
 import 'package:smart_sheet/main.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -138,12 +139,20 @@ class _SplashScreenState extends State<SplashScreen> {
           transitionDuration: const Duration(milliseconds: 1000),
         ),
       );
+      if (isUnlocked) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          NotificationNavigationService.markAppReady();
+        });
+      }
     } catch (e) {
       debugPrint("Navigation Error: $e");
       // Fallback إلى الشاشة الرئيسية مباشرة
       if (!mounted) return;
       Navigator.pushReplacement(
           context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        NotificationNavigationService.markAppReady();
+      });
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_sheet/services/safe_secure_storage.dart';
+import 'package:smart_sheet/services/notification_navigation_service.dart';
 import 'package:smart_sheet/screens/home_screen.dart';
 
 class GatekeeperScreen extends StatefulWidget {
@@ -136,6 +137,9 @@ class _GatekeeperScreenState extends State<GatekeeperScreen> {
               transitionDuration: const Duration(milliseconds: 800),
             ),
           );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            NotificationNavigationService.markAppReady();
+          });
         }
       } else {
         // الكود غير صحيح أو مستخدم أو منتهي الصلاحية

@@ -16,8 +16,9 @@
 //   FIREBASE_SERVICE_ACCOUNT_JSON  — محتوى ملف service-account.json كاملاً
 //   SUPABASE_URL                   — تلقائي في Edge Functions
 //   SUPABASE_SERVICE_ROLE_KEY      — تلقائي في Edge Functions
-
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ─── Deno type declaration for VS Code compatibility ────────────────────────
@@ -35,6 +36,13 @@ interface NotificationPayload {
   title: string;
   body: string;
   table_name?: string;
+  event_type?: string;
+  client_name?: string;
+  product_name?: string;
+  department?: string;
+  sync_id?: string;
+  is_client_record?: boolean | string;
+  data?: Record<string, unknown>;
 }
 
 // ─── دالة توليد JWT لـ Firebase HTTP v1 API ─────────────────────────────────
@@ -64,9 +72,9 @@ async function getFirebaseAccessToken(serviceAccount: Record<string, string>): P
     .replace("-----BEGIN PRIVATE KEY-----", "")
     .replace("-----END PRIVATE KEY-----", "")
     .replace(/\n/g, "");
-  
+
   const binaryKey = Uint8Array.from(atob(pemContent), (c) => c.charCodeAt(0));
-  
+
   const cryptoKey = await crypto.subtle.importKey(
     "pkcs8",
     binaryKey,
@@ -106,7 +114,8 @@ async function sendFcmMessage(
   projectId: string,
   fcmToken: string,
   title: string,
-  body: string
+  body: string,
+  extraData: Record<string, string>
 ): Promise<{ success: boolean; token: string; error?: string }> {
   const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 
@@ -125,8 +134,9 @@ async function sendFcmMessage(
           click_action: "FLUTTER_NOTIFICATION_CLICK",
         },
       },
-      // بيانات إضافية (Data payload) للمعالجة في Flutter
+      // بيانات إضافية (Data payload) للمعالجة والتوجيه في Flutter (جميع القيم نصية String)
       data: {
+        ...extraData,
         title,
         body,
         click_action: "FLUTTER_NOTIFICATION_CLICK",
@@ -248,9 +258,33 @@ serve(async (req: Request) => {
     // ─── 7. توليد Firebase Access Token ────────────────────────────
     const accessToken = await getFirebaseAccessToken(serviceAccount);
 
+    // ─── 7b. تجهيز حقول التوجيه داخل FCM data (بقيم نصية String) ───
+    const extraData: Record<string, string> = {};
+    if (payload.data && typeof payload.data === "object") {
+      for (const [k, v] of Object.entries(payload.data)) {
+        if (v !== undefined && v !== null) {
+          extraData[k] = String(v);
+        }
+      }
+    }
+    const routingFields: Record<string, unknown> = {
+      table_name: payload.table_name,
+      event_type: payload.event_type,
+      client_name: payload.client_name,
+      product_name: payload.product_name,
+      department: payload.department,
+      sync_id: payload.sync_id,
+      is_client_record: payload.is_client_record,
+    };
+    for (const [k, v] of Object.entries(routingFields)) {
+      if (v !== undefined && v !== null) {
+        extraData[k] = String(v);
+      }
+    }
+
     // ─── 8. إرسال Push لكل جهاز بشكل متوازٍ ─────────────────────
     const sendPromises = targetWorkers.map((w: { fcm_token: string }) =>
-      sendFcmMessage(accessToken, projectId, w.fcm_token, title, body)
+      sendFcmMessage(accessToken, projectId, w.fcm_token, title, body, extraData)
     );
     const results = await Promise.all(sendPromises);
 
@@ -262,7 +296,7 @@ serve(async (req: Request) => {
     ).length;
 
     console.log(`✅ تم الإرسال: ${successCount} نجح | ${failedCount} فشل`);
-    
+
     return new Response(
       JSON.stringify({ sent: successCount, failed: failedCount, details: results }),
       { status: 200, headers: { "Content-Type": "application/json" } }

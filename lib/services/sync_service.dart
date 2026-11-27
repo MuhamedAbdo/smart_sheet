@@ -44,12 +44,9 @@ import 'package:smart_sheet/models/day_schedule.dart';
 import 'package:smart_sheet/services/supabase_manager.dart';
 import 'package:smart_sheet/services/server_time_service.dart';
 import 'package:smart_sheet/utils/ui_utils.dart';
-import 'package:smart_sheet/screens/client_items_screen.dart';
-import 'package:smart_sheet/services/auth_service.dart';
 import 'package:smart_sheet/services/kill_switch_service.dart';
+import 'package:smart_sheet/services/notification_navigation_service.dart';
 import 'package:smart_sheet/utils/permission_helper.dart';
-import 'package:provider/provider.dart';
-import 'package:smart_sheet/globals.dart';
 import 'package:uuid/uuid.dart';
 import 'package:smart_sheet/services/cloudinary_service.dart';
 import 'package:path_provider/path_provider.dart';
@@ -379,10 +376,27 @@ class SyncService extends SyncServiceBase
             final body = isClientRecord
                 ? 'تم تسجيل العميل: $clientName'
                 : '$clientName — $productName';
+            final payloadData = <String, dynamic>{
+              'table_name': 'customers',
+              'event_type': 'INSERT',
+              'client_name': clientName,
+              'product_name': productName,
+              'is_client_record': isClientRecord.toString(),
+            };
 
-            await showLocalNotification(title, body, clientName);
+            await showLocalNotification(
+              title,
+              body,
+              clientName,
+              payloadData: payloadData,
+            );
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              UIUtils.showTopOverlay(title: title, message: body, onTap: () {});
+              UIUtils.showTopOverlay(
+                title: title,
+                message: body,
+                onTap: () =>
+                    NotificationNavigationService.handleNavigation(payloadData),
+              );
             });
           } else {
             // إشعار ملخص لتفادي الإغراق
@@ -629,8 +643,22 @@ class SyncService extends SyncServiceBase
   ///   • Android → push notification عبر flutter_local_notifications
   ///   • Windows/غير Android → لا push (المنصة لا تدعمه)، يكفي UIUtils.showTopOverlay
   Future<void> showLocalNotification(
-      String title, String body, String clientName) async {
+    String title,
+    String body,
+    String clientName, {
+    Map<String, dynamic>? payloadData,
+  }) async {
     if (kIsWeb) return;
+    final effectivePayload = payloadData ??
+        (clientName.isNotEmpty
+            ? <String, dynamic>{
+                'table_name': 'customers',
+                'event_type': 'INSERT',
+                'client_name': clientName,
+                'clientName': clientName,
+              }
+            : <String, dynamic>{});
+
     // ─── Android: إشعار push حقيقي ────────────────────────────────
     if (Platform.isAndroid) {
       try {
@@ -653,7 +681,7 @@ class SyncService extends SyncServiceBase
           title,
           body,
           platformChannelSpecifics,
-          payload: jsonEncode({'clientName': clientName}),
+          payload: jsonEncode(effectivePayload),
         );
       } catch (e) {
         debugPrint('❌ showLocalNotification (Android): $e');
@@ -662,7 +690,11 @@ class SyncService extends SyncServiceBase
     // ─── Windows: إشعار Toast حقيقي عبر local_notifier ───────────
     // يظهر في مركز الإشعارات حتى لو كان التطبيق مصغراً في System Tray
     if (Platform.isWindows) {
-      UIUtils.showDesktopNotification(title: title, body: body);
+      UIUtils.showDesktopNotification(
+        title: title,
+        body: body,
+        payloadData: effectivePayload.isNotEmpty ? effectivePayload : null,
+      );
     }
   }
 

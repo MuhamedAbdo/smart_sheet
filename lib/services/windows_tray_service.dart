@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 /// خدمة إدارة أيقونة النظام (System Tray) والتشغيل التلقائي وإدارة النوافذ لنظام Windows فقط.
 class WindowsTrayService with TrayListener, WindowListener {
   static final WindowsTrayService instance = WindowsTrayService._internal();
+  factory WindowsTrayService() => instance;
   WindowsTrayService._internal();
 
   bool _isInitialized = false;

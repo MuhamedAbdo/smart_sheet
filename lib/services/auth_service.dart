@@ -11,13 +11,14 @@ import 'package:smart_sheet/services/safe_secure_storage.dart';
 import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/pairing_service.dart';
 import 'package:smart_sheet/services/kill_switch_service.dart';
+import 'package:smart_sheet/globals.dart';
 import 'package:smart_sheet/services/push_notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService extends ChangeNotifier {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
   UserState _state = UserState.unauthenticated();
-  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> navigatorKey = appNavigatorKey;
 
   UserState get state => _state;
   bool get isAuthenticated {

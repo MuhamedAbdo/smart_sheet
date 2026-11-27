@@ -12,13 +12,12 @@ import 'package:smart_sheet/utils/ui_utils.dart';
 import 'package:smart_sheet/utils/data_normalization_helper.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:convert';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:smart_sheet/providers/theme_provider.dart';
 import 'package:smart_sheet/screens/home_screen.dart';
 import 'package:smart_sheet/screens/settings_screen.dart';
-import 'package:smart_sheet/screens/client_items_screen.dart';
 import 'package:smart_sheet/screens/die_cutting_forms_screen.dart';
+import 'package:smart_sheet/services/notification_navigation_service.dart';
 
 import 'package:window_manager/window_manager.dart';
 import 'package:smart_sheet/services/windows_tray_service.dart';
@@ -393,14 +392,107 @@ void _openBackgroundBoxes() async {
   }
 }
 
+Future<void>? _pendingWindowsLockCleanup;
+
+bool _isWindowsLockFileHeld(File lockFile) {
+  RandomAccessFile? raf;
+  try {
+    if (!lockFile.existsSync()) return false;
+    raf = lockFile.openSync(mode: FileMode.write);
+    raf.lockSync();
+    raf.unlockSync();
+    return false;
+  } catch (_) {
+    return true;
+  } finally {
+    try {
+      raf?.closeSync();
+    } catch (_) {}
+  }
+}
+
+Future<void> _terminateCompetingWindowsInstances() async {
+  try {
+    final currentPid = pid;
+    final result = Process.runSync('taskkill', [
+      '/F',
+      '/FI',
+      'PID ne $currentPid',
+      '/IM',
+      'smart_sheet.exe',
+    ]);
+    debugPrint(
+      '🛑 [HiveLock] taskkill exit=${result.exitCode} | '
+      'out=${result.stdout.toString().trim()} | '
+      'err=${result.stderr.toString().trim()}',
+    );
+  } catch (e) {
+    debugPrint('⚠️ [HiveLock] تعذر إنهاء العمليات المعلقة: $e');
+  }
+}
+
+Future<void> _ensureWindowsBoxLockFree(String boxName) async {
+  if (kIsWeb || !Platform.isWindows) return;
+
+  final appDir = await getApplicationDocumentsDirectory();
+  final sep = Platform.pathSeparator;
+  final lockFile = File(
+      '${appDir.path}${sep}SmartSheet_Data$sep${boxName.toLowerCase()}.lock');
+
+  if (!lockFile.existsSync()) return;
+
+  if (!_isWindowsLockFileHeld(lockFile)) {
+    try {
+      lockFile.deleteSync();
+      debugPrint('🔓 [HiveLock] تم حذف $boxName.lock المتروك بنجاح.');
+    } catch (_) {}
+    return;
+  }
+
+  debugPrint(
+      '🔒 [HiveLock] $boxName.lock محجوز من عملية أخرى — جاري تحريره قبل فتح الصندوق...');
+
+  if (_pendingWindowsLockCleanup != null) {
+    await _pendingWindowsLockCleanup;
+  } else {
+    _pendingWindowsLockCleanup = _terminateCompetingWindowsInstances();
+    try {
+      await _pendingWindowsLockCleanup;
+    } finally {
+      _pendingWindowsLockCleanup = null;
+    }
+  }
+
+  for (int attempt = 0; attempt < 12; attempt++) {
+    if (!lockFile.existsSync() || !_isWindowsLockFileHeld(lockFile)) {
+      try {
+        if (lockFile.existsSync()) lockFile.deleteSync();
+        debugPrint('🔓 [HiveLock] تم تحرير $boxName.lock بنجاح للتعافي.');
+      } catch (_) {}
+      return;
+    }
+    await Future.delayed(const Duration(milliseconds: 200));
+  }
+
+  throw FileSystemException(
+    'ملف القفل ما زال محجوزاً من عملية أخرى. تأكد من إغلاق أي نسخة مفتوحة من Smart Sheet في شريط المهام (System Tray) أو إدارة المهام (Task Manager) ثم أعد التشغيل.',
+    lockFile.path,
+  );
+}
+
 // ─── تحصين Hive Lock — 3 محاولات مع حماية من التعليق اللانهائي وإنهاء العمليات المعلقة ───────────
 //
-// السبب: عند انهيار التطبيق أو التحديث فوق نسخة قديمة، تبقى ملفات الـ lock
-// محجوزة. هذا يسبب PathAccessException في ويندوز خاصةً أو تعليقاً على LockFileEx.
+// السبب: عند انهيار التطبيق أو وجود نسخة أخرى تعمل في شريط المهام (System Tray)،
+// تبقى ملفات الـ lock محجوزة. كما أن فشل Hive.openBox يطلق خطأ Completer غير مُعالج
+// في الـ microtask loop، لذا نتحقق من القفل ونحرره استباقياً على ويندوز قبل openBox.
 //
 Future<Box<E>> _openBoxWithLockRecovery<E>(String boxName) async {
   if (Hive.isBoxOpen(boxName)) {
     return Hive.box<E>(boxName);
+  }
+
+  if (!kIsWeb && Platform.isWindows) {
+    await _ensureWindowsBoxLockFree(boxName);
   }
 
   // المحاولة 1: فتح الصندوق مع مهلة زمنية (Timeout) لتفادي التعليق اللانهائي على ويندوز
@@ -411,30 +503,9 @@ Future<Box<E>> _openBoxWithLockRecovery<E>(String boxName) async {
     debugPrint('⚠️ $boxName.lock محجوز (محاولة 1): $e1');
   }
 
-  // على ويندوز: إنهاء أي عمليات معلقة فوراً وتحرير ملف القفل
+  // على ويندوز: تحرير ملف القفل بعد إنهاء العمليات المعلقة
   if (!kIsWeb && Platform.isWindows) {
-    try {
-      final currentPid = pid;
-      Process.runSync('taskkill', [
-        '/F',
-        '/FI',
-        'PID ne $currentPid',
-        '/IM',
-        'smart_sheet.exe',
-      ]);
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      final appDir = await getApplicationDocumentsDirectory();
-      final lockFile = File('${appDir.path}\\SmartSheet_Data\\$boxName.lock');
-      if (lockFile.existsSync()) {
-        try {
-          lockFile.deleteSync();
-          debugPrint('🔓 [HiveLock] تم حذف $boxName.lock بنجاح للتعافي.');
-        } catch (_) {}
-      }
-    } catch (e) {
-      debugPrint('⚠️ [HiveLock] تعذر إنهاء العمليات المعلقة: $e');
-    }
+    await _ensureWindowsBoxLockFree(boxName);
   } else {
     await Future.delayed(const Duration(milliseconds: 500));
   }
@@ -483,62 +554,17 @@ Future<void> _initializeNotifications() async {
   await flutterLocalNotificationsPlugin.initialize(
     const InitializationSettings(android: androidSettings),
     onDidReceiveNotificationResponse: (NotificationResponse response) async {
-      if (response.payload != null) {
-        try {
-          final payloadData = jsonDecode(response.payload!);
-          final clientName = payloadData['clientName']?.toString();
-
-          if (clientName != null && clientName.isNotEmpty) {
-            // التحقق من وجود العميل محلياً قبل التوجيه
-            bool clientExists = false;
-            if (Hive.isBoxOpen('savedSheetSizes')) {
-              final box = Hive.box('savedSheetSizes');
-              for (var i = 0; i < box.length; i++) {
-                final item = box.getAt(i);
-                if (item is Map &&
-                    (item['clientName']?.toString().trim() ?? '') ==
-                        clientName.trim()) {
-                  clientExists = true;
-                  break;
-                }
-              }
-            }
-
-            if (clientExists) {
-              final authService = Provider.of<AuthService>(
-                  scaffoldMessengerKey.currentContext!,
-                  listen: false);
-              final nav = authService.navigatorKey.currentState;
-              if (nav != null) {
-                bool isAlreadyTop = false;
-                nav.popUntil((route) {
-                  if (route.isCurrent &&
-                      route.settings.name == 'ClientItemsScreen_$clientName') {
-                    isAlreadyTop = true;
-                  }
-                  return true;
-                });
-
-                if (!isAlreadyTop) {
-                  nav.push(
-                    MaterialPageRoute(
-                      settings:
-                          RouteSettings(name: 'ClientItemsScreen_$clientName'),
-                      builder: (_) => ClientItemsScreen(clientName: clientName),
-                    ),
-                  );
-                }
-              }
-            } else {
-              debugPrint('⚠️ العميل غير موجود محلياً: $clientName');
-            }
-          }
-        } catch (e) {
-          debugPrint('❌ _initializeNotifications payload parsing error: $e');
-        }
-      }
+      NotificationNavigationService.handleJsonPayload(response.payload);
     },
   );
+
+  final launchDetails =
+      await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
+  if (launchDetails?.didNotificationLaunchApp == true &&
+      launchDetails?.notificationResponse?.payload != null) {
+    NotificationNavigationService.handleJsonPayload(
+        launchDetails!.notificationResponse!.payload);
+  }
 }
 
 class SmartSheetApp extends StatefulWidget {
@@ -711,8 +737,7 @@ class _SmartSheetAppState extends State<SmartSheetApp>
 
     return MaterialApp(
       scaffoldMessengerKey: scaffoldMessengerKey,
-      navigatorKey:
-          Provider.of<AuthService>(context, listen: false).navigatorKey,
+      navigatorKey: NotificationNavigationService.navigatorKey,
       navigatorObservers: [routeObserver],
       title: 'Smart Sheet',
       debugShowCheckedModeBanner: false,
