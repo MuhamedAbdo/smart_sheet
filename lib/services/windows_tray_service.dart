@@ -41,7 +41,7 @@ class WindowsTrayService with TrayListener, WindowListener {
           ),
           MenuItem(
             key: 'exit_app',
-            label: 'خروج نهائي',
+            label: 'إغلاق نهائي (Exit)',
             onClick: (_) => exitApp(),
           ),
         ],
@@ -120,8 +120,16 @@ class WindowsTrayService with TrayListener, WindowListener {
     try {
       debugPrint('🛑 [WindowsTrayService] Truly closing application...');
       await windowManager.setPreventClose(false);
-      await trayManager.destroy();
-      await windowManager.destroy();
+      try {
+        await trayManager.destroy();
+      } catch (e) {
+        debugPrint('⚠️ [WindowsTrayService] Error destroying tray: $e');
+      }
+      try {
+        await windowManager.destroy();
+      } catch (e) {
+        debugPrint('⚠️ [WindowsTrayService] Error destroying window: $e');
+      }
     } catch (e) {
       debugPrint('⚠️ [WindowsTrayService] Error exiting app: $e');
     } finally {
@@ -143,16 +151,24 @@ class WindowsTrayService with TrayListener, WindowListener {
   }
 
   @override
+  void onTrayIconRightMouseDown() {
+    // إظهار القائمة المنبثقة فور الضغط بالزر الأيمن
+    trayManager.popUpContextMenu();
+  }
+
+  @override
   void onTrayIconRightMouseUp() {
-    // إظهار القائمة المنبثقة عند النقر بالزر الأيمن
+    // إظهار القائمة المنبثقة عند رفع الزر الأيمن (احتياطي)
     trayManager.popUpContextMenu();
   }
 
   @override
   void onTrayMenuItemClick(MenuItem menuItem) {
-    if (menuItem.key == 'show_window') {
+    if (menuItem.key == 'show_window' || menuItem.label == 'فتح التطبيق') {
       showAppWindow();
-    } else if (menuItem.key == 'exit_app') {
+    } else if (menuItem.key == 'exit_app' ||
+        menuItem.label == 'إغلاق نهائي (Exit)' ||
+        menuItem.label == 'خروج نهائي') {
       exitApp();
     }
   }
