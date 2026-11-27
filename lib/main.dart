@@ -251,6 +251,7 @@ Future<void> main(List<String> args) async {
     if (!kIsWeb && Platform.isWindows) {
       try {
         await windowManager.ensureInitialized();
+        await windowManager.setPreventClose(true);
 
         const windowOptions = WindowOptions(
           size: Size(1280, 720),
@@ -544,7 +545,7 @@ class SmartSheetApp extends StatefulWidget {
 }
 
 class _SmartSheetAppState extends State<SmartSheetApp>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, WindowListener {
   // ─── Debounce لمنع استدعاء initialize() أكثر من مرة عند resume ──
   // يحدث على Windows عند إعادة التركيز على النافذة
   DateTime? _lastResumeTime;
@@ -553,6 +554,9 @@ class _SmartSheetAppState extends State<SmartSheetApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (!kIsWeb && Platform.isWindows) {
+      windowManager.addListener(this);
+    }
     // ✅ بدء مستمع Kill Switch بعد أول بناء للتطبيق
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startKillSwitchListener();
@@ -561,9 +565,22 @@ class _SmartSheetAppState extends State<SmartSheetApp>
 
   @override
   void dispose() {
+    if (!kIsWeb && Platform.isWindows) {
+      windowManager.removeListener(this);
+    }
     WidgetsBinding.instance.removeObserver(this);
     KillSwitchService.instance.stopListening();
     super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    if (!kIsWeb && Platform.isWindows) {
+      bool isPreventClose = await windowManager.isPreventClose();
+      if (isPreventClose) {
+        await windowManager.hide();
+      }
+    }
   }
 
   // ==============================================================================
