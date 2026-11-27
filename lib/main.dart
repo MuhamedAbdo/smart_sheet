@@ -388,59 +388,63 @@ void _openBackgroundBoxes() async {
   }
 }
 
-// ─── تحصين Hive Lock — 3 محاولات مع حذف Lock File آمن على جميع الأنظمة ───────────
+// ─── تحصين Hive Lock — 3 محاولات مع حماية من التعليق اللانهائي وإنهاء العمليات المعلقة ───────────
 //
 // السبب: عند انهيار التطبيق أو التحديث فوق نسخة قديمة، تبقى ملفات الـ lock
-// محجوزة. هذا يسبب PathAccessException في ويندوز خاصةً.
+// محجوزة. هذا يسبب PathAccessException في ويندوز خاصةً أو تعليقاً على LockFileEx.
 //
 Future<Box<E>> _openBoxWithLockRecovery<E>(String boxName) async {
+  if (Hive.isBoxOpen(boxName)) {
+    return Hive.box<E>(boxName);
+  }
+
+  // المحاولة 1: فتح الصندوق مع مهلة زمنية (Timeout) لتفادي التعليق اللانهائي على ويندوز
   try {
-    return await Hive.openBox<E>(boxName);
+    return await Hive.openBox<E>(boxName)
+        .timeout(const Duration(milliseconds: 1500));
   } catch (e1) {
     debugPrint('⚠️ $boxName.lock محجوز (محاولة 1): $e1');
   }
 
-  await Future.delayed(const Duration(milliseconds: 500));
+  // على ويندوز: إنهاء أي عمليات معلقة فوراً وتحرير ملف القفل
+  if (!kIsWeb && Platform.isWindows) {
+    try {
+      final currentPid = pid;
+      Process.runSync('taskkill', [
+        '/F',
+        '/FI',
+        'PID ne $currentPid',
+        '/IM',
+        'smart_sheet.exe',
+      ]);
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final lockFile = File('${appDir.path}\\SmartSheet_Data\\$boxName.lock');
+      if (lockFile.existsSync()) {
+        try {
+          lockFile.deleteSync();
+          debugPrint('🔓 [HiveLock] تم حذف $boxName.lock بنجاح للتعافي.');
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('⚠️ [HiveLock] تعذر إنهاء العمليات المعلقة: $e');
+    }
+  } else {
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
+
+  // المحاولة 2: إعادة المحاولة بعد تنظيف العمليات المعلقة
   try {
-    return await Hive.openBox<E>(boxName);
+    final box = await Hive.openBox<E>(boxName)
+        .timeout(const Duration(seconds: 2));
+    debugPrint('✅ $boxName box: تم فك الحجز وفُتح بنجاح (المحاولة 2)');
+    return box;
   } catch (e2) {
     debugPrint('⚠️ $boxName.lock لا يزال محجوزاً (محاولة 2): $e2');
   }
 
-  // المحاولة الثالثة — حذف lock file بأمان (على جميع الأنظمة Windows & Android)
-  if (!kIsWeb) {
-    try {
-      final appDir = await getApplicationDocumentsDirectory();
-      // الانتباه لمسار التهيئة في ويندوز
-      final String hivePath =
-          Platform.isWindows ? '${appDir.path}\\SmartSheet_Data' : appDir.path;
-      final lockFile = File('$hivePath${Platform.pathSeparator}$boxName.lock');
-      if (lockFile.existsSync()) {
-        if (Platform.isWindows) {
-          try {
-            // إنهاء أي نسخ سابقة معلقة من التطبيق (Ghost Processes) التي تحتكر الملف
-            final currentPid = pid;
-            Process.runSync('powershell', [
-              '-Command',
-              'Get-Process smart_sheet -ErrorAction SilentlyContinue | Where-Object { \$_.Id -ne $currentPid } | Stop-Process -Force'
-            ]);
-            // الانتظار قليلاً حتى يقوم النظام بتحرير الملف فعلياً بعد قتل العملية
-            await Future.delayed(const Duration(milliseconds: 500));
-          } catch (procErr) {
-            debugPrint('⚠️ [HiveLock] تعذر إنهاء العمليات المعلقة: $procErr');
-          }
-        }
-
-        lockFile.deleteSync();
-        debugPrint('🔓 [HiveLock] تم حذف $boxName.lock المتعلق بأمان للتعافي.');
-      }
-    } catch (deleteError) {
-      debugPrint(
-          '⚠️ [HiveLock] تعذّر حذف lock file الخاص بـ $boxName: $deleteError');
-    }
-  }
-
-  await Future.delayed(const Duration(milliseconds: 200));
+  await Future.delayed(const Duration(milliseconds: 300));
   // المحاولة الأخيرة — إذا فشلت، تُرفع الاستثناء
   final box = await Hive.openBox<E>(boxName);
   debugPrint('✅ $boxName box: فُتح بنجاح (المحاولة 3 بعد فك القفل)');

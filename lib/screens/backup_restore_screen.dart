@@ -21,6 +21,16 @@ import 'package:smart_sheet/services/sync_service.dart';
 import 'package:smart_sheet/services/pairing_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum _BackupAction {
+  none,
+  cloudUpload,
+  cloudRestore,
+  localBackup,
+  localRestore,
+  generateCode,
+  linkFactory,
+}
+
 class BackupRestoreScreen extends StatefulWidget {
   static const routeName = '/backup-restore';
   const BackupRestoreScreen({super.key});
@@ -31,7 +41,8 @@ class BackupRestoreScreen extends StatefulWidget {
 
 class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   final BackupService _backupService = BackupService();
-  bool _isLoading = false;
+  _BackupAction _activeAction = _BackupAction.none;
+  bool get _isBusy => _activeAction != _BackupAction.none;
   bool _isRefreshing = false;
   String? _message;
   bool _hasBackup = false;
@@ -105,7 +116,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     }
 
     setState(() {
-      _isLoading = true;
+      _activeAction = _BackupAction.cloudUpload;
       _message = 'جاري رفع البيانات المباشر إلى السيرفر...';
     });
 
@@ -123,14 +134,18 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         setState(() {
           _message =
               "✅ تم الانتهاء من الرفع المباشر (العملاء + التقارير + الأرشيف) بنجاح";
-          _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _message = "❌ فشل الرفع المباشر: $e";
-          _isLoading = false;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _activeAction = _BackupAction.none;
         });
       }
     }
@@ -166,18 +181,19 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       ),
     );
 
-    if (confirmed == true) {
-      setState(() {
-        _isLoading = true;
-        _message = 'جاري استعادة البيانات... برجاء الانتظار';
-      });
+    if (confirmed != true) return;
 
+    setState(() {
+      _activeAction = _BackupAction.cloudRestore;
+      _message = 'جاري استعادة البيانات... برجاء الانتظار';
+    });
+
+    try {
       // Direct restore from factory-specific path
       final factoryId = await SupabaseManager.getFactoryId();
       if (factoryId == null) {
         if (mounted) {
           setState(() {
-            _isLoading = false;
             _message = '❌ فشل الاستعادة: تعذر العثور على معرّف المصنع';
           });
         }
@@ -227,7 +243,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       if (mounted) {
         setState(() {
           _message = result;
-          _isLoading = false;
         });
 
         if (result == 'SUCCESS_RESTORE') {
@@ -296,28 +311,53 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           }
         }
       }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _message = "❌ فشل الاستعادة: $e";
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _activeAction = _BackupAction.none;
+        });
+      }
     }
   }
 
   Future<void> _handleLocalBackup() async {
     setState(() {
-      _isLoading = true;
+      _activeAction = _BackupAction.localBackup;
       _message = 'جاري إنشاء نسخة احتياطية محلية...';
     });
 
-    final result = await _backupService.createBackup();
+    try {
+      final result = await _backupService.createBackup();
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _message = result;
-      });
-      if (result?.startsWith('✅') == true) {
-        UIUtils.showInfoSnackBar(
-          message: result!,
-          backgroundColor: Colors.green,
-          icon: Icons.save_alt,
-        );
+      if (mounted) {
+        setState(() {
+          _message = result;
+        });
+        if (result?.startsWith('✅') == true) {
+          UIUtils.showInfoSnackBar(
+            message: result!,
+            backgroundColor: Colors.green,
+            icon: Icons.save_alt,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _message = "❌ فشل النسخ المحلي: $e";
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _activeAction = _BackupAction.none;
+        });
       }
     }
   }
@@ -340,12 +380,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       ),
     );
 
-    if (confirmed == true) {
-      setState(() {
-        _isLoading = true;
-        _message = 'جاري استعادة البيانات...';
-      });
+    if (confirmed != true) return;
 
+    setState(() {
+      _activeAction = _BackupAction.localRestore;
+      _message = 'جاري استعادة البيانات...';
+    });
+
+    try {
       final Map<dynamic, dynamic> currentSettings =
           Hive.box('settings').toMap();
 
@@ -387,7 +429,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
       if (mounted) {
         setState(() {
-          _isLoading = false;
           _message = result;
         });
         if (result == 'SUCCESS_RESTORE') {
@@ -455,6 +496,18 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             await _backupService.restartApp();
           }
         }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _message = "❌ فشل الاستعادة المحلية: $e";
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _activeAction = _BackupAction.none;
+        });
       }
     }
   }
@@ -548,7 +601,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               child: ListView(
                 children: [
                   // Status Card
-                  if (_isLoading || _message != null) _buildStatusCard(),
+                  if (_isBusy || _message != null) _buildStatusCard(),
 
                   const SizedBox(height: 20),
 
@@ -579,9 +632,20 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _handleLocalBackup,
-                          icon: const Icon(Icons.save),
-                          label: const Text('حفظ نسخة محلية'),
+                          onPressed: _isBusy ? null : _handleLocalBackup,
+                          icon: _activeAction == _BackupAction.localBackup
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.save),
+                          label: Text(
+                            _activeAction == _BackupAction.localBackup
+                                ? 'جاري الحفظ...'
+                                : 'حفظ نسخة محلية',
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blueGrey,
                             foregroundColor: Colors.white,
@@ -592,9 +656,20 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _handleLocalRestore,
-                          icon: const Icon(Icons.restore),
-                          label: const Text('استعادة نسخة محلية'),
+                          onPressed: _isBusy ? null : _handleLocalRestore,
+                          icon: _activeAction == _BackupAction.localRestore
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.restore),
+                          label: Text(
+                            _activeAction == _BackupAction.localRestore
+                                ? 'جاري الاستعادة...'
+                                : 'استعادة نسخة محلية',
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.deepPurple,
                             foregroundColor: Colors.white,
@@ -665,7 +740,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                   : Colors.blue,
             ),
           ),
-          if (_isLoading)
+          if (_isBusy)
             const Padding(
                 padding: EdgeInsets.only(top: 12),
                 child: LinearProgressIndicator()),
@@ -745,17 +820,20 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       );
     }
 
+    final isUploading = _activeAction == _BackupAction.cloudUpload;
+
     return ElevatedButton.icon(
-      onPressed: _isLoading ? null : _handleCloudUpload,
-      icon: _isLoading
+      onPressed: _isBusy ? null : _handleCloudUpload,
+      icon: isUploading
           ? const SizedBox(
               width: 20,
               height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white),
             )
           : const Icon(Icons.sync_alt),
       label: Text(
-        _isLoading ? 'جاري رفع البيانات...' : 'تحديث البيانات (أونلاين)',
+        isUploading ? 'جاري رفع البيانات...' : 'تحديث البيانات (أونلاين)',
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
       style: ElevatedButton.styleFrom(
@@ -770,12 +848,21 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   }
 
   Widget _buildRestoreButton() {
+    final isRestoring = _activeAction == _BackupAction.cloudRestore;
+
     return ElevatedButton.icon(
-      onPressed: (_isLoading || !_hasBackup) ? null : _handleCloudRestore,
-      icon: const Icon(Icons.cloud_download),
-      label: const Text(
-        'استعادة البيانات',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      onPressed: (_isBusy || !_hasBackup) ? null : _handleCloudRestore,
+      icon: isRestoring
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white),
+            )
+          : const Icon(Icons.cloud_download),
+      label: Text(
+        isRestoring ? 'جاري استعادة البيانات...' : 'استعادة البيانات',
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
       style: ElevatedButton.styleFrom(
         minimumSize: const Size(double.infinity, 56),
@@ -830,12 +917,20 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     // 1. الشرط الوحيد لظهور واجهة مسح الـ QR وإدخال الكود (للمساعد الجديد/Ghost User)
     if (!isLinked && !isAdmin) {
+      final isLinking = _activeAction == _BackupAction.linkFactory;
       return ElevatedButton.icon(
-        onPressed: _openQRScanner,
-        icon: const Icon(Icons.qr_code_scanner),
-        label: const Text(
-          'ربط بالمصنع (QR أو كود)',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        onPressed: _isBusy ? null : _openQRScanner,
+        icon: isLinking
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(Icons.qr_code_scanner),
+        label: Text(
+          isLinking ? 'جاري الربط...' : 'ربط بالمصنع (QR أو كود)',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         style: ElevatedButton.styleFrom(
           minimumSize: const Size(double.infinity, 56),
@@ -850,6 +945,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     // 2. الجزء الخاص بالمدير (Admin) - يظهر دائماً خيار التوليد
     if (isAdmin) {
+      final isGenerating = _activeAction == _BackupAction.generateCode;
       return Column(
         children: [
           if (isLinked) ...[
@@ -857,11 +953,18 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             const SizedBox(height: 16),
           ],
           ElevatedButton.icon(
-            onPressed: _showAdminQRCode,
-            icon: const Icon(Icons.qr_code_2),
-            label: const Text(
-              'إضافة جهاز مساعد',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            onPressed: _isBusy ? null : _showAdminQRCode,
+            icon: isGenerating
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.blue[900]),
+                  )
+                : const Icon(Icons.qr_code_2),
+            label: Text(
+              isGenerating ? 'جاري التوليد...' : 'إضافة جهاز مساعد',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 56),
@@ -1013,12 +1116,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() => _activeAction = _BackupAction.generateCode);
 
     try {
       final code = await PairingService().generatePairingCode();
-
-      setState(() => _isLoading = false);
 
       if (code == null) {
         if (mounted) {
@@ -1049,13 +1150,16 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         },
       );
     } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
         UIUtils.showInfoSnackBar(
           message: "حدث خطأ غير متوقع: $e",
           backgroundColor: Colors.red,
           icon: Icons.error_outline,
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _activeAction = _BackupAction.none);
       }
     }
   }
@@ -1148,33 +1252,45 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     if (result != null && result.isNotEmpty && result != 'MANUAL_ENTRY') {
       setState(() {
-        _isLoading = true;
+        _activeAction = _BackupAction.linkFactory;
         _message = 'جاري ربط الحساب بالمصنع...';
       });
 
-      final error = await authService.linkToFactory(result);
+      try {
+        final error = await authService.linkToFactory(result);
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      setState(() {
-        _isLoading = false;
-        _message = null;
-      });
-
-      if (error == null) {
-        UIUtils.showInfoSnackBar(
-          message: "تم الربط بنجاح! يتم الآن تحديث البيانات.",
-          backgroundColor: Colors.green,
-          icon: Icons.check_circle_outline,
-        );
-        await authService.refreshUserData();
-        await _checkBackupExists();
-      } else {
-        UIUtils.showInfoSnackBar(
-          message: error,
-          backgroundColor: Colors.red,
-          icon: Icons.error_outline,
-        );
+        if (error == null) {
+          UIUtils.showInfoSnackBar(
+            message: "تم الربط بنجاح! يتم الآن تحديث البيانات.",
+            backgroundColor: Colors.green,
+            icon: Icons.check_circle_outline,
+          );
+          await authService.refreshUserData();
+          await _checkBackupExists();
+        } else {
+          UIUtils.showInfoSnackBar(
+            message: error,
+            backgroundColor: Colors.red,
+            icon: Icons.error_outline,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          UIUtils.showInfoSnackBar(
+            message: "حدث خطأ أثناء الربط: $e",
+            backgroundColor: Colors.red,
+            icon: Icons.error_outline,
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _activeAction = _BackupAction.none;
+            _message = null;
+          });
+        }
       }
     }
   }

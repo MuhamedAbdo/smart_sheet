@@ -165,14 +165,15 @@ class WindowsTrayService with TrayListener, WindowListener {
     if (kIsWeb || !Platform.isWindows) return;
     try {
       final bool isPrevent = await windowManager.isPreventClose();
-      if (isPrevent) {
+      // في وضع التطوير (Debug)، إغلاق النافذة يُنهي التطبيق تماماً لمنع بقاء نسخ معلقة في الخلفية تحتجز Hive
+      if (isPrevent && !kDebugMode) {
         await hideAppWindow();
       } else {
         await exitApp();
       }
     } catch (e) {
       debugPrint('⚠️ [WindowsTrayService] Error in onWindowClose: $e');
-      await hideAppWindow();
+      await exitApp();
     }
   }
 }
